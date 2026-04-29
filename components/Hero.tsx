@@ -90,7 +90,7 @@ export default function Hero() {
           >
             Book an Appointment
           </button>
-          <a href="#programs" className="font-dm-sans bg-transparent text-cream px-9 py-[15px] rounded-[50px] font-medium text-[1rem] no-underline border border-cream/40 transition-all hover:border-cream hover:bg-cream/8 inline-block text-center w-full">
+          <a href="/#programs" className="font-dm-sans bg-transparent text-cream px-9 py-[15px] rounded-[50px] font-medium text-[1rem] no-underline border border-cream/40 transition-all hover:border-cream hover:bg-cream/8 inline-block text-center w-full">
             View Programs
           </a>
         </div>

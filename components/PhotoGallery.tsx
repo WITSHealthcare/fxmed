@@ -37,14 +37,14 @@ export default function PhotoGallery() {
           <div className="flex justify-center mb-12">
             <div className="inline-flex bg-[#FCFFF0] rounded-[50px] p-1">
               <button 
-                onClick={() => setActiveTab('van')}
+                onClick={() => setActiveTab('testimonials')}
                 className={`font-dm-sans px-6 py-2 rounded-[50px] text-[1rem] font-medium transition-all ${
-                  activeTab === 'van' 
+                  activeTab === 'testimonials' 
                     ? 'bg-gold text-green-deep' 
                     : 'text-green-deep hover:bg-green-deep/10'
                 }`}
               >
-                FXMed Van
+                Testimonials
               </button>
               <button 
                 onClick={() => setActiveTab('team')}
@@ -64,7 +64,17 @@ export default function PhotoGallery() {
                     : 'text-green-deep hover:bg-green-deep/10'
                 }`}
               >
-                Community Outreach
+                Community
+              </button>
+              <button 
+                onClick={() => setActiveTab('van')}
+                className={`font-dm-sans px-6 py-2 rounded-[50px] text-[1rem] font-medium transition-all ${
+                  activeTab === 'van' 
+                    ? 'bg-gold text-green-deep' 
+                    : 'text-green-deep hover:bg-green-deep/10'
+                }`}
+              >
+                Concierge
               </button>
             </div>
           </div>
@@ -106,7 +116,7 @@ export default function PhotoGallery() {
                   <img 
                     src="/Dr Kike.jpg" 
                     alt="Dr. Kike" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover object-[center_10%] group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
@@ -392,7 +402,7 @@ export default function PhotoGallery() {
                   <img 
                     src="/Dr Kike.jpg" 
                     alt="Dr. Kike" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover object-[center_10%] group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
@@ -404,7 +414,6 @@ export default function PhotoGallery() {
                       </p>
                       <div className="flex gap-2">
                         <span className="bg-gold text-green-deep px-3 py-1 rounded-full text-xs font-semibold">Functional Medicine</span>
-                        <span className="bg-gold text-green-deep px-3 py-1 rounded-full text-xs font-semibold">Women's Health</span>
                       </div>
                     </div>
                   </div>
@@ -448,37 +457,7 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group col-span-1 lg:col-span-1" onClick={() => openLightbox('/team/2.jpg')}>
-                  <img 
-                    src="/team/2.jpg" 
-                    alt="Team Member" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
-                    <div className="text-white">
-                      <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
-                        Ewaoluwa Otetubi
-                      </h3>
-                      <p className="font-dm-sans text-[1rem] opacity-90 mb-2">
-                        Registered Nurse
-                      </p>
-                      <div className="flex gap-2">
-                        <span className="bg-gold text-green-deep px-3 py-1 rounded-full text-xs font-semibold">Patient Care</span>
-                        <span className="bg-gold text-green-deep px-3 py-1 rounded-full text-xs font-semibold">Clinical</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
-                    <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group col-span-1 lg:col-span-1" onClick={() => openLightbox('/team/1.jpg')}>
+                                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group col-span-1 lg:col-span-1" onClick={() => openLightbox('/team/1.jpg')}>
                   <img 
                     src="/team/1.jpg" 
                     alt="Esther Ajani" 
@@ -687,6 +666,126 @@ export default function PhotoGallery() {
                   </div>
                 </div>
               </>
+            )}
+
+            {/* Testimonials Tab */}
+            {activeTab === 'testimonials' && (
+              <div className="col-span-full">
+                <div className="text-center mb-8">
+                  <h3 className="font-dm-sans font-bold text-2xl text-green-deep mb-4">
+                    Real Experiences from Real People
+                  </h3>
+                  <p className="font-dm-sans text-text-mid text-lg leading-[1.7] max-w-3xl mx-auto">
+                    Hear directly from our patients about their transformative health journeys with FXMed.
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Testimonial Video 1 */}
+                  <div className="bg-white rounded-[20px] overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
+                    <div className="relative aspect-video">
+                      <iframe
+                        className="w-full h-full"
+                        src="https://www.youtube.com/embed/KAKvZy2uWkk"
+                        title="FXMed Patient Testimonial 1"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                    <div className="p-4">
+                      <h4 className="font-dm-sans font-semibold text-lg text-green-deep mb-2">
+                        Life-Changing Results
+                      </h4>
+                      <p className="font-dm-sans text-text-mid text-sm leading-[1.6]">
+                        Patient shares their journey to better health through our functional medicine approach.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Testimonial Video 2 */}
+                  <div className="bg-white rounded-[20px] overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
+                    <div className="relative aspect-video">
+                      <iframe
+                        className="w-full h-full"
+                        src="https://www.youtube.com/embed/81dH7g08_p0"
+                        title="FXMed Patient Testimonial 2"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                    <div className="p-4">
+                      <h4 className="font-dm-sans font-semibold text-lg text-green-deep mb-2">
+                        Hormonal Balance Success
+                      </h4>
+                      <p className="font-dm-sans text-text-mid text-sm leading-[1.6]">
+                        How our hormone balance program helped restore vitality and wellness.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Testimonial Video 3 */}
+                  <div className="bg-white rounded-[20px] overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
+                    <div className="relative aspect-video">
+                      <iframe
+                        className="w-full h-full"
+                        src="https://www.youtube.com/embed/n-rr89ic7f0"
+                        title="FXMed Patient Testimonial 3"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                    <div className="p-4">
+                      <h4 className="font-dm-sans font-semibold text-lg text-green-deep mb-2">
+                        Gut Health Transformation
+                      </h4>
+                      <p className="font-dm-sans text-text-mid text-sm leading-[1.6]">
+                        Patient's experience with our comprehensive gut repair program.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Testimonial Video 4 */}
+                  <div className="bg-white rounded-[20px] overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
+                    <div className="relative aspect-video">
+                      <iframe
+                        className="w-full h-full"
+                        src="https://www.youtube.com/embed/UpU2Zjwvg2o"
+                        title="FXMed Patient Testimonial 4"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                    <div className="p-4">
+                      <h4 className="font-dm-sans font-semibold text-lg text-green-deep mb-2">
+                        Thyroid Recovery Journey
+                      </h4>
+                      <p className="font-dm-sans text-text-mid text-sm leading-[1.6]">
+                        Success story from our thyroid recovery program patient.
+                      </p>
+                    </div>
+                  </div>
+
+                                  </div>
+
+                {/* View All Testimonials Button */}
+                <div className="text-center mt-12">
+                  <a 
+                    href="https://www.youtube.com/playlist?list=PLssPJ60qYTzmv964VHnwDABCN6_mtwegD"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-lg transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg inline-flex items-center gap-2"
+                  >
+                    View All Testimonials on YouTube
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
+              </div>
             )}
           </div>
         </div>

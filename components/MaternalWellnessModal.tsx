@@ -302,7 +302,7 @@ export default function MaternalWellnessModal({ isOpen, onClose, selectedPackage
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 mt-8">
             <a 
-              href="#contact" 
+              href="/#contact" 
               onClick={onClose}
               className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] no-underline transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg inline-block text-center flex-1"
             >

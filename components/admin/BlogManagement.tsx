@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import 'react-quill/dist/quill.snow.css'
-import AIGenerationPanel from './AIGenerationPanel'
+import ContentGenerationPanel from './AIGenerationPanel'
 
 // Dynamically import ReactQuill to avoid SSR issues
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
@@ -468,7 +468,7 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
       {activeBlogSection === "new-blog" && (
         <>
           {/* AI Generation Panel */}
-          <AIGenerationPanel 
+          <ContentGenerationPanel 
             onApplyContent={handleAIApply}
             currentCategory={formData.category}
           />

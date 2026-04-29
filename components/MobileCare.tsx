@@ -19,7 +19,7 @@ export default function MobileCare() {
         <p className="font-dm-sans text-cream/80 text-[1.1rem] mb-7">
           Our fully equipped mobile clinic brings diagnostics, consultations, IV therapy, and more — right to your home, office, or community.
         </p>
-        <a href="#pricing" className="font-dm-sans bg-gold text-green-deep px-8 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] inline-block">
+        <a href="/#pricing" className="font-dm-sans bg-gold text-green-deep px-8 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] inline-block">
           View Packages
         </a>
       </div>
