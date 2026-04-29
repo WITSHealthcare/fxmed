@@ -324,46 +324,173 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Select your symptoms (check all that apply):
+                  Select your health concerns (check all that apply):
                 </label>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {[
-                    'Fatigue/Low Energy',
-                    'Digestive Issues',
-                    'Hormonal Imbalance',
-                    'Thyroid Issues',
-                    'Weight Management',
-                    'Sleep Problems',
-                    'Stress/Anxiety',
-                    'Brain Fog',
-                    'Hair Loss',
-                    'Skin Issues',
-                    'Joint Pain',
-                    'Headaches/Migraines',
-                    'Other'
-                  ].map((symptom) => (
-                    <label key={symptom} className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 text-green-mid border-gray-300 rounded focus:ring-green-mid"
-                        onChange={(e) => {
-                          const currentSymptoms = bookingData.symptoms.split(', ').filter(s => s.trim())
-                          if (e.target.checked) {
-                            if (symptom === 'Other') {
-                              currentSymptoms.push('Other: ')
-                            } else {
+                
+                {/* General Health */}
+                <div className="mb-6">
+                  <h4 className="font-semibold text-green-deep text-sm mb-2">General Health</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      'Fatigue/Low Energy',
+                      'Digestive Issues',
+                      'Weight Management',
+                      'Sleep Problems',
+                      'Stress/Anxiety',
+                      'Brain Fog',
+                      'Headaches/Migraines',
+                      'Joint Pain',
+                      'High Blood Pressure',
+                      'Diabetes/Blood Sugar Issues',
+                      'High Cholesterol',
+                      'Heart Palpitations',
+                      'Allergies',
+                      'Frequent Infections',
+                      'Chronic Pain'
+                    ].map((symptom) => (
+                      <label key={symptom} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-green-mid border-gray-300 rounded focus:ring-green-mid"
+                          onChange={(e) => {
+                            const currentSymptoms = bookingData.symptoms.split(', ').filter(s => s.trim())
+                            if (e.target.checked) {
                               currentSymptoms.push(symptom)
+                            } else {
+                              const index = currentSymptoms.findIndex(s => s === symptom)
+                              if (index > -1) currentSymptoms.splice(index, 1)
                             }
-                          } else {
-                            const index = currentSymptoms.findIndex(s => s === symptom || s.startsWith('Other:'))
-                            if (index > -1) currentSymptoms.splice(index, 1)
-                          }
-                          updateBookingData('symptoms', currentSymptoms.filter(s => s.trim()).join(', '))
-                        }}
-                      />
-                      <span className="text-sm text-gray-700">{symptom}</span>
-                    </label>
-                  ))}
+                            updateBookingData('symptoms', currentSymptoms.filter(s => s.trim()).join(', '))
+                          }}
+                        />
+                        <span className="text-sm text-gray-700">{symptom}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Women's Health */}
+                <div className="mb-6">
+                  <h4 className="font-semibold text-green-deep text-sm mb-2">Women's Health</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      'Hormonal Imbalance',
+                      'Thyroid Issues',
+                      'Menstrual Irregularities',
+                      'PCOS',
+                      'Menopause Symptoms',
+                      'Fertility Issues',
+                      'Pregnancy Health',
+                      'Postpartum Concerns'
+                    ].map((symptom) => (
+                      <label key={symptom} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-green-mid border-gray-300 rounded focus:ring-green-mid"
+                          onChange={(e) => {
+                            const currentSymptoms = bookingData.symptoms.split(', ').filter(s => s.trim())
+                            if (e.target.checked) {
+                              currentSymptoms.push(symptom)
+                            } else {
+                              const index = currentSymptoms.findIndex(s => s === symptom)
+                              if (index > -1) currentSymptoms.splice(index, 1)
+                            }
+                            updateBookingData('symptoms', currentSymptoms.filter(s => s.trim()).join(', '))
+                          }}
+                        />
+                        <span className="text-sm text-gray-700">{symptom}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Men's Health */}
+                <div className="mb-6">
+                  <h4 className="font-semibold text-green-deep text-sm mb-2">Men's Health</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      'Low Testosterone',
+                      'Prostate Health',
+                      'Erectile Dysfunction',
+                      'Hair Loss',
+                      'Muscle Loss',
+                      'Performance Issues'
+                    ].map((symptom) => (
+                      <label key={symptom} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-green-mid border-gray-300 rounded focus:ring-green-mid"
+                          onChange={(e) => {
+                            const currentSymptoms = bookingData.symptoms.split(', ').filter(s => s.trim())
+                            if (e.target.checked) {
+                              currentSymptoms.push(symptom)
+                            } else {
+                              const index = currentSymptoms.findIndex(s => s === symptom)
+                              if (index > -1) currentSymptoms.splice(index, 1)
+                            }
+                            updateBookingData('symptoms', currentSymptoms.filter(s => s.trim()).join(', '))
+                          }}
+                        />
+                        <span className="text-sm text-gray-700">{symptom}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Children's Health */}
+                <div className="mb-6">
+                  <h4 className="font-semibold text-green-deep text-sm mb-2">Children's Health</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      'Developmental Delays',
+                      'Behavioral Issues',
+                      'Allergies/Food Sensitivities',
+                      'Immune System Support',
+                      'Growth Concerns',
+                      'Digestive Issues',
+                      'Sleep Problems',
+                      'Skin Issues'
+                    ].map((symptom) => (
+                      <label key={symptom} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-green-mid border-gray-300 rounded focus:ring-green-mid"
+                          onChange={(e) => {
+                            const currentSymptoms = bookingData.symptoms.split(', ').filter(s => s.trim())
+                            if (e.target.checked) {
+                              currentSymptoms.push(symptom)
+                            } else {
+                              const index = currentSymptoms.findIndex(s => s === symptom)
+                              if (index > -1) currentSymptoms.splice(index, 1)
+                            }
+                            updateBookingData('symptoms', currentSymptoms.filter(s => s.trim()).join(', '))
+                          }}
+                        />
+                        <span className="text-sm text-gray-700">{symptom}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Other */}
+                <div className="mb-4">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-green-mid border-gray-300 rounded focus:ring-green-mid"
+                      onChange={(e) => {
+                        const currentSymptoms = bookingData.symptoms.split(', ').filter(s => s.trim())
+                        if (e.target.checked) {
+                          currentSymptoms.push('Other: ')
+                        } else {
+                          const index = currentSymptoms.findIndex(s => s.startsWith('Other:'))
+                          if (index > -1) currentSymptoms.splice(index, 1)
+                        }
+                        updateBookingData('symptoms', currentSymptoms.filter(s => s.trim()).join(', '))
+                      }}
+                    />
+                    <span className="text-sm text-gray-700">Other (please specify below)</span>
+                  </label>
                 </div>
               </div>
               
