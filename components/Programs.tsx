@@ -42,49 +42,6 @@ const programs = [
   }
 ]
 
-const services = [
-  {
-    emoji: <img src="/Hospital.svg" alt="Hospital" className="w-8 h-8 mx-auto" />,
-    title: "Concierge Medicine",
-    description: "Priority access to a dedicated physician, extended consultations, and home visits tailored to your schedule."
-  },
-  {
-    emoji: <img src="/Laptop.svg" alt="Laptop" className="w-8 h-8 mx-auto" />,
-    title: "Virtual Consult",
-    description: "Expert medical advice, follow-ups, and prescription refills from anywhere via secure video or chat."
-  },
-  {
-    emoji: <img src="/TestTube.svg" alt="Test Tube" className="w-8 h-8 mx-auto" />,
-    title: "Lab Investigations",
-    description: "Routine to advanced panels. Fast sample collection, accurate results, and physician-led interpretation."
-  },
-  {
-    emoji: <img src="/BowlFood.svg" alt="Bowl Food" className="w-8 h-8 mx-auto" />,
-    title: "Nutrition Counselling",
-    description: "Evidence-based, personalized dietary plans for weight management, chronic disease prevention, and wellness."
-  },
-  {
-    emoji: <img src="/Pill.svg" alt="Pill" className="w-8 h-8 mx-auto" />,
-    title: "Supplement Dispensary",
-    description: "Clinically curated vitamins, nutraceuticals, and prescription medications with expert guidance on usage."
-  },
-  {
-    emoji: <img src="/Stethoscope.svg" alt="Stethoscope" className="w-8 h-8 mx-auto" />,
-    title: "Specialist Consultation",
-    description: "Access certified specialists in cardiology, endocrinology, dermatology, neurology, and more."
-  },
-  {
-    emoji: <img src="/Ambulance.svg" alt="Ambulance" className="w-8 h-8 mx-auto" />,
-    title: "Medical Outreach",
-    description: "On-site consultations, screenings, and health education for organizations, NGOs, and communities."
-  },
-  {
-    emoji: <img src="/streamline-ultimate_pregnancy-pregnant-bold.svg" alt="Pregnancy" className="w-8 h-8 mx-auto" />,
-    title: "Pregnancy Wellness",
-    description: "Comprehensive maternal care from pre-conception through postnatal recovery, delivered to your home."
-  }
-]
-
 export default function Programs() {
   const { isOpen, selectedPackage, openModal, closeModal } = useMaternalWellnessModal()
 
@@ -129,42 +86,6 @@ export default function Programs() {
                   Learn more
                   <span>→</span>
                 </a>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Services Section */}
-      <section id="services" className="bg-white py-[90px] px-[5%]">
-        <div className="max-w-7xl mx-auto">
-          {/* Section Header */}
-          <div className="text-center mb-16">
-            <div className="inline-block text-green-mid bg-green-mid/10 px-4 py-1.5 rounded-[20px] text-[0.75rem] font-dm-sans font-semibold tracking-[0.14em] uppercase mb-4">
-              Our Services
-            </div>
-            <h2 className="font-dm-sans font-bold text-green-deep text-[clamp(2rem,4vw,3rem)] leading-[1.15] mb-4">
-              Everything you need,<br/>delivered to you
-            </h2>
-            <p className="font-dm-sans text-text-mid text-[1.05rem] leading-[1.7] max-w-[560px] mx-auto">
-              Flexible, subscription-based or à la carte — choose exactly what you need, when you need it.
-            </p>
-          </div>
-
-          {/* Services Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-13">
-            {services.map((service, index) => (
-              <div 
-                key={index}
-                className="bg-[#FCFFF0] rounded-[16px] p-7 px-[22px] border border-green-deep/7 transition-all duration-300 text-center hover:transform hover:translate-y-[-4px] hover:shadow-custom hover:border-green-light"
-              >
-                <div className="text-[2.4rem] mb-[14px]">{service.emoji}</div>
-                <h3 className="font-dm-sans font-semibold text-green-deep text-[1rem] mb-2">
-                  {service.title}
-                </h3>
-                <p className="font-dm-sans text-text-mid text-[0.85rem] leading-[1.6]">
-                  {service.description}
-                </p>
               </div>
             ))}
           </div>

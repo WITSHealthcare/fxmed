@@ -30,6 +30,8 @@ const isElitePage = pathname === '/elite'
 const isHomePage = pathname === '/'
 
   // Helper function to check if a link is active
+  const isServicesPage = pathname === '/services'
+
   const isActiveLink = (href: string) => {
     if (href.startsWith('/#')) {
       return isHomePage
@@ -45,6 +47,9 @@ const isHomePage = pathname === '/'
     }
     if (href === '/elite') {
       return isElitePage
+    }
+    if (href === '/services') {
+      return isServicesPage
     }
     if (href.startsWith('/programs')) {
       return pathname?.startsWith('/programs')
@@ -127,7 +132,7 @@ const isHomePage = pathname === '/'
                 onClick={() => setServicesDropdown(!servicesDropdown)}
                 className={`text-[0.8rem] font-medium transition-colors hover:text-gold flex items-center gap-1 ${
                   (isBlogPage && !isScrolled) ? 'text-black' : 'text-cream/85'
-                } ${(isActiveLink('/#services') || isActiveLink('/#pricing')) ? 'text-gold font-semibold' : ''}`}
+                } ${(isActiveLink('/services') || isActiveLink('/#pricing')) ? 'text-gold font-semibold' : ''}`}
               >
                 Services
                 <svg className={`w-3 h-3 transition-transform ${servicesDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,7 +141,7 @@ const isHomePage = pathname === '/'
               </button>
               {servicesDropdown && (
                 <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-green-deep/10 py-2 z-50">
-                  <a href="/#services" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-deep/10 hover:text-green-deep no-underline">Our Services</a>
+                  <a href="/services" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-deep/10 hover:text-green-deep no-underline">Our Services</a>
                   <a href="/#pricing" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-deep/10 hover:text-green-deep no-underline">Pricing</a>
                   <a href="/elite" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-deep/10 hover:text-green-deep no-underline">FXMed Elite</a>
                 </div>
@@ -236,8 +241,8 @@ const isHomePage = pathname === '/'
               <li className="border-t border-cream/20 pt-2 mt-2">
                 <div className="text-[0.85rem] font-semibold text-gold/80 mb-2 px-3">Services</div>
                 <div className="space-y-1">
-                  <a href="/#services" onClick={closeMobileMenu} className={`block text-[0.85rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-1.5 px-3 rounded-lg ml-3 ${
-                    isActiveLink('/#services') ? 'bg-gold/20 text-gold font-semibold' : ''
+                  <a href="/services" onClick={closeMobileMenu} className={`block text-[0.85rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-1.5 px-3 rounded-lg ml-3 ${
+                    isActiveLink('/services') ? 'bg-gold/20 text-gold font-semibold' : ''
                   }`}>Our Services</a>
                   <a href="/#pricing" onClick={closeMobileMenu} className={`block text-[0.85rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-1.5 px-3 rounded-lg ml-3 ${
                     isActiveLink('/#pricing') ? 'bg-gold/20 text-gold font-semibold' : ''
