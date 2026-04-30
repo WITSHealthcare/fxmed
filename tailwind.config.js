@@ -19,6 +19,22 @@ module.exports = {
         'text-mid': '#4a5e52',
         'white': '#ffffff',
       },
+      typography: (theme) => ({
+        DEFAULT: {
+          css: {
+            color: theme('colors.text-mid'),
+            h1: { color: theme('colors.green-deep') },
+            h2: { color: theme('colors.green-deep') },
+            h3: { color: theme('colors.green-deep') },
+            h4: { color: theme('colors.green-deep') },
+            strong: { color: theme('colors.text-dark') },
+            a: { color: theme('colors.green-mid') },
+            ul: { listStyleType: 'disc', paddingLeft: theme('spacing.5') },
+            ol: { listStyleType: 'decimal', paddingLeft: theme('spacing.5') },
+            li: { marginTop: theme('spacing.1'), marginBottom: theme('spacing.1') },
+          },
+        },
+      }),
       fontFamily: {
         'dm-sans': ['DM Sans', 'sans-serif'],
       },
@@ -48,5 +64,7 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
 }

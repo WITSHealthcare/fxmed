@@ -20,19 +20,19 @@ export default function Footer() {
             <h3 className="font-dm-sans font-semibold text-gold text-[1rem] mb-4">Programs</h3>
             <ul className="space-y-2">
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="#programs" className="hover:text-gold transition-colors">Thyroid Recovery</a>
+                <a href="/#programs" className="hover:text-gold transition-colors">Thyroid Recovery</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="#programs" className="hover:text-gold transition-colors">Hormone Balance</a>
+                <a href="/#programs" className="hover:text-gold transition-colors">Hormone Balance</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="#programs" className="hover:text-gold transition-colors">Gut Repair</a>
+                <a href="/#programs" className="hover:text-gold transition-colors">Gut Repair</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="#programs" className="hover:text-gold transition-colors">Adrenal Reset</a>
+                <a href="/#programs" className="hover:text-gold transition-colors">Adrenal Reset</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="#programs" className="hover:text-gold transition-colors">Immune Support</a>
+                <a href="/#programs" className="hover:text-gold transition-colors">Immune Support</a>
               </li>
             </ul>
           </div>
@@ -42,19 +42,19 @@ export default function Footer() {
             <h3 className="font-dm-sans font-semibold text-gold text-[1rem] mb-4">Company</h3>
             <ul className="space-y-2">
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="#about" className="hover:text-gold transition-colors">About Us</a>
+                <a href="/#about" className="hover:text-gold transition-colors">About Us</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="#services" className="hover:text-gold transition-colors">Services</a>
+                <a href="/#services" className="hover:text-gold transition-colors">Services</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="#blog" className="hover:text-gold transition-colors">Blog</a>
+                <a href="/blog" className="hover:text-gold transition-colors">Blog</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="#stories" className="hover:text-gold transition-colors">Ambassadors</a>
+                <a href="/#stories" className="hover:text-gold transition-colors">Ambassadors</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="#contact" className="hover:text-gold transition-colors">Contact</a>
+                <a href="/#contact" className="hover:text-gold transition-colors">Contact</a>
               </li>
             </ul>
           </div>
@@ -64,7 +64,7 @@ export default function Footer() {
             <h3 className="font-dm-sans font-semibold text-gold text-[1rem] mb-4">Contact</h3>
             <ul className="space-y-2">
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="#contact" className="hover:text-gold transition-colors">Contact Us</a>
+                <a href="/#contact" className="hover:text-gold transition-colors">Contact Us</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
                 <span className="text-cream/60">6A Robin Road, Crown Estate, Sangotedo, Lagos, Nigeria</span>

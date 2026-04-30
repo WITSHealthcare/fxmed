@@ -7,7 +7,7 @@ interface Message {
   content: string
 }
 
-export default function AIChat() {
+export default function ChatAssistant() {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
@@ -30,13 +30,13 @@ export default function AIChat() {
     setInputValue('')
     setIsTyping(true)
 
-    // Simulate AI response
+    // Simulate assistant response
     setTimeout(() => {
-      const aiResponse = { 
+      const assistantResponse = { 
         role: 'assistant' as const, 
         content: "Thank you for your message! I'm here to help you learn more about our functional medicine services. Would you like to know about our house call services, health programs, or schedule a consultation?" 
       }
-      setMessages(prev => [...prev, aiResponse])
+      setMessages(prev => [...prev, assistantResponse])
       setIsTyping(false)
     }, 1500)
   }
@@ -67,7 +67,7 @@ export default function AIChat() {
       <div className="bg-green-deep text-cream p-4 rounded-t-2xl flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-gold rounded-full flex items-center justify-center">
-            <span className="text-green-deep text-sm font-bold">AI</span>
+            <span className="text-green-deep text-sm font-bold">FX</span>
           </div>
           <div>
             <h3 className="font-semibold text-sm">FXMed Assistant</h3>

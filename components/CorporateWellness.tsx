@@ -74,7 +74,7 @@ export default function CorporateWellness() {
                 </div>
               </div>
 
-              <a href="#contact" className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] no-underline transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg inline-block w-full text-center mt-6">
+              <a href="/#contact" className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] no-underline transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg inline-block w-full text-center mt-6">
                 Contact for Corporate Plans →
               </a>
             </div>

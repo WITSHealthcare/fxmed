@@ -15,7 +15,7 @@ import PatientStories from '@/components/PatientStories'
 import HealthCTA from '@/components/HealthCTA'
 import FXMedElite from '@/components/FXMedElite'
 import Footer from '@/components/Footer'
-import AIChat from '@/components/AIChat'
+import ChatAssistant from '@/components/AIChat'
 
 export default function Home() {
   return (
@@ -37,7 +37,7 @@ export default function Home() {
       <PatientStories />
       <HealthCTA />
       <Footer />
-      <AIChat />
+      <ChatAssistant />
     </main>
   )
 }

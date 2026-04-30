@@ -164,7 +164,7 @@ export default function HealthQuiz() {
           <a href="/functional-health-analysis" className="bg-gold text-green-deep px-8 py-3 rounded-[30px] font-semibold text-[0.95rem] font-dm-sans no-underline transition-all hover:bg-gold-light inline-block">
             Take a Functional Health Analysis
           </a>
-          <a href="#contact" className="bg-transparent text-cream border border-cream/30 px-8 py-3 rounded-[30px] font-semibold text-[0.95rem] font-dm-sans transition-all hover:border-cream hover:bg-cream/8 no-underline">
+          <a href="/#contact" className="bg-transparent text-cream border border-cream/30 px-8 py-3 rounded-[30px] font-semibold text-[0.95rem] font-dm-sans transition-all hover:border-cream hover:bg-cream/8 no-underline">
             Book an Appointment
           </a>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
-interface AIGeneratedContent {
+interface GeneratedContent {
   title: string
   excerpt: string
   content: string
@@ -10,7 +10,7 @@ interface AIGeneratedContent {
   suggestedCategory: string
 }
 
-interface AIGenerationPanelProps {
+interface ContentGenerationPanelProps {
   onApplyContent: (content: {
     title: string
     excerpt: string
@@ -20,13 +20,13 @@ interface AIGenerationPanelProps {
   currentCategory?: string
 }
 
-export default function AIGenerationPanel({ onApplyContent, currentCategory }: AIGenerationPanelProps) {
+export default function ContentGenerationPanel({ onApplyContent, currentCategory }: ContentGenerationPanelProps) {
   const [expanded, setExpanded] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [provider, setProvider] = useState('')
   const [availableProviders, setAvailableProviders] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
-  const [generatedContent, setGeneratedContent] = useState<AIGeneratedContent | null>(null)
+  const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loadingProviders, setLoadingProviders] = useState(true)
 
@@ -128,10 +128,10 @@ export default function AIGenerationPanel({ onApplyContent, currentCategory }: A
           </div>
           <div className="text-left">
             <h3 className="font-dm-sans font-semibold text-green-deep">
-              ✨ AI Blog Assistant
+              ✨ Blog Assistant
             </h3>
             <p className="text-sm text-text-mid">
-              Generate blog posts with AI
+              Generate blog posts with content assistance
             </p>
           </div>
         </div>
@@ -152,12 +152,12 @@ export default function AIGenerationPanel({ onApplyContent, currentCategory }: A
           {loadingProviders ? (
             <div className="py-4 text-center">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-deep mx-auto"></div>
-              <p className="text-sm text-text-mid mt-2">Checking AI providers...</p>
+              <p className="text-sm text-text-mid mt-2">Checking content providers...</p>
             </div>
           ) : availableProviders.length === 0 ? (
             <div className="py-4 px-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-600 text-sm">
-                ⚠️ No AI providers configured. Please add API keys to your environment variables.
+                ⚠️ No content providers configured. Please add API keys to your environment variables.
               </p>
             </div>
           ) : (
@@ -165,7 +165,7 @@ export default function AIGenerationPanel({ onApplyContent, currentCategory }: A
               {/* Provider Selector */}
               <div className="mb-4">
                 <label className="block font-dm-sans font-medium text-green-deep mb-2 text-sm">
-                  AI Provider
+                  Content Provider
                 </label>
                 <select
                   value={provider}
@@ -250,7 +250,7 @@ export default function AIGenerationPanel({ onApplyContent, currentCategory }: A
                       ✨ Generated Content
                     </h4>
                     <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                      AI Generated
+                      Generated Content
                     </span>
                   </div>
 

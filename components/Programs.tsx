@@ -8,37 +8,37 @@ const programs = [
     icon: <img src="/healthicons_thyroid-24px.svg" alt="Thyroid" className="w-8 h-8" />,
     title: "Thyroid Recovery",
     description: "A comprehensive protocol for hyperthyroidism, Hashimoto's, and thyroid imbalances using functional testing and targeted nutrition to restore thyroid function naturally.",
-    link: "#thyroid"
+    link: "/programs/thyroid-recovery"
   },
   {
     icon: <img src="/lets-icons_chemistry.svg" alt="Hormone" className="w-8 h-8" />,
     title: "Hormone Balance",
-    description: "Hormonal chaos affects everything — mood, weight, sleep, and fertility. We identify your unique hormonal patterns and create a personalized rebalancing protocol.",
-    link: "#hormones"
+    description: "Hormonal chaos affects everything â mood, weight, sleep, and fertility. We identify your unique hormonal patterns and create a personalized rebalancing protocol.",
+    link: "/programs/hormone-balance"
   },
   {
     icon: <img src="/healthicons_intestine.svg" alt="Gut" className="w-8 h-8" />,
     title: "Gut Repair",
-    description: "From bloating to IBS, leaky gut to microbiome disruption — our Gut Repair program uses advanced stool analysis and targeted nutrition to heal your digestive system.",
-    link: "#gut"
+    description: "From bloating to IBS, leaky gut to microbiome disruption â our Gut Repair program uses advanced stool analysis and targeted nutrition to heal your digestive system.",
+    link: "/programs/gut-repair"
   },
   {
     icon: <img src="/healthicons_intestine.svg" alt="Gut Analysis" className="w-8 h-8" />,
     title: "Gut Analysis",
     description: "Not sure what's causing your gut issues? Our deep diagnostic gut analysis identifies pathogens, dysbiosis, and inflammation markers so we can build the right protocol.",
-    link: "#analysis"
+    link: "/functional-health-analysis"
   },
   {
     icon: <img src="/adrenal_icon.svg?v=3" alt="Adrenal" className="w-8 h-8" />,
     title: "Adrenal Reset",
     description: "Burnout, chronic stress, and adrenal fatigue are real. Our Adrenal Reset program restores your cortisol rhythm, energy reserves, and resilience through personalized protocols.",
-    link: "#adrenal"
+    link: "/programs/adrenal-reset"
   },
   {
     icon: <img src="/healthicons_autoimmune-disease-outline-24px.svg" alt="Immune" className="w-8 h-8" />,
     title: "Immune Support",
     description: "Frequent infections, autoimmune flares, or just chronically run-down? Our Immune Support program identifies and addresses the root causes of immune dysregulation.",
-    link: "#immune"
+    link: "/programs/immune-support"
   }
 ]
 
@@ -252,7 +252,7 @@ export default function Programs() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 mt-6">
-                <a href="#contact" className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] no-underline transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg inline-block text-center">
+                <a href="/#contact" className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] no-underline transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg inline-block text-center">
                   Book Maternal Consultation →
                 </a>
                 <a href="#maternal-details" className="font-dm-sans bg-transparent text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] no-underline border border-green-deep/40 transition-all hover:border-green-deep hover:bg-green-deep/8 inline-block text-center">

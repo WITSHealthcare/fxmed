@@ -173,7 +173,7 @@ export default function Pricing() {
                 </li>
               </ul>
               
-              <a href="#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
+              <a href="/#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
                 Enquire Now
               </a>
             </div>
@@ -213,7 +213,7 @@ export default function Pricing() {
                 </li>
               </ul>
               
-              <a href="#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
+              <a href="/#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
                 Enquire Now
               </a>
             </div>
@@ -248,7 +248,7 @@ export default function Pricing() {
                 </li>
               </ul>
               
-              <a href="#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
+              <a href="/#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
                 Enquire Now
               </a>
             </div>
@@ -288,7 +288,7 @@ export default function Pricing() {
                 </li>
               </ul>
               
-              <a href="#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
+              <a href="/#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
                 Request Quote
               </a>
             </div>
@@ -328,7 +328,7 @@ export default function Pricing() {
                 </li>
               </ul>
               
-              <a href="#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
+              <a href="/#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
                 Request Quote
               </a>
             </div>
@@ -363,7 +363,7 @@ export default function Pricing() {
                 </li>
               </ul>
               
-              <a href="#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
+              <a href="/#contact" className="w-full block text-center bg-gold text-green-deep px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-gold-light">
                 Request Quote
               </a>
             </div>

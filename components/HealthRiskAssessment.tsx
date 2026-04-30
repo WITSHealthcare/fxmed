@@ -487,7 +487,7 @@ export default function HealthRiskAssessment() {
                 Discover your<br/>health priority
               </h2>
               <p className="font-dm-sans text-black text-[1.05rem] leading-[1.7] max-w-[560px] mx-auto">
-                Take our AI-powered health assessment to get personalized insights and actionable recommendations from our functional medicine experts.
+                Take our comprehensive health assessment to get personalized insights and actionable recommendations from our functional medicine experts.
               </p>
             </div>
 
@@ -536,7 +536,7 @@ export default function HealthRiskAssessment() {
                   Analyzing Your Responses
                 </h3>
                 <p className="font-dm-sans text-text-mid text-[1rem]">
-                  Our AI is generating your personalized health assessment...
+                  Our health assistant is generating your personalized health assessment...
                 </p>
               </div>
             </div>
