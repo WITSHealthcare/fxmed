@@ -96,9 +96,6 @@ const isHomePage = pathname === '/'
           
           {/* Desktop Navigation */}
           <ul className="hidden lg:flex gap-4 list-none m-0 font-dm-sans items-center">
-            <li><a href="/#about" className={`text-[0.8rem] font-medium no-underline transition-colors hover:text-gold ${
-              (isBlogPage && !isScrolled) ? 'text-black' : 'text-cream/85'
-            } ${isActiveLink('/#about') ? 'text-gold font-semibold' : ''}`}>About</a></li>
             {/* Programs Dropdown */}
             <li className="dropdown-container relative">
               <button 
@@ -173,6 +170,9 @@ const isHomePage = pathname === '/'
             <li><a href="/blog" className={`text-[0.8rem] font-medium no-underline transition-colors hover:text-gold ${
               (isBlogPage && !isScrolled) ? 'text-black' : 'text-cream/85'
             } ${isActiveLink('/blog') ? 'text-gold font-semibold' : ''}`}>Blog</a></li>
+            <li><a href="/#about" className={`text-[0.8rem] font-medium no-underline transition-colors hover:text-gold ${
+              (isBlogPage && !isScrolled) ? 'text-black' : 'text-cream/85'
+            } ${isActiveLink('/#about') ? 'text-gold font-semibold' : ''}`}>About</a></li>
           </ul>
           
           {/* Desktop CTA Button */}
@@ -207,9 +207,6 @@ const isHomePage = pathname === '/'
               : 'bg-green-deep/95'
           }`}>
             <ul className="flex flex-col gap-1 list-none m-0 font-dm-sans">
-              <li><a href="/#about" onClick={closeMobileMenu} className={`block text-[0.9rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-2 px-3 rounded-lg ${
-                isActiveLink('/#about') ? 'bg-gold/20 text-gold font-semibold' : ''
-              }`}>About</a></li>
               {/* Mobile Programs Section */}
               <li className="border-t border-cream/20 pt-2 mt-2">
                 <div className="text-[0.85rem] font-semibold text-gold/80 mb-2 px-3">Programs</div>
@@ -271,6 +268,9 @@ const isHomePage = pathname === '/'
               <li><a href="/blog" onClick={closeMobileMenu} className={`block text-[0.9rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-2 px-3 rounded-lg ${
                 isActiveLink('/blog') ? 'bg-gold/20 text-gold font-semibold' : ''
               }`}>Blog</a></li>
+              <li><a href="/#about" onClick={closeMobileMenu} className={`block text-[0.9rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-2 px-3 rounded-lg ${
+                isActiveLink('/#about') ? 'bg-gold/20 text-gold font-semibold' : ''
+              }`}>About</a></li>
             </ul>
             
             <div className="mt-6 pt-6 border-t border-cream/20">
