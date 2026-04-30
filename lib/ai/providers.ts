@@ -1,6 +1,8 @@
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { createOllamaProvider } from './ollama-provider'
+import { createSimpleProvider } from './simple-provider'
 
 export interface AIGeneratedContent {
   title: string
@@ -49,7 +51,7 @@ Category: ${category}
 Target audience: Patients seeking functional medicine care`;
 
     const response = await this.client.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-3.5-turbo',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -159,7 +161,7 @@ class GoogleProvider implements AIProvider {
   }
 
   async generateBlogContent(prompt: string, category: string): Promise<AIGeneratedContent> {
-    const model = this.client.getGenerativeModel({ model: 'gemini-pro' })
+    const model = this.client.getGenerativeModel({ model: 'gemini-flash-latest' })
 
     const fullPrompt = `You are a professional health and wellness content writer for FXMed, a functional medicine practice.
 
@@ -220,24 +222,37 @@ export function createAIProvider(providerName: string): AIProvider {
     case 'google':
     case 'gemini':
       return new GoogleProvider()
+    case 'ollama':
+    case 'local':
+      return createOllamaProvider()
+    case 'simple':
+    case 'template':
+      return createSimpleProvider()
     default:
-      // Default to OpenAI if available, otherwise try others
-      if (process.env.OPENAI_API_KEY) {
+      // Default to Ollama (free) if available, otherwise try paid options, finally use simple provider
+      if (process.env.OLLAMA_ENABLED === 'true') {
+        return createOllamaProvider()
+      } else if (process.env.OPENAI_API_KEY) {
         return new OpenAIProvider()
       } else if (process.env.ANTHROPIC_API_KEY) {
         return new AnthropicProvider()
       } else if (process.env.GOOGLE_AI_API_KEY) {
         return new GoogleProvider()
       } else {
-        throw new Error('No AI provider API key configured')
+        // Always provide a working fallback
+        return createSimpleProvider()
       }
   }
 }
 
 export function getAvailableProviders(): string[] {
   const providers: string[] = []
+  if (process.env.OLLAMA_ENABLED === 'true') providers.push('ollama')
   if (process.env.OPENAI_API_KEY) providers.push('openai')
   if (process.env.ANTHROPIC_API_KEY) providers.push('anthropic')
   if (process.env.GOOGLE_AI_API_KEY) providers.push('google')
+  
+  // Always include simple provider as fallback
+  providers.push('simple')
   return providers
 }

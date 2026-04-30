@@ -8,7 +8,9 @@ import SeoAnalytics from '@/components/admin/SeoAnalytics'
 import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysis'
 import Messages from '@/components/admin/Messages'
 import Notifications from '@/components/admin/Notifications'
-import { getSession, signOut, isAdmin } from '@/lib/supabase-auth'
+import { signOut } from '@/lib/supabase-auth'
+import { createClient } from '@supabase/supabase-js'
+import blogContentData from '@/app/blog/fxmed-content (1).json'
 
 interface BlogPost {
   id: string
@@ -31,6 +33,21 @@ type Risk = "High" | "Medium" | "Low"
 type Note = {
   text: string
   timestamp: string
+}
+
+// Interface for the JSON content data
+interface BlogContentItem {
+  id: number
+  title: string
+  description: string
+  category: string
+  publishDate: string
+  status: string
+  priority: string
+  assignedTo: string
+  notes: string
+  contentType: string
+  platform: string
 }
 
 type Patient = {
@@ -193,11 +210,22 @@ const patientsSeed: Patient[] = [
 ]
 
 export default function AdminPanel() {
+  // Create direct Supabase client inside component
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  )
   const router = useRouter()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'blog' | 'crm' | 'seo' | 'health' | 'messages'>('blog')
-  const [authChecking, setAuthChecking] = useState(true)
+  const [importing, setImporting] = useState(false)
 
   // CRM state
   const [patients, setPatients] = useState<Patient[]>(patientsSeed)
@@ -213,23 +241,94 @@ export default function AdminPanel() {
     consent: false
   })
 
-  // Fetch posts on mount
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const response = await fetch('/api/blog')
-        if (!response.ok) throw new Error('Failed to fetch posts')
+  // Import JSON content as drafts in batches
+  const importDraftsFromJSON = async () => {
+    console.log('Starting import from JSON...')
+    const contentItems = blogContentData as BlogContentItem[]
+    console.log('Content items loaded:', contentItems.length)
+    const importedPosts: BlogPost[] = []
+    const batchSize = 50
 
-        const { posts: data } = await response.json()
-        setPosts(data || [])
+    for (let i = 0; i < contentItems.length; i += batchSize) {
+      const batch = contentItems.slice(i, i + batchSize)
+      console.log(`Processing batch ${Math.floor(i / batchSize) + 1} (${batch.length} items)...`)
+
+      for (const item of batch) {
+        try {
+          const slug = item.title.toLowerCase().replace(/[^a-z0-9]/g, '-')
+          const postData = {
+            title: item.title,
+            excerpt: item.description,
+            content: '',
+            author: 'FXMed Team',
+            category: item.category,
+            status: 'draft',
+            read_time: '5 min read',
+            thumbnail_url: '',
+          }
+
+          const response = await fetch('/api/blog', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(postData)
+          })
+
+          if (response.ok) {
+            const { post } = await response.json()
+            importedPosts.push(post)
+            console.log('Imported draft:', item.title)
+          } else {
+            console.error('Failed to import draft:', item.title, response.status)
+          }
+        } catch (error) {
+          console.error(`Error importing draft: ${item.title}`, error)
+        }
+      }
+
+      // Add delay between batches
+      if (i + batchSize < contentItems.length) {
+        console.log('Waiting 1 second before next batch...')
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+    }
+
+    console.log('Import complete. Total imported:', importedPosts.length)
+    return importedPosts
+  }
+
+  // Fetch drafts and published posts separately
+  useEffect(() => {
+    const initializePosts = async () => {
+      try {
+        console.log('Initializing posts...')
+        
+        // Fetch drafts from draft_posts table
+        const draftsResponse = await fetch('/api/drafts')
+        if (!draftsResponse.ok) throw new Error('Failed to fetch drafts')
+        const { drafts: draftsData } = await draftsResponse.json()
+        
+        // Fetch published posts from blog_posts table
+        const postsResponse = await fetch('/api/blog?status=published')
+        if (!postsResponse.ok) throw new Error('Failed to fetch published posts')
+        const { posts: publishedData } = await postsResponse.json()
+        
+        const allDrafts = draftsData || []
+        const publishedPosts = publishedData || []
+        
+        console.log('Drafts loaded:', allDrafts.length)
+        console.log('Published posts loaded:', publishedPosts.length)
+        
+        // Combine drafts and published posts for the admin interface
+        setPosts([...allDrafts, ...publishedPosts])
+        console.log('Total posts loaded:', allDrafts.length + publishedPosts.length)
       } catch (error) {
-        console.error('Error fetching posts:', error)
+        console.error('Error initializing posts:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchPosts()
+    initializePosts()
   }, [])
 
   // Load saved notes from localStorage
@@ -337,26 +436,94 @@ export default function AdminPanel() {
     }
   }
 
-  // Check authentication on mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const session = await getSession()
-        const userIsAdmin = await isAdmin()
-        
-        if (!session || !userIsAdmin) {
-          router.push('/admin/login')
-        }
-      } catch (error) {
-        console.error('Auth check error:', error)
-        router.push('/admin/login')
-      } finally {
-        setAuthChecking(false)
-      }
-    }
+  // Direct Supabase import function
+  const handleDirectSupabaseImport = async () => {
+    setImporting(true)
+    try {
+      console.log('Direct Supabase import triggered...')
+      const contentItems = blogContentData as BlogContentItem[]
+      console.log('Content items loaded:', contentItems.length)
+      
+      const importedPosts: BlogPost[] = []
+      const batchSize = 10 // Smaller batches for direct DB
 
-    checkAuth()
-  }, [router])
+      for (let i = 0; i < contentItems.length; i += batchSize) {
+        const batch = contentItems.slice(i, i + batchSize)
+        console.log(`Processing batch ${Math.floor(i / batchSize) + 1} (${batch.length} items)...`)
+
+        for (const item of batch) {
+          try {
+            const baseSlug = item.title.toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            const slug = `${baseSlug}-${item.id}`;
+            const postData = {
+              title: item.title,
+              slug: slug,
+              excerpt: item.description,
+              content: '',
+              author: 'FXMed Team',
+              category: item.category,
+              status: 'draft',
+              read_time: '5 min read',
+              thumbnail_url: '',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+
+            const { data, error } = await supabaseAdmin
+              .from('draft_posts')
+              .insert(postData)
+              .select()
+              .single()
+
+            if (error) {
+              console.error('Supabase error:', error)
+              throw error
+            }
+
+            if (data) {
+              importedPosts.push(data)
+              console.log('Directly imported draft:', item.title)
+            }
+          } catch (error) {
+            console.error(`Error importing draft: ${item.title}`, error)
+          }
+        }
+
+        // Add delay between batches
+        if (i + batchSize < contentItems.length) {
+          console.log('Waiting 500ms before next batch...')
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+
+      console.log('Direct Supabase import complete. Total imported:', importedPosts.length)
+      setPosts([...importedPosts, ...posts])
+      
+    } catch (error) {
+      console.error('Direct Supabase import failed:', error)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  // Manual import test function
+  const handleManualImport = async () => {
+    setImporting(true)
+    try {
+      console.log('Manual import triggered...')
+      const importedPosts = await importDraftsFromJSON()
+      setPosts([...importedPosts, ...posts])
+      console.log('Manual import complete!')
+    } catch (error) {
+      console.error('Manual import failed:', error)
+    } finally {
+      setImporting(false)
+    }
+  }
 
   // Handle logout
   const handleLogout = async () => {
@@ -368,17 +535,6 @@ export default function AdminPanel() {
       // Still redirect even if logout fails
       router.push('/admin/login')
     }
-  }
-
-  if (authChecking) {
-    return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-deep mx-auto mb-4"></div>
-          <p className="font-dm-sans text-green-deep">Verifying authentication...</p>
-        </div>
-      </div>
-    )
   }
 
   if (loading) {

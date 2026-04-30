@@ -6,6 +6,43 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
+// Simple markdown to HTML converter - preserves ReactQuill HTML content
+const markdownToHtml = (content: string): string => {
+  if (!content) return ''
+  
+  // Check if content contains common HTML tags (from ReactQuill or AI)
+  const hasHtmlTags = /<(p|div|span|h[1-6]|ul|ol|li|strong|em|b|i|br|a|img)[^>]*>/i.test(content)
+  
+  // If content already contains HTML tags, return as-is (it's from ReactQuill)
+  if (hasHtmlTags) {
+    return content
+  }
+  
+  // Otherwise, treat as markdown and convert
+  let html = content
+    // Convert headers
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    // Convert bold and italic
+    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    // Convert lists
+    .replace(/^\* (.*$)/gim, '<li>$1</li>')
+    .replace(/^(\d+\.) (.*$)/gim, '<li>$2</li>')
+    // Wrap consecutive list items in ul/ol
+    .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+    // Convert paragraphs (must be after lists)
+    .replace(/^(?!<[hl]|<li|<ul|<ol)(.*$)/gim, '<p>$1</p>')
+    // Remove empty paragraphs
+    .replace(/<p><\/p>/g, '')
+    // Convert line breaks
+    .replace(/\n/g, '')
+  
+  return html
+}
+
 const blogPosts = {
   'understanding-lab-results': {
     title: 'Understanding Your Lab Results',
@@ -451,6 +488,10 @@ export default function BlogPost({ params }: { params: Promise<{ slug: string }>
           return
         }
         
+        console.log('Loaded post:', postData.title)
+        console.log('Content length:', postData.content?.length)
+        console.log('Content preview:', postData.content?.substring(0, 200))
+        
         setPost(postData)
         setLoading(false)
       } catch (error) {
@@ -548,7 +589,7 @@ export default function BlogPost({ params }: { params: Promise<{ slug: string }>
               <div className="bg-white rounded-[20px] p-8 shadow-lg">
                 <div 
                   className="prose prose-lg max-w-none font-dm-sans text-text-mid leading-[1.7]"
-                  dangerouslySetInnerHTML={{ __html: post.content }}
+                  dangerouslySetInnerHTML={{ __html: markdownToHtml(post.content) }}
                 />
               </div>
 

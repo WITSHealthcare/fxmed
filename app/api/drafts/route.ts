@@ -13,66 +13,60 @@ const supabaseAdmin = createClient(
   }
 )
 
-// GET - Fetch all posts (for admin) or published posts (for public)
+// GET - Fetch all draft posts
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status')
-    const slug = searchParams.get('slug')
+    const id = searchParams.get('id')
     
     let query = supabaseAdmin
-      .from('blog_posts')
+      .from('draft_posts')
       .select('*')
       .order('created_at', { ascending: false })
     
-    // If slug provided, filter by slug (for individual post)
-    if (slug) {
-      query = query.eq('slug', slug)
-    }
-    
-    // If status filter provided, use it (for admin)
-    if (status) {
-      query = query.eq('status', status)
+    // If id provided, filter by id
+    if (id) {
+      query = query.eq('id', id)
     }
     
     const { data, error } = await query
     
     if (error) throw error
     
-    return NextResponse.json({ posts: data })
+    return NextResponse.json({ drafts: data })
   } catch (error) {
-    console.error('Error fetching posts:', error)
+    console.error('Error fetching drafts:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch posts' },
+      { error: 'Failed to fetch drafts' },
       { status: 500 }
     )
   }
 }
 
-// POST - Create new post
+// POST - Create new draft post
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
     const { data, error } = await supabaseAdmin
-      .from('blog_posts')
+      .from('draft_posts')
       .insert(body)
       .select()
       .single()
     
     if (error) throw error
     
-    return NextResponse.json({ post: data })
+    return NextResponse.json({ draft: data })
   } catch (error) {
-    console.error('Error creating post:', error)
+    console.error('Error creating draft:', error)
     return NextResponse.json(
-      { error: 'Failed to create post' },
+      { error: 'Failed to create draft' },
       { status: 500 }
     )
   }
 }
 
-// DELETE - Delete a post
+// DELETE - Delete a draft post
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -80,13 +74,13 @@ export async function DELETE(request: NextRequest) {
     
     if (!id) {
       return NextResponse.json(
-        { error: 'Post ID required' },
+        { error: 'Draft ID required' },
         { status: 400 }
       )
     }
     
     const { error } = await supabaseAdmin
-      .from('blog_posts')
+      .from('draft_posts')
       .delete()
       .eq('id', id)
     
@@ -94,19 +88,19 @@ export async function DELETE(request: NextRequest) {
     
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error deleting post:', error)
+    console.error('Error deleting draft:', error)
     return NextResponse.json(
-      { error: 'Failed to delete post' },
+      { error: 'Failed to delete draft' },
       { status: 500 }
     )
   }
 }
 
-// PATCH - Update post (status, content, or any fields)
+// PATCH - Update draft post
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, status, ...updateData } = body
+    const { id, ...updateData } = body
     
     if (!id) {
       return NextResponse.json(
@@ -115,12 +109,11 @@ export async function PATCH(request: NextRequest) {
       )
     }
     
-    // Build update object - include all provided fields
+    // Build update object
     const updateObj: any = {
       updated_at: new Date().toISOString()
     }
     
-    if (status) updateObj.status = status
     if (updateData.title !== undefined) updateObj.title = updateData.title
     if (updateData.slug !== undefined) updateObj.slug = updateData.slug
     if (updateData.excerpt !== undefined) updateObj.excerpt = updateData.excerpt
@@ -132,7 +125,7 @@ export async function PATCH(request: NextRequest) {
     if (updateData.read_time !== undefined) updateObj.read_time = updateData.read_time
     
     const { data, error } = await supabaseAdmin
-      .from('blog_posts')
+      .from('draft_posts')
       .update(updateObj)
       .eq('id', id)
       .select()
@@ -140,11 +133,11 @@ export async function PATCH(request: NextRequest) {
     
     if (error) throw error
     
-    return NextResponse.json({ post: data })
+    return NextResponse.json({ draft: data })
   } catch (error) {
-    console.error('Error updating post:', error)
+    console.error('Error updating draft:', error)
     return NextResponse.json(
-      { error: 'Failed to update post' },
+      { error: 'Failed to update draft' },
       { status: 500 }
     )
   }
