@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const slug = searchParams.get('slug')
+    const limit = searchParams.get('limit')
     
     let query = supabaseAdmin
       .from('blog_posts')
@@ -33,6 +34,11 @@ export async function GET(request: NextRequest) {
     // If status filter provided, use it (for admin)
     if (status) {
       query = query.eq('status', status)
+    }
+    
+    // If limit provided, limit results
+    if (limit) {
+      query = query.limit(parseInt(limit))
     }
     
     const { data, error } = await query
