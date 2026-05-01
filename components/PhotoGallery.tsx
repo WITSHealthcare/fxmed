@@ -525,9 +525,9 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/community/14th%20TOEMST%20202522-22.jpg')}>
+                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/community/14th%20TOEMST%202025-22.jpg')}>
                   <img 
-                    src="/community/14th%20TOEMST%20202522-22.jpg" 
+                    src="/community/14th%20TOEMST%202025-22.jpg" 
                     alt="Community Health Event" 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -553,9 +553,9 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/community/14th%20TOEMST%202025561-561.jpg')}>
+                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/community/14th%20TOEMST%202025-561.jpg')}>
                   <img 
-                    src="/community/14th%20TOEMST%202025561-561.jpg" 
+                    src="/community/14th%20TOEMST%202025-561.jpg" 
                     alt="Community Healthcare Services" 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
