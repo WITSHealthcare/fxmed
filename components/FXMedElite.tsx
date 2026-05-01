@@ -24,7 +24,7 @@ export default function FXMedElite() {
             </div>
             <h2 className="font-dm-sans font-extrabold text-white text-[clamp(2rem,4vw,3rem)] leading-[1.15] mb-4">
               <img 
-                src="/fxmed elite white.svg" 
+                src="/FXMed Elite White.svg" 
                 alt="FXMed Elite" 
                 className="h-[clamp(2.5rem,5vw,4rem)] w-auto inline-block"
               /><br/>Concierge Care for Distinguished Clients

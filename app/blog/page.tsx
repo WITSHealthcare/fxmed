@@ -1,9 +1,12 @@
-import Navigation from '@/components/Navigation'
-import Footer from '@/components/Footer'
+import dynamic from 'next/dynamic'
 import BlogPostsGrid from '@/components/blog/BlogPostsGrid'
 
 // Revalidate page every 60 seconds (ISR - Incremental Static Regeneration)
 export const revalidate = 60
+
+// Dynamically import Navigation and Footer with SSR disabled to prevent context errors
+const Navigation = dynamic(() => import('@/components/Navigation'), { ssr: false })
+const Footer = dynamic(() => import('@/components/Footer'), { ssr: false })
 
 interface BlogPost {
   id: string

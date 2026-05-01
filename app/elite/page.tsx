@@ -103,7 +103,7 @@ export default function Elite() {
               Concierge Care with
             </h1>
             <img 
-              src="/fxmed elite white.svg" 
+              src="/FXMed Elite White.svg" 
               alt="FXMed Elite" 
               className="h-[clamp(3rem,6vw,5rem)] w-auto mt-2 mx-auto"
             />
