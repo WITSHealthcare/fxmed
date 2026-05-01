@@ -21,16 +21,7 @@ interface BlogPost {
 // Server-side data fetching with caching
 async function getBlogPosts(): Promise<BlogPost[]> {
   try {
-    // Use site URL or default to localhost for development
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-    
-    // During build, if using localhost and not running, skip the fetch
-    if (baseUrl.includes('localhost') && process.env.NODE_ENV === 'production') {
-      console.log('Build time: skipping server-side fetch, will use ISR')
-      return []
-    }
-    
-    const response = await fetch(`${baseUrl}/api/blog?status=published`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3001'}/api/blog?status=published`, {
       // Cache the response for 60 seconds
       next: { revalidate: 60 }
     })
