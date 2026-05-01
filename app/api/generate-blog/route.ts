@@ -32,24 +32,52 @@ export async function POST(request: NextRequest) {
     }
 
     // Select provider (use requested if available, otherwise default)
-    const providerName = requestedProvider && availableProviders.includes(requestedProvider)
+    let providerName = requestedProvider && availableProviders.includes(requestedProvider)
       ? requestedProvider
       : availableProviders[0]
 
-    // Create provider instance
-    const provider = createAIProvider(providerName)
+    // Try to generate content with fallback to other providers
+    let generatedContent = null
+    let lastError = null
+    let triedProviders: string[] = []
 
-    // Generate content
-    console.log(`Generating blog content with ${providerName} for topic: ${prompt}`)
-    const startTime = Date.now()
-    
-    const generatedContent = await provider.generateBlogContent(
-      prompt.trim(),
-      category || 'Health Education'
-    )
+    for (let i = 0; i < availableProviders.length; i++) {
+      const currentProvider = availableProviders[i]
+      // If user requested a specific provider, only try that one first
+      if (requestedProvider && i === 0 && currentProvider !== requestedProvider) {
+        continue
+      }
+      
+      triedProviders.push(currentProvider)
+      
+      try {
+        const provider = createAIProvider(currentProvider)
+        console.log(`Generating blog content with ${currentProvider} for topic: ${prompt}`)
+        const startTime = Date.now()
+        
+        generatedContent = await provider.generateBlogContent(
+          prompt.trim(),
+          category || 'Health Education'
+        )
+        
+        const duration = Date.now() - startTime
+        console.log(`Content generated successfully with ${currentProvider} in ${duration}ms`)
+        providerName = currentProvider
+        break
+      } catch (error: any) {
+        console.error(`Failed with ${currentProvider}:`, error)
+        lastError = error
+        // If this was the requested provider, try others
+        continue
+      }
+    }
 
-    const duration = Date.now() - startTime
-    console.log(`Content generated successfully in ${duration}ms`)
+    if (!generatedContent) {
+      return NextResponse.json(
+        { error: lastError?.message || 'All AI providers failed. Please check your configuration.' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
@@ -58,7 +86,6 @@ export async function POST(request: NextRequest) {
       metadata: {
         prompt: prompt.trim(),
         category: category || 'Health Education',
-        generationTime: duration,
         timestamp: new Date().toISOString()
       }
     })

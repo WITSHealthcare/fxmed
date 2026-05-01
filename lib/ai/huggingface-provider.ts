@@ -10,12 +10,12 @@ export interface AIProvider {
   generateBlogContent(prompt: string, category: string): Promise<AIGeneratedContent>
 }
 
-class OllamaProvider implements AIProvider {
-  private baseUrl: string
+class HuggingFaceProvider implements AIProvider {
+  private apiKey: string
   private model: string
 
-  constructor(baseUrl: string = 'http://localhost:11434', model: string = 'llama3') {
-    this.baseUrl = baseUrl
+  constructor(apiKey: string, model: string = 'mistralai/Mistral-7B-Instruct-v0.2') {
+    this.apiKey = apiKey
     this.model = model
   }
 
@@ -45,33 +45,38 @@ Category: ${category}
 Target audience: Patients seeking functional medicine care`
 
     try {
-      const response = await fetch(`${this.baseUrl}/api/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.model,
-          prompt: `${systemPrompt}\n\n${userPrompt}`,
-          stream: false,
-          options: {
-            temperature: 0.7,
-            num_predict: 2000,
-          }
-        })
-      })
+      const response = await fetch(
+        `https://api-inference.huggingface.co/models/${this.model}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: `<s>[INST] ${systemPrompt}\n\n${userPrompt} [/INST]`,
+            parameters: {
+              max_new_tokens: 2000,
+              temperature: 0.7,
+              do_sample: true,
+              return_full_text: false,
+            }
+          })
+        }
+      )
 
       if (!response.ok) {
-        throw new Error(`Ollama API error: ${response.statusText}`)
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Hugging Face API error: ${response.status} - ${errorData.error || response.statusText}`)
       }
 
       const data = await response.json()
-      const content = data.response || '{}'
+      const content = data[0]?.generated_text || '{}'
       
       return this.parseResponse(content)
     } catch (error) {
-      console.error('Ollama API error:', error)
-      throw new Error('Ollama is not running. Please start Ollama (run `ollama serve` in terminal) or select a different AI provider in the settings.')
+      console.error('Hugging Face API error:', error)
+      throw new Error('Failed to generate content with Hugging Face')
     }
   }
 
@@ -92,7 +97,7 @@ Target audience: Patients seeking functional medicine care`
         suggestedCategory: parsed.suggestedCategory || 'Health Education'
       }
     } catch (error) {
-      console.error('Failed to parse Ollama response:', error)
+      console.error('Failed to parse Hugging Face response:', error)
       // Fallback to basic structure if JSON parsing fails
       return {
         title: `Blog Post about ${this.extractTopic(content)}`,
@@ -111,6 +116,9 @@ Target audience: Patients seeking functional medicine care`
   }
 }
 
-export function createOllamaProvider(baseUrl?: string, model?: string): AIProvider {
-  return new OllamaProvider(baseUrl, model)
+export function createHuggingFaceProvider(apiKey?: string, model?: string): AIProvider {
+  if (!apiKey) {
+    throw new Error('Hugging Face API key is required')
+  }
+  return new HuggingFaceProvider(apiKey, model)
 }

@@ -1,8 +1,6 @@
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { createOllamaProvider } from './ollama-provider'
-import { createSimpleProvider } from './simple-provider'
 
 export interface AIGeneratedContent {
   title: string
@@ -212,6 +210,101 @@ Guidelines:
   }
 }
 
+class HuggingFaceProvider implements AIProvider {
+  private apiKey: string
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey
+  }
+
+  async generateBlogContent(prompt: string, category: string): Promise<AIGeneratedContent> {
+    const fullPrompt = `You are a professional health and wellness content writer for FXMed, a functional medicine practice.
+
+Write a complete blog post about: ${prompt}
+Category: ${category}
+
+Return your response in this exact JSON format:
+{
+  "title": "Compelling SEO-friendly title (max 60 chars)",
+  "excerpt": "Engaging 2-3 sentence summary",
+  "content": "Full blog post with HTML formatting (use <h2>, <h3>, <p>, <ul>, <li> tags). Include 3-5 main sections. Content should be 800-1200 words.",
+  "suggestedTags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
+  "suggestedCategory": "Best matching category"
+}
+
+Guidelines:
+- Target audience: Patients seeking functional medicine care
+- Tone: Authoritative yet approachable, evidence-based, empowering
+- Include practical, actionable advice
+- Use warm, empathetic tone
+- End with brief conclusion or call to action
+- Respond ONLY with the JSON object`;
+
+    try {
+      console.log('Testing Hugging Face API with key:', this.apiKey ? 'Present' : 'Missing')
+      
+      const response = await fetch(
+        'https://api-inference.huggingface.co/models/gpt2',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: "Hello, this is a test."
+          })
+        }
+      )
+
+      console.log('Hugging Face response status:', response.status)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Hugging Face error response:', errorText)
+        throw new Error(`Hugging Face API error: ${response.status} - ${errorText}`)
+      }
+
+      const data = await response.json()
+      const content = data[0]?.generated_text || '{}'
+      
+      return this.parseResponse(content)
+    } catch (error) {
+      console.error('Hugging Face API error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      throw new Error(`Failed to generate content with Hugging Face: ${errorMessage}`)
+    }
+  }
+
+  private parseResponse(content: string): AIGeneratedContent {
+    try {
+      const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || 
+                        content.match(/```\n?([\s\S]*?)\n?```/) ||
+                        [null, content];
+      const jsonContent = jsonMatch[1] || content;
+      const parsed = JSON.parse(jsonContent);
+      
+      return {
+        title: parsed.title || 'Untitled Blog Post',
+        excerpt: parsed.excerpt || '',
+        content: parsed.content || '',
+        suggestedTags: parsed.suggestedTags || [],
+        suggestedCategory: parsed.suggestedCategory || 'Health Education'
+      }
+    } catch (error) {
+      console.error('Failed to parse Hugging Face response:', error)
+      // Fallback to basic structure
+      return {
+        title: 'Blog Post',
+        excerpt: content.substring(0, 200) + '...',
+        content: `<h2>Introduction</h2><p>${content}</p>`,
+        suggestedTags: ['health', 'wellness', 'functional medicine'],
+        suggestedCategory: 'Health Education'
+      }
+    }
+  }
+}
+
 export function createAIProvider(providerName: string): AIProvider {
   switch (providerName.toLowerCase()) {
     case 'openai':
@@ -222,37 +315,25 @@ export function createAIProvider(providerName: string): AIProvider {
     case 'google':
     case 'gemini':
       return new GoogleProvider()
-    case 'ollama':
-    case 'local':
-      return createOllamaProvider()
-    case 'simple':
-    case 'template':
-      return createSimpleProvider()
-    default:
-      // Default to Ollama (free) if available, otherwise try paid options, finally use simple provider
-      if (process.env.OLLAMA_ENABLED === 'true') {
-        return createOllamaProvider()
+        default:
+      // Default to Google Gemini if available, otherwise try other options
+      if (process.env.GOOGLE_AI_API_KEY) {
+        return new GoogleProvider()
       } else if (process.env.OPENAI_API_KEY) {
         return new OpenAIProvider()
       } else if (process.env.ANTHROPIC_API_KEY) {
         return new AnthropicProvider()
-      } else if (process.env.GOOGLE_AI_API_KEY) {
-        return new GoogleProvider()
       } else {
-        // Always provide a working fallback
-        return createSimpleProvider()
+        throw new Error('No AI provider configured. Please set up at least one API key.')
       }
   }
 }
 
 export function getAvailableProviders(): string[] {
   const providers: string[] = []
-  if (process.env.OLLAMA_ENABLED === 'true') providers.push('ollama')
+  if (process.env.GOOGLE_AI_API_KEY) providers.push('google')
   if (process.env.OPENAI_API_KEY) providers.push('openai')
   if (process.env.ANTHROPIC_API_KEY) providers.push('anthropic')
-  if (process.env.GOOGLE_AI_API_KEY) providers.push('google')
   
-  // Always include simple provider as fallback
-  providers.push('simple')
   return providers
 }

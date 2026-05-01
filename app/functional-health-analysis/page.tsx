@@ -459,7 +459,7 @@ export default function FunctionalHealthAnalysis() {
             Your Health Journey Starts Here
           </h2>
           <p className="font-dm-sans text-[1.1rem] leading-[1.7] mb-8 text-white/90">
-            Take the first step towards optimal health with our free, comprehensive functional health analysis. 
+            Take the first step towards optimal health with our comprehensive functional health analysis. 
             No obligation, just insights that can transform your life.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

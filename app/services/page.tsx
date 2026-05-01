@@ -1,25 +1,10 @@
+'use client'
+
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Link from 'next/link'
 
 const services = [
-  {
-    icon: '/Hospital.svg',
-    title: 'Concierge Medicine',
-    shortDesc: 'Priority access to a dedicated physician, extended consultations, and home visits tailored to your schedule.',
-    fullDesc: 'Our Concierge Medicine service provides you with priority access to a dedicated functional medicine physician who knows your health history and goals. Enjoy extended consultation times, same-day or next-day appointments, direct messaging access, and the convenience of home or office visits. This premium service ensures you receive unhurried, personalized care that addresses the root causes of your health concerns.',
-    features: [
-      'Dedicated personal physician',
-      'Extended consultation times (60-90 minutes)',
-      'Same-day or next-day appointments',
-      'Home and office visits',
-      'Direct physician messaging',
-      'Comprehensive health coordination',
-      'Priority specialist referrals'
-    ],
-    pricing: 'Starting at ₦500,000/quarter',
-    bestFor: 'Individuals and families seeking comprehensive, relationship-based healthcare'
-  },
   {
     icon: '/Laptop.svg',
     title: 'Virtual Consult',
@@ -38,6 +23,23 @@ const services = [
     bestFor: 'Busy professionals, travelers, and those preferring remote care'
   },
   {
+    icon: '/Hospital.svg',
+    title: 'Concierge Medicine',
+    shortDesc: 'Priority access to a dedicated physician, extended consultations, and home visits tailored to your schedule.',
+    fullDesc: 'Our Concierge Medicine service provides you with priority access to a dedicated functional medicine physician who knows your health history and goals. Enjoy extended consultation times, same-day or next-day appointments, direct messaging access, and the convenience of home or office visits. This premium service ensures you receive unhurried, personalized care that addresses the root causes of your health concerns.',
+    features: [
+      'Dedicated personal physician',
+      'Extended consultation times (60-90 minutes)',
+      'Same-day or next-day appointments',
+      'Home and office visits',
+      'Direct physician messaging',
+      'Comprehensive health coordination',
+      'Priority specialist referrals'
+    ],
+    pricing: 'Starting at ₦85,000/visit',
+    bestFor: 'Individuals and families seeking comprehensive, relationship-based healthcare'
+  },
+  {
     icon: '/TestTube.svg',
     title: 'Lab Investigations',
     shortDesc: 'Routine to advanced panels. Fast sample collection, accurate results, and physician-led interpretation.',
@@ -52,7 +54,7 @@ const services = [
       'Genetic testing and interpretation',
       'Detailed physician-led review'
     ],
-    pricing: 'Starting at ₦35,000',
+    pricing: 'Starting at ₦15,000',
     bestFor: 'Anyone needing diagnostic clarity or monitoring health markers'
   },
   {
@@ -70,7 +72,7 @@ const services = [
       'Grocery shopping guidance',
       'Recipe development and modification'
     ],
-    pricing: '₦75,000 per session',
+    pricing: 'Starting at ₦15,000',
     bestFor: 'Those seeking sustainable dietary changes and optimal nutrition'
   },
   {
