@@ -20,19 +20,19 @@ export default function Footer() {
             <h3 className="font-dm-sans font-semibold text-gold text-[1rem] mb-4">Programs</h3>
             <ul className="space-y-2">
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="/#programs" className="hover:text-gold transition-colors">Thyroid Recovery</a>
+                <a href="/programs/thyroid-recovery" className="hover:text-gold transition-colors">Thyroid Recovery</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="/#programs" className="hover:text-gold transition-colors">Hormone Balance</a>
+                <a href="/programs/hormone-balance" className="hover:text-gold transition-colors">Hormone Balance</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="/#programs" className="hover:text-gold transition-colors">Gut Repair</a>
+                <a href="/programs/gut-repair" className="hover:text-gold transition-colors">Gut Repair</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="/#programs" className="hover:text-gold transition-colors">Adrenal Reset</a>
+                <a href="/programs/adrenal-reset" className="hover:text-gold transition-colors">Adrenal Reset</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="/#programs" className="hover:text-gold transition-colors">Immune Support</a>
+                <a href="/programs/immune-support" className="hover:text-gold transition-colors">Immune Support</a>
               </li>
             </ul>
           </div>

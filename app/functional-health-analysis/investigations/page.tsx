@@ -119,8 +119,10 @@ export default function FunctionalHealthInvestigations() {
   const totalPrice = labTestsTotal + functionalAnalysisPrice + logisticsFee
 
   const handlePayment = () => {
-    // Redirect to payment page or payment gateway
-    const paymentUrl = "https://paystack.shop/pay/fxmed"
+    // Redirect to payment page or payment gateway based on selected package
+    const paymentUrl = activeTab === 'complete' 
+      ? "https://paystack.shop/pay/fxmed"
+      : "https://paystack.shop/pay/m8z7f68z-o"
     window.open(paymentUrl, '_blank')
   }
 
@@ -149,9 +151,11 @@ export default function FunctionalHealthInvestigations() {
             Required Investigations for Analysis
           </h1>
           <p className="font-dm-sans text-text-mid text-[1.1rem] leading-[1.7] max-w-3xl mx-auto">
-            Please complete the following lab tests to provide deep insights into your health status and help us create your personalized wellness plan.
+            You are required to complete the following lab tests that will help us provide deep insights into your health status and create your personalized wellness plan.
             <br /><br />
             As we proceed, you may be required to do some more investigations depending on the results of these.
+            <br /><br />
+            You can opt for the complete health package where we handle it all for you or to bring your own results for us to run the analysis.
           </p>
         </div>
 
@@ -198,7 +202,7 @@ export default function FunctionalHealthInvestigations() {
               </div>
 
               <p className="font-dm-sans text-white/80 text-sm">
-                Includes all 8 essential laboratory investigations ({labTestsTotal.toLocaleString()} NGN) + Functional Health Analysis ({functionalAnalysisPrice.toLocaleString()} NGN) + Logistics Fee ({logisticsFee.toLocaleString()} NGN)
+                Includes all essential laboratory investigations ({labTestsTotal.toLocaleString()} NGN) + Functional Health Analysis ({functionalAnalysisPrice.toLocaleString()} NGN) + Logistics Fee ({logisticsFee.toLocaleString()} NGN)
               </p>
             </div>
           </div>
@@ -222,6 +226,8 @@ export default function FunctionalHealthInvestigations() {
 
               <p className="font-dm-sans text-white/80 text-sm">
                 Analysis and interpretation of your existing laboratory test results
+                <br />
+                <span className="text-xs">(All result must be within 30 days)</span>
               </p>
             </div>
           </div>
@@ -289,310 +295,233 @@ export default function FunctionalHealthInvestigations() {
               Download the investigation form to present at your preferred laboratory or bring to your FXMed appointment.
             </p>
           <button
-            onClick={() => {
-              // Create styled HTML content for PDF
-              const printWindow = window.open('', '_blank');
-              if (printWindow) {
-                printWindow.document.write(`
-                  <!DOCTYPE html>
-                  <html>
-                  <head>
-                    <title>FXMed Investigation Form</title>
-                    <style>
-                      @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
-                      
-                      * {
-                        margin: 0;
-                        padding: 0;
-                        box-sizing: border-box;
-                      }
-                      
-                      body {
-                        font-family: 'DM Sans', sans-serif;
-                        background: linear-gradient(135deg, #0F2419 0%, #1A3D2E 100%);
-                        color: #333;
-                        padding: 40px 20px;
-                        min-height: 100vh;
-                      }
-                      
-                      .container {
-                        max-width: 800px;
-                        margin: 0 auto;
-                        background: white;
-                        border-radius: 24px;
-                        padding: 48px;
-                        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-                      }
-                      
-                      .header {
-                        text-align: center;
-                        margin-bottom: 40px;
-                        padding-bottom: 30px;
-                        border-bottom: 2px solid #CADE68;
-                      }
-                      
-                      .logo {
-                        font-size: 28px;
-                        font-weight: 700;
-                        color: #0F2419;
-                        margin-bottom: 8px;
-                      }
-                      
-                      .subtitle {
-                        font-size: 12px;
-                        font-weight: 600;
-                        color: #6B8E23;
-                        text-transform: uppercase;
-                        letter-spacing: 0.14em;
-                        background: rgba(107, 142, 35, 0.1);
-                        display: inline-block;
-                        padding: 8px 16px;
-                        border-radius: 20px;
-                        margin-bottom: 16px;
-                      }
-                      
-                      .title {
-                        font-size: 32px;
-                        font-weight: 700;
-                        color: #0F2419;
-                        margin-bottom: 8px;
-                      }
-                      
-                      .form-type {
-                        font-size: 14px;
-                        color: #666;
-                        font-weight: 500;
-                      }
-                      
-                      .section {
-                        margin-bottom: 32px;
-                      }
-                      
-                      .section-title {
-                        font-size: 18px;
-                        font-weight: 700;
-                        color: #0F2419;
-                        margin-bottom: 16px;
-                        padding-bottom: 8px;
-                        border-bottom: 2px solid #e5e7eb;
-                      }
-                      
-                      .patient-grid {
-                        display: grid;
-                        grid-template-columns: 1fr 1fr;
-                        gap: 16px;
-                      }
-                      
-                      .info-item {
-                        margin-bottom: 12px;
-                      }
-                      
-                      .info-label {
-                        font-size: 12px;
-                        font-weight: 600;
-                        color: #6B7280;
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
-                        margin-bottom: 4px;
-                      }
-                      
-                      .info-value {
-                        font-size: 16px;
-                        font-weight: 600;
-                        color: #0F2419;
-                      }
-                      
-                      .tests-list {
-                        list-style: none;
-                      }
-                      
-                      .test-item {
-                        background: #FEF2F2;
-                        border-left: 4px solid #DC2626;
-                        border-radius: 8px;
-                        padding: 16px;
-                        margin-bottom: 12px;
-                      }
-                      
-                      .test-name {
-                        font-size: 16px;
-                        font-weight: 700;
-                        color: #0F2419;
-                        margin-bottom: 8px;
-                      }
-                      
-                      .test-description {
-                        font-size: 14px;
-                        color: #4B5563;
-                        line-height: 1.5;
-                      }
-                      
-                      .required-badge {
-                        display: inline-block;
-                        background: #FEE2E2;
-                        color: #DC2626;
-                        font-size: 11px;
-                        font-weight: 700;
-                        padding: 4px 10px;
-                        border-radius: 20px;
-                        margin-bottom: 12px;
-                        text-transform: uppercase;
-                      }
-                      
-                      .total-section {
-                        background: linear-gradient(135deg, #0F2419 0%, #1A3D2E 100%);
-                        border-radius: 16px;
-                        padding: 32px;
-                        text-align: center;
-                        color: white;
-                        margin-top: 32px;
-                      }
-                      
-                      .total-label {
-                        font-size: 14px;
-                        color: rgba(255, 255, 255, 0.8);
-                        margin-bottom: 8px;
-                      }
-                      
-                      .total-amount {
-                        font-size: 40px;
-                        font-weight: 700;
-                        color: #CADE68;
-                      }
-                      
-                      .footer {
-                        margin-top: 40px;
-                        padding-top: 24px;
-                        border-top: 1px solid #e5e7eb;
-                        text-align: center;
-                      }
-                      
-                      .footer-title {
-                        font-size: 14px;
-                        font-weight: 700;
-                        color: #0F2419;
-                        margin-bottom: 12px;
-                      }
-                      
-                      .footer-info {
-                        font-size: 13px;
-                        color: #6B7280;
-                        line-height: 1.6;
-                      }
-                      
-                      .generated-date {
-                        margin-top: 24px;
-                        font-size: 12px;
-                        color: #9CA3AF;
-                        font-style: italic;
-                      }
-                      
-                      @media print {
-                        body {
-                          background: white;
-                          padding: 0;
-                        }
-                        .container {
-                          box-shadow: none;
-                          max-width: 100%;
-                        }
-                      }
-                    </style>
-                  </head>
-                  <body>
-                    <div class="container">
-                      <div class="header">
-                        <div class="subtitle">Functional Health Analysis</div>
-                        <div class="logo">FXMed</div>
-                        <h1 class="title">Investigation Request Form</h1>
-                        <p class="form-type">Core Functional Medicine Panel</p>
+            onClick={async () => {
+              // Create two separate containers for proper page breaks
+              const container1 = document.createElement('div');
+              container1.style.position = 'absolute';
+              container1.style.left = '-9999px';
+              container1.style.top = '0';
+              container1.style.width = '800px';
+              container1.style.backgroundColor = 'white';
+              container1.style.padding = '48px';
+              container1.style.fontFamily = "'DM Sans', sans-serif";
+              
+              container1.innerHTML = `
+                <div style="text-align: center; margin-bottom: 40px; padding-bottom: 30px; border-bottom: 2px solid #CADE68;">
+                  <div style="font-size: 12px; font-weight: 600; color: #6B8E23; text-transform: uppercase; letter-spacing: 0.14em; background: rgba(107, 142, 35, 0.1); display: inline-flex; align-items: center; justify-content: center; padding: 2px 16px 14px 16px; border-radius: 20px; margin-bottom: 16px; line-height: 1;">
+                    Functional Health Analysis
+                  </div>
+                  <div style="margin-bottom: 8px; text-align: center; display: flex; justify-content: center; align-items: center;">
+                    <img src="${window.location.origin}/FXMed_Logo_Black.png" alt="FXMed" style="height: 60px; width: auto; margin: 0 auto;" />
+                  </div>
+                  <h1 style="font-size: 32px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
+                    Investigation Request Form
+                  </h1>
+                  <p style="font-size: 14px; color: #666; font-weight: 500;">
+                    Core Functional Medicine Panel
+                  </p>
+                </div>
+                
+                <div style="margin-bottom: 32px;">
+                  <h2 style="font-size: 18px; font-weight: 700; color: #0F2419; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">
+                    Patient Information
+                  </h2>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div style="margin-bottom: 12px;">
+                      <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                        Full Name
                       </div>
-                      
-                      <div class="section">
-                        <h2 class="section-title">Patient Information</h2>
-                        <div class="patient-grid">
-                          <div class="info-item">
-                            <div class="info-label">Full Name</div>
-                            <div class="info-value">${formData?.personalInfo.firstName || ''} ${formData?.personalInfo.lastName || ''}</div>
-                          </div>
-                          <div class="info-item">
-                            <div class="info-label">Email Address</div>
-                            <div class="info-value">${formData?.personalInfo.email || ''}</div>
-                          </div>
-                          <div class="info-item">
-                            <div class="info-label">Phone Number</div>
-                            <div class="info-value">${formData?.personalInfo.phone || ''}</div>
-                          </div>
-                          <div class="info-item">
-                            <div class="info-label">Age / Gender</div>
-                            <div class="info-value">${formData?.personalInfo.age || ''} years / ${formData?.personalInfo.gender || ''}</div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div class="section">
-                        <span class="required-badge">Required Tests</span>
-                        <h2 class="section-title">Core Functional Medicine Panel</h2>
-                        <ul class="tests-list">
-                          <li class="test-item">
-                            <div class="test-name">1. Complete Blood Count (CBC)</div>
-                            <div class="test-description">Comprehensive blood analysis to assess overall health, detect infections, anemia, and immune system status</div>
-                          </li>
-                          <li class="test-item">
-                            <div class="test-name">2. Comprehensive Metabolic Panel (CMP)</div>
-                            <div class="test-description">Evaluates kidney function, liver function, blood sugar levels, and electrolyte balance for metabolic health assessment</div>
-                          </li>
-                          <li class="test-item">
-                            <div class="test-name">3. Lipid Profile (Total Cholesterol, LDL, HDL, Triglycerides)</div>
-                            <div class="test-description">Complete cholesterol analysis including HDL, LDL, and triglycerides to assess cardiovascular risk and metabolic function</div>
-                          </li>
-                          <li class="test-item">
-                            <div class="test-name">4. Thyroid (TSH, free T3, free T4)</div>
-                            <div class="test-description">Comprehensive thyroid evaluation to assess metabolic rate, energy production, and hormonal balance</div>
-                          </li>
-                          <li class="test-item">
-                            <div class="test-name">5. HbA1c (Glycated Hemoglobin)</div>
-                            <div class="test-description">Measures average blood sugar levels over 2-3 months to assess glucose control and metabolic health</div>
-                          </li>
-                          <li class="test-item">
-                            <div class="test-name">6. High Sensitivity CRP</div>
-                            <div class="test-description">Detects low levels of inflammation that may indicate chronic disease risk and cardiovascular issues</div>
-                          </li>
-                          <li class="test-item">
-                            <div class="test-name">7. Vitamin D (25-OH Vitamin D)</div>
-                            <div class="test-description">Measures vitamin D status critical for immune function, bone health, hormone balance, and disease prevention</div>
-                          </li>
-                          <li class="test-item">
-                            <div class="test-name">8. ESR (Erythrocyte Sedimentation Rate)</div>
-                            <div class="test-description">Measures the rate at which red blood cells settle in a test tube, indicating inflammation levels in the body</div>
-                          </li>
-                        </ul>
-                      </div>
-                      
-                      <div class="total-section">
-                        <div class="total-label">Complete Functional Health Analysis Package</div>
-                        <div class="total-amount">₦235,000</div>
-                      </div>
-                      
-                      <div class="footer">
-                        <div class="footer-title">FXMed Functional Medicine</div>
-                        <div class="footer-info">
-                          For questions about this investigation form, please contact us:<br>
-                          Phone: +234 XXX XXX XXXX | Email: info@fxmed.com<br>
-                          Treating the root cause — not just the symptoms
-                        </div>
-                        <div class="generated-date">Generated on: ${new Date().toLocaleDateString()} | Confidential Medical Document</div>
+                      <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
+                        ${formData?.personalInfo.firstName || ''} ${formData?.personalInfo.lastName || ''}
                       </div>
                     </div>
-                  </body>
-                  </html>
-                `);
-                printWindow.document.close();
+                    <div style="margin-bottom: 12px;">
+                      <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                        Email Address
+                      </div>
+                      <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
+                        ${formData?.personalInfo.email || ''}
+                      </div>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                      <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                        Phone Number
+                      </div>
+                      <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
+                        ${formData?.personalInfo.phone || ''}
+                      </div>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                      <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                        Age / Gender
+                      </div>
+                      <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
+                        ${formData?.personalInfo.age || ''} years / ${formData?.personalInfo.gender || ''}
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 
-                // Wait for styles to load then print
-                setTimeout(() => {
-                  printWindow.print();
-                }, 500);
+                <div style="margin-bottom: 32px;">
+                  <div style="display: inline-flex; align-items: center; justify-content: center; background: #FEE2E2; color: #DC2626; font-size: 11px; font-weight: 700; padding: 0px 10px 8px 10px; border-radius: 20px; margin-bottom: 12px; text-transform: uppercase; line-height: 1;">
+                    Required Tests
+                  </div>
+                  <h2 style="font-size: 18px; font-weight: 700; color: #0F2419; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">
+                    Core Functional Medicine Panel
+                  </h2>
+                  <div style="list-style: none;">
+                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
+                        1. Complete Blood Count (CBC)
+                      </div>
+                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
+                        Comprehensive blood analysis to assess overall health, detect infections, anemia, and immune system status
+                      </div>
+                    </div>
+                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
+                        2. Comprehensive Metabolic Panel (CMP)
+                      </div>
+                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
+                        Evaluates kidney function, liver function, blood sugar levels, and electrolyte balance for metabolic health assessment
+                      </div>
+                    </div>
+                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
+                        3. Lipid Profile (Total Cholesterol, LDL, HDL, Triglycerides)
+                      </div>
+                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
+                        Complete cholesterol analysis including HDL, LDL, and triglycerides to assess cardiovascular risk and metabolic function
+                      </div>
+                    </div>
+                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
+                        4. Thyroid (TSH, free T3, free T4)
+                      </div>
+                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
+                        Comprehensive thyroid evaluation to assess metabolic rate, energy production, and hormonal balance
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+              
+              // Create second container for page 2
+              const container2 = document.createElement('div');
+              container2.style.position = 'absolute';
+              container2.style.left = '-9999px';
+              container2.style.top = '0';
+              container2.style.width = '800px';
+              container2.style.backgroundColor = 'white';
+              container2.style.padding = '48px';
+              container2.style.fontFamily = "'DM Sans', sans-serif";
+              
+              container2.innerHTML = `
+                <div style="margin-bottom: 32px;">
+                  <h2 style="font-size: 18px; font-weight: 700; color: #0F2419; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">
+                    Core Functional Medicine Panel
+                  </h2>
+                  <div style="list-style: none;">
+                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
+                        5. HbA1c (Glycated Hemoglobin)
+                      </div>
+                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
+                        Measures average blood sugar levels over 2-3 months to assess glucose control and metabolic health
+                      </div>
+                    </div>
+                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
+                        6. High Sensitivity CRP
+                      </div>
+                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
+                        Detects low levels of inflammation that may indicate chronic disease risk and cardiovascular issues
+                      </div>
+                    </div>
+                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
+                        7. Vitamin D (25-OH Vitamin D)
+                      </div>
+                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
+                        Measures vitamin D status critical for immune function, bone health, hormone balance, and disease prevention
+                      </div>
+                    </div>
+                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
+                        8. ESR (Erythrocyte Sedimentation Rate)
+                      </div>
+                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
+                        Measures the rate at which red blood cells settle in a test tube, indicating inflammation levels in the body
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center;">
+                  <div style="font-size: 14px; font-weight: 700; color: #0F2419; margin-bottom: 12px;">
+                    FXMed Functional Medicine
+                  </div>
+                  <div style="font-size: 13px; color: #6B7280; line-height: 1.6;">
+                    For questions about this investigation form, please contact us:<br>
+                    +234 907 703 1311 · +1 832 779 2347 | fxmed@wellnesswits.com<br>
+                    Treating the root cause — not just the symptoms
+                  </div>
+                  <div style="margin-top: 24px; font-size: 12px; color: #9CA3AF; font-style: italic;">
+                    Generated on: ${new Date().toLocaleDateString()} | Confidential Medical Document
+                  </div>
+                </div>
+              `;
+              
+              document.body.appendChild(container1);
+              document.body.appendChild(container2);
+              
+              try {
+                // Import html2canvas and jsPDF
+                const html2canvas = (await import('html2canvas')).default;
+                const { jsPDF } = await import('jspdf');
+                
+                // Wait for images to load
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Capture first page
+                const canvas1 = await html2canvas(container1, {
+                  scale: 2,
+                  useCORS: true,
+                  allowTaint: true,
+                  backgroundColor: '#ffffff'
+                });
+                
+                // Capture second page
+                const canvas2 = await html2canvas(container2, {
+                  scale: 2,
+                  useCORS: true,
+                  allowTaint: true,
+                  backgroundColor: '#ffffff'
+                });
+                
+                // Create PDF
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 210;
+                const pageHeight = 297;
+                
+                // Add first page
+                const imgHeight1 = (canvas1.height * imgWidth) / canvas1.width;
+                pdf.addImage(canvas1.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight1);
+                
+                // Add second page
+                pdf.addPage();
+                const imgHeight2 = (canvas2.height * imgWidth) / canvas2.width;
+                pdf.addImage(canvas2.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight2);
+                
+                // Save the PDF
+                pdf.save('FXMed_Investigation_Form.pdf');
+              } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Error generating PDF. Please try again.');
+              } finally {
+                // Clean up
+                document.body.removeChild(container1);
+                document.body.removeChild(container2);
               }
             }}
             className="inline-flex items-center gap-2 font-dm-sans bg-green-deep text-white px-6 py-3 rounded-[50px] font-semibold text-sm hover:bg-green-700 transition-all"
@@ -606,39 +535,75 @@ export default function FunctionalHealthInvestigations() {
         )}
 
         {/* Summary and Payment */}
-        <div className="bg-gradient-to-br from-green-deep to-green-mid rounded-[24px] p-8 text-white">
-          <div className="text-center mb-8">
-            <h2 className="font-dm-sans font-bold text-2xl mb-4">Complete Health Investigation Package</h2>
-            <p className="font-dm-sans text-white/90 text-[1.1rem] mb-6">
-              All recommended tests for comprehensive health analysis
-            </p>
-            
-            <div className="bg-white/10 backdrop-blur rounded-lg p-6 mb-6">
-              <div className="text-center">
-                <span className="font-dm-sans text-xl text-white/90">Complete Functional Health Analysis Package</span>
-                <div className="font-dm-sans font-bold text-3xl mt-2">₦235,000</div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <button
-                onClick={handlePayment}
-                className="w-full font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-bold text-lg hover:bg-gold-light transition-all transform hover:scale-105 shadow-xl"
-              >
-                Make Payment
-              </button>
+        {activeTab === 'complete' ? (
+          <div className="bg-gradient-to-br from-green-deep to-green-mid rounded-[24px] p-8 text-white">
+            <div className="text-center mb-8">
+              <h2 className="font-dm-sans font-bold text-2xl mb-4">Complete Health Investigation Package</h2>
+              <p className="font-dm-sans text-white/90 text-[1.1rem] mb-6">
+                All recommended tests for comprehensive health analysis
+              </p>
               
-              <div className="flex items-center justify-center gap-6 text-sm text-white/80">
-                <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <span>Secure payment via Paystack</span>
+              <div className="bg-white/10 backdrop-blur rounded-lg p-6 mb-6">
+                <div className="text-center">
+                  <span className="font-dm-sans text-xl text-white/90">Complete Functional Health Analysis Package</span>
+                  <div className="font-dm-sans font-bold text-3xl mt-2">NGN {totalPrice.toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <button
+                  onClick={handlePayment}
+                  className="w-full font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-bold text-lg hover:bg-gold-light transition-all transform hover:scale-105 shadow-xl"
+                >
+                  Make Payment
+                </button>
+                
+                <div className="flex items-center justify-center gap-6 text-sm text-white/80">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span>Secure payment via Paystack</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-gradient-to-br from-green-deep to-green-mid rounded-[24px] p-8 text-white">
+            <div className="text-center mb-8">
+              <h2 className="font-dm-sans font-bold text-2xl mb-4">Bring Your Own Results</h2>
+              <p className="font-dm-sans text-white/90 text-[1.1rem] mb-6">
+                Functional health analysis of your existing lab results
+              </p>
+              
+              <div className="bg-white/10 backdrop-blur rounded-lg p-6 mb-6">
+                <div className="text-center">
+                  <span className="font-dm-sans text-xl text-white/90">Functional Health Analysis Only</span>
+                  <div className="font-dm-sans font-bold text-3xl mt-2">NGN {functionalAnalysisPrice.toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <button
+                  onClick={handlePayment}
+                  className="w-full font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-bold text-lg hover:bg-gold-light transition-all transform hover:scale-105 shadow-xl"
+                >
+                  Make Payment
+                </button>
+                
+                <div className="flex items-center justify-center gap-6 text-sm text-white/80">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span>Secure payment via Paystack</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <Footer />
