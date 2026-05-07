@@ -141,7 +141,7 @@ export default function FunctionalHealthInvestigations() {
     <div className="min-h-screen bg-[#FCFFF0]">
       <Navigation />
       
-      <div className="max-w-6xl mx-auto px-[5%] py-40">
+      <div className="max-w-6xl mx-auto px-[5%] pt-48 pb-40">
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-block text-green-mid bg-green-mid/10 px-4 py-1.5 rounded-[20px] text-[0.75rem] font-semibold tracking-[0.14em] uppercase mb-6">

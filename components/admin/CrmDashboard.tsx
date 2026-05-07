@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities'
 type Stage = "Outreach" | "Follow Up" | "Enrolment" | "Onboarding" | "Active"
 type NavItem = "overview" | "pipeline" | "coordinator" | "calendar" | "documents" | "reporting" | "ai-agent"
 type Risk = "High" | "Medium" | "Low"
+type CrmView = "clinical" | "financial"
 
 type Note = {
   text: string
@@ -114,9 +115,38 @@ type AgentSuggestion = {
   action: string
 }
 
+type FinancialSection = "dashboard" | "tasks" | "pipeline" | "scenarios"
+
+type RevenueStreamPlan = {
+  id: "corporate" | "government" | "elderly" | "hmo" | "premium"
+  name: string
+  target: number
+  secured: number
+}
+
+type FinancialTaskItem = {
+  id: string
+  week: number
+  text: string
+  tag: "corporate" | "government" | "elderly" | "hmo" | "premium" | "ops"
+  done: boolean
+  priority: "High" | "Medium" | "Low"
+}
+
+type FinancialDealStatus = "cold" | "warm" | "hot" | "won"
+type FinancialDeal = {
+  id: string
+  company: string
+  type: string
+  value: number
+  status: FinancialDealStatus
+  notes: string
+}
+
 interface CrmDashboardProps {
   patients: Patient[]
   setPatients: React.Dispatch<React.SetStateAction<Patient[]>>
+  crmView: CrmView
   showLeadModal: boolean
   setShowLeadModal: (show: boolean) => void
   leadForm: {
@@ -313,9 +343,34 @@ const remindersSeed: Reminder[] = [
   { id: 4, type: "Follow-up Check-in", patientId: "FX006", channel: "SMS", status: "Queued", sendAt: "Tomorrow • 9:30 AM" },
 ]
 
+const revenueStreamSeed: RevenueStreamPlan[] = [
+  { id: "corporate", name: "Corporate Wellness Screenings", target: 27000000, secured: 0 },
+  { id: "government", name: "Government Pilot (LASPEC)", target: 12000000, secured: 0 },
+  { id: "elderly", name: "Elderly Care Retainers", target: 9000000, secured: 0 },
+  { id: "hmo", name: "HMO Partnerships", target: 6000000, secured: 0 },
+  { id: "premium", name: "Premium Founding Members", target: 9000000, secured: 0 },
+]
+
+const financialTaskSeed: FinancialTaskItem[] = [
+  { id: "f1", week: 1, text: "Create corporate wellness proposal pack", tag: "corporate", done: false, priority: "High" },
+  { id: "f2", week: 1, text: "Send first outreach batch to 20 CHROs", tag: "corporate", done: false, priority: "High" },
+  { id: "f3", week: 1, text: "Prepare LASPEC pilot draft", tag: "government", done: false, priority: "High" },
+  { id: "f4", week: 2, text: "Visit 3 elderly care facilities", tag: "elderly", done: false, priority: "Medium" },
+  { id: "f5", week: 2, text: "Kick off HMO partner calls", tag: "hmo", done: false, priority: "Medium" },
+  { id: "f6", week: 3, text: "Close first 5 premium members", tag: "premium", done: false, priority: "High" },
+]
+
+const financialDealSeed: FinancialDeal[] = [
+  { id: "d1", company: "GTBank", type: "Corporate", value: 2500000, status: "warm", notes: "CHRO meeting scheduled" },
+  { id: "d2", company: "LASPEC", type: "Government", value: 6000000, status: "cold", notes: "Awaiting intro" },
+  { id: "d3", company: "The Haven", type: "Elderly Care", value: 450000, status: "warm", notes: "Site visit planned" },
+  { id: "d4", company: "Hygeia HMO", type: "HMO", value: 1500000, status: "hot", notes: "Proposal sent" },
+]
+
 export default function CrmDashboard({
   patients,
   setPatients,
+  crmView,
   showLeadModal,
   setShowLeadModal,
   leadForm,
@@ -337,6 +392,19 @@ export default function CrmDashboard({
   // Appointments state
   const [appointments, setAppointments] = useState<WebsiteAppointment[]>([])
   const [appointmentsLoading, setAppointmentsLoading] = useState(false)
+  const [financialSection, setFinancialSection] = useState<FinancialSection>("dashboard")
+  const [revenueStreams, setRevenueStreams] = useState<RevenueStreamPlan[]>(revenueStreamSeed)
+  const [financialTasks, setFinancialTasks] = useState<FinancialTaskItem[]>(financialTaskSeed)
+  const [financialTaskFilter, setFinancialTaskFilter] = useState<"all" | FinancialTaskItem["tag"]>("all")
+  const [financialWeek, setFinancialWeek] = useState(1)
+  const [financialDeals, setFinancialDeals] = useState<FinancialDeal[]>(financialDealSeed)
+  const [newDeal, setNewDeal] = useState({
+    company: "",
+    type: "Corporate",
+    value: "",
+    status: "cold" as FinancialDealStatus,
+    notes: "",
+  })
 
   // Drag and drop state
   const [activeDragPatient, setActiveDragPatient] = useState<Patient | null>(null)
@@ -366,10 +434,10 @@ export default function CrmDashboard({
 
   // Fetch appointments when calendar section is active
   useEffect(() => {
-    if (activeSection === 'calendar') {
+    if (activeSection === 'calendar' || crmView === 'financial') {
       fetchAppointments()
     }
-  }, [activeSection])
+  }, [activeSection, crmView])
 
   // Save notes to localStorage (backup until DB migration is applied)
   const saveNotesToStorage = (patientId: string, notes: Note[]) => {
@@ -596,6 +664,112 @@ export default function CrmDashboard({
     })
   }, [patients])
 
+  const financialDashboard = useMemo(() => {
+    const totalAppointments = appointments.length
+    const paidAppointments = appointments.filter((appointment) => appointment.payment_status === 'paid')
+    const pendingAppointments = appointments.filter((appointment) => appointment.payment_status === 'pending')
+    const failedAppointments = appointments.filter((appointment) => appointment.payment_status === 'failed')
+    const telemedicineCount = appointments.filter((appointment) => appointment.consultation_type === 'telemedicine').length
+    const homeVisitCount = appointments.filter((appointment) => appointment.consultation_type === 'home-visit').length
+
+    const estimatedRevenue = paidAppointments.reduce((sum, appointment) => {
+      return sum + (appointment.consultation_type === 'telemedicine' ? 25000 : 85000)
+    }, 0)
+
+    const outstandingRevenue = pendingAppointments.reduce((sum, appointment) => {
+      return sum + (appointment.consultation_type === 'telemedicine' ? 25000 : 85000)
+    }, 0)
+
+    return {
+      totalAppointments,
+      paidCount: paidAppointments.length,
+      pendingCount: pendingAppointments.length,
+      failedCount: failedAppointments.length,
+      telemedicineCount,
+      homeVisitCount,
+      estimatedRevenue,
+      outstandingRevenue,
+      collectionRate: totalAppointments > 0 ? Math.round((paidAppointments.length / totalAppointments) * 100) : 0,
+    }
+  }, [appointments])
+
+  const financialExecution = useMemo(() => {
+    const startingCapital = 150000000
+    const monthlyBurn = 30000000
+    const revenueSecured = revenueStreams.reduce((sum, stream) => sum + stream.secured, 0)
+    const cashCollected = Math.round(revenueSecured * 0.7)
+    const endingCash90 = startingCapital - 90000000 + cashCollected
+    const runwayMonths = Math.max(0, (startingCapital - monthlyBurn + cashCollected) / monthlyBurn)
+    const taskDone = financialTasks.filter((task) => task.done).length
+    const taskTotal = financialTasks.length
+    const taskCompletion = taskTotal > 0 ? Math.round((taskDone / taskTotal) * 100) : 0
+
+    const monthlyRecurringRevenue = Math.round(
+      (revenueStreams.find((stream) => stream.id === "elderly")?.secured || 0) * 0.4 +
+      (revenueStreams.find((stream) => stream.id === "hmo")?.secured || 0) * 0.5 +
+      (revenueStreams.find((stream) => stream.id === "premium")?.secured || 0) / 12
+    )
+
+    return {
+      startingCapital,
+      monthlyBurn,
+      revenueSecured,
+      cashCollected,
+      endingCash90,
+      runwayMonths,
+      taskDone,
+      taskTotal,
+      taskCompletion,
+      monthlyRecurringRevenue,
+    }
+  }, [revenueStreams, financialTasks])
+
+  const filteredFinancialTasks = useMemo(() => {
+    return financialTasks.filter((task) => {
+      const matchesWeek = task.week === financialWeek
+      const matchesTag = financialTaskFilter === "all" || task.tag === financialTaskFilter
+      return matchesWeek && matchesTag
+    })
+  }, [financialTasks, financialWeek, financialTaskFilter])
+
+  const financialPipeline = useMemo(() => {
+    const totalValue = financialDeals.reduce((sum, deal) => sum + deal.value, 0)
+    const wonDeals = financialDeals.filter((deal) => deal.status === "won")
+    const wonValue = wonDeals.reduce((sum, deal) => sum + deal.value, 0)
+    const conversionRate = financialDeals.length > 0 ? Math.round((wonDeals.length / financialDeals.length) * 100) : 0
+    return { totalValue, wonValue, conversionRate, wonCount: wonDeals.length }
+  }, [financialDeals])
+
+  const updateRevenueStream = (id: RevenueStreamPlan["id"], value: number) => {
+    setRevenueStreams((prev) =>
+      prev.map((stream) => stream.id === id ? { ...stream, secured: Math.max(0, value) } : stream)
+    )
+  }
+
+  const toggleFinancialTask = (taskId: string) => {
+    setFinancialTasks((prev) =>
+      prev.map((task) => task.id === taskId ? { ...task, done: !task.done } : task)
+    )
+  }
+
+  const addFinancialDeal = () => {
+    if (!newDeal.company.trim()) return
+    const parsedValue = Number(newDeal.value)
+    const dealValue = Number.isFinite(parsedValue) ? parsedValue : 0
+    setFinancialDeals((prev) => [
+      ...prev,
+      {
+        id: `d-${Date.now()}`,
+        company: newDeal.company.trim(),
+        type: newDeal.type,
+        value: dealValue,
+        status: newDeal.status,
+        notes: newDeal.notes.trim(),
+      },
+    ])
+    setNewDeal({ company: "", type: "Corporate", value: "", status: "cold", notes: "" })
+  }
+
   // Helper functions
   const getStageColor = (stage: Stage) => {
     switch (stage) {
@@ -821,35 +995,364 @@ export default function CrmDashboard({
 
   return (
     <div className="space-y-6">
-      {/* CRM Navigation */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg overflow-x-auto">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveSection(item.id as NavItem)}
-              className={`px-4 py-3 rounded-lg font-dm-sans text-[0.9rem] font-medium transition-colors whitespace-nowrap ${
-                activeSection === item.id
-                  ? 'bg-green-deep text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <span className="mr-2">{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        {crmView === "clinical" ? (
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg overflow-x-auto">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id as NavItem)}
+                className={`px-4 py-3 rounded-lg font-dm-sans text-[0.9rem] font-medium transition-colors whitespace-nowrap ${
+                  activeSection === item.id
+                    ? 'bg-green-deep text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <span className="mr-2">{item.icon}</span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-text-mid font-dm-sans py-2">
+            Financial CRM focuses on payments, collections, and booking revenue.
+          </div>
+        )}
 
-        {/* New Lead Button - Always Visible */}
-        <button
-          onClick={() => setShowLeadModal(true)}
-          className="px-4 py-3 bg-gold text-green-deep rounded-lg font-dm-sans font-semibold text-[0.9rem] hover:bg-gold-light transition-colors shadow-sm whitespace-nowrap"
-        >
-          + New Lead
-        </button>
+        <div className="flex items-center gap-3">
+          {crmView === "clinical" && (
+            <button
+              onClick={() => setShowLeadModal(true)}
+              className="px-4 py-3 bg-gold text-green-deep rounded-lg font-dm-sans font-semibold text-[0.9rem] hover:bg-gold-light transition-colors shadow-sm whitespace-nowrap"
+            >
+              + New Lead
+            </button>
+          )}
+        </div>
       </div>
 
-      {activeSection === "overview" && (
+      {crmView === "financial" && (
+        <div className="space-y-6">
+          <div className="flex flex-wrap gap-2 bg-gray-100 p-1 rounded-lg w-fit">
+            {[
+              { id: "dashboard", label: "Command Dashboard" },
+              { id: "tasks", label: "Task Planner" },
+              { id: "pipeline", label: "Sales Pipeline" },
+              { id: "scenarios", label: "Scenarios" },
+            ].map((section) => (
+              <button
+                key={section.id}
+                onClick={() => setFinancialSection(section.id as FinancialSection)}
+                className={`px-4 py-2 rounded-lg font-dm-sans text-sm font-medium transition-colors ${
+                  financialSection === section.id
+                    ? "bg-green-deep text-white shadow-sm"
+                    : "text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {section.label}
+              </button>
+            ))}
+          </div>
+
+          {financialSection === "dashboard" && (
+            <>
+              {financialExecution.runwayMonths < 5 && (
+                <div className={`rounded-lg p-4 text-sm font-dm-sans border ${
+                  financialExecution.runwayMonths < 3
+                    ? "bg-red-50 border-red-200 text-red-700"
+                    : "bg-yellow-50 border-yellow-200 text-yellow-700"
+                }`}>
+                  {financialExecution.runwayMonths < 3
+                    ? "Critical: runway is below 3 months. Prioritize fastest-closing deals and contingency funding."
+                    : "Runway has dropped below 5 months. Accelerate collections and short-cycle contracts."}
+                </div>
+              )}
+
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
+                  <p className="text-sm text-text-mid font-dm-sans mb-2">Revenue Secured</p>
+                  <p className="text-2xl font-bold text-green-deep">₦{financialExecution.revenueSecured.toLocaleString()}</p>
+                </div>
+                <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
+                  <p className="text-sm text-text-mid font-dm-sans mb-2">Cash Collected</p>
+                  <p className="text-2xl font-bold text-green-600">₦{financialExecution.cashCollected.toLocaleString()}</p>
+                </div>
+                <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
+                  <p className="text-sm text-text-mid font-dm-sans mb-2">Cash Runway</p>
+                  <p className="text-2xl font-bold text-gold">{financialExecution.runwayMonths.toFixed(1)} mo</p>
+                </div>
+                <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
+                  <p className="text-sm text-text-mid font-dm-sans mb-2">Tasks Complete</p>
+                  <p className="text-2xl font-bold text-green-deep">{financialExecution.taskCompletion}%</p>
+                </div>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-dm-sans font-semibold text-green-deep">Revenue Streams</h3>
+                    <span className="text-xs text-gray-500 font-dm-sans">90-day execution targets</span>
+                  </div>
+                  <div className="space-y-4">
+                    {revenueStreams.map((stream) => {
+                      const progress = Math.min(100, (stream.secured / stream.target) * 100)
+                      return (
+                        <div key={stream.id} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <p className="text-sm font-semibold font-dm-sans text-green-deep">{stream.name}</p>
+                            <span className="text-xs text-gray-500">Target ₦{stream.target.toLocaleString()}</span>
+                          </div>
+                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-3">
+                            <div className="h-full bg-green-mid rounded-full" style={{ width: `${progress}%` }} />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-500">Secured</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={stream.secured}
+                              onChange={(event) => updateRevenueStream(stream.id, Number(event.target.value))}
+                              className="w-36 px-2 py-1 border border-gray-300 rounded text-sm"
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
+                  <h3 className="text-xl font-dm-sans font-semibold text-green-deep mb-4">Survival Math</h3>
+                  <div className="space-y-2 text-sm font-dm-sans">
+                    <div className="flex justify-between"><span>Starting Capital</span><span>₦{financialExecution.startingCapital.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>90-Day Burn</span><span className="text-red-600">₦90,000,000</span></div>
+                    <div className="flex justify-between"><span>Revenue Collected</span><span className="text-green-600">₦{financialExecution.cashCollected.toLocaleString()}</span></div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <p className="text-xs text-gray-500 mb-1">Projected Ending Cash (Day 90)</p>
+                    <p className={`text-3xl font-bold ${
+                      financialExecution.endingCash90 >= 110000000
+                        ? "text-green-600"
+                        : financialExecution.endingCash90 >= 95000000
+                          ? "text-gold"
+                          : "text-red-600"
+                    }`}>
+                      ₦{financialExecution.endingCash90.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      MRR: ₦{financialExecution.monthlyRecurringRevenue.toLocaleString()} / month (breakeven target ₦30,000,000)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-dm-sans font-semibold text-green-deep">Recent Financial Bookings</h3>
+                  <button
+                    onClick={fetchAppointments}
+                    disabled={appointmentsLoading}
+                    className="px-4 py-2 bg-green-deep text-white rounded-lg font-dm-sans hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {appointmentsLoading ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {appointments.slice(0, 8).map((appointment) => (
+                    <div key={appointment.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-dm-sans font-semibold text-green-deep">
+                          {appointment.first_name} {appointment.last_name}
+                        </p>
+                        <span className="text-sm font-dm-sans text-gray-600">
+                          ₦{(appointment.consultation_type === 'telemedicine' ? 25000 : 85000).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 mt-2 text-xs font-dm-sans">
+                        <span className={`px-2 py-1 rounded ${
+                          appointment.consultation_type === 'telemedicine' ? 'bg-green-100 text-green-800' : 'bg-gold text-green-deep'
+                        }`}>
+                          {appointment.consultation_type === 'telemedicine' ? 'Telemedicine' : 'Home Visit'}
+                        </span>
+                        <span className={`px-2 py-1 rounded ${
+                          appointment.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
+                          appointment.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          Payment: {appointment.payment_status}
+                        </span>
+                        <span className="text-gray-500">
+                          {new Date(appointment.preferred_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {!appointmentsLoading && appointments.length === 0 && (
+                    <p className="text-sm text-gray-500 font-dm-sans">No booking records available yet.</p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {financialSection === "tasks" && (
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2 bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-dm-sans font-semibold text-green-deep">Week {financialWeek} Task Planner</h3>
+                  <span className="text-sm text-gray-500">{filteredFinancialTasks.filter((task) => task.done).length}/{filteredFinancialTasks.length} complete</span>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {[1, 2, 3, 4].map((week) => (
+                    <button
+                      key={week}
+                      onClick={() => setFinancialWeek(week)}
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        financialWeek === week ? "bg-green-deep text-white" : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      Week {week}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {["all", "corporate", "government", "elderly", "hmo", "premium", "ops"].map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => setFinancialTaskFilter(tag as "all" | FinancialTaskItem["tag"])}
+                      className={`px-3 py-1 rounded-full text-xs uppercase tracking-wide ${
+                        financialTaskFilter === tag ? "bg-gold text-green-deep" : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-3">
+                  {filteredFinancialTasks.map((task) => (
+                    <div key={task.id} className="flex items-start gap-3 border border-gray-200 rounded-lg p-3">
+                      <button
+                        onClick={() => toggleFinancialTask(task.id)}
+                        className={`w-5 h-5 rounded border mt-0.5 ${task.done ? "bg-green-600 border-green-600 text-white" : "border-gray-300"}`}
+                      >
+                        {task.done ? "✓" : ""}
+                      </button>
+                      <div className="flex-1">
+                        <p className={`text-sm font-dm-sans ${task.done ? "line-through text-gray-400" : "text-green-deep"}`}>{task.text}</p>
+                        <p className="text-xs text-gray-500 mt-1">{task.priority} Priority • {task.tag}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {filteredFinancialTasks.length === 0 && (
+                    <p className="text-sm text-gray-500">No tasks in this week/filter yet.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
+                <h3 className="text-lg font-dm-sans font-semibold text-green-deep mb-3">Execution Summary</h3>
+                <p className="text-3xl font-bold text-green-deep mb-1">{financialExecution.taskCompletion}%</p>
+                <p className="text-sm text-gray-500 mb-4">overall task completion</p>
+                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-4">
+                  <div className="h-full bg-green-mid" style={{ width: `${financialExecution.taskCompletion}%` }} />
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span>Total Tasks</span><span>{financialExecution.taskTotal}</span></div>
+                  <div className="flex justify-between"><span>Completed</span><span>{financialExecution.taskDone}</span></div>
+                  <div className="flex justify-between"><span>Open</span><span>{financialExecution.taskTotal - financialExecution.taskDone}</span></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {financialSection === "pipeline" && (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
+                  <p className="text-sm text-text-mid mb-2">Pipeline Value</p>
+                  <p className="text-2xl font-bold text-green-deep">₦{financialPipeline.totalValue.toLocaleString()}</p>
+                </div>
+                <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
+                  <p className="text-sm text-text-mid mb-2">Deals Won</p>
+                  <p className="text-2xl font-bold text-green-600">₦{financialPipeline.wonValue.toLocaleString()}</p>
+                </div>
+                <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
+                  <p className="text-sm text-text-mid mb-2">Conversion Rate</p>
+                  <p className="text-2xl font-bold text-gold">{financialPipeline.conversionRate}%</p>
+                </div>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10 space-y-3">
+                  <h3 className="text-lg font-dm-sans font-semibold text-green-deep">Active Opportunities</h3>
+                  {financialDeals.map((deal) => (
+                    <div key={deal.id} className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex justify-between gap-2">
+                        <p className="font-medium text-green-deep">{deal.company}</p>
+                        <span className="text-sm text-gray-600">₦{deal.value.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs bg-gray-100 px-2 py-1 rounded">{deal.type}</span>
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          deal.status === "won" ? "bg-green-100 text-green-700" :
+                          deal.status === "hot" ? "bg-red-100 text-red-700" :
+                          deal.status === "warm" ? "bg-yellow-100 text-yellow-700" :
+                          "bg-blue-100 text-blue-700"
+                        }`}>
+                          {deal.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">{deal.notes}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
+                  <h3 className="text-lg font-dm-sans font-semibold text-green-deep mb-3">Add Opportunity</h3>
+                  <div className="space-y-3">
+                    <input value={newDeal.company} onChange={(event) => setNewDeal((prev) => ({ ...prev, company: event.target.value }))} placeholder="Company name" className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                    <input value={newDeal.type} onChange={(event) => setNewDeal((prev) => ({ ...prev, type: event.target.value }))} placeholder="Type (Corporate/Government/...)" className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                    <input type="number" value={newDeal.value} onChange={(event) => setNewDeal((prev) => ({ ...prev, value: event.target.value }))} placeholder="Deal value (NGN)" className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                    <select value={newDeal.status} onChange={(event) => setNewDeal((prev) => ({ ...prev, status: event.target.value as FinancialDealStatus }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                      <option value="cold">Cold</option>
+                      <option value="warm">Warm</option>
+                      <option value="hot">Hot</option>
+                      <option value="won">Won</option>
+                    </select>
+                    <textarea value={newDeal.notes} onChange={(event) => setNewDeal((prev) => ({ ...prev, notes: event.target.value }))} placeholder="Notes" rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                    <button onClick={addFinancialDeal} className="px-4 py-2 bg-gold text-green-deep rounded-lg font-semibold">Save Deal</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {financialSection === "scenarios" && (
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="bg-white rounded-[20px] p-6 border-2 border-green-500/30">
+                <p className="text-xs uppercase tracking-wide text-green-600 mb-2">Best Case</p>
+                <p className="text-3xl font-bold text-green-600 mb-1">₦77M</p>
+                <p className="text-sm text-gray-500 mb-4">90-day revenue</p>
+                <p className="text-sm text-gray-600">Strong corporate close rate, LASPEC pilot lands, premium slots fill quickly.</p>
+              </div>
+              <div className="bg-white rounded-[20px] p-6 border-2 border-yellow-500/30">
+                <p className="text-xs uppercase tracking-wide text-yellow-700 mb-2">Base Case</p>
+                <p className="text-3xl font-bold text-yellow-700 mb-1">₦65M</p>
+                <p className="text-sm text-gray-500 mb-4">90-day revenue</p>
+                <p className="text-sm text-gray-600">Core channels perform steadily; runway extends but execution pace must stay high.</p>
+              </div>
+              <div className="bg-white rounded-[20px] p-6 border-2 border-red-500/30">
+                <p className="text-xs uppercase tracking-wide text-red-600 mb-2">Worst Case</p>
+                <p className="text-3xl font-bold text-red-600 mb-1">₦40M</p>
+                <p className="text-sm text-gray-500 mb-4">90-day revenue</p>
+                <p className="text-sm text-gray-600">Institutional deals stall; trigger contingency plan and bridge-capital strategy.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {crmView === "clinical" && activeSection === "overview" && (
         <div className="grid gap-6 lg:grid-cols-3">
           {/* KPI Cards */}
           <div className="lg:col-span-2 grid gap-4 md:grid-cols-2">
@@ -963,7 +1466,7 @@ export default function CrmDashboard({
         </div>
       )}
 
-      {activeSection === "pipeline" && (
+      {crmView === "clinical" && activeSection === "pipeline" && (
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
@@ -1005,7 +1508,7 @@ export default function CrmDashboard({
         </DndContext>
       )}
 
-      {activeSection === "coordinator" && (
+      {crmView === "clinical" && activeSection === "coordinator" && (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
             <h3 className="text-lg font-dm-sans font-semibold text-green-deep mb-4">Coordinator Workload</h3>
@@ -1059,7 +1562,7 @@ export default function CrmDashboard({
       )}
 
       {/* AI Agent Panel */}
-      {showAgentPanel && activeSection === "ai-agent" && (
+      {crmView === "clinical" && showAgentPanel && activeSection === "ai-agent" && (
         <div className="bg-white rounded-[20px] p-6 shadow-lg">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -1175,7 +1678,7 @@ export default function CrmDashboard({
       )}
 
       {/* Calendar/Schedule Section */}
-      {activeSection === "calendar" && (
+      {crmView === "clinical" && activeSection === "calendar" && (
         <div className="bg-white rounded-[20px] p-6 shadow-lg">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -1362,7 +1865,7 @@ export default function CrmDashboard({
       )}
 
       {/* Lead Creation Modal */}
-      {showLeadModal && (
+      {crmView === "clinical" && showLeadModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-[20px] p-6 shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">

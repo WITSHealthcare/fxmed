@@ -29,6 +29,7 @@ interface BlogPost {
 
 type Stage = "Outreach" | "Follow Up" | "Enrolment" | "Onboarding" | "Active"
 type Risk = "High" | "Medium" | "Low"
+type CrmView = "clinical" | "financial"
 
 type Note = {
   text: string
@@ -225,6 +226,7 @@ export default function AdminPanel() {
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'blog' | 'crm' | 'seo' | 'health' | 'messages'>('blog')
+  const [crmView, setCrmView] = useState<CrmView>('clinical')
   const [importing, setImporting] = useState(false)
 
   // CRM state
@@ -659,13 +661,39 @@ export default function AdminPanel() {
           <div className="max-w-6xl mx-auto px-8 py-8">
             {/* Content Header */}
             <div className="mb-8">
-              <h2 className="text-3xl font-dm-sans font-bold text-green-deep mb-2">
-                {activeTab === 'blog' && 'Blog Management'}
-                {activeTab === 'crm' && 'CRM Dashboard'}
-                {activeTab === 'seo' && 'SEO Analytics'}
-                {activeTab === 'health' && 'Functional Health Analysis'}
-                {activeTab === 'messages' && 'Messages'}
-              </h2>
+              <div className="flex items-start justify-between gap-4">
+                <h2 className="text-3xl font-dm-sans font-bold text-green-deep mb-2">
+                  {activeTab === 'blog' && 'Blog Management'}
+                  {activeTab === 'crm' && 'CRM Dashboard'}
+                  {activeTab === 'seo' && 'SEO Analytics'}
+                  {activeTab === 'health' && 'Functional Health Analysis'}
+                  {activeTab === 'messages' && 'Messages'}
+                </h2>
+                {activeTab === 'crm' && (
+                  <div className="flex items-center bg-gray-100 rounded-full p-1 border border-green-deep/10">
+                    <button
+                      onClick={() => setCrmView('clinical')}
+                      className={`px-4 py-2 rounded-full text-sm font-dm-sans font-medium transition-colors ${
+                        crmView === 'clinical'
+                          ? 'bg-green-deep text-white shadow-sm'
+                          : 'text-gray-700 hover:text-green-deep'
+                      }`}
+                    >
+                      Clinical CRM
+                    </button>
+                    <button
+                      onClick={() => setCrmView('financial')}
+                      className={`px-4 py-2 rounded-full text-sm font-dm-sans font-medium transition-colors ${
+                        crmView === 'financial'
+                          ? 'bg-green-deep text-white shadow-sm'
+                          : 'text-gray-700 hover:text-green-deep'
+                      }`}
+                    >
+                      Financial CRM
+                    </button>
+                  </div>
+                )}
+              </div>
               <p className="text-text-mid">
                 {activeTab === 'blog' && 'Manage your blog posts, drafts, and content'}
                 {activeTab === 'crm' && 'Track patients, manage pipeline, and optimize outreach'}
@@ -684,6 +712,7 @@ export default function AdminPanel() {
               <CrmDashboard
                 patients={patients}
                 setPatients={setPatients}
+                crmView={crmView}
                 showLeadModal={showLeadModal}
                 setShowLeadModal={setShowLeadModal}
                 leadForm={leadForm}

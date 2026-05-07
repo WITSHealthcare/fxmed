@@ -173,7 +173,7 @@ const ASSESSMENTS: Record<string, Assessment> = {
     ]
   },
   cancer: {
-    name: "Cancer Screening",
+    name: "Cancer Risk",
     questions: [
       {
         question: "What type of cancer screening are you interested in?",
@@ -253,26 +253,26 @@ export default function HealthRiskAssessment() {
   const categories = [
     {
       id: 'children',
-      icon: '👶',
+      icon: '/BlackChild.png',
       title: "Children's Health",
       subtitle: "Allergies, ADHD, Autism, Development"
     },
     {
       id: 'hormones',
-      icon: '⚖️',
+      icon: '/Hormone.png',
       title: "Hormones & Fertility",
       subtitle: "Thyroid, Erectile Dysfunction, Menstrual, Trying To Conceive, Menopause"
     },
     {
       id: 'heart',
-      icon: '❤️',
+      icon: '/Heart.png',
       title: "Heart & Metabolic",
       subtitle: "Diabetes, Hypertension, Stroke"
     },
     {
       id: 'cancer',
-      icon: '🎗️',
-      title: "Cancer Screening",
+      icon: '/Cancer.png',
+      title: "Cancer Risk",
       subtitle: "Breast, Prostate, Colon, Others"
     }
   ]
@@ -337,7 +337,13 @@ export default function HealthRiskAssessment() {
       } else {
         setSelectedAnswers([prevAnswer.answer])
       }
-      setAnswers(answers.slice(0, -1))
+    } else {
+      // Go back to welcome screen
+      setScreen('welcome')
+      setCurrentQuestion(0)
+      setAnswers([])
+      setSelectedAnswers([])
+      setCategory('')
     }
   }
 
@@ -484,7 +490,7 @@ export default function HealthRiskAssessment() {
                 Health Assessment
               </div>
               <h2 className="font-dm-sans font-bold text-green-deep text-[clamp(2rem,4vw,3rem)] leading-[1.15] mb-4">
-                Discover your<br/>health priority
+                A 3-minute assessment could discover <span className="italic bg-[#CADE68] px-2 rounded">risk</span><br/>before they become <span className="italic bg-[#CADE68] px-2 rounded">diagnosis</span>
               </h2>
               <p className="font-dm-sans text-black text-[1.05rem] leading-[1.7] max-w-[560px] mx-auto">
                 Take our comprehensive health assessment to get personalized insights and actionable recommendations from our functional medicine experts.
@@ -493,8 +499,8 @@ export default function HealthRiskAssessment() {
 
             <div className="max-w-4xl mx-auto bg-[#FCFFF0] rounded-[24px] p-8 md:p-12">
               <div className="text-center mb-10">
-                <p className="font-dm-sans text-text-mid text-[1.1rem] leading-[1.7] max-w-3xl mx-auto">
-                  Select the area you'd like to explore:
+                <p className="font-dm-sans font-bold text-text-mid text-[1.3rem] leading-[1.7] max-w-3xl mx-auto">
+                  Choose an area to get started
                 </p>
               </div>
 
@@ -505,7 +511,13 @@ export default function HealthRiskAssessment() {
                     onClick={() => startAssessment(cat.id)}
                     className="bg-white border-2 border-green-deep/20 rounded-[16px] p-6 text-left hover:border-green-mid hover:shadow-lg transition-all group"
                   >
-                    <div className="text-4xl mb-4">{cat.icon}</div>
+                    <div className="text-4xl mb-4">
+                      {cat.icon.startsWith('/') ? (
+                        <img src={cat.icon} alt={cat.title} className="w-12 h-12" />
+                      ) : (
+                        cat.icon
+                      )}
+                    </div>
                     <h3 className="font-dm-sans font-semibold text-green-deep text-[1.2rem] mb-2 group-hover:text-green-mid transition-colors">
                       {cat.title}
                     </h3>
@@ -633,8 +645,7 @@ export default function HealthRiskAssessment() {
               <div className="flex justify-between items-center">
                 <button
                   onClick={backQuestion}
-                  disabled={currentQuestion === 0}
-                  className="px-6 py-3 rounded-[12px] border-2 border-gray-200 font-dm-sans font-medium transition-all hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 rounded-[12px] border-2 border-gray-200 font-dm-sans font-medium transition-all hover:border-gray-300"
                 >
                   ← Previous
                 </button>
@@ -703,7 +714,9 @@ export default function HealthRiskAssessment() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                   <div className="bg-white/10 backdrop-blur rounded-[16px] p-6 border border-white/20">
-                    <div className="text-3xl mb-3">📱</div>
+                    <div className="text-3xl mb-3">
+                      <img src="/Telemedicine.png" alt="Telemedicine" className="w-12 h-12 mx-auto" />
+                    </div>
                     <h3 className="font-dm-sans font-semibold text-lg mb-2">Telemedicine</h3>
                     <p className="font-dm-sans text-white/80 text-sm mb-4">WhatsApp Video or Google Meet</p>
                     <div className="text-2xl font-bold mb-1">₦25,000</div>
@@ -720,7 +733,9 @@ export default function HealthRiskAssessment() {
                     <div className="absolute -top-3 right-6 bg-gold text-green-deep px-3 py-1 rounded-[20px] text-xs font-bold">
                       PREMIUM
                     </div>
-                    <div className="text-3xl mb-3">🏠</div>
+                    <div className="text-3xl mb-3">
+                      <img src="/HomeVisit.png" alt="Home Visit" className="w-12 h-12 mx-auto" />
+                    </div>
                     <h3 className="font-dm-sans font-semibold text-lg mb-2">Home Visit</h3>
                     <p className="font-dm-sans text-white/80 text-sm mb-4">Mobile clinic comes to you</p>
                     <div className="text-2xl font-bold mb-1">₦85,000</div>
