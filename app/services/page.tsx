@@ -155,8 +155,13 @@ export default function ServicesPage() {
       <Navigation />
       
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-green-deep to-green-mid text-white py-[100px] px-[5%]">
-        <div className="max-w-4xl mx-auto text-center">
+      <section className="relative bg-gradient-to-br from-green-deep to-green-mid text-white pt-52 pb-20 px-[5%] overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-left bg-no-repeat brightness-[0.4]"
+          style={{ backgroundImage: "url('/Equipment.jpg')" }}
+        ></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-[rgba(15,36,25,0.3)] via-[rgba(15,36,25,0.7)] to-[rgba(15,36,25,0.97)]"></div>
+        <div className="relative z-10 max-w-4xl mx-auto text-center">
           <div className="inline-block text-gold bg-gold/20 px-4 py-1.5 rounded-[20px] text-[0.75rem] font-dm-sans font-semibold tracking-[0.14em] uppercase mb-6">
             Our Services
           </div>
@@ -193,36 +198,42 @@ export default function ServicesPage() {
               {
                 title: 'Root Cause Focus',
                 desc: 'We don\'t just treat symptoms — we identify and address the underlying causes of your health concerns.',
-                icon: '🎯'
+                icon: '/Focus.png'
               },
               {
                 title: 'Personalized Care',
                 desc: 'Every protocol is tailored to your unique biochemistry, lifestyle, and health goals.',
-                icon: '👤'
+                icon: '/HealthAssessment.png'
               },
               {
                 title: 'Convenience First',
                 desc: 'Home visits, virtual consultations, and digital health tools make healthcare fit your life.',
-                icon: '🏠'
+                icon: '/HomeVisit.png'
               },
               {
                 title: 'Evidence-Based',
                 desc: 'Our approaches are grounded in the latest functional medicine research and clinical evidence.',
-                icon: '🔬'
+                icon: '/Science.png'
               },
               {
                 title: 'Integrated Approach',
                 desc: 'We coordinate care across specialists, labs, nutrition, and lifestyle for holistic health.',
-                icon: '🔄'
+                icon: '/Integrate.png'
               },
               {
                 title: 'Continuous Support',
                 desc: 'Ongoing monitoring, regular check-ins, and accessible messaging keep you supported.',
-                icon: '📱'
+                icon: '/Telemedicine.png'
               }
             ].map((item, index) => (
               <div key={index} className="bg-white rounded-[20px] p-8 border border-green-deep/8 shadow-sm">
-                <div className="text-4xl mb-4">{item.icon}</div>
+                <div className="text-4xl mb-4">
+                  {item.icon.startsWith('/') ? (
+                    <img src={item.icon} alt={item.title} className="w-12 h-12" />
+                  ) : (
+                    item.icon
+                  )}
+                </div>
                 <h3 className="font-dm-sans font-semibold text-green-deep text-[1.2rem] mb-3">{item.title}</h3>
                 <p className="font-dm-sans text-text-mid text-[0.95rem] leading-[1.6]">{item.desc}</p>
               </div>

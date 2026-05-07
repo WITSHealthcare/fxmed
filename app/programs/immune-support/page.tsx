@@ -13,7 +13,7 @@ export default function ImmuneSupport() {
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-[5%] bg-gradient-to-br from-green-deep to-green-mid">
+      <section className="relative pt-52 pb-20 px-[5%] bg-gradient-to-br from-green-deep to-green-mid">
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="relative z-10 max-w-4xl mx-auto text-center text-white">
           <h1 className="font-dm-sans font-bold text-4xl md:text-5xl mb-6">
