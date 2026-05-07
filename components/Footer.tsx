@@ -1,9 +1,15 @@
 'use client'
 
+import { useState } from 'react'
+import ContactModal from '@/components/ContactModal'
+
 export default function Footer() {
+  const [showContactModal, setShowContactModal] = useState(false)
+
   return (
-    <footer className="bg-black text-cream py-12 px-[5%]">
-      <div className="max-w-7xl mx-auto">
+    <>
+      <footer className="bg-black text-cream py-12 px-[5%]">
+        <div className="max-w-7xl mx-auto">
         {/* Logo Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Logo */}
@@ -54,7 +60,12 @@ export default function Footer() {
                 <a href="/#stories" className="hover:text-gold transition-colors">Ambassadors</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="/#contact" className="hover:text-gold transition-colors">Contact</a>
+                <button
+                  onClick={() => setShowContactModal(true)}
+                  className="hover:text-gold transition-colors"
+                >
+                  Contact
+                </button>
               </li>
             </ul>
           </div>
@@ -64,7 +75,12 @@ export default function Footer() {
             <h3 className="font-dm-sans font-semibold text-gold text-[1rem] mb-4">Contact</h3>
             <ul className="space-y-2">
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="/#contact" className="hover:text-gold transition-colors">Contact Us</a>
+                <button
+                  onClick={() => setShowContactModal(true)}
+                  className="hover:text-gold transition-colors"
+                >
+                  Contact Us
+                </button>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
                 <span className="text-cream/60">6A Robin Road, Crown Estate, Sangotedo, Lagos, Nigeria</span>
@@ -117,7 +133,12 @@ export default function Footer() {
             </div>
           </div>
         </div>
-      </div>
-    </footer>
+        </div>
+      </footer>
+
+      {showContactModal && (
+        <ContactModal isOpen={showContactModal} onClose={() => setShowContactModal(false)} />
+      )}
+    </>
   )
 }

@@ -10,19 +10,19 @@ export default function HowItWorks() {
       number: 1,
       title: 'Book a Consultation',
       description: 'Schedule your initial consultation with our expert team to discuss your health goals and concerns.',
-      icon: '📅'
+      icon: '/Calendar.png'
     },
     {
       number: 2,
       title: 'Get a Functional Health Assessment',
       description: 'Complete our comprehensive functional health assessment to identify root causes of your health issues.',
-      icon: '🔬'
+      icon: '/HealthAssessment.png'
     },
     {
       number: 3,
       title: 'Get on a Care Plan',
       description: 'Receive a personalized care plan tailored to your unique health needs and start your journey to optimal wellness.',
-      icon: '✨'
+      icon: '/CarePlan.png'
     }
   ]
 
@@ -55,7 +55,11 @@ export default function HowItWorks() {
 
               {/* Icon */}
               <div className="text-5xl mb-4">
-                {step.icon}
+                {step.icon.startsWith('/') ? (
+                  <img src={step.icon} alt={step.title} className="w-12 h-12" />
+                ) : (
+                  step.icon
+                )}
               </div>
 
               {/* Title */}

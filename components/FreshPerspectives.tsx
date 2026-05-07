@@ -144,7 +144,7 @@ export default function FreshPerspectives() {
           {/* Left Content - Latest Posts List */}
           <div>
             <h3 className="font-dm-sans font-semibold text-green-deep text-[1.2rem] mb-6 flex items-center">
-              <span className="mr-2">📰</span> Latest Articles
+              Latest Articles
             </h3>
             
             {/* Blog Posts List */}
@@ -265,7 +265,7 @@ export default function FreshPerspectives() {
           {/* Right Content - Featured Post */}
           <div className="order-first lg:order-last">
             <h3 className="font-dm-sans font-semibold text-green-deep text-[1.2rem] mb-6 flex items-center">
-              <span className="mr-2">⭐</span> Featured Article
+              Featured Article
             </h3>
             
             {loading ? (

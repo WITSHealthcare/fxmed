@@ -1,5 +1,3 @@
-import Link from 'next/link'
-
 export default function FunctionalHealthSummary() {
   return (
     <section className="py-20 px-[5%] bg-gradient-to-br from-green-deep/5 to-gold/5">
@@ -72,7 +70,13 @@ export default function FunctionalHealthSummary() {
             <div className="bg-white rounded-[24px] p-8 shadow-xl">
               <div className="text-center mb-6">
                 <div className="w-20 h-20 bg-gold rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
-                  🧬
+                  <div
+                    className="w-10 h-10 bg-green-deep"
+                    style={{
+                      WebkitMask: 'url("/Dna.svg") center / contain no-repeat',
+                      mask: 'url("/Dna.svg") center / contain no-repeat',
+                    }}
+                  />
                 </div>
                 <h3 className="font-dm-sans font-bold text-green-deep text-2xl mb-2">
                   What Makes Our Analysis Different?
@@ -84,7 +88,12 @@ export default function FunctionalHealthSummary() {
 
               <div className="space-y-4">
                 <div className="flex items-center gap-3 p-4 bg-green-deep/5 rounded-lg">
-                  <span className="text-2xl">🔬</span>
+                  <div className="w-8 h-8 flex-shrink-0 bg-green-deep"
+                    style={{
+                      WebkitMask: 'url("/TestTube.svg") center / contain no-repeat',
+                      mask: 'url("/TestTube.svg") center / contain no-repeat',
+                    }}
+                  />
                   <div>
                     <h4 className="font-dm-sans font-semibold text-green-deep">Advanced Lab Analysis</h4>
                     <p className="text-sm text-text-mid">Comprehensive blood work interpretation</p>
@@ -92,7 +101,12 @@ export default function FunctionalHealthSummary() {
                 </div>
 
                 <div className="flex items-center gap-3 p-4 bg-gold/20 rounded-lg">
-                  <span className="text-2xl">⚖️</span>
+                  <div className="w-8 h-8 flex-shrink-0 bg-green-deep"
+                    style={{
+                      WebkitMask: 'url("/lets-icons_chemistry.svg") center / contain no-repeat',
+                      mask: 'url("/lets-icons_chemistry.svg") center / contain no-repeat',
+                    }}
+                  />
                   <div>
                     <h4 className="font-dm-sans font-semibold text-green-deep">Hormonal Balance</h4>
                     <p className="text-sm text-text-mid">Endocrine system optimization</p>
@@ -100,7 +114,12 @@ export default function FunctionalHealthSummary() {
                 </div>
 
                 <div className="flex items-center gap-3 p-4 bg-green-deep/5 rounded-lg">
-                  <span className="text-2xl">🎯</span>
+                  <div className="w-8 h-8 flex-shrink-0 bg-green-deep"
+                    style={{
+                      WebkitMask: 'url("/Asterisk.svg") center / contain no-repeat',
+                      mask: 'url("/Asterisk.svg") center / contain no-repeat',
+                    }}
+                  />
                   <div>
                     <h4 className="font-dm-sans font-semibold text-green-deep">Risk Prediction</h4>
                     <p className="text-sm text-text-mid">Identify future health challenges</p>
@@ -108,7 +127,12 @@ export default function FunctionalHealthSummary() {
                 </div>
 
                 <div className="flex items-center gap-3 p-4 bg-gold/20 rounded-lg">
-                  <span className="text-2xl">💊</span>
+                  <div className="w-8 h-8 flex-shrink-0 bg-green-deep"
+                    style={{
+                      WebkitMask: 'url("/Steps.svg") center / contain no-repeat',
+                      mask: 'url("/Steps.svg") center / contain no-repeat',
+                    }}
+                  />
                   <div>
                     <h4 className="font-dm-sans font-semibold text-green-deep">Custom Protocols</h4>
                     <p className="text-sm text-text-mid">Personalized wellness strategies</p>
