@@ -7,6 +7,7 @@ import CrmDashboard from '@/components/admin/CrmDashboard'
 import SeoAnalytics from '@/components/admin/SeoAnalytics'
 import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysis'
 import Messages from '@/components/admin/Messages'
+import AppointmentCalendar from '@/components/admin/AppointmentCalendar'
 import Notifications from '@/components/admin/Notifications'
 import { signOut } from '@/lib/supabase-auth'
 import { createClient } from '@supabase/supabase-js'
@@ -225,7 +226,7 @@ export default function AdminPanel() {
   const router = useRouter()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'blog' | 'crm' | 'seo' | 'health' | 'messages'>('blog')
+  const [activeTab, setActiveTab] = useState<'blog' | 'crm' | 'seo' | 'health' | 'messages' | 'requests'>('blog')
   const [crmView, setCrmView] = useState<CrmView>('clinical')
   const [importing, setImporting] = useState(false)
 
@@ -652,6 +653,17 @@ export default function AdminPanel() {
                 <span>💬</span>
                 <span>Messages</span>
               </button>
+              <button
+                onClick={() => setActiveTab('requests')}
+                className={`w-full px-4 py-3 rounded-lg font-dm-sans text-sm font-medium transition-all text-left flex items-center space-x-3 ${
+                  activeTab === 'requests'
+                    ? 'bg-gold text-green-deep shadow-md'
+                    : 'text-cream/85 hover:bg-green-deep/20 hover:text-cream'
+                }`}
+              >
+                <span>📋</span>
+                <span>Requests</span>
+              </button>
             </div>
           </nav>
         </div>
@@ -668,6 +680,7 @@ export default function AdminPanel() {
                   {activeTab === 'seo' && 'SEO Analytics'}
                   {activeTab === 'health' && 'Functional Health Analysis'}
                   {activeTab === 'messages' && 'Messages'}
+                  {activeTab === 'requests' && 'Requests'}
                 </h2>
                 {activeTab === 'crm' && (
                   <div className="flex items-center bg-gray-100 rounded-full p-1 border border-green-deep/10">
@@ -700,6 +713,7 @@ export default function AdminPanel() {
                 {activeTab === 'seo' && 'Monitor search performance and optimize content'}
                 {activeTab === 'health' && 'Review and manage health assessment submissions'}
                 {activeTab === 'messages' && 'View and manage messages from patients and visitors'}
+                {activeTab === 'requests' && 'Manage appointment bookings and consultation requests'}
               </p>
             </div>
 
@@ -726,6 +740,8 @@ export default function AdminPanel() {
             {activeTab === 'health' && <FunctionalHealthAnalysis />}
 
             {activeTab === 'messages' && <Messages />}
+
+            {activeTab === 'requests' && <AppointmentCalendar />}
           </div>
         </div>
       </div>

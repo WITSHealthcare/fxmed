@@ -20,7 +20,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 
 type Stage = "Outreach" | "Follow Up" | "Enrolment" | "Onboarding" | "Active"
-type NavItem = "overview" | "pipeline" | "coordinator" | "calendar" | "documents" | "reporting" | "ai-agent"
+type NavItem = "overview" | "pipeline" | "coordinator" | "documents" | "reporting" | "ai-agent"
 type Risk = "High" | "Medium" | "Low"
 type CrmView = "clinical" | "financial"
 
@@ -492,7 +492,6 @@ export default function CrmDashboard({
     { id: "overview", label: "Overview", icon: "📊" },
     { id: "pipeline", label: "Pipeline", icon: "📈" },
     { id: "coordinator", label: "Coordinator", icon: "👥" },
-    { id: "calendar", label: "Calendar", icon: "📅" },
     { id: "documents", label: "Documents", icon: "📄" },
     { id: "reporting", label: "Reporting", icon: "📋" },
     { id: "ai-agent", label: "AI Agent", icon: "🤖" },
@@ -1677,8 +1676,8 @@ export default function CrmDashboard({
         </div>
       )}
 
-      {/* Calendar/Schedule Section */}
-      {crmView === "clinical" && activeSection === "calendar" && (
+      {/* Calendar/Schedule Section - moved to Requests tab */}
+      {false && crmView === "clinical" && activeSection === "calendar" && (
         <div className="bg-white rounded-[20px] p-6 shadow-lg">
           <div className="flex items-center justify-between mb-6">
             <div>
