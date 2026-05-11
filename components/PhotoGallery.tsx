@@ -397,11 +397,11 @@ export default function PhotoGallery() {
 
             {/* Our Team Tab */}
             {activeTab === 'team' && (
-              <>
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group col-span-1 lg:col-span-1" onClick={() => openLightbox('/Dr Kike.jpg')}>
-                  <img 
-                    src="/Dr Kike.jpg" 
-                    alt="Dr. Kike" 
+              <div className="col-span-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Dr Kike Oduba.jpg')}>
+                  <img
+                    src="/Team/Dr Kike Oduba.jpg"
+                    alt="Dr. Kike Oduba"
                     className="w-full h-full object-cover object-[center_10%] group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
@@ -427,10 +427,10 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group col-span-1 lg:col-span-1" onClick={() => openLightbox('/Team/3.jpg')}>
+                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Oladele Isaac.jpg')}>
                   <img 
-                    src="/Team/3.jpg" 
-                    alt="Dr Oladele Isaac" 
+                    src="/Team/Oladele Isaac.jpg"
+                    alt="Dr Oladele Isaac"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
@@ -457,10 +457,10 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-                                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group col-span-1 lg:col-span-1" onClick={() => openLightbox('/Team/1.jpg')}>
-                  <img 
-                    src="/Team/1.jpg" 
-                    alt="Esther Ajani" 
+                                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Esther Ajani.jpg')}>
+                  <img
+                    src="/Team/Esther Ajani.jpg"
+                    alt="Esther Ajani"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
@@ -487,7 +487,85 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-              </>
+                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group col-span-1 lg:col-span-1" onClick={() => openLightbox('/Team/Bright Prince.jpg')}>
+                  <img
+                    src="/Team/Bright Prince.jpg"
+                    alt="Bright Prince"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
+                    <div className="text-white">
+                      <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
+                        Bright Prince
+                      </h3>
+                      <p className="font-dm-sans text-[1rem] opacity-90 mb-2">
+                        Care Navigator
+                      </p>
+                      <div className="flex gap-2">
+                        <span className="bg-gold text-green-deep px-3 py-1 rounded-full text-xs font-semibold">Care Navigation</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Daniel Kehinde.jpg')}>
+                  <img
+                    src="/Team/Daniel Kehinde.jpg"
+                    alt="Daniel Kehinde"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
+                    <div className="text-white">
+                      <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
+                        Daniel Kehinde
+                      </h3>
+                      <p className="font-dm-sans text-[1rem] opacity-90 mb-2">
+                        Business Development Manager
+                      </p>
+                      <div className="flex gap-2">
+                        <span className="bg-gold text-green-deep px-3 py-1 rounded-full text-xs font-semibold">Business Development</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                    <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/Team/Bolu Adeniyi.jpg')}>
+                  <img
+                    src="/Team/Bolu Adeniyi.jpg"
+                    alt="Bolu Adeniyi"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
+                    <div className="text-white">
+                      <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
+                        Bolu Adeniyi
+                      </h3>
+                      <p className="font-dm-sans text-[1rem] opacity-90 mb-2">
+                        Digital Media Technician
+                      </p>
+                      <div className="flex gap-2">
+                        <span className="bg-gold text-green-deep px-3 py-1 rounded-full text-xs font-semibold">Digital Media</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                    <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+            </div>
             )}
 
             {/* Community Outreach Tab */}

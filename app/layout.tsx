@@ -7,6 +7,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'FXMed | Functional Medicine Clinic – We Come to You',
   description: 'FXMed provides personalized functional medicine services that come to you. Expert care for optimal health and wellness.',
+  icons: {
+    icon: '/FXMed_Favicon.png',
+  },
 }
 
 export default function RootLayout({
