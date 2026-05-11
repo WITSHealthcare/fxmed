@@ -112,10 +112,10 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/Dr Kike.jpg')}>
-                  <img 
-                    src="/Dr Kike.jpg" 
-                    alt="Dr. Kike" 
+                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/Team/Dr Kike Oduba.jpg')}>
+                  <img
+                    src="/Team/Dr Kike Oduba.jpg"
+                    alt="Dr. Kike"
                     className="w-full h-full object-cover object-[center_10%] group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
