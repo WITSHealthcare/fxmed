@@ -16,10 +16,20 @@ const SUGGESTIONS = [
 
 export default function ChatAssistant() {
   const [isOpen, setIsOpen] = useState(false)
+  const [showCallout, setShowCallout] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const showTimer = setTimeout(() => setShowCallout(true), 1500)
+    const hideTimer = setTimeout(() => setShowCallout(false), 121500)
+    return () => {
+      clearTimeout(showTimer)
+      clearTimeout(hideTimer)
+    }
+  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -69,15 +79,39 @@ export default function ChatAssistant() {
 
   if (!isOpen) {
     return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 bg-gold text-green-deep w-14 h-14 rounded-full shadow-lg flex items-center justify-center hover:bg-gold-light transition-colors z-50"
-        aria-label="Open Zara"
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-      </button>
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+        {showCallout && (
+          <div className="relative bg-white rounded-2xl shadow-xl p-4 w-64 border border-green-deep/10 animate-fade-in-up">
+            <button
+              onClick={() => setShowCallout(false)}
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Close"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
+                <img src="/Zara.png" alt="Zara" className="w-full h-full object-cover" />
+              </div>
+              <span className="font-dm-sans font-semibold text-green-deep text-sm">Zara</span>
+            </div>
+            <p className="font-dm-sans text-gray-700 text-sm leading-[1.5]">
+              Hi there! 👋 Have any questions about FXMed? I'm here to help — ask me anything!
+            </p>
+            <div className="absolute -bottom-2 right-6 w-4 h-4 bg-white border-r border-b border-green-deep/10 rotate-45"></div>
+          </div>
+        )}
+        <button
+          onClick={() => { setIsOpen(true); setShowCallout(false) }}
+          className="bg-gold w-14 h-14 rounded-full shadow-lg overflow-hidden hover:bg-gold-light transition-colors p-0"
+          aria-label="Open Zara"
+        >
+          <img src="/Zara Transparent.png" alt="Zara" className="w-full h-full object-cover" />
+        </button>
+      </div>
     )
   }
 
