@@ -64,8 +64,8 @@ export default function WhyFXMed() {
           {/* Dr. Kike Card */}
           <div className="rounded-[24px] overflow-hidden relative shadow-custom-hover">
             <img 
-              src="/Dr Kike.jpg"
-              alt="Dr. Kike"
+              src="/Team/Dr Kike Oduba.jpg"
+              alt="Dr. Kike Oduba"
               className="w-full h-[600px] object-cover object-center"
             />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[rgba(15,36,25,0.95)] via-[rgba(15,36,25,0.6)] to-transparent p-9">

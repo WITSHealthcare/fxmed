@@ -397,7 +397,7 @@ export default function PhotoGallery() {
 
             {/* Our Team Tab */}
             {activeTab === 'team' && (
-              <div className="col-span-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              <div className="col-span-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Dr Kike Oduba.jpg')}>
                   <img
                     src="/Team/Dr Kike Oduba.jpg"

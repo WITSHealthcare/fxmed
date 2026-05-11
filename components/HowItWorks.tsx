@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import BookingModal from '@/components/BookingModal'
+import AppointmentModal from '@/components/AppointmentModal'
 
 export default function HowItWorks() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
@@ -92,10 +92,9 @@ export default function HowItWorks() {
         </div>
       </div>
 
-      <BookingModal 
+      <AppointmentModal
         isOpen={isBookingModalOpen}
         onClose={() => setIsBookingModalOpen(false)}
-        consultationType="telemedicine"
       />
     </section>
   )

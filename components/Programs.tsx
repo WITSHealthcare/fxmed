@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import MaternalWellnessModal, { useMaternalWellnessModal } from './MaternalWellnessModal'
+import MaternalBookingModal from './MaternalBookingModal'
 
 const programs = [
   {
@@ -44,6 +45,7 @@ const programs = [
 
 export default function Programs() {
   const { isOpen, selectedPackage, openModal, closeModal } = useMaternalWellnessModal()
+  const [isBookingOpen, setIsBookingOpen] = useState(false)
 
   return (
     <>
@@ -173,10 +175,10 @@ export default function Programs() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 mt-6">
-                <a href="/#contact" className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] no-underline transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg inline-block text-center">
+                <button onClick={() => setIsBookingOpen(true)} className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg inline-block text-center">
                   Book Maternal Consultation →
-                </a>
-                <a href="#maternal-details" className="font-dm-sans bg-transparent text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] no-underline border border-green-deep/40 transition-all hover:border-green-deep hover:bg-green-deep/8 inline-block text-center">
+                </button>
+                <a href="/maternal-wellness" className="font-dm-sans bg-transparent text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] no-underline border border-green-deep/40 transition-all hover:border-green-deep hover:bg-green-deep/8 inline-block text-center">
                   Learn More
                 </a>
               </div>
@@ -203,10 +205,16 @@ export default function Programs() {
       </section>
 
       {/* Maternal Wellness Modal */}
-      <MaternalWellnessModal 
-        isOpen={isOpen} 
-        onClose={closeModal} 
+      <MaternalWellnessModal
+        isOpen={isOpen}
+        onClose={closeModal}
         selectedPackage={selectedPackage}
+      />
+
+      {/* Maternal Booking Modal */}
+      <MaternalBookingModal
+        isOpen={isBookingOpen}
+        onClose={() => setIsBookingOpen(false)}
       />
     </>
   )
