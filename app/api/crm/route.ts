@@ -6,6 +6,11 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+const isMissingSpecifySourceColumnError = (error: any) => {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase()
+  return message.includes('specify_source') && message.includes('column')
+}
+
 // GET - Fetch all patients or single patient by ID
 export async function GET(request: NextRequest) {
   try {
@@ -67,11 +72,23 @@ export async function POST(request: NextRequest) {
       body.id = `FX${String(lastNum + 1).padStart(3, '0')}`
     }
     
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('crm_patients')
       .insert([body])
       .select()
       .single()
+
+    if (error && body.specify_source && isMissingSpecifySourceColumnError(error)) {
+      const { specify_source, ...bodyWithoutSpecifySource } = body
+      const retry = await supabase
+        .from('crm_patients')
+        .insert([bodyWithoutSpecifySource])
+        .select()
+        .single()
+
+      data = retry.data
+      error = retry.error
+    }
     
     if (error) throw error
     

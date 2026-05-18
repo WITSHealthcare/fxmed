@@ -60,6 +60,7 @@ type Patient = {
   risk: Risk
   stage: Stage
   source: string
+  specifySource?: string
   owner: string
   phone: string
   email: string
@@ -85,6 +86,7 @@ const patientsSeed: Patient[] = [
     risk: "High",
     stage: "Outreach",
     source: "Physician Referral",
+    specifySource: "",
     owner: "Tola",
     phone: "(713) 555-0189",
     email: "amara@sample.com",
@@ -107,6 +109,7 @@ const patientsSeed: Patient[] = [
     risk: "Medium",
     stage: "Enrolment",
     source: "Website Lead",
+    specifySource: "",
     owner: "Maya",
     phone: "(832) 555-0127",
     email: "chinedu@sample.com",
@@ -129,6 +132,7 @@ const patientsSeed: Patient[] = [
     risk: "Low",
     stage: "Onboarding",
     source: "Community Event",
+    specifySource: "",
     owner: "Tola",
     phone: "(281) 555-0110",
     email: "nneka@sample.com",
@@ -151,6 +155,7 @@ const patientsSeed: Patient[] = [
     risk: "High",
     stage: "Follow Up",
     source: "Hospital Partner",
+    specifySource: "",
     owner: "Ade",
     phone: "(346) 555-0141",
     email: "kemi@sample.com",
@@ -173,6 +178,7 @@ const patientsSeed: Patient[] = [
     risk: "Medium",
     stage: "Active",
     source: "Employer Partnership",
+    specifySource: "",
     owner: "Maya",
     phone: "(713) 555-0172",
     email: "tunde@sample.com",
@@ -195,6 +201,7 @@ const patientsSeed: Patient[] = [
     risk: "High",
     stage: "Enrolment",
     source: "Past Patient Referral",
+    specifySource: "",
     owner: "Ade",
     phone: "(832) 555-0193",
     email: "folake@sample.com",
@@ -226,7 +233,7 @@ export default function AdminPanel() {
   const router = useRouter()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'blog' | 'crm' | 'seo' | 'health' | 'messages' | 'requests'>('blog')
+  const [activeTab, setActiveTab] = useState<'blog' | 'crm' | 'seo' | 'health' | 'messages' | 'requests' | 'ambassador'>('blog')
   const [crmView, setCrmView] = useState<CrmView>('clinical')
   const [importing, setImporting] = useState(false)
 
@@ -238,6 +245,7 @@ export default function AdminPanel() {
     phone: "",
     email: "",
     source: "Website Lead",
+    specifySource: "",
     program: "Cardiometabolic Care",
     owner: "Tola",
     risk: "Medium" as Risk,
@@ -334,23 +342,6 @@ export default function AdminPanel() {
     initializePosts()
   }, [])
 
-  // Load saved notes from localStorage
-  const loadNotesFromStorage = (): Record<string, Note[]> => {
-    if (typeof window === 'undefined') return {}
-    try {
-      const saved = localStorage.getItem('crm-patient-notes')
-      return saved ? JSON.parse(saved) : {}
-    } catch {
-      return {}
-    }
-  }
-
-  // Save notes to localStorage
-  const saveNotesToStorage = (notes: Record<string, Note[]>) => {
-    if (typeof window === 'undefined') return
-    localStorage.setItem('crm-patient-notes', JSON.stringify(notes))
-  }
-
   // Fetch CRM patients on mount
   useEffect(() => {
     const fetchPatients = async () => {
@@ -359,24 +350,10 @@ export default function AdminPanel() {
         if (!response.ok) throw new Error('Failed to fetch patients')
 
         const { patients: data } = await response.json()
-        
-        // Merge with localStorage notes (temporary until DB migration is applied)
-        const savedNotes = loadNotesFromStorage()
-        const mergedPatients = (data || patientsSeed).map((p: Patient) => ({
-          ...p,
-          notes: p.notes || savedNotes[p.id] || []
-        }))
-        
-        setPatients(mergedPatients)
+        setPatients(data || patientsSeed)
       } catch (error) {
         console.error('Error fetching patients:', error)
-        // Merge seed data with localStorage notes
-        const savedNotes = loadNotesFromStorage()
-        const mergedPatients = patientsSeed.map(p => ({
-          ...p,
-          notes: p.notes || savedNotes[p.id] || []
-        }))
-        setPatients(mergedPatients)
+        setPatients(patientsSeed)
       }
     }
 
@@ -385,6 +362,7 @@ export default function AdminPanel() {
 
   const createLead = async () => {
     if (!leadForm.name.trim()) return
+    const specificSource = leadForm.specifySource.trim()
 
     try {
       const response = await fetch('/api/crm', {
@@ -397,6 +375,7 @@ export default function AdminPanel() {
           phone: leadForm.phone || null,
           email: leadForm.email || null,
           source: leadForm.source,
+          specify_source: leadForm.specifySource || null,
           program: leadForm.program,
           owner: leadForm.owner,
           risk: leadForm.risk,
@@ -405,7 +384,7 @@ export default function AdminPanel() {
           next_step: "Initial outreach and qualification",
           next_date: "Mar 24",
           progress: 10,
-          tags: ["New lead"],
+          tags: ["New lead", ...(specificSource ? [`Specific Source: ${specificSource}`] : [])],
           preferred: leadForm.phone ? "Phone" : "Email",
           appointment: "Not scheduled",
           consent_status: leadForm.consent ? "Sent" : "Pending",
@@ -430,7 +409,7 @@ export default function AdminPanel() {
       }
       
       setShowLeadModal(false)
-      setLeadForm({ name: "", phone: "", email: "", source: "Website Lead", program: "Cardiometabolic Care", owner: "Tola", risk: "Medium", consent: false })
+      setLeadForm({ name: "", phone: "", email: "", source: "Website Lead", specifySource: "", program: "Cardiometabolic Care", owner: "Tola", risk: "Medium", consent: false })
       
       alert('Lead created successfully!')
     } catch (error) {
@@ -664,6 +643,17 @@ export default function AdminPanel() {
                 <span>📋</span>
                 <span>Requests</span>
               </button>
+              <button
+                onClick={() => setActiveTab('ambassador')}
+                className={`w-full px-4 py-3 rounded-lg font-dm-sans text-sm font-medium transition-all text-left flex items-center space-x-3 ${
+                  activeTab === 'ambassador'
+                    ? 'bg-gold text-green-deep shadow-md'
+                    : 'text-cream/85 hover:bg-green-deep/20 hover:text-cream'
+                }`}
+              >
+                <span>🤝</span>
+                <span>Ambassador Program</span>
+              </button>
             </div>
           </nav>
         </div>
@@ -681,6 +671,7 @@ export default function AdminPanel() {
                   {activeTab === 'health' && 'Functional Health Analysis'}
                   {activeTab === 'messages' && 'Messages'}
                   {activeTab === 'requests' && 'Requests'}
+                  {activeTab === 'ambassador' && 'Ambassador Program'}
                 </h2>
                 {activeTab === 'crm' && (
                   <div className="flex items-center bg-gray-100 rounded-full p-1 border border-green-deep/10">
@@ -714,6 +705,7 @@ export default function AdminPanel() {
                 {activeTab === 'health' && 'Review and manage health assessment submissions'}
                 {activeTab === 'messages' && 'View and manage messages from patients and visitors'}
                 {activeTab === 'requests' && 'Manage appointment bookings and consultation requests'}
+                {activeTab === 'ambassador' && 'Track ambassadors, referrals, and program performance'}
               </p>
             </div>
 
@@ -742,6 +734,15 @@ export default function AdminPanel() {
             {activeTab === 'messages' && <Messages />}
 
             {activeTab === 'requests' && <AppointmentCalendar />}
+
+            {activeTab === 'ambassador' && (
+              <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
+                <h3 className="text-xl font-dm-sans font-semibold text-green-deep mb-2">Ambassador Program</h3>
+                <p className="text-text-mid font-dm-sans">
+                  Manage ambassador referrals, targets, and performance from here.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -103,11 +103,9 @@ const isHomePage = pathname === '/'
           <ul className="hidden lg:flex gap-4 list-none m-0 font-dm-sans items-center">
             {/* Programs Dropdown */}
             <li className="dropdown-container relative">
-              <button 
+              <button
                 onClick={() => setProgramsDropdown(!programsDropdown)}
-                className={`text-[0.8rem] font-medium transition-colors hover:text-gold flex items-center gap-1 ${
-                  (isBlogPage && !isScrolled) ? 'text-black' : 'text-cream/85'
-                } ${pathname?.startsWith('/programs') ? 'text-gold font-semibold' : ''}`}
+                className="text-[0.8rem] font-medium transition-colors hover:text-gold flex items-center gap-1 text-white"
               >
                 Programs
                 <svg className={`w-3 h-3 transition-transform ${programsDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -128,11 +126,9 @@ const isHomePage = pathname === '/'
             
             {/* Services Dropdown */}
             <li className="dropdown-container relative">
-              <button 
+              <button
                 onClick={() => setServicesDropdown(!servicesDropdown)}
-                className={`text-[0.8rem] font-medium transition-colors hover:text-gold flex items-center gap-1 ${
-                  (isBlogPage && !isScrolled) ? 'text-black' : 'text-cream/85'
-                } ${(isActiveLink('/services') || isActiveLink('/#pricing')) ? 'text-gold font-semibold' : ''}`}
+                className="text-[0.8rem] font-medium transition-colors hover:text-gold flex items-center gap-1 text-white"
               >
                 Services
                 <svg className={`w-3 h-3 transition-transform ${servicesDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,11 +146,9 @@ const isHomePage = pathname === '/'
             
             {/* Assessment Dropdown */}
             <li className="dropdown-container relative">
-              <button 
+              <button
                 onClick={() => setAssessmentDropdown(!assessmentDropdown)}
-                className={`text-[0.8rem] font-medium transition-colors hover:text-gold flex items-center gap-1 ${
-                  (isBlogPage && !isScrolled) ? 'text-black' : 'text-cream/85'
-                } ${(isActiveLink('/functional-health-analysis') || isActiveLink('/health-assessment')) ? 'text-gold font-semibold' : ''}`}
+                className="text-[0.8rem] font-medium transition-colors hover:text-gold flex items-center gap-1 text-white"
               >
                 Assessment
                 <svg className={`w-3 h-3 transition-transform ${assessmentDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,15 +163,9 @@ const isHomePage = pathname === '/'
               )}
             </li>
             
-            <li><button onClick={() => setShowContactModal(true)} className={`text-[0.8rem] font-medium transition-colors hover:text-gold ${
-              (isBlogPage && !isScrolled) ? 'text-black' : 'text-cream/85'
-            }`}>Contact</button></li>
-            <li><a href="/blog" className={`text-[0.8rem] font-medium no-underline transition-colors hover:text-gold ${
-              (isBlogPage && !isScrolled) ? 'text-black' : 'text-cream/85'
-            } ${isActiveLink('/blog') ? 'text-gold font-semibold' : ''}`}>Blog</a></li>
-            <li><a href="/#about" className={`text-[0.8rem] font-medium no-underline transition-colors hover:text-gold ${
-              (isBlogPage && !isScrolled) ? 'text-black' : 'text-cream/85'
-            } ${isActiveLink('/#about') ? 'text-gold font-semibold' : ''}`}>About</a></li>
+            <li><button onClick={() => setShowContactModal(true)} className="text-[0.8rem] font-medium transition-colors hover:text-gold text-white">Contact</button></li>
+            <li><a href="/blog" className="text-[0.8rem] font-medium no-underline transition-colors hover:text-gold text-white">Blog</a></li>
+            <li><a href="/#about" className="text-[0.8rem] font-medium no-underline transition-colors hover:text-gold text-white">About</a></li>
           </ul>
           
           {/* Desktop CTA Button */}
@@ -194,9 +182,9 @@ const isHomePage = pathname === '/'
             className="lg:hidden flex flex-col justify-center items-center w-8 h-8 space-y-1.5"
             aria-label="Toggle navigation menu"
           >
-            <span className={`block w-6 h-0.5 transition-all duration-300 ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''} ${(isBlogPage && !isScrolled) ? 'bg-black' : 'bg-cream'}`}></span>
-            <span className={`block w-6 h-0.5 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0' : ''} ${(isBlogPage && !isScrolled) ? 'bg-black' : 'bg-cream'}`}></span>
-            <span className={`block w-6 h-0.5 transition-all duration-300 ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''} ${(isBlogPage && !isScrolled) ? 'bg-black' : 'bg-cream'}`}></span>
+            <span className={`block w-6 h-0.5 transition-all duration-300 bg-white ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
+            <span className={`block w-6 h-0.5 transition-all duration-300 bg-white ${isMobileMenuOpen ? 'opacity-0' : ''}`}></span>
+            <span className={`block w-6 h-0.5 transition-all duration-300 bg-white ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
           </button>
         </div>
 

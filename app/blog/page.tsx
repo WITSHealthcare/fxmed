@@ -1,4 +1,5 @@
 import dynamic from 'next/dynamic'
+import { createClient } from '@supabase/supabase-js'
 import BlogPostsGrid from '@/components/blog/BlogPostsGrid'
 
 // Revalidate page every 60 seconds (ISR - Incremental Static Regeneration)
@@ -21,21 +22,27 @@ interface BlogPost {
   created_at: string
 }
 
-// Server-side data fetching with caching
+// Query Supabase directly to avoid self-referential HTTP fetch issues
 async function getBlogPosts(): Promise<BlogPost[]> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3001'}/api/blog?status=published`, {
-      // Cache the response for 60 seconds
-      next: { revalidate: 60 }
-    })
-    
-    if (!response.ok) {
-      console.error('Failed to fetch blog posts:', response.status)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Failed to fetch blog posts:', error)
       return []
     }
-    
-    const { posts } = await response.json()
-    return posts || []
+
+    return data || []
   } catch (error) {
     console.error('Error fetching blog posts:', error)
     return []

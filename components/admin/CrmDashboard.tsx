@@ -37,6 +37,8 @@ type Patient = {
   risk: Risk
   stage: Stage
   source: string
+  specifySource?: string
+  specify_source?: string
   owner: string
   phone: string
   email: string
@@ -118,17 +120,19 @@ type AgentSuggestion = {
 type FinancialSection = "dashboard" | "tasks" | "pipeline" | "scenarios"
 
 type RevenueStreamPlan = {
-  id: "corporate" | "government" | "elderly" | "hmo" | "premium"
+  id: string
   name: string
   target: number
   secured: number
+  source_type: "default" | "manual" | "specific-source"
+  hidden?: boolean
 }
 
 type FinancialTaskItem = {
   id: string
-  week: number
-  text: string
-  tag: "corporate" | "government" | "elderly" | "hmo" | "premium" | "ops"
+  title: string
+  due_date: string
+  category: "corporate" | "government" | "elderly" | "hmo" | "premium" | "ops"
   done: boolean
   priority: "High" | "Medium" | "Low"
 }
@@ -143,6 +147,13 @@ type FinancialDeal = {
   notes: string
 }
 
+type FinancialExpense = {
+  id: string
+  description: string
+  amount: number
+  expense_date: string
+}
+
 interface CrmDashboardProps {
   patients: Patient[]
   setPatients: React.Dispatch<React.SetStateAction<Patient[]>>
@@ -154,6 +165,7 @@ interface CrmDashboardProps {
     phone: string
     email: string
     source: string
+    specifySource: string
     program: string
     owner: string
     risk: Risk
@@ -172,6 +184,7 @@ const patientsSeed: Patient[] = [
     risk: "High",
     stage: "Outreach",
     source: "Physician Referral",
+    specifySource: "",
     owner: "Tola",
     phone: "(713) 555-0189",
     email: "amara@sample.com",
@@ -194,6 +207,7 @@ const patientsSeed: Patient[] = [
     risk: "Medium",
     stage: "Enrolment",
     source: "Website Lead",
+    specifySource: "",
     owner: "Maya",
     phone: "(832) 555-0127",
     email: "chinedu@sample.com",
@@ -216,6 +230,7 @@ const patientsSeed: Patient[] = [
     risk: "Low",
     stage: "Onboarding",
     source: "Community Event",
+    specifySource: "",
     owner: "Tola",
     phone: "(281) 555-0110",
     email: "nneka@sample.com",
@@ -238,6 +253,7 @@ const patientsSeed: Patient[] = [
     risk: "High",
     stage: "Follow Up",
     source: "Hospital Partner",
+    specifySource: "",
     owner: "Ade",
     phone: "(346) 555-0141",
     email: "kemi@sample.com",
@@ -260,6 +276,7 @@ const patientsSeed: Patient[] = [
     risk: "Medium",
     stage: "Active",
     source: "Employer Partnership",
+    specifySource: "",
     owner: "Maya",
     phone: "(713) 555-0172",
     email: "tunde@sample.com",
@@ -282,6 +299,7 @@ const patientsSeed: Patient[] = [
     risk: "High",
     stage: "Enrolment",
     source: "Past Patient Referral",
+    specifySource: "",
     owner: "Ade",
     phone: "(832) 555-0193",
     email: "folake@sample.com",
@@ -344,21 +362,19 @@ const remindersSeed: Reminder[] = [
 ]
 
 const revenueStreamSeed: RevenueStreamPlan[] = [
-  { id: "corporate", name: "Corporate Wellness Screenings", target: 27000000, secured: 0 },
-  { id: "government", name: "Government Pilot (LASPEC)", target: 12000000, secured: 0 },
-  { id: "elderly", name: "Elderly Care Retainers", target: 9000000, secured: 0 },
-  { id: "hmo", name: "HMO Partnerships", target: 6000000, secured: 0 },
-  { id: "premium", name: "Premium Founding Members", target: 9000000, secured: 0 },
+  { id: "corporate", name: "Corporate Wellness Screenings", target: 27000000, secured: 0, source_type: "default" },
+  { id: "government", name: "Government Pilot (LASPEC)", target: 12000000, secured: 0, source_type: "default" },
+  { id: "elderly", name: "Elderly Care Retainers", target: 9000000, secured: 0, source_type: "default" },
+  { id: "hmo", name: "HMO Partnerships", target: 6000000, secured: 0, source_type: "default" },
+  { id: "premium", name: "Premium Founding Members", target: 9000000, secured: 0, source_type: "default" },
+  { id: "self-referral", name: "Self Referral", target: 10000000, secured: 0, source_type: "default" },
 ]
 
-const financialTaskSeed: FinancialTaskItem[] = [
-  { id: "f1", week: 1, text: "Create corporate wellness proposal pack", tag: "corporate", done: false, priority: "High" },
-  { id: "f2", week: 1, text: "Send first outreach batch to 20 CHROs", tag: "corporate", done: false, priority: "High" },
-  { id: "f3", week: 1, text: "Prepare LASPEC pilot draft", tag: "government", done: false, priority: "High" },
-  { id: "f4", week: 2, text: "Visit 3 elderly care facilities", tag: "elderly", done: false, priority: "Medium" },
-  { id: "f5", week: 2, text: "Kick off HMO partner calls", tag: "hmo", done: false, priority: "Medium" },
-  { id: "f6", week: 3, text: "Close first 5 premium members", tag: "premium", done: false, priority: "High" },
-]
+const mergeRevenueStreamDefaults = (streams: RevenueStreamPlan[]) => {
+  const streamIds = new Set(streams.map((stream) => stream.id))
+  const missingDefaults = revenueStreamSeed.filter((stream) => !streamIds.has(stream.id))
+  return [...streams, ...missingDefaults]
+}
 
 const financialDealSeed: FinancialDeal[] = [
   { id: "d1", company: "GTBank", type: "Corporate", value: 2500000, status: "warm", notes: "CHRO meeting scheduled" },
@@ -366,6 +382,28 @@ const financialDealSeed: FinancialDeal[] = [
   { id: "d3", company: "The Haven", type: "Elderly Care", value: 450000, status: "warm", notes: "Site visit planned" },
   { id: "d4", company: "Hygeia HMO", type: "HMO", value: 1500000, status: "hot", notes: "Proposal sent" },
 ]
+
+const specificSourceTagPrefix = "Specific Source: "
+
+const getSpecificSource = (patient: Patient) => {
+  const directSource = (patient.specifySource || patient.specify_source || "").trim()
+  if (directSource) return directSource
+
+  const sourceTag = patient.tags?.find((tag) => tag.startsWith(specificSourceTagPrefix))
+  return sourceTag?.slice(specificSourceTagPrefix.length).trim() || ""
+}
+
+const getSpecificSourceStreamId = (specificSource: string) => {
+  return `specific-source-${specificSource.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
+}
+
+const selfReferralStreamId = "self-referral"
+const defaultSpecificSourceStreamTarget = 10000000
+
+const parseMoneyInput = (value: string) => {
+  const parsed = Number(value.replace(/[^0-9.]/g, ""))
+  return Number.isFinite(parsed) ? parsed : 0
+}
 
 export default function CrmDashboard({
   patients,
@@ -394,10 +432,27 @@ export default function CrmDashboard({
   const [appointmentsLoading, setAppointmentsLoading] = useState(false)
   const [financialSection, setFinancialSection] = useState<FinancialSection>("dashboard")
   const [revenueStreams, setRevenueStreams] = useState<RevenueStreamPlan[]>(revenueStreamSeed)
-  const [financialTasks, setFinancialTasks] = useState<FinancialTaskItem[]>(financialTaskSeed)
-  const [financialTaskFilter, setFinancialTaskFilter] = useState<"all" | FinancialTaskItem["tag"]>("all")
-  const [financialWeek, setFinancialWeek] = useState(1)
+  const [financialTasks, setFinancialTasks] = useState<FinancialTaskItem[]>([])
+  const [financialTaskFilter, setFinancialTaskFilter] = useState<"all" | FinancialTaskItem["category"]>("all")
+  const [financialTaskDateFilter, setFinancialTaskDateFilter] = useState("")
   const [financialDeals, setFinancialDeals] = useState<FinancialDeal[]>(financialDealSeed)
+  const [financialExpenses, setFinancialExpenses] = useState<FinancialExpense[]>([])
+  const [openRevenueMenuId, setOpenRevenueMenuId] = useState<string | null>(null)
+  const [showNewStreamModal, setShowNewStreamModal] = useState(false)
+  const [editingRevenueTarget, setEditingRevenueTarget] = useState<{
+    id: string
+    type: "planned" | "specific-source"
+    name: string
+    value: string
+  } | null>(null)
+  const [newStreamForm, setNewStreamForm] = useState({ name: "", target: "", secured: "" })
+  const [newExpenseForm, setNewExpenseForm] = useState({ description: "", amount: "" })
+  const [newTaskForm, setNewTaskForm] = useState({
+    title: "",
+    due_date: new Date().toISOString().split("T")[0],
+    priority: "Medium" as FinancialTaskItem["priority"],
+    category: "ops" as FinancialTaskItem["category"],
+  })
   const [newDeal, setNewDeal] = useState({
     company: "",
     type: "Corporate",
@@ -413,6 +468,53 @@ export default function CrmDashboard({
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null)
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null)
   const [savingPatient, setSavingPatient] = useState(false)
+
+  const fetchRevenueStreams = async () => {
+    try {
+      const response = await fetch('/api/financial/revenue-streams')
+      if (!response.ok) throw new Error('Failed to fetch revenue streams')
+
+      const { streams } = await response.json()
+      setRevenueStreams(mergeRevenueStreamDefaults(streams || revenueStreamSeed))
+    } catch (error) {
+      console.error('Error fetching revenue streams:', error)
+      setRevenueStreams(revenueStreamSeed)
+    }
+  }
+
+  const fetchFinancialExpenses = async () => {
+    try {
+      const response = await fetch('/api/financial/expenses')
+      if (!response.ok) throw new Error('Failed to fetch expenses')
+
+      const { expenses } = await response.json()
+      setFinancialExpenses(expenses || [])
+    } catch (error) {
+      console.error('Error fetching expenses:', error)
+      setFinancialExpenses([])
+    }
+  }
+
+  const fetchFinancialTasks = async () => {
+    try {
+      const response = await fetch('/api/financial/tasks')
+      if (!response.ok) throw new Error('Failed to fetch financial tasks')
+
+      const { tasks } = await response.json()
+      setFinancialTasks(tasks || [])
+    } catch (error) {
+      console.error('Error fetching financial tasks:', error)
+      setFinancialTasks([])
+    }
+  }
+
+  useEffect(() => {
+    if (crmView === 'financial') {
+      fetchRevenueStreams()
+      fetchFinancialExpenses()
+      fetchFinancialTasks()
+    }
+  }, [crmView])
 
   // Fetch appointments from Supabase
   const fetchAppointments = async () => {
@@ -432,25 +534,42 @@ export default function CrmDashboard({
     }
   }
 
+  const updateAppointmentPaymentStatus = async (appointmentId: string, paymentStatus: WebsiteAppointment["payment_status"]) => {
+    setAppointments((prev) =>
+      prev.map((appointment) =>
+        appointment.id === appointmentId ? { ...appointment, payment_status: paymentStatus } : appointment
+      )
+    )
+
+    try {
+      const response = await fetch('/api/appointments', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: appointmentId, payment_status: paymentStatus }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update payment status')
+      }
+
+      const { appointment: updatedAppointment } = await response.json()
+      setAppointments((prev) =>
+        prev.map((appointment) =>
+          appointment.id === appointmentId ? updatedAppointment : appointment
+        )
+      )
+    } catch (error) {
+      console.error('Error updating payment status:', error)
+      fetchAppointments()
+    }
+  }
+
   // Fetch appointments when calendar section is active
   useEffect(() => {
     if (crmView === 'financial') {
       fetchAppointments()
     }
   }, [activeSection, crmView])
-
-  // Save notes to localStorage (backup until DB migration is applied)
-  const saveNotesToStorage = (patientId: string, notes: Note[]) => {
-    if (typeof window === 'undefined') return
-    try {
-      const saved = localStorage.getItem('crm-patient-notes')
-      const allNotes = saved ? JSON.parse(saved) : {}
-      allNotes[patientId] = notes
-      localStorage.setItem('crm-patient-notes', JSON.stringify(allNotes))
-    } catch (e) {
-      console.error('Error saving notes to localStorage:', e)
-    }
-  }
 
   // Handle edit patient
   const handleEditPatient = (patient: Patient) => {
@@ -688,6 +807,7 @@ export default function CrmDashboard({
       homeVisitCount,
       estimatedRevenue,
       outstandingRevenue,
+      websiteBookingRevenue: estimatedRevenue + outstandingRevenue,
       collectionRate: totalAppointments > 0 ? Math.round((paidAppointments.length / totalAppointments) * 100) : 0,
     }
   }, [appointments])
@@ -695,18 +815,22 @@ export default function CrmDashboard({
   const financialExecution = useMemo(() => {
     const startingCapital = 150000000
     const monthlyBurn = 30000000
-    const revenueSecured = revenueStreams.reduce((sum, stream) => sum + stream.secured, 0)
-    const cashCollected = Math.round(revenueSecured * 0.7)
-    const endingCash90 = startingCapital - 90000000 + cashCollected
-    const runwayMonths = Math.max(0, (startingCapital - monthlyBurn + cashCollected) / monthlyBurn)
+    const revenueSecured = revenueStreams.reduce((sum, stream) => {
+      if (stream.hidden) return sum
+      return sum + (stream.id === selfReferralStreamId ? financialDashboard.websiteBookingRevenue : Number(stream.secured || 0))
+    }, 0)
+    const cashCollected = financialDashboard.estimatedRevenue
+    const loggedExpenses = financialExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0)
+    const endingCash90 = startingCapital - 90000000 + cashCollected - loggedExpenses
+    const runwayMonths = Math.max(0, (startingCapital - monthlyBurn + cashCollected - loggedExpenses) / monthlyBurn)
     const taskDone = financialTasks.filter((task) => task.done).length
     const taskTotal = financialTasks.length
     const taskCompletion = taskTotal > 0 ? Math.round((taskDone / taskTotal) * 100) : 0
 
     const monthlyRecurringRevenue = Math.round(
-      (revenueStreams.find((stream) => stream.id === "elderly")?.secured || 0) * 0.4 +
-      (revenueStreams.find((stream) => stream.id === "hmo")?.secured || 0) * 0.5 +
-      (revenueStreams.find((stream) => stream.id === "premium")?.secured || 0) / 12
+      Number(revenueStreams.find((stream) => stream.id === "elderly")?.secured || 0) * 0.4 +
+      Number(revenueStreams.find((stream) => stream.id === "hmo")?.secured || 0) * 0.5 +
+      Number(revenueStreams.find((stream) => stream.id === "premium")?.secured || 0) / 12
     )
 
     return {
@@ -719,17 +843,79 @@ export default function CrmDashboard({
       taskDone,
       taskTotal,
       taskCompletion,
+      bookingConversionRate: financialDashboard.collectionRate,
       monthlyRecurringRevenue,
+      loggedExpenses,
     }
-  }, [revenueStreams, financialTasks])
+  }, [revenueStreams, financialTasks, financialExpenses, financialDashboard.estimatedRevenue, financialDashboard.websiteBookingRevenue])
+
+  const revenueStreamCards = useMemo(() => {
+    return revenueStreams.filter((stream) => !stream.hidden).map((stream) => ({
+      type: stream.source_type === "specific-source" ? "specific-source" as const : "planned" as const,
+      id: stream.id,
+      name: stream.name,
+      target: Number(stream.target || 0),
+      secured: stream.id === selfReferralStreamId ? financialDashboard.websiteBookingRevenue : Number(stream.secured || 0),
+    }))
+  }, [revenueStreams, financialDashboard.websiteBookingRevenue])
+
+  useEffect(() => {
+    if (crmView !== 'financial') return
+
+    const syncSpecificSourceStreams = async () => {
+      const existingIds = new Set(revenueStreams.map((stream) => stream.id))
+      const specificSources = Array.from(
+        new Set(
+          patients
+            .map((patient) => getSpecificSource(patient))
+            .filter((specificSource) => specificSource.length > 0)
+        )
+      )
+
+      const missingStreams = specificSources
+        .map((specificSource) => ({
+          id: getSpecificSourceStreamId(specificSource),
+          name: specificSource,
+        }))
+        .filter((stream) => !existingIds.has(stream.id))
+
+      if (missingStreams.length === 0) return
+
+      const createdStreams = await Promise.all(
+        missingStreams.map(async (stream) => {
+          const response = await fetch('/api/financial/revenue-streams', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: stream.id,
+              name: stream.name,
+              target: defaultSpecificSourceStreamTarget,
+              secured: 0,
+              source_type: 'specific-source',
+            }),
+          })
+
+          if (!response.ok) throw new Error('Failed to create specific source stream')
+          const { stream: createdStream } = await response.json()
+          return createdStream
+        })
+      )
+
+      setRevenueStreams((prev) => mergeRevenueStreamDefaults([...prev, ...createdStreams]))
+    }
+
+    syncSpecificSourceStreams().catch((error) => {
+      console.error('Error syncing specific source streams:', error)
+    })
+  }, [crmView, patients, revenueStreams])
 
   const filteredFinancialTasks = useMemo(() => {
     return financialTasks.filter((task) => {
-      const matchesWeek = task.week === financialWeek
-      const matchesTag = financialTaskFilter === "all" || task.tag === financialTaskFilter
-      return matchesWeek && matchesTag
+      const matchesDate = !financialTaskDateFilter || task.due_date === financialTaskDateFilter
+      const matchesCategory = financialTaskFilter === "all" || task.category === financialTaskFilter
+      return matchesDate && matchesCategory
     })
-  }, [financialTasks, financialWeek, financialTaskFilter])
+  }, [financialTasks, financialTaskDateFilter, financialTaskFilter])
 
   const financialPipeline = useMemo(() => {
     const totalValue = financialDeals.reduce((sum, deal) => sum + deal.value, 0)
@@ -739,16 +925,218 @@ export default function CrmDashboard({
     return { totalValue, wonValue, conversionRate, wonCount: wonDeals.length }
   }, [financialDeals])
 
-  const updateRevenueStream = (id: RevenueStreamPlan["id"], value: number) => {
-    setRevenueStreams((prev) =>
-      prev.map((stream) => stream.id === id ? { ...stream, secured: Math.max(0, value) } : stream)
-    )
+  const patchRevenueStream = async (id: string, updates: Partial<RevenueStreamPlan>) => {
+    const response = await fetch('/api/financial/revenue-streams', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...updates }),
+    })
+
+    if (!response.ok) throw new Error('Failed to update revenue stream')
+
+    const { stream } = await response.json()
+    setRevenueStreams((prev) => prev.map((item) => item.id === id ? stream : item))
+    return stream
   }
 
-  const toggleFinancialTask = (taskId: string) => {
-    setFinancialTasks((prev) =>
-      prev.map((task) => task.id === taskId ? { ...task, done: !task.done } : task)
+  const updateRevenueStream = async (id: RevenueStreamPlan["id"], value: number) => {
+    const secured = Math.max(0, value)
+    setRevenueStreams((prev) =>
+      prev.map((stream) => stream.id === id ? { ...stream, secured } : stream)
     )
+    try {
+      await patchRevenueStream(id, { secured })
+    } catch (error) {
+      console.error('Error updating secured amount:', error)
+      fetchRevenueStreams()
+    }
+  }
+
+  const updateRevenueStreamTarget = async (id: RevenueStreamPlan["id"], value: number) => {
+    const target = Math.max(0, value)
+    setRevenueStreams((prev) =>
+      prev.map((stream) => stream.id === id ? { ...stream, target } : stream)
+    )
+    try {
+      await patchRevenueStream(id, { target })
+    } catch (error) {
+      console.error('Error updating target:', error)
+      fetchRevenueStreams()
+    }
+  }
+
+  const saveRevenueTarget = () => {
+    if (!editingRevenueTarget) return
+
+    const value = Number(editingRevenueTarget.value)
+    updateRevenueStreamTarget(editingRevenueTarget.id, value)
+
+    setEditingRevenueTarget(null)
+  }
+
+  const deleteRevenueStream = async (id: string, type: "planned" | "specific-source") => {
+    if (type === "specific-source") {
+      setRevenueStreams((prev) => prev.map((stream) => stream.id === id ? { ...stream, hidden: true } : stream))
+      try {
+        await patchRevenueStream(id, { hidden: true })
+      } catch (error) {
+        console.error('Error hiding revenue stream:', error)
+        fetchRevenueStreams()
+      }
+    } else {
+      setRevenueStreams((prev) => prev.filter((stream) => stream.id !== id))
+      try {
+        const response = await fetch(`/api/financial/revenue-streams?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        })
+        if (!response.ok) throw new Error('Failed to delete revenue stream')
+      } catch (error) {
+        console.error('Error deleting revenue stream:', error)
+        fetchRevenueStreams()
+      }
+    }
+
+    setOpenRevenueMenuId(null)
+  }
+
+  const addRevenueStream = async () => {
+    const name = newStreamForm.name.trim()
+    if (!name) return
+
+    try {
+      const response = await fetch('/api/financial/revenue-streams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: `manual-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${Date.now()}`,
+          name,
+          target: Math.max(0, Number(newStreamForm.target) || 0),
+          secured: Math.max(0, Number(newStreamForm.secured) || 0),
+          source_type: 'manual',
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to add revenue stream')
+      const { stream } = await response.json()
+      setRevenueStreams((prev) => [...prev, stream])
+      setNewStreamForm({ name: "", target: "", secured: "" })
+      setShowNewStreamModal(false)
+    } catch (error) {
+      console.error('Error adding revenue stream:', error)
+    }
+  }
+
+  const addFinancialExpense = async () => {
+    const description = newExpenseForm.description.trim()
+    const amount = Math.max(0, parseMoneyInput(newExpenseForm.amount))
+    if (!description || amount <= 0) return
+
+    try {
+      const response = await fetch('/api/financial/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: `expense-${Date.now()}`,
+          description,
+          amount,
+          expense_date: new Date().toISOString(),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to log expense')
+      }
+      const { expense } = await response.json()
+      setFinancialExpenses((prev) => [expense, ...prev])
+      setNewExpenseForm({ description: "", amount: "" })
+    } catch (error) {
+      console.error('Error logging expense:', error)
+      alert(`Error logging expense: ${error instanceof Error ? error.message : 'Please try again.'}`)
+    }
+  }
+
+  const deleteFinancialExpense = async (expenseId: string) => {
+    setFinancialExpenses((prev) => prev.filter((expense) => expense.id !== expenseId))
+    try {
+      const response = await fetch(`/api/financial/expenses?id=${encodeURIComponent(expenseId)}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) throw new Error('Failed to delete expense')
+    } catch (error) {
+      console.error('Error deleting expense:', error)
+      fetchFinancialExpenses()
+    }
+  }
+
+  const toggleFinancialTask = async (taskId: string) => {
+    const task = financialTasks.find((item) => item.id === taskId)
+    if (!task) return
+
+    const done = !task.done
+    setFinancialTasks((prev) =>
+      prev.map((item) => item.id === taskId ? { ...item, done } : item)
+    )
+
+    try {
+      const response = await fetch('/api/financial/tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: taskId, done }),
+      })
+      if (!response.ok) throw new Error('Failed to update task status')
+      const { task: updatedTask } = await response.json()
+      setFinancialTasks((prev) => prev.map((item) => item.id === taskId ? updatedTask : item))
+    } catch (error) {
+      console.error('Error updating financial task:', error)
+      fetchFinancialTasks()
+    }
+  }
+
+  const addFinancialTask = async () => {
+    const title = newTaskForm.title.trim()
+    if (!title || !newTaskForm.due_date) return
+
+    try {
+      const response = await fetch('/api/financial/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: `task-${Date.now()}`,
+          title,
+          due_date: newTaskForm.due_date,
+          priority: newTaskForm.priority,
+          category: newTaskForm.category,
+          done: false,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to create task')
+      const { task } = await response.json()
+      setFinancialTasks((prev) => [...prev, task].sort((a, b) => a.due_date.localeCompare(b.due_date)))
+      setNewTaskForm({
+        title: "",
+        due_date: new Date().toISOString().split("T")[0],
+        priority: "Medium",
+        category: "ops",
+      })
+    } catch (error) {
+      console.error('Error creating financial task:', error)
+      alert(`Error creating task: ${error instanceof Error ? error.message : 'Please try again.'}`)
+    }
+  }
+
+  const deleteFinancialTask = async (taskId: string) => {
+    setFinancialTasks((prev) => prev.filter((task) => task.id !== taskId))
+    try {
+      const response = await fetch(`/api/financial/tasks?id=${encodeURIComponent(taskId)}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) throw new Error('Failed to delete task')
+    } catch (error) {
+      console.error('Error deleting financial task:', error)
+      fetchFinancialTasks()
+    }
   }
 
   const addFinancialDeal = () => {
@@ -1069,7 +1457,7 @@ export default function CrmDashboard({
 
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
-                  <p className="text-sm text-text-mid font-dm-sans mb-2">Revenue Secured</p>
+                  <p className="text-sm text-text-mid font-dm-sans mb-2">Contracts Secured</p>
                   <p className="text-2xl font-bold text-green-deep">₦{financialExecution.revenueSecured.toLocaleString()}</p>
                 </div>
                 <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
@@ -1081,8 +1469,8 @@ export default function CrmDashboard({
                   <p className="text-2xl font-bold text-gold">{financialExecution.runwayMonths.toFixed(1)} mo</p>
                 </div>
                 <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
-                  <p className="text-sm text-text-mid font-dm-sans mb-2">Tasks Complete</p>
-                  <p className="text-2xl font-bold text-green-deep">{financialExecution.taskCompletion}%</p>
+                  <p className="text-sm text-text-mid font-dm-sans mb-2">Conversion Rate</p>
+                  <p className="text-2xl font-bold text-green-deep">{financialExecution.bookingConversionRate}%</p>
                 </div>
               </div>
 
@@ -1090,16 +1478,53 @@ export default function CrmDashboard({
                 <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-dm-sans font-semibold text-green-deep">Revenue Streams</h3>
-                    <span className="text-xs text-gray-500 font-dm-sans">90-day execution targets</span>
                   </div>
                   <div className="space-y-4">
-                    {revenueStreams.map((stream) => {
-                      const progress = Math.min(100, (stream.secured / stream.target) * 100)
+                    {revenueStreamCards.map((stream) => {
+                      const progress = stream.target > 0 ? Math.min(100, (stream.secured / stream.target) * 100) : 0
                       return (
                         <div key={stream.id} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-center justify-between gap-2 mb-2">
                             <p className="text-sm font-semibold font-dm-sans text-green-deep">{stream.name}</p>
-                            <span className="text-xs text-gray-500">Target ₦{stream.target.toLocaleString()}</span>
+                            <div className="relative flex items-center gap-2">
+                              <span className="text-xs text-gray-500">
+                                Target ₦{stream.target.toLocaleString()}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setOpenRevenueMenuId(openRevenueMenuId === stream.id ? null : stream.id)}
+                                className="h-8 w-8 rounded-full text-lg leading-none text-gray-500 hover:bg-gray-100 hover:text-green-deep"
+                                aria-label={`Open options for ${stream.name}`}
+                              >
+                                ⋮
+                              </button>
+                              {openRevenueMenuId === stream.id && (
+                                <div className="absolute right-0 top-9 z-20 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingRevenueTarget({
+                                        id: stream.id,
+                                        type: stream.type,
+                                        name: stream.name,
+                                        value: String(stream.target),
+                                      })
+                                      setOpenRevenueMenuId(null)
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm font-dm-sans text-green-deep hover:bg-gray-50"
+                                  >
+                                    Edit target
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteRevenueStream(stream.id, stream.type)}
+                                    className="w-full px-3 py-2 text-left text-sm font-dm-sans text-red-600 hover:bg-red-50"
+                                  >
+                                    Delete stream
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-3">
                             <div className="h-full bg-green-mid rounded-full" style={{ width: `${progress}%` }} />
@@ -1110,14 +1535,27 @@ export default function CrmDashboard({
                               type="number"
                               min={0}
                               value={stream.secured}
-                              onChange={(event) => updateRevenueStream(stream.id, Number(event.target.value))}
-                              className="w-36 px-2 py-1 border border-gray-300 rounded text-sm"
+                              disabled={stream.id === selfReferralStreamId}
+                              onChange={(event) => {
+                                if (stream.id === selfReferralStreamId) return
+
+                                const value = Number(event.target.value)
+                                updateRevenueStream(stream.id, value)
+                              }}
+                              className="w-36 px-2 py-1 border border-gray-300 rounded text-sm disabled:bg-gray-100 disabled:text-gray-500"
                             />
                           </div>
                         </div>
                       )
                     })}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewStreamModal(true)}
+                    className="mt-4 w-full rounded-lg border border-dashed border-green-deep/30 px-4 py-3 font-dm-sans font-semibold text-green-deep hover:bg-green-deep/5"
+                  >
+                    Add New Stream
+                  </button>
                 </div>
 
                 <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
@@ -1126,6 +1564,7 @@ export default function CrmDashboard({
                     <div className="flex justify-between"><span>Starting Capital</span><span>₦{financialExecution.startingCapital.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span>90-Day Burn</span><span className="text-red-600">₦90,000,000</span></div>
                     <div className="flex justify-between"><span>Revenue Collected</span><span className="text-green-600">₦{financialExecution.cashCollected.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Logged Expenses</span><span className="text-red-600">₦{financialExecution.loggedExpenses.toLocaleString()}</span></div>
                   </div>
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <p className="text-xs text-gray-500 mb-1">Projected Ending Cash (Day 90)</p>
@@ -1141,6 +1580,59 @@ export default function CrmDashboard({
                     <p className="text-xs text-gray-500 mt-1">
                       MRR: ₦{financialExecution.monthlyRecurringRevenue.toLocaleString()} / month (breakeven target ₦30,000,000)
                     </p>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <h4 className="text-sm font-dm-sans font-semibold text-green-deep mb-3">Expenses</h4>
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        value={newExpenseForm.description}
+                        onChange={(event) => setNewExpenseForm({ ...newExpenseForm, description: event.target.value })}
+                        placeholder="Expense description"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={newExpenseForm.amount}
+                          onChange={(event) => setNewExpenseForm({ ...newExpenseForm, amount: event.target.value })}
+                          placeholder="Amount"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={addFinancialExpense}
+                          disabled={!newExpenseForm.description.trim() || parseMoneyInput(newExpenseForm.amount) <= 0}
+                          className="px-4 py-2 bg-green-deep text-white rounded-lg text-sm font-dm-sans font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Log
+                        </button>
+                      </div>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {financialExpenses.slice(0, 5).map((expense) => (
+                          <div key={expense.id} className="flex items-start justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
+                            <div>
+                              <p className="text-sm font-dm-sans font-medium text-green-deep">{expense.description}</p>
+                              <p className="text-xs text-gray-500">{new Date(expense.expense_date).toLocaleDateString()}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-dm-sans text-red-600">₦{expense.amount.toLocaleString()}</span>
+                              <button
+                                type="button"
+                                onClick={() => deleteFinancialExpense(expense.id)}
+                                className="text-xs text-gray-500 hover:text-red-600"
+                              >
+                                X
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        {financialExpenses.length === 0 && (
+                          <p className="text-sm text-gray-500 font-dm-sans">No expenses logged yet.</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1173,13 +1665,23 @@ export default function CrmDashboard({
                         }`}>
                           {appointment.consultation_type === 'telemedicine' ? 'Telemedicine' : 'Home Visit'}
                         </span>
-                        <span className={`px-2 py-1 rounded ${
-                          appointment.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
-                          appointment.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        <select
+                          value={appointment.payment_status || 'pending'}
+                          onChange={(event) =>
+                            updateAppointmentPaymentStatus(
+                              appointment.id,
+                              event.target.value as WebsiteAppointment["payment_status"]
+                            )
+                          }
+                          className={`px-2 py-1 rounded border-0 text-xs font-dm-sans focus:outline-none focus:ring-2 focus:ring-gold ${
+                          (appointment.payment_status || 'pending') === 'paid' ? 'bg-green-100 text-green-800' :
+                          (appointment.payment_status || 'pending') === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                           'bg-red-100 text-red-800'
                         }`}>
-                          Payment: {appointment.payment_status}
-                        </span>
+                          <option value="pending">Pending</option>
+                          <option value="paid">Paid</option>
+                          <option value="failed">Failed</option>
+                        </select>
                         <span className="text-gray-500">
                           {new Date(appointment.preferred_date).toLocaleDateString()}
                         </span>
@@ -1198,27 +1700,71 @@ export default function CrmDashboard({
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2 bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-dm-sans font-semibold text-green-deep">Week {financialWeek} Task Planner</h3>
+                  <h3 className="text-xl font-dm-sans font-semibold text-green-deep">Task Planner</h3>
                   <span className="text-sm text-gray-500">{filteredFinancialTasks.filter((task) => task.done).length}/{filteredFinancialTasks.length} complete</span>
                 </div>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {[1, 2, 3, 4].map((week) => (
-                    <button
-                      key={week}
-                      onClick={() => setFinancialWeek(week)}
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        financialWeek === week ? "bg-green-deep text-white" : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      Week {week}
-                    </button>
-                  ))}
+                <div className="grid gap-3 md:grid-cols-4 mb-4">
+                  <input
+                    value={newTaskForm.title}
+                    onChange={(event) => setNewTaskForm({ ...newTaskForm, title: event.target.value })}
+                    placeholder="Task"
+                    className="md:col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={newTaskForm.due_date}
+                    onChange={(event) => setNewTaskForm({ ...newTaskForm, due_date: event.target.value })}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={addFinancialTask}
+                    disabled={!newTaskForm.title.trim() || !newTaskForm.due_date}
+                    className="px-4 py-2 bg-green-deep text-white rounded-lg text-sm font-dm-sans font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Add Task
+                  </button>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 mb-4">
+                  <select
+                    value={newTaskForm.priority}
+                    onChange={(event) => setNewTaskForm({ ...newTaskForm, priority: event.target.value as FinancialTaskItem["priority"] })}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  >
+                    <option value="High">High Priority</option>
+                    <option value="Medium">Medium Priority</option>
+                    <option value="Low">Low Priority</option>
+                  </select>
+                  <select
+                    value={newTaskForm.category}
+                    onChange={(event) => setNewTaskForm({ ...newTaskForm, category: event.target.value as FinancialTaskItem["category"] })}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  >
+                    {["corporate", "government", "elderly", "hmo", "premium", "ops"].map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <input
+                    type="date"
+                    value={financialTaskDateFilter}
+                    onChange={(event) => setFinancialTaskDateFilter(event.target.value)}
+                    className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFinancialTaskDateFilter("")}
+                    className="px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700"
+                  >
+                    All dates
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-2 mb-4">
                   {["all", "corporate", "government", "elderly", "hmo", "premium", "ops"].map((tag) => (
                     <button
                       key={tag}
-                      onClick={() => setFinancialTaskFilter(tag as "all" | FinancialTaskItem["tag"])}
+                      onClick={() => setFinancialTaskFilter(tag as "all" | FinancialTaskItem["category"])}
                       className={`px-3 py-1 rounded-full text-xs uppercase tracking-wide ${
                         financialTaskFilter === tag ? "bg-gold text-green-deep" : "bg-gray-100 text-gray-600"
                       }`}
@@ -1237,13 +1783,20 @@ export default function CrmDashboard({
                         {task.done ? "✓" : ""}
                       </button>
                       <div className="flex-1">
-                        <p className={`text-sm font-dm-sans ${task.done ? "line-through text-gray-400" : "text-green-deep"}`}>{task.text}</p>
-                        <p className="text-xs text-gray-500 mt-1">{task.priority} Priority • {task.tag}</p>
+                        <p className={`text-sm font-dm-sans ${task.done ? "line-through text-gray-400" : "text-green-deep"}`}>{task.title}</p>
+                        <p className="text-xs text-gray-500 mt-1">{new Date(task.due_date).toLocaleDateString()} • {task.priority} Priority • {task.category}</p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteFinancialTask(task.id)}
+                        className="text-xs text-gray-500 hover:text-red-600"
+                      >
+                        X
+                      </button>
                     </div>
                   ))}
                   {filteredFinancialTasks.length === 0 && (
-                    <p className="text-sm text-gray-500">No tasks in this week/filter yet.</p>
+                    <p className="text-sm text-gray-500">No tasks for this date/filter yet.</p>
                   )}
                 </div>
               </div>
@@ -1755,6 +2308,17 @@ export default function CrmDashboard({
               </div>
 
               <div>
+                <label className="block font-dm-sans font-medium text-green-deep mb-1">Specify Source</label>
+                <input
+                  type="text"
+                  value={leadForm.specifySource}
+                  onChange={(e) => setLeadForm({...leadForm, specifySource: e.target.value})}
+                  className="w-full px-3 py-2 rounded-lg border border-green-deep/20 focus:outline-none focus:border-gold"
+                  placeholder="e.g. Dr. Smith, Instagram, Lagos health fair"
+                />
+              </div>
+
+              <div>
                 <label className="block font-dm-sans font-medium text-green-deep mb-1">Priority</label>
                 <select
                   value={leadForm.risk}
@@ -1793,6 +2357,110 @@ export default function CrmDashboard({
                 className="flex-1 px-4 py-2 rounded-lg bg-green-deep text-white font-dm-sans hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create Lead
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingRevenueTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-[20px] p-6 shadow-xl max-w-sm w-full mx-4">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-xl font-dm-sans font-bold text-green-deep">Edit Target</h3>
+                <p className="text-sm text-gray-500 font-dm-sans mt-1">{editingRevenueTarget.name}</p>
+              </div>
+              <button onClick={() => setEditingRevenueTarget(null)} className="text-gray-500 hover:text-gray-700">
+                X
+              </button>
+            </div>
+
+            <label className="block font-dm-sans font-medium text-green-deep mb-1">Target</label>
+            <input
+              type="number"
+              min={0}
+              value={editingRevenueTarget.value}
+              onChange={(event) => setEditingRevenueTarget({ ...editingRevenueTarget, value: event.target.value })}
+              className="w-full px-3 py-2 rounded-lg border border-green-deep/20 focus:outline-none focus:border-gold"
+            />
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setEditingRevenueTarget(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-dm-sans hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveRevenueTarget}
+                className="flex-1 px-4 py-2 bg-gold text-green-deep rounded-lg font-dm-sans font-semibold hover:bg-gold/90"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNewStreamModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-[20px] p-6 shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <h3 className="text-xl font-dm-sans font-bold text-green-deep">Add New Stream</h3>
+              <button onClick={() => setShowNewStreamModal(false)} className="text-gray-500 hover:text-gray-700">
+                X
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block font-dm-sans font-medium text-green-deep mb-1">Stream Name</label>
+                <input
+                  type="text"
+                  value={newStreamForm.name}
+                  onChange={(event) => setNewStreamForm({ ...newStreamForm, name: event.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-green-deep/20 focus:outline-none focus:border-gold"
+                  placeholder="e.g. Instagram, Partner Clinics"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-dm-sans font-medium text-green-deep mb-1">Target</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={newStreamForm.target}
+                    onChange={(event) => setNewStreamForm({ ...newStreamForm, target: event.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-green-deep/20 focus:outline-none focus:border-gold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-dm-sans font-medium text-green-deep mb-1">Secured</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={newStreamForm.secured}
+                    onChange={(event) => setNewStreamForm({ ...newStreamForm, secured: event.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-green-deep/20 focus:outline-none focus:border-gold"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowNewStreamModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-dm-sans hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addRevenueStream}
+                disabled={!newStreamForm.name.trim()}
+                className="flex-1 px-4 py-2 bg-gold text-green-deep rounded-lg font-dm-sans font-semibold hover:bg-gold/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Stream
               </button>
             </div>
           </div>
@@ -1854,6 +2522,12 @@ export default function CrmDashboard({
                 <div>
                   <label className="block text-sm font-dm-sans font-medium text-gray-600 mb-1">Source</label>
                   <p className="font-dm-sans text-green-deep">{viewingPatient.source}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-dm-sans font-medium text-gray-600 mb-1">Specify Source</label>
+                  <p className="font-dm-sans text-green-deep">
+                    {getSpecificSource(viewingPatient) || "Not specified"}
+                  </p>
                 </div>
               </div>
 
@@ -2070,40 +2744,14 @@ export default function CrmDashboard({
                       if (response.ok) {
                         const data = await response.json()
                         const updatedPatient = data.patient || data
-                        // Save notes to localStorage as backup
-                        if (updatedPatientData.notes) {
-                          saveNotesToStorage(updatedPatient.id, updatedPatientData.notes)
-                        }
                         setPatients(prev => prev.map(p => p.id === updatedPatient.id ? {...updatedPatient, notes: updatedPatientData.notes} : p))
                         setEditingPatient(null)
                       } else {
-                        // API failed, update locally as fallback
                         const errorText = await response.text()
                         console.error('API error:', errorText)
-                        // Save notes to localStorage even if API fails
-                        if (updatedPatientData.notes) {
-                          saveNotesToStorage(editingPatient.id, updatedPatientData.notes)
-                        }
-                        setPatients(prev => prev.map(p => p.id === editingPatient.id ? updatedPatientData : p))
-                        setEditingPatient(null)
                       }
                     } catch (error) {
                       console.error('Error updating patient:', error)
-                      // Fallback: update locally even if API fails
-                      const fallbackData = {
-                        ...editingPatient,
-                        notes: editingPatient.note ? [
-                          ...(editingPatient.notes || []),
-                          { text: editingPatient.note, timestamp: new Date().toISOString() }
-                        ] : editingPatient.notes
-                      }
-                      delete fallbackData.note
-                      // Save notes to localStorage
-                      if (fallbackData.notes) {
-                        saveNotesToStorage(editingPatient.id, fallbackData.notes)
-                      }
-                      setPatients(prev => prev.map(p => p.id === editingPatient.id ? fallbackData : p))
-                      setEditingPatient(null)
                     } finally {
                       setSavingPatient(false)
                     }
