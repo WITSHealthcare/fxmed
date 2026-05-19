@@ -137,6 +137,12 @@ type FinancialTaskItem = {
   priority: "High" | "Medium" | "Low"
 }
 
+type FinancialTaskBucket = {
+  id: "overdue" | "today" | "week" | "later" | "done"
+  label: string
+  tasks: FinancialTaskItem[]
+}
+
 type FinancialDealStatus = "cold" | "warm" | "hot" | "won"
 type FinancialDeal = {
   id: string
@@ -152,6 +158,72 @@ type FinancialExpense = {
   description: string
   amount: number
   expense_date: string
+}
+
+const financialTaskCategories: Array<{ id: "all" | FinancialTaskItem["category"]; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "corporate", label: "Corporate" },
+  { id: "government", label: "Government" },
+  { id: "elderly", label: "Elderly Care" },
+  { id: "hmo", label: "HMO" },
+  { id: "premium", label: "Premium" },
+  { id: "ops", label: "Ops" },
+]
+
+const financialTaskCategoryLabels = financialTaskCategories.reduce((labels, category) => {
+  labels[category.id] = category.label
+  return labels
+}, {} as Record<"all" | FinancialTaskItem["category"], string>)
+
+const priorityRank: Record<FinancialTaskItem["priority"], number> = {
+  High: 0,
+  Medium: 1,
+  Low: 2,
+}
+
+const formatDateInput = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+const parseDateInput = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number)
+  return new Date(year, month - 1, day)
+}
+
+const formatTaskDate = (value: string) => {
+  return parseDateInput(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
+const getDayDiff = (value: string, todayValue = formatDateInput(new Date())) => {
+  const due = parseDateInput(value).getTime()
+  const today = parseDateInput(todayValue).getTime()
+  return Math.round((due - today) / 86400000)
+}
+
+const getRelativeDueLabel = (value: string, todayValue = formatDateInput(new Date())) => {
+  const diff = getDayDiff(value, todayValue)
+  if (diff < 0) return `${Math.abs(diff)}d overdue`
+  if (diff === 0) return "Today"
+  if (diff === 1) return "Tomorrow"
+  if (diff <= 7) return `${diff}d left`
+  return formatTaskDate(value)
+}
+
+const sortFinancialTasks = (tasks: FinancialTaskItem[]) => {
+  return [...tasks].sort((a, b) => {
+    const dateDiff = a.due_date.localeCompare(b.due_date)
+    if (dateDiff !== 0) return dateDiff
+    const priorityDiff = priorityRank[a.priority] - priorityRank[b.priority]
+    if (priorityDiff !== 0) return priorityDiff
+    return a.title.localeCompare(b.title)
+  })
 }
 
 interface CrmDashboardProps {
@@ -449,7 +521,7 @@ export default function CrmDashboard({
   const [newExpenseForm, setNewExpenseForm] = useState({ description: "", amount: "" })
   const [newTaskForm, setNewTaskForm] = useState({
     title: "",
-    due_date: new Date().toISOString().split("T")[0],
+    due_date: formatDateInput(new Date()),
     priority: "Medium" as FinancialTaskItem["priority"],
     category: "ops" as FinancialTaskItem["category"],
   })
@@ -508,11 +580,28 @@ export default function CrmDashboard({
     }
   }
 
+  const fetchFinancialDeals = async () => {
+    try {
+      const response = await fetch('/api/financial/deals')
+      if (!response.ok) throw new Error('Failed to fetch financial deals')
+
+      const { deals } = await response.json()
+      setFinancialDeals((deals || []).map((deal: FinancialDeal) => ({
+        ...deal,
+        value: Number(deal.value || 0),
+      })))
+    } catch (error) {
+      console.error('Error fetching financial deals:', error)
+      setFinancialDeals(financialDealSeed)
+    }
+  }
+
   useEffect(() => {
     if (crmView === 'financial') {
       fetchRevenueStreams()
       fetchFinancialExpenses()
       fetchFinancialTasks()
+      fetchFinancialDeals()
     }
   }, [crmView])
 
@@ -910,12 +999,53 @@ export default function CrmDashboard({
   }, [crmView, patients, revenueStreams])
 
   const filteredFinancialTasks = useMemo(() => {
-    return financialTasks.filter((task) => {
+    return sortFinancialTasks(financialTasks.filter((task) => {
       const matchesDate = !financialTaskDateFilter || task.due_date === financialTaskDateFilter
       const matchesCategory = financialTaskFilter === "all" || task.category === financialTaskFilter
       return matchesDate && matchesCategory
-    })
+    }))
   }, [financialTasks, financialTaskDateFilter, financialTaskFilter])
+
+  const financialTaskBuckets = useMemo<FinancialTaskBucket[]>(() => {
+    const today = formatDateInput(new Date())
+    const buckets: FinancialTaskBucket[] = [
+      { id: "overdue", label: "Overdue", tasks: [] },
+      { id: "today", label: "Today", tasks: [] },
+      { id: "week", label: "Next 7 Days", tasks: [] },
+      { id: "later", label: "Later", tasks: [] },
+      { id: "done", label: "Completed", tasks: [] },
+    ]
+
+    filteredFinancialTasks.forEach((task) => {
+      if (task.done) {
+        buckets[4].tasks.push(task)
+        return
+      }
+
+      const dayDiff = getDayDiff(task.due_date, today)
+      if (dayDiff < 0) buckets[0].tasks.push(task)
+      else if (dayDiff === 0) buckets[1].tasks.push(task)
+      else if (dayDiff <= 7) buckets[2].tasks.push(task)
+      else buckets[3].tasks.push(task)
+    })
+
+    return buckets.filter((bucket) => bucket.tasks.length > 0)
+  }, [filteredFinancialTasks])
+
+  const financialTaskInsights = useMemo(() => {
+    const today = formatDateInput(new Date())
+    const openTasks = financialTasks.filter((task) => !task.done)
+    const highPriorityOpen = openTasks.filter((task) => task.priority === "High").length
+    const overdue = openTasks.filter((task) => getDayDiff(task.due_date, today) < 0).length
+    const nextTask = sortFinancialTasks(openTasks)[0]
+
+    return {
+      highPriorityOpen,
+      overdue,
+      nextTask,
+      nextDueLabel: nextTask ? getRelativeDueLabel(nextTask.due_date, today) : "None",
+    }
+  }, [financialTasks])
 
   const financialPipeline = useMemo(() => {
     const totalValue = financialDeals.reduce((sum, deal) => sum + deal.value, 0)
@@ -1113,10 +1243,10 @@ export default function CrmDashboard({
 
       if (!response.ok) throw new Error('Failed to create task')
       const { task } = await response.json()
-      setFinancialTasks((prev) => [...prev, task].sort((a, b) => a.due_date.localeCompare(b.due_date)))
+      setFinancialTasks((prev) => sortFinancialTasks([...prev, task]))
       setNewTaskForm({
         title: "",
-        due_date: new Date().toISOString().split("T")[0],
+        due_date: formatDateInput(new Date()),
         priority: "Medium",
         category: "ops",
       })
@@ -1127,6 +1257,10 @@ export default function CrmDashboard({
   }
 
   const deleteFinancialTask = async (taskId: string) => {
+    const task = financialTasks.find((item) => item.id === taskId)
+    if (!task) return
+    if (!confirm(`Delete "${task.title}"?`)) return
+
     setFinancialTasks((prev) => prev.filter((task) => task.id !== taskId))
     try {
       const response = await fetch(`/api/financial/tasks?id=${encodeURIComponent(taskId)}`, {
@@ -1139,22 +1273,40 @@ export default function CrmDashboard({
     }
   }
 
-  const addFinancialDeal = () => {
-    if (!newDeal.company.trim()) return
+  const addFinancialDeal = async () => {
+    const company = newDeal.company.trim()
+    const type = newDeal.type.trim()
+    if (!company || !type) return
+
     const parsedValue = Number(newDeal.value)
-    const dealValue = Number.isFinite(parsedValue) ? parsedValue : 0
-    setFinancialDeals((prev) => [
-      ...prev,
-      {
-        id: `d-${Date.now()}`,
-        company: newDeal.company.trim(),
-        type: newDeal.type,
-        value: dealValue,
-        status: newDeal.status,
-        notes: newDeal.notes.trim(),
-      },
-    ])
-    setNewDeal({ company: "", type: "Corporate", value: "", status: "cold", notes: "" })
+    const dealValue = Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0
+
+    try {
+      const response = await fetch('/api/financial/deals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: `deal-${Date.now()}`,
+          company,
+          type,
+          value: dealValue,
+          status: newDeal.status,
+          notes: newDeal.notes.trim(),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save opportunity')
+      }
+
+      const { deal } = await response.json()
+      setFinancialDeals((prev) => [...prev, { ...deal, value: Number(deal.value || 0) }])
+      setNewDeal({ company: "", type: "Corporate", value: "", status: "cold", notes: "" })
+    } catch (error) {
+      console.error('Error saving financial deal:', error)
+      alert(`Error saving opportunity: ${error instanceof Error ? error.message : 'Please try again.'}`)
+    }
   }
 
   // Helper functions
@@ -1698,16 +1850,19 @@ export default function CrmDashboard({
 
           {financialSection === "tasks" && (
             <div className="grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2 bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
+              <div className="lg:col-span-2 bg-white rounded-lg p-6 shadow-lg border border-green-deep/10">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-dm-sans font-semibold text-green-deep">Task Planner</h3>
+                  <div>
+                    <h3 className="text-xl font-dm-sans font-semibold text-green-deep">Task Planner</h3>
+                    <p className="text-sm text-gray-500">Prioritize revenue, partnership, and operating follow-through.</p>
+                  </div>
                   <span className="text-sm text-gray-500">{filteredFinancialTasks.filter((task) => task.done).length}/{filteredFinancialTasks.length} complete</span>
                 </div>
-                <div className="grid gap-3 md:grid-cols-4 mb-4">
+                <div className="grid gap-3 md:grid-cols-4 mb-3">
                   <input
                     value={newTaskForm.title}
                     onChange={(event) => setNewTaskForm({ ...newTaskForm, title: event.target.value })}
-                    placeholder="Task"
+                    placeholder="Add a financial task"
                     className="md:col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                   <input
@@ -1725,7 +1880,7 @@ export default function CrmDashboard({
                     Add Task
                   </button>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2 mb-4">
+                <div className="grid gap-3 md:grid-cols-2 mb-5">
                   <select
                     value={newTaskForm.priority}
                     onChange={(event) => setNewTaskForm({ ...newTaskForm, priority: event.target.value as FinancialTaskItem["priority"] })}
@@ -1740,12 +1895,12 @@ export default function CrmDashboard({
                     onChange={(event) => setNewTaskForm({ ...newTaskForm, category: event.target.value as FinancialTaskItem["category"] })}
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
-                    {["corporate", "government", "elderly", "hmo", "premium", "ops"].map((category) => (
-                      <option key={category} value={category}>{category}</option>
+                    {financialTaskCategories.filter((category) => category.id !== "all").map((category) => (
+                      <option key={category.id} value={category.id}>{category.label}</option>
                     ))}
                   </select>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 mb-4">
+                <div className="flex flex-wrap items-center gap-2 mb-3">
                   <input
                     type="date"
                     value={financialTaskDateFilter}
@@ -1761,38 +1916,64 @@ export default function CrmDashboard({
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {["all", "corporate", "government", "elderly", "hmo", "premium", "ops"].map((tag) => (
+                  {financialTaskCategories.map((category) => (
                     <button
-                      key={tag}
-                      onClick={() => setFinancialTaskFilter(tag as "all" | FinancialTaskItem["category"])}
+                      key={category.id}
+                      onClick={() => setFinancialTaskFilter(category.id)}
                       className={`px-3 py-1 rounded-full text-xs uppercase tracking-wide ${
-                        financialTaskFilter === tag ? "bg-gold text-green-deep" : "bg-gray-100 text-gray-600"
+                        financialTaskFilter === category.id ? "bg-gold text-green-deep" : "bg-gray-100 text-gray-600"
                       }`}
                     >
-                      {tag}
+                      {category.label}
                     </button>
                   ))}
                 </div>
-                <div className="space-y-3">
-                  {filteredFinancialTasks.map((task) => (
-                    <div key={task.id} className="flex items-start gap-3 border border-gray-200 rounded-lg p-3">
-                      <button
-                        onClick={() => toggleFinancialTask(task.id)}
-                        className={`w-5 h-5 rounded border mt-0.5 ${task.done ? "bg-green-600 border-green-600 text-white" : "border-gray-300"}`}
-                      >
-                        {task.done ? "✓" : ""}
-                      </button>
-                      <div className="flex-1">
-                        <p className={`text-sm font-dm-sans ${task.done ? "line-through text-gray-400" : "text-green-deep"}`}>{task.title}</p>
-                        <p className="text-xs text-gray-500 mt-1">{new Date(task.due_date).toLocaleDateString()} • {task.priority} Priority • {task.category}</p>
+                <div className="space-y-5">
+                  {financialTaskBuckets.map((bucket) => (
+                    <div key={bucket.id}>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-dm-sans font-semibold uppercase tracking-wide text-gray-500">{bucket.label}</h4>
+                        <span className="text-xs text-gray-400">{bucket.tasks.length}</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => deleteFinancialTask(task.id)}
-                        className="text-xs text-gray-500 hover:text-red-600"
-                      >
-                        X
-                      </button>
+                      <div className="space-y-3">
+                        {bucket.tasks.map((task) => (
+                          <div key={task.id} className={`flex items-start gap-3 border rounded-lg p-3 ${
+                            !task.done && getDayDiff(task.due_date) < 0 ? "border-red-200 bg-red-50" : "border-gray-200"
+                          }`}>
+                            <button
+                              type="button"
+                              aria-label={task.done ? "Mark task incomplete" : "Mark task complete"}
+                              onClick={() => toggleFinancialTask(task.id)}
+                              className={`w-5 h-5 rounded border mt-0.5 shrink-0 text-[11px] leading-4 ${task.done ? "bg-green-600 border-green-600 text-white" : "border-gray-300"}`}
+                            >
+                              {task.done ? "✓" : ""}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className={`text-sm font-dm-sans ${task.done ? "line-through text-gray-400" : "text-green-deep"}`}>{task.title}</p>
+                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                  task.priority === "High" ? "bg-red-100 text-red-700" :
+                                  task.priority === "Medium" ? "bg-gold/20 text-green-deep" :
+                                  "bg-gray-100 text-gray-600"
+                                }`}>
+                                  {task.priority}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {getRelativeDueLabel(task.due_date)} • {formatTaskDate(task.due_date)} • {financialTaskCategoryLabels[task.category]}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              aria-label={`Delete ${task.title}`}
+                              onClick={() => deleteFinancialTask(task.id)}
+                              className="text-xs text-gray-500 hover:text-red-600"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                   {filteredFinancialTasks.length === 0 && (
@@ -1801,7 +1982,7 @@ export default function CrmDashboard({
                 </div>
               </div>
 
-              <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
+              <div className="bg-white rounded-lg p-6 shadow-lg border border-green-deep/10">
                 <h3 className="text-lg font-dm-sans font-semibold text-green-deep mb-3">Execution Summary</h3>
                 <p className="text-3xl font-bold text-green-deep mb-1">{financialExecution.taskCompletion}%</p>
                 <p className="text-sm text-gray-500 mb-4">overall task completion</p>
@@ -1812,6 +1993,19 @@ export default function CrmDashboard({
                   <div className="flex justify-between"><span>Total Tasks</span><span>{financialExecution.taskTotal}</span></div>
                   <div className="flex justify-between"><span>Completed</span><span>{financialExecution.taskDone}</span></div>
                   <div className="flex justify-between"><span>Open</span><span>{financialExecution.taskTotal - financialExecution.taskDone}</span></div>
+                  <div className="flex justify-between"><span>High Priority Open</span><span>{financialTaskInsights.highPriorityOpen}</span></div>
+                  <div className="flex justify-between"><span>Overdue</span><span className={financialTaskInsights.overdue > 0 ? "text-red-600 font-semibold" : ""}>{financialTaskInsights.overdue}</span></div>
+                </div>
+                <div className="mt-5 border-t border-gray-100 pt-4">
+                  <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Next deadline</p>
+                  {financialTaskInsights.nextTask ? (
+                    <>
+                      <p className="text-sm font-dm-sans font-semibold text-green-deep">{financialTaskInsights.nextTask.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">{financialTaskInsights.nextDueLabel} • {financialTaskInsights.nextTask.priority} Priority</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-500">No open tasks.</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1872,7 +2066,13 @@ export default function CrmDashboard({
                       <option value="won">Won</option>
                     </select>
                     <textarea value={newDeal.notes} onChange={(event) => setNewDeal((prev) => ({ ...prev, notes: event.target.value }))} placeholder="Notes" rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
-                    <button onClick={addFinancialDeal} className="px-4 py-2 bg-gold text-green-deep rounded-lg font-semibold">Save Deal</button>
+                    <button
+                      onClick={addFinancialDeal}
+                      disabled={!newDeal.company.trim() || !newDeal.type.trim()}
+                      className="px-4 py-2 bg-gold text-green-deep rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Save Opportunity
+                    </button>
                   </div>
                 </div>
               </div>

@@ -9,7 +9,9 @@ import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysi
 import Messages from '@/components/admin/Messages'
 import AppointmentCalendar from '@/components/admin/AppointmentCalendar'
 import Notifications from '@/components/admin/Notifications'
-import { signOut } from '@/lib/supabase-auth'
+import UserManagement from '@/components/admin/UserManagement'
+import { getCurrentAdminRole, signOut } from '@/lib/supabase-auth'
+import { adminRoleLabels, adminRolePermissions, canAccessCrmView, canAccessTab, type AdminRole, type AdminTab } from '@/lib/admin-auth'
 import { createClient } from '@supabase/supabase-js'
 import blogContentData from '@/app/blog/fxmed-content (1).json'
 
@@ -31,6 +33,17 @@ interface BlogPost {
 type Stage = "Outreach" | "Follow Up" | "Enrolment" | "Onboarding" | "Active"
 type Risk = "High" | "Medium" | "Low"
 type CrmView = "clinical" | "financial"
+
+const adminNavItems: Array<{ id: AdminTab; label: string; icon: string; title: string; description: string }> = [
+  { id: 'blog', label: 'Blog Management', icon: '📝', title: 'Blog Management', description: 'Manage your blog posts, drafts, and content' },
+  { id: 'crm', label: 'CRM', icon: '👥', title: 'CRM Dashboard', description: 'Track patients, manage pipeline, and optimize outreach' },
+  { id: 'seo', label: 'SEO Analytics', icon: '📈', title: 'SEO Analytics', description: 'Monitor search performance and optimize content' },
+  { id: 'health', label: 'Health Analysis', icon: '🏥', title: 'Functional Health Analysis', description: 'Review and manage health assessment submissions' },
+  { id: 'messages', label: 'Messages', icon: '💬', title: 'Messages', description: 'View and manage messages from patients and visitors' },
+  { id: 'requests', label: 'Requests', icon: '📋', title: 'Requests', description: 'Manage appointment bookings and consultation requests' },
+  { id: 'ambassador', label: 'Ambassador Program', icon: '🤝', title: 'Ambassador Program', description: 'Track ambassadors, referrals, and program performance' },
+  { id: 'users', label: 'Users & Roles', icon: '🔐', title: 'Users & Roles', description: 'Create dashboard users and assign role-based access' },
+]
 
 type Note = {
   text: string
@@ -233,9 +246,11 @@ export default function AdminPanel() {
   const router = useRouter()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'blog' | 'crm' | 'seo' | 'health' | 'messages' | 'requests' | 'ambassador'>('blog')
+  const [activeTab, setActiveTab] = useState<AdminTab>('blog')
   const [crmView, setCrmView] = useState<CrmView>('clinical')
   const [importing, setImporting] = useState(false)
+  const [authChecking, setAuthChecking] = useState(true)
+  const [currentRole, setCurrentRole] = useState<AdminRole | null>(null)
 
   // CRM state
   const [patients, setPatients] = useState<Patient[]>(patientsSeed)
@@ -251,6 +266,33 @@ export default function AdminPanel() {
     risk: "Medium" as Risk,
     consent: false
   })
+
+  useEffect(() => {
+    const verifyAdminAccess = async () => {
+      try {
+        const role = await getCurrentAdminRole()
+        if (!role) {
+          router.replace('/admin/login')
+          return
+        }
+
+        const permissions = adminRolePermissions[role]
+        const defaultTab = permissions.tabs[0]
+        const defaultCrmView = permissions.crmViews[0]
+
+        setCurrentRole(role)
+        setActiveTab(defaultTab)
+        if (defaultCrmView) setCrmView(defaultCrmView)
+      } catch (error) {
+        console.error('Admin auth check failed:', error)
+        router.replace('/admin/login')
+      } finally {
+        setAuthChecking(false)
+      }
+    }
+
+    verifyAdminAccess()
+  }, [router])
 
   // Import JSON content as drafts in batches
   const importDraftsFromJSON = async () => {
@@ -309,6 +351,8 @@ export default function AdminPanel() {
 
   // Fetch drafts and published posts separately
   useEffect(() => {
+    if (authChecking) return
+
     const initializePosts = async () => {
       try {
         console.log('Initializing posts...')
@@ -340,10 +384,12 @@ export default function AdminPanel() {
     }
 
     initializePosts()
-  }, [])
+  }, [authChecking])
 
   // Fetch CRM patients on mount
   useEffect(() => {
+    if (authChecking) return
+
     const fetchPatients = async () => {
       try {
         const response = await fetch('/api/crm')
@@ -358,7 +404,7 @@ export default function AdminPanel() {
     }
 
     fetchPatients()
-  }, [])
+  }, [authChecking])
 
   const createLead = async () => {
     if (!leadForm.name.trim()) return
@@ -512,6 +558,7 @@ export default function AdminPanel() {
     try {
       await signOut()
       router.push('/admin/login')
+      router.refresh()
     } catch (error) {
       console.error('Logout error:', error)
       // Still redirect even if logout fails
@@ -519,7 +566,12 @@ export default function AdminPanel() {
     }
   }
 
-  if (loading) {
+  const availableTabs = currentRole ? adminNavItems.filter((item) => canAccessTab(currentRole, item.id)) : []
+  const activeNavItem = adminNavItems.find((item) => item.id === activeTab)
+  const canViewClinicalCrm = canAccessCrmView(currentRole, 'clinical')
+  const canViewFinancialCrm = canAccessCrmView(currentRole, 'financial')
+
+  if (authChecking || loading) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
         <div className="text-center">
@@ -539,7 +591,7 @@ export default function AdminPanel() {
             <img 
               src="/logo.png" 
               alt="FXMed" 
-              className="h-[120px] w-auto"
+              className="h-[120px] w-auto md:h-[120px] h-[80px]"
             />
           </div>
           <div className="flex items-center gap-6">
@@ -577,83 +629,20 @@ export default function AdminPanel() {
           {/* Main Navigation */}
           <nav className="px-4 pb-6">
             <div className="space-y-2">
-              <button
-                onClick={() => setActiveTab('blog')}
-                className={`w-full px-4 py-3 rounded-lg font-dm-sans text-sm font-medium transition-all text-left flex items-center space-x-3 ${
-                  activeTab === 'blog'
-                    ? 'bg-gold text-green-deep shadow-md'
-                    : 'text-cream/85 hover:bg-green-deep/20 hover:text-cream'
-                }`}
-              >
-                <span>📝</span>
-                <span>Blog Management</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('crm')}
-                className={`w-full px-4 py-3 rounded-lg font-dm-sans text-sm font-medium transition-all text-left flex items-center space-x-3 ${
-                  activeTab === 'crm'
-                    ? 'bg-gold text-green-deep shadow-md'
-                    : 'text-cream/85 hover:bg-green-deep/20 hover:text-cream'
-                }`}
-              >
-                <span>👥</span>
-                <span>CRM</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('seo')}
-                className={`w-full px-4 py-3 rounded-lg font-dm-sans text-sm font-medium transition-all text-left flex items-center space-x-3 ${
-                  activeTab === 'seo'
-                    ? 'bg-gold text-green-deep shadow-md'
-                    : 'text-cream/85 hover:bg-green-deep/20 hover:text-cream'
-                }`}
-              >
-                <span>📈</span>
-                <span>SEO Analytics</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('health')}
-                className={`w-full px-4 py-3 rounded-lg font-dm-sans text-sm font-medium transition-all text-left flex items-center space-x-3 ${
-                  activeTab === 'health'
-                    ? 'bg-gold text-green-deep shadow-md'
-                    : 'text-cream/85 hover:bg-green-deep/20 hover:text-cream'
-                }`}
-              >
-                <span>🏥</span>
-                <span>Health Analysis</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('messages')}
-                className={`w-full px-4 py-3 rounded-lg font-dm-sans text-sm font-medium transition-all text-left flex items-center space-x-3 ${
-                  activeTab === 'messages'
-                    ? 'bg-gold text-green-deep shadow-md'
-                    : 'text-cream/85 hover:bg-green-deep/20 hover:text-cream'
-                }`}
-              >
-                <span>💬</span>
-                <span>Messages</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('requests')}
-                className={`w-full px-4 py-3 rounded-lg font-dm-sans text-sm font-medium transition-all text-left flex items-center space-x-3 ${
-                  activeTab === 'requests'
-                    ? 'bg-gold text-green-deep shadow-md'
-                    : 'text-cream/85 hover:bg-green-deep/20 hover:text-cream'
-                }`}
-              >
-                <span>📋</span>
-                <span>Requests</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('ambassador')}
-                className={`w-full px-4 py-3 rounded-lg font-dm-sans text-sm font-medium transition-all text-left flex items-center space-x-3 ${
-                  activeTab === 'ambassador'
-                    ? 'bg-gold text-green-deep shadow-md'
-                    : 'text-cream/85 hover:bg-green-deep/20 hover:text-cream'
-                }`}
-              >
-                <span>🤝</span>
-                <span>Ambassador Program</span>
-              </button>
+              {availableTabs.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full px-4 py-3 rounded-lg font-dm-sans text-sm font-medium transition-all text-left flex items-center space-x-3 ${
+                    activeTab === item.id
+                      ? 'bg-gold text-green-deep shadow-md'
+                      : 'text-cream/85 hover:bg-green-deep/20 hover:text-cream'
+                  }`}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
             </div>
           </nav>
         </div>
@@ -665,15 +654,9 @@ export default function AdminPanel() {
             <div className="mb-8">
               <div className="flex items-start justify-between gap-4">
                 <h2 className="text-3xl font-dm-sans font-bold text-green-deep mb-2">
-                  {activeTab === 'blog' && 'Blog Management'}
-                  {activeTab === 'crm' && 'CRM Dashboard'}
-                  {activeTab === 'seo' && 'SEO Analytics'}
-                  {activeTab === 'health' && 'Functional Health Analysis'}
-                  {activeTab === 'messages' && 'Messages'}
-                  {activeTab === 'requests' && 'Requests'}
-                  {activeTab === 'ambassador' && 'Ambassador Program'}
+                  {activeNavItem?.title}
                 </h2>
-                {activeTab === 'crm' && (
+                {activeTab === 'crm' && canViewClinicalCrm && canViewFinancialCrm && (
                   <div className="flex items-center bg-gray-100 rounded-full p-1 border border-green-deep/10">
                     <button
                       onClick={() => setCrmView('clinical')}
@@ -699,22 +682,19 @@ export default function AdminPanel() {
                 )}
               </div>
               <p className="text-text-mid">
-                {activeTab === 'blog' && 'Manage your blog posts, drafts, and content'}
-                {activeTab === 'crm' && 'Track patients, manage pipeline, and optimize outreach'}
-                {activeTab === 'seo' && 'Monitor search performance and optimize content'}
-                {activeTab === 'health' && 'Review and manage health assessment submissions'}
-                {activeTab === 'messages' && 'View and manage messages from patients and visitors'}
-                {activeTab === 'requests' && 'Manage appointment bookings and consultation requests'}
-                {activeTab === 'ambassador' && 'Track ambassadors, referrals, and program performance'}
+                {activeNavItem?.description}
               </p>
+              {currentRole && (
+                <p className="text-xs text-text-mid mt-2">Signed in as {adminRoleLabels[currentRole]}</p>
+              )}
             </div>
 
             {/* Content Area */}
-            {activeTab === 'blog' && (
+            {activeTab === 'blog' && canAccessTab(currentRole, 'blog') && (
               <BlogManagement posts={posts} setPosts={setPosts} />
             )}
 
-            {activeTab === 'crm' && (
+            {activeTab === 'crm' && canAccessTab(currentRole, 'crm') && canAccessCrmView(currentRole, crmView) && (
               <CrmDashboard
                 patients={patients}
                 setPatients={setPatients}
@@ -727,21 +707,25 @@ export default function AdminPanel() {
               />
             )}
 
-            {activeTab === 'seo' && <SeoAnalytics />}
+            {activeTab === 'seo' && canAccessTab(currentRole, 'seo') && <SeoAnalytics />}
 
-            {activeTab === 'health' && <FunctionalHealthAnalysis />}
+            {activeTab === 'health' && canAccessTab(currentRole, 'health') && <FunctionalHealthAnalysis />}
 
-            {activeTab === 'messages' && <Messages />}
+            {activeTab === 'messages' && canAccessTab(currentRole, 'messages') && <Messages />}
 
-            {activeTab === 'requests' && <AppointmentCalendar />}
+            {activeTab === 'requests' && canAccessTab(currentRole, 'requests') && <AppointmentCalendar />}
 
-            {activeTab === 'ambassador' && (
+            {activeTab === 'ambassador' && canAccessTab(currentRole, 'ambassador') && (
               <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
                 <h3 className="text-xl font-dm-sans font-semibold text-green-deep mb-2">Ambassador Program</h3>
                 <p className="text-text-mid font-dm-sans">
                   Manage ambassador referrals, targets, and performance from here.
                 </p>
               </div>
+            )}
+
+            {activeTab === 'users' && canAccessTab(currentRole, 'users') && (
+              <UserManagement />
             )}
           </div>
         </div>

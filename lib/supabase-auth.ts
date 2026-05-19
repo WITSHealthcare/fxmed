@@ -1,4 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
+import { getUserAdminRole, isAdminUser, isDashboardUser } from './admin-auth'
 
 // Check if environment variables are available
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -12,7 +13,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase configuration is missing. Please set up your environment variables.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
 // Helper functions for authentication
 export async function signIn(email: string, password: string) {
@@ -45,11 +46,17 @@ export async function getCurrentUser() {
 // Check if user has admin role (custom claim or user metadata)
 export async function isAdmin() {
   const user = await getCurrentUser()
-  if (!user) return false
-  
-  // Check user metadata for admin role
-  const userMetadata = user.user_metadata
-  return userMetadata?.role === 'admin' || userMetadata?.is_admin === true
+  return isAdminUser(user)
+}
+
+export async function isDashboardUserSession() {
+  const user = await getCurrentUser()
+  return isDashboardUser(user)
+}
+
+export async function getCurrentAdminRole() {
+  const user = await getCurrentUser()
+  return getUserAdminRole(user)
 }
 
 // Listen to auth state changes

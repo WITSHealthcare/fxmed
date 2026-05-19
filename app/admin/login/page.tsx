@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signIn, isAdmin } from '@/lib/supabase-auth'
+import { isDashboardUserSession, signIn, signOut } from '@/lib/supabase-auth'
 
 export default function AdminLogin() {
   const router = useRouter()
@@ -18,22 +18,16 @@ export default function AdminLogin() {
     setLoading(true)
 
     try {
-      // Sign in with Supabase Auth
-      const { user, session } = await signIn(email, password)
-      
-      // Check if user has admin role
-      const userIsAdmin = await isAdmin()
-      
-      if (!userIsAdmin) {
-        // Sign out if not admin
-        const { supabase } = await import('@/lib/supabase-auth')
-        await supabase.auth.signOut()
-        setError('Access denied. Admin privileges required.')
-        return
+      await signIn(email, password)
+      const userCanAccessDashboard = await isDashboardUserSession()
+
+      if (!userCanAccessDashboard) {
+        await signOut()
+        throw new Error('Access denied. Dashboard role required.')
       }
-      
-      // Redirect to admin dashboard
+
       router.push('/admin')
+      router.refresh()
     } catch (error: any) {
       console.error('Login error:', error)
       setError(error.message || 'Invalid email or password')
