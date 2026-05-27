@@ -478,8 +478,7 @@ export default function InvestigationsClient() {
               try {
                 // Import html2canvas and jsPDF
                 const html2canvas = (await import('html2canvas')).default;
-                const jsPDFModule = await import('jspdf');
-                const jsPDF = jsPDFModule.jsPDF ?? jsPDFModule.default;
+                const { default: jsPDF } = await import('jspdf');
                 
                 // Wait for images to load
                 await new Promise(resolve => setTimeout(resolve, 1000));
