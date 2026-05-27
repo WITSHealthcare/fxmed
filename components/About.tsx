@@ -1,24 +1,26 @@
 'use client'
 
+import Image from 'next/image'
+
 export default function WhyFXMed() {
   const benefits = [
     {
-      icon: <img src="/House.svg" alt="House" className="w-8 h-8" />,
+      icon: <Image src="/House.svg" alt="House" width={32} height={32} />,
       title: "We Come to You",
       description: "House calls, workplace visits, and mobile diagnostics. Quality care without the waiting room."
     },
     {
-      icon: <img src="/Dna.svg" alt="DNA" className="w-8 h-8" />,
+      icon: <Image src="/Dna.svg" alt="DNA" width={32} height={32} />,
       title: "Root Cause Medicine",
       description: "We use advanced biomarker testing and in-depth health history to find what's really driving your symptoms."
     },
     {
-      icon: <img src="/DeviceMobileCamera.svg" alt="Device" className="w-8 h-8" />,
+      icon: <Image src="/DeviceMobileCamera.svg" alt="Device" width={32} height={32} />,
       title: "Always Connected",
       description: "The WellnessWits app keeps you connected to your care team 24/7, with tracking and guidance at your fingertips."
     },
     {
-      icon: <img src="/User.svg" alt="User" className="w-8 h-8" />,
+      icon: <Image src="/User.svg" alt="User" width={32} height={32} />,
       title: "Truly Personalized",
       description: "No cookie-cutter plans. Every protocol — nutrition, lifestyle, supplements — is built specifically for you."
     }
@@ -63,11 +65,14 @@ export default function WhyFXMed() {
 
           {/* Dr. Kike Card */}
           <div className="rounded-[24px] overflow-hidden relative shadow-custom-hover">
-            <img 
-              src="/Team/Dr Kike Oduba.jpg"
-              alt="Dr. Kike Oduba"
-              className="w-full h-[600px] object-cover object-center"
-            />
+            <div className="relative w-full h-[600px]">
+              <Image
+                src="/Team/Dr Kike Oduba.jpg"
+                alt="Dr. Kike Oduba"
+                fill
+                className="object-cover object-center"
+              />
+            </div>
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[rgba(15,36,25,0.95)] via-[rgba(15,36,25,0.6)] to-transparent p-9">
               <blockquote className="font-dm-sans italic text-cream text-[1.05rem] leading-[1.65] mb-4">
                 "Good medicine is a patient-doctor partnership, not a doctor-patient dictatorship. I created FXMed so no one has to feel unheard by their healthcare provider again."

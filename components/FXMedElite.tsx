@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function FXMedElite() {
   return (
@@ -23,9 +24,11 @@ export default function FXMedElite() {
               PREMIUM HEALTHCARE · CONCIERGE CARE
             </div>
             <h2 className="font-dm-sans font-extrabold text-white text-[clamp(2rem,4vw,3rem)] leading-[1.15] mb-4">
-              <img 
-                src="/FXMed Elite White.svg" 
-                alt="FXMed Elite" 
+              <Image
+                src="/FXMed Elite White.svg"
+                alt="FXMed Elite"
+                width={400}
+                height={64}
                 className="h-[clamp(2.5rem,5vw,4rem)] w-auto inline-block"
               /><br/>Concierge Care for Distinguished Clients
             </h2>
@@ -48,7 +51,7 @@ export default function FXMedElite() {
               <div className="space-y-6">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 flex items-center justify-center text-[1.3rem] flex-shrink-0">
-                    <img src="/Spade.svg" alt="Spade" className="w-8 h-8" />
+                    <Image src="/Spade.svg" alt="Spade" width={32} height={32} />
                   </div>
                   <div>
                     <h3 className="font-dm-sans font-bold text-green-deep text-lg mb-2">Discreet & Exclusive Access</h3>
@@ -57,7 +60,7 @@ export default function FXMedElite() {
                 </div>
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 flex items-center justify-center text-[1.3rem] flex-shrink-0">
-                    <img src="/DeviceMobile.svg" alt="Device" className="w-8 h-8" />
+                    <Image src="/DeviceMobile.svg" alt="Device" width={32} height={32} />
                   </div>
                   <div>
                     <h3 className="font-dm-sans font-bold text-green-deep text-lg mb-2">24/7 Virtual Concierge</h3>
@@ -66,7 +69,7 @@ export default function FXMedElite() {
                 </div>
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 flex items-center justify-center text-[1.3rem] flex-shrink-0">
-                    <img src="/Ambulance 2.svg" alt="Ambulance" className="w-8 h-8" />
+                    <Image src="/Ambulance 2.svg" alt="Ambulance" width={32} height={32} />
                   </div>
                   <div>
                     <h3 className="font-dm-sans font-bold text-green-deep text-lg mb-2">At-Home Mini-Clinic</h3>

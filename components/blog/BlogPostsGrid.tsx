@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useMemo, useEffect } from 'react'
+import Image from 'next/image'
+import { useState, useMemo } from 'react'
 
 interface BlogPost {
   id: string
@@ -23,14 +24,6 @@ interface BlogPostsGridProps {
 export default function BlogPostsGrid({ initialPosts }: BlogPostsGridProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
-
-  // Debug: Log received posts
-  useEffect(() => {
-    console.log('BlogPostsGrid received posts:', initialPosts?.length || 0)
-    initialPosts?.forEach((post) => {
-      console.log(`Grid - Post: ${post.title}, has thumbnail: ${!!post.thumbnail_url}, URL: ${post.thumbnail_url || 'NONE'}`)
-    })
-  }, [initialPosts])
 
   const getCategoryColor = (category: string) => {
     const colors: { [key: string]: string } = {
@@ -171,15 +164,11 @@ export default function BlogPostsGrid({ initialPosts }: BlogPostsGridProps) {
                   {/* Thumbnail Image */}
                   <div className="relative h-48 overflow-hidden bg-gradient-to-br from-green-deep/10 to-green-mid/10">
                     {post.thumbnail_url ? (
-                      <img 
-                        src={post.thumbnail_url} 
+                      <Image
+                        src={post.thumbnail_url}
                         alt={post.title}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          // If image fails to load, show placeholder
-                          const target = e.currentTarget
-                          target.style.display = 'none'
-                        }}
+                        fill
+                        className="object-cover hover:scale-105 transition-transform duration-300"
                       />
                     ) : null}
                     {/* Show placeholder emoji if no thumbnail or image failed */}
@@ -206,13 +195,11 @@ export default function BlogPostsGrid({ initialPosts }: BlogPostsGridProps) {
                       {post.title}
                     </h3>
 
-                    <p className="font-dm-sans text-text-mid text-[0.95rem] leading-[1.6] mb-4 line-clamp-3"
-                      dangerouslySetInnerHTML={{ 
-                        __html: post.excerpt.length > 150 
-                          ? post.excerpt.substring(0, 150) + '...' 
-                          : post.excerpt 
-                      }}
-                    />
+                    <p className="font-dm-sans text-text-mid text-[0.95rem] leading-[1.6] mb-4 line-clamp-3">
+                      {post.excerpt.length > 150 
+                        ? post.excerpt.substring(0, 150) + '...' 
+                        : post.excerpt}
+                    </p>
 
                     <div className="flex items-center justify-between">
                       <span className="text-text-mid text-[0.9rem] font-medium">

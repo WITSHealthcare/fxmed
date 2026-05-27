@@ -1,35 +1,36 @@
+import Image from 'next/image'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 
 export default function Elite() {
   const benefits = [
     {
-      icon: <img src="/discreet.png" alt="Discreet Access" className="w-20 h-20 object-cover rounded-[12px]" />,
+      icon: <Image src="/discreet.png" alt="Discreet Access" width={80} height={80} className="w-20 h-20 object-cover rounded-[12px]" />,
       title: "Discreet & Exclusive Access",
       description: "Healthcare beyond the public eye, designed for your lifestyle"
     },
     {
-      icon: <img src="/fxmed-website-picture-1.jpg" alt="Virtual Concierge" className="w-20 h-20 object-cover rounded-[12px]" />,
+      icon: <Image src="/fxmed-website-picture-1.jpg" alt="Virtual Concierge" width={80} height={80} className="w-20 h-20 object-cover rounded-[12px]" />,
       title: "24/7 Virtual Concierge",
       description: "Direct access to specialists, coaches, and your health team"
     },
     {
-      icon: <img src="/fxmed-van/IMG_0300.jpeg" alt="At-Home Mini-Clinic" className="w-20 h-20 object-cover rounded-[12px]" />,
+      icon: <Image src="/fxmed-van/IMG_0300.jpeg" alt="At-Home Mini-Clinic" width={80} height={80} className="w-20 h-20 object-cover rounded-[12px]" />,
       title: "At-Home Mini-Clinic",
       description: "State-of-the-art mobile van visits for diagnostics and checkups"
     },
     {
-      icon: <img src="/dna-representation-concept.jpg" alt="Root Cause Medicine" className="w-20 h-20 object-cover rounded-[12px]" />,
+      icon: <Image src="/dna-representation-concept.jpg" alt="Root Cause Medicine" width={80} height={80} className="w-20 h-20 object-cover rounded-[12px]" />,
       title: "Root Cause Medicine",
       description: "Functional & preventive care that looks deeper, not just treats symptoms"
     },
     {
-      icon: <img src="/Elderly.png" alt="Elite Support for Elderly" className="w-20 h-20 object-cover rounded-[12px]" />,
+      icon: <Image src="/Elderly.png" alt="Elite Support for Elderly" width={80} height={80} className="w-20 h-20 object-cover rounded-[12px]" />,
       title: "Elite Support for the Elderly",
       description: "Compassionate geriatric care tailored for home-based comfort"
     },
     {
-      icon: <img src="/Medication.png" alt="Medication Delivery" className="w-20 h-20 object-cover rounded-[12px]" />,
+      icon: <Image src="/Medication.png" alt="Medication Delivery" width={80} height={80} className="w-20 h-20 object-cover rounded-[12px]" />,
       title: "Medication Delivery",
       description: "Never miss a dose, with full coordination and tracking"
     }
@@ -37,42 +38,42 @@ export default function Elite() {
 
   const services = [
     {
-      icon: <img src="/Virus.svg" alt="Virus" className="w-8 h-8" />,
+      icon: <Image src="/Virus.svg" alt="Virus" width={32} height={32} />,
       title: "Chronic Disease Management",
       description: "Hypertension, Diabetes, etc."
     },
     {
-      icon: <img src="/Spade.svg" alt="Spade" className="w-8 h-8" />,
+      icon: <Image src="/Spade.svg" alt="Spade" width={32} height={32} />,
       title: "Physiotherapy & Pain Management",
       description: "Comprehensive pain relief"
     },
     {
-      icon: <img src="/FirstAidKit.svg" alt="First Aid Kit" className="w-8 h-8" />,
+      icon: <Image src="/FirstAidKit.svg" alt="First Aid Kit" width={32} height={32} />,
       title: "Lifestyle Medicine",
       description: "Functional Wellness Assessments"
     },
     {
-      icon: <img src="/DeviceMobile.svg" alt="Device Mobile" className="w-8 h-8" />,
+      icon: <Image src="/DeviceMobile.svg" alt="Device Mobile" width={32} height={32} />,
       title: "Same-Day Teleconsults",
       description: "Direct specialist access"
     },
     {
-      icon: <img src="/BowlFood 2.svg" alt="Bowl Food" className="w-8 h-8" />,
+      icon: <Image src="/BowlFood 2.svg" alt="Bowl Food" width={32} height={32} />,
       title: "Nutrition Coaching",
       description: "Personalized meal plans"
     },
     {
-      icon: <img src="/TestTube 2.svg" alt="Test Tube" className="w-8 h-8" />,
+      icon: <Image src="/TestTube 2.svg" alt="Test Tube" width={32} height={32} />,
       title: "Laboratory Testing",
       description: "At-home or via courier"
     },
     {
-      icon: <img src="/FlowerLotus.svg" alt="Flower Lotus" className="w-8 h-8" />,
+      icon: <Image src="/FlowerLotus.svg" alt="Flower Lotus" width={32} height={32} />,
       title: "Mental Wellness",
       description: "Psychological support"
     },
     {
-      icon: <img src="/Ambulance 2.svg" alt="Ambulance" className="w-8 h-8" />,
+      icon: <Image src="/Ambulance 2.svg" alt="Ambulance" width={32} height={32} />,
       title: "Mobile Clinic Access",
       description: "On-demand health visits"
     }
@@ -102,9 +103,11 @@ export default function Elite() {
             <h1 className="font-dm-sans font-extrabold text-green-deep text-[clamp(2.5rem,5vw,4rem)] leading-[1.15] text-white">
               Concierge Care with
             </h1>
-            <img 
-              src="/FXMed Elite White.svg" 
-              alt="FXMed Elite" 
+            <Image
+              src="/FXMed Elite White.svg"
+              alt="FXMed Elite"
+              width={400}
+              height={80}
               className="h-[clamp(3rem,6vw,5rem)] w-auto mt-2 mx-auto"
             />
           </div>

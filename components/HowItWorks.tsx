@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import AppointmentModal from '@/components/AppointmentModal'
 
 export default function HowItWorks() {
@@ -56,7 +57,7 @@ export default function HowItWorks() {
               {/* Icon */}
               <div className="text-5xl mb-4">
                 {step.icon.startsWith('/') ? (
-                  <img src={step.icon} alt={step.title} className="w-12 h-12" />
+                  <Image src={step.icon} alt={step.title} width={48} height={48} />
                 ) : (
                   step.icon
                 )}

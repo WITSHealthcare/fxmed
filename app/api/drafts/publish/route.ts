@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { sanitizeRichText } from '@/lib/content-sanitizer'
 
 // Create admin client with public key
 const supabaseAdmin = createClient(
@@ -17,19 +18,15 @@ const supabaseAdmin = createClient(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    console.log('Publish API received body:', body)
     
     const { draftId } = body
     
     if (!draftId) {
-      console.log('Error: Draft ID missing')
       return NextResponse.json(
         { error: 'Draft ID required' },
         { status: 400 }
       )
     }
-    
-    console.log('Fetching draft with ID:', draftId)
     
     // First, get the draft data
     const { data: draft, error: fetchError } = await supabaseAdmin
@@ -39,20 +36,14 @@ export async function POST(request: NextRequest) {
       .single()
     
     if (fetchError) {
-      console.log('Fetch error:', fetchError)
       throw fetchError
     }
     if (!draft) {
-      console.log('Draft not found for ID:', draftId)
       return NextResponse.json(
         { error: 'Draft not found' },
         { status: 404 }
       )
     }
-    
-    console.log('Draft found:', draft.title)
-    
-    console.log('Inserting into blog_posts...')
     
     // Insert into blog_posts table
     const { data: publishedPost, error: insertError } = await supabaseAdmin
@@ -60,8 +51,8 @@ export async function POST(request: NextRequest) {
       .insert({
         title: draft.title,
         slug: draft.slug,
-        excerpt: draft.excerpt,
-        content: draft.content,
+        excerpt: sanitizeRichText(draft.excerpt),
+        content: sanitizeRichText(draft.content),
         author: draft.author,
         category: draft.category,
         thumbnail_url: draft.thumbnail_url,
@@ -75,25 +66,18 @@ export async function POST(request: NextRequest) {
       .single()
     
     if (insertError) {
-      console.log('Insert error:', insertError)
       throw insertError
     }
     
-    console.log('Published post created:', publishedPost?.id)
-    
     // Delete from drafts after successful publish
-    console.log('Deleting draft...')
     const { error: deleteError } = await supabaseAdmin
       .from('draft_posts')
       .delete()
       .eq('id', draftId)
     
     if (deleteError) {
-      console.log('Delete error:', deleteError)
       throw deleteError
     }
-    
-    console.log('Draft deleted successfully')
     
     return NextResponse.json({ 
       success: true, 

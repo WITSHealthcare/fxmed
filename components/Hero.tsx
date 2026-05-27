@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import AppointmentModal from '@/components/AppointmentModal'
 
 export default function Hero() {
@@ -17,51 +18,27 @@ export default function Hero() {
       
       {/* Glassmorphism Icons */}
       <div className="absolute top-[480px] left-[20%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float hidden md:flex">
-        <img 
-          src="/Sparkle.svg" 
-          alt="Sparkle" 
-          className="w-8 h-8" 
-        />
+        <Image src="/Sparkle.svg" alt="Sparkle" width={32} height={32} />
       </div>
       
       <div className="absolute top-40 right-[35%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float-delayed hidden md:flex">
-        <img 
-          src="/Ambulance.svg?v=3" 
-          alt="Ambulance" 
-          className="w-8 h-8" 
-        />
+        <Image src="/Ambulance.svg?v=3" alt="Ambulance" width={32} height={32} />
       </div>
       
       <div className="absolute bottom-40 left-[30%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float hidden md:flex">
-        <img 
-          src="/BowlFood.svg" 
-          alt="Bowl Food" 
-          className="w-8 h-8" 
-        />
+        <Image src="/BowlFood.svg" alt="Bowl Food" width={32} height={32} />
       </div>
       
       <div className="absolute top-60 left-1/4 w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float-delayed hidden md:flex">
-        <img 
-          src="/Hospital.svg" 
-          alt="Hospital" 
-          className="w-8 h-8" 
-        />
+        <Image src="/Hospital.svg" alt="Hospital" width={32} height={32} />
       </div>
       
       <div className="absolute top-[640px] right-[32%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float hidden md:flex">
-        <img 
-          src="/OrangeSlice.svg" 
-          alt="Orange Slice" 
-          className="w-8 h-8" 
-        />
+        <Image src="/OrangeSlice.svg" alt="Orange Slice" width={32} height={32} />
       </div>
       
       <div className="absolute top-[45%] right-[20%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float-delayed hidden md:flex">
-        <img 
-          src="/Avocado.svg?v=2" 
-          alt="Avocado" 
-          className="w-8 h-8 text-lemon-500" 
-        />
+        <Image src="/Avocado.svg?v=2" alt="Avocado" width={32} height={32} />
       </div>
       
       {/* Content */}

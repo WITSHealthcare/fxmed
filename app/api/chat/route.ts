@@ -1,31 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { createClient } from '@supabase/supabase-js'
+import { sendZaraMessage, type ZaraMessage } from '@/lib/ai/zara-providers'
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
-const SYSTEM_PROMPT = `You are Zara, FXMed's friendly and knowledgeable AI assistant — a functional medicine clinic based in Lagos, Nigeria that brings healthcare directly to patients' homes and offices.
+async function persistMessages(
+  sessionId: string,
+  userMessage: string,
+  assistantMessage: string,
+  bookingMade: boolean,
+  bookingData?: Record<string, string>
+) {
+  try {
+    const supabase = getSupabase()
+    const now = new Date().toISOString()
+
+    await supabase.from('chat_sessions').upsert({
+      id: sessionId,
+      last_message_at: now,
+      ...(bookingMade && {
+        booked: true,
+        visitor_name: bookingData ? `${bookingData.firstName} ${bookingData.lastName}`.trim() : null,
+        visitor_email: bookingData?.email ?? null,
+        visitor_phone: bookingData?.phone ?? null,
+      }),
+    }, { onConflict: 'id', ignoreDuplicates: false })
+
+    await supabase.from('chat_messages').insert([
+      { session_id: sessionId, role: 'user', content: userMessage, created_at: now },
+      { session_id: sessionId, role: 'assistant', content: assistantMessage, created_at: now },
+    ])
+  } catch (err) {
+    console.error('Failed to persist chat messages:', err)
+  }
+}
+
+const SYSTEM_PROMPT = `You are Zara, a member of the FXMed team. FXMed is a functional medicine clinic based in Lagos, Nigeria that brings healthcare directly to patients' homes and offices. You are warm, knowledgeable, and speak as part of the team — always say "we", "our team", "our doctors", never refer to FXMed as a third party.
 
 ## About FXMed
-FXMed provides personalized, evidence-based functional medicine services delivered directly to homes, offices, and communities across Lagos. We identify and treat root causes of health issues rather than just managing symptoms.
+We provide personalized, evidence-based functional medicine services delivered directly to homes, offices, and communities across Lagos. We identify and treat root causes of health issues rather than just managing symptoms.
 
 ## Services
-- **Telemedicine (Virtual Consultations):** Online consultations with our physicians — ₦25,000 per consultation
-- **Concierge Medicine (Home Visits):** GP home visit + consultation — ₦85,000
-- **Lab Investigations:** Comprehensive blood work and functional medicine testing, home sample collection available — Basic Wellness Panel ₦60,000 per person + ₦350,000 base fee
-- **Nutrition Counseling:** Personalized meal plans and dietary guidance — 4-week personalized meal plan ₦84,000 per person
-- **Pharmacy & Nutraceuticals:** Therapeutic-grade supplements and medications
-- **Specialist Referrals:** Access to a network of certified specialists
-- **Maternal Wellness:** Pre-Conception Package ₦295,000 (3 months), Ante-Natal Package ₦740,000 (per trimester), Post-Natal Recovery ₦395,000, Fertility Breakthrough Program ₦3,500,000
+- Telemedicine (Virtual Consultations): Online consultations with our physicians — ₦25,000 per consultation
+- Concierge Medicine (Home Visits): GP home visit + consultation — ₦85,000
+- Lab Investigations: Comprehensive blood work and functional medicine testing, home sample collection available — Basic Wellness Panel ₦60,000 per person + ₦350,000 base fee
+- Nutrition Counseling: Personalized meal plans and dietary guidance — 4-week personalized meal plan ₦84,000 per person
+- Pharmacy & Nutraceuticals: Therapeutic-grade supplements and medications
+- Specialist Referrals: Access to a network of certified specialists
+- Maternal Wellness: Pre-Conception Package ₦295,000 (3 months), Ante-Natal Package ₦740,000 (per trimester), Post-Natal Recovery ₦395,000, Fertility Breakthrough Program ₦3,500,000
 
 ## Health Programs (Nutri-Shift™)
-- **Thyroid Recovery:** 4-6 months — for hyperthyroidism, Hashimoto's, and thyroid imbalances
-- **Hormone Balance:** 6 months — hormonal rebalancing for mood, weight, sleep, and fertility
-- **Gut Repair:** 12 weeks — for bloating, IBS, leaky gut, and microbiome disruption
-- **Gut Analysis:** Diagnostic — deep diagnostic gut analysis
-- **Adrenal Reset:** 8-12 weeks — for burnout, chronic stress, and adrenal fatigue
-- **Immune Support:** 8-12 weeks — for frequent infections, autoimmune issues, low immunity
+- Thyroid Recovery: 4-6 months — for hyperthyroidism, Hashimoto's, and thyroid imbalances
+- Hormone Balance: 6 months — hormonal rebalancing for mood, weight, sleep, and fertility
+- Gut Repair: 12 weeks — for bloating, IBS, leaky gut, and microbiome disruption
+- Gut Analysis: Diagnostic — deep diagnostic gut analysis
+- Adrenal Reset: 8-12 weeks — for burnout, chronic stress, and adrenal fatigue
+- Immune Support: 8-12 weeks — for frequent infections, autoimmune issues, low immunity
 
 ## Location & Contact
 - Address: 6A Robin Road, Crown Estate, Sangotedo, Lagos, Nigeria
@@ -34,8 +70,8 @@ FXMed provides personalized, evidence-based functional medicine services deliver
 
 ## Booking Appointments
 We offer two consultation types:
-- **Telemedicine:** Virtual consultation via video/phone
-- **Home Visit:** A doctor comes to your location in Lagos
+- Telemedicine: Virtual consultation via video/phone
+- Home Visit: A doctor comes to your location in Lagos
 
 When a user wants to book an appointment, collect the following information conversationally (one or two pieces at a time, not all at once):
 1. Consultation type (telemedicine or home visit)
@@ -49,98 +85,114 @@ When a user wants to book an appointment, collect the following information conv
 
 Once you have all required information, use the book_appointment tool to complete the booking.
 
+## When you don't know something
+If a user asks a specific question you are not certain about — such as whether we run a specific test, a specific drug, pricing for something not listed above, or any clinical detail — do NOT say you don't have the information. Instead:
+1. Acknowledge their question warmly and tell them our team will get back to them with the right answer.
+2. Offer to log their enquiry so the team can follow up directly.
+3. Collect their name, email, and optionally phone number (one at a time, conversationally).
+4. Use the submit_enquiry tool to send their question to our team.
+5. Reassure them that someone will be in touch shortly.
+
+Never say phrases like "I don't have specific details", "I'm not sure", "I don't have access to", or "as an AI". You are part of the team — if you don't know, the team will find out and follow up.
+
 ## Tone & Style
 - Warm, professional, and encouraging
+- Always speak as a team member: "we", "our doctors", "our team"
 - Keep responses concise and easy to read
-- For medical questions, provide helpful general information but always recommend consulting with our doctors for personalized advice
-- If unsure about specific details, direct users to contact us at fxmed@wellnesswits.com
 - Never provide specific medical diagnoses or prescribe treatments
-- Do NOT use markdown formatting in your responses — no asterisks, no bold, no headers, no bullet dashes. Write in plain conversational sentences and use line breaks to separate information.`
-
-const bookingTool: Anthropic.Tool = {
-  name: 'book_appointment',
-  description: 'Book an appointment for a patient at FXMed. Call this when you have collected all required information from the user.',
-  input_schema: {
-    type: 'object' as const,
-    properties: {
-      firstName: { type: 'string', description: "Patient's first name" },
-      lastName: { type: 'string', description: "Patient's last name" },
-      email: { type: 'string', description: "Patient's email address" },
-      phone: { type: 'string', description: "Patient's phone number" },
-      homeAddress: { type: 'string', description: "Patient's home or office address" },
-      consultationType: { type: 'string', enum: ['telemedicine', 'home-visit'], description: 'Type of consultation' },
-      preferredDate: { type: 'string', description: 'Preferred date in YYYY-MM-DD format' },
-      preferredTime: { type: 'string', description: 'Preferred time e.g. "10:00 AM", "Morning", "Afternoon"' },
-      symptoms: { type: 'string', description: 'Symptoms or health concerns the patient wants to discuss' },
-    },
-    required: ['firstName', 'lastName', 'email', 'phone', 'consultationType', 'preferredDate', 'preferredTime'],
-  },
-}
+- Do NOT use markdown formatting — no asterisks, no bold, no headers, no bullet dashes. Write in plain conversational sentences and use line breaks to separate information.`
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages } = await request.json()
+    const { messages, sessionId } = await request.json()
+    const userMessage: string = messages[messages.length - 1]?.content ?? ''
 
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      tools: [bookingTool],
-      messages,
-    })
+    const result = await sendZaraMessage(messages as ZaraMessage[], SYSTEM_PROMPT)
 
-    // Handle tool use (booking)
-    if (response.stop_reason === 'tool_use') {
-      const toolUse = response.content.find(block => block.type === 'tool_use') as Anthropic.ToolUseBlock
+    // Provider wants to book an appointment
+    if (result.bookingData) {
+      const baseUrl = request.nextUrl.origin
+      const bookingResponse = await fetch(`${baseUrl}/api/appointments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(result.bookingData),
+      })
+      const bookingResult = await bookingResponse.json()
+      const bookingSuccess = bookingResponse.ok
 
-      if (toolUse && toolUse.name === 'book_appointment') {
-        const bookingData = toolUse.input as Record<string, string>
+      const confirmationMsg = bookingSuccess
+        ? 'Your appointment has been booked! You will receive a confirmation shortly.'
+        : "I wasn't able to complete the booking right now. Please contact us at fxmed@wellnesswits.com or call us directly."
 
-        // Call the appointments API
-        const baseUrl = request.nextUrl.origin
-        const bookingResponse = await fetch(`${baseUrl}/api/appointments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bookingData),
-        })
+      // Get a confirmation message from the AI
+      const confirmMessages: ZaraMessage[] = [
+        ...messages,
+        {
+          role: 'assistant',
+          content: bookingSuccess
+            ? `I have successfully booked the appointment. Appointment ID: ${bookingResult.appointment?.id}`
+            : 'The booking attempt failed.',
+        },
+        {
+          role: 'user',
+          content: bookingSuccess
+            ? 'Please give me a warm confirmation of the booking.'
+            : 'Please apologise and tell me to contact FXMed directly.',
+        },
+      ]
 
-        const bookingResult = await bookingResponse.json()
-        const bookingSuccess = bookingResponse.ok
-
-        // Send tool result back to Claude for a final confirmation message
-        const followUp = await client.messages.create({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 512,
-          system: SYSTEM_PROMPT,
-          tools: [bookingTool],
-          messages: [
-            ...messages,
-            { role: 'assistant', content: response.content },
-            {
-              role: 'user',
-              content: [{
-                type: 'tool_result',
-                tool_use_id: toolUse.id,
-                content: bookingSuccess
-                  ? `Booking successful! Appointment ID: ${bookingResult.appointment?.id}. The appointment has been confirmed.`
-                  : `Booking failed: ${bookingResult.error || 'Unknown error'}`,
-              }],
-            },
-          ],
-        })
-
-        const textBlock = followUp.content.find(block => block.type === 'text') as Anthropic.TextBlock | undefined
-        return NextResponse.json({
-          message: textBlock?.text || 'Your appointment has been booked!',
-          booked: bookingSuccess,
-          appointment: bookingResult.appointment,
-        })
+      let replyText = confirmationMsg
+      try {
+        const confirmResult = await sendZaraMessage(confirmMessages, SYSTEM_PROMPT)
+        if (confirmResult.message) replyText = confirmResult.message
+      } catch {
+        // keep the default confirmationMsg
       }
+
+      if (sessionId) {
+        await persistMessages(sessionId, userMessage, replyText, bookingSuccess, bookingSuccess ? result.bookingData : undefined)
+      }
+
+      return NextResponse.json({
+        message: replyText,
+        booked: bookingSuccess,
+        appointment: bookingResult.appointment,
+      })
+    }
+
+    // Provider wants to log an enquiry
+    if (result.enquiryData) {
+      const baseUrl = request.nextUrl.origin
+      const { name, email, phone, message: enquiryMessage } = result.enquiryData
+      await fetch(`${baseUrl}/api/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email,
+          phone: phone || null,
+          subject: 'Enquiry via Zara',
+          message: enquiryMessage,
+        }),
+      })
+
+      const replyText = `Thank you, ${name.split(' ')[0]}! I've passed your question to our team and someone will get back to you at ${email} shortly. In the meantime, feel free to ask me anything else.`
+
+      if (sessionId) {
+        await persistMessages(sessionId, userMessage, replyText, false)
+      }
+
+      return NextResponse.json({ message: replyText })
     }
 
     // Regular text response
-    const textBlock = response.content.find(block => block.type === 'text') as Anthropic.TextBlock | undefined
-    return NextResponse.json({ message: textBlock?.text || "I'm here to help!" })
+    const replyText = result.message || "I'm here to help!"
+
+    if (sessionId) {
+      await persistMessages(sessionId, userMessage, replyText, false)
+    }
+
+    return NextResponse.json({ message: replyText })
 
   } catch (error) {
     console.error('Chat API error:', error)

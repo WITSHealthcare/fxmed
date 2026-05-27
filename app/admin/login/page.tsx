@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { isDashboardUserSession, signIn, signOut } from '@/lib/supabase-auth'
 
 export default function AdminLogin() {
@@ -41,9 +42,11 @@ export default function AdminLogin() {
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8">
-          <img 
-            src="/logo.png" 
-            alt="FXMed" 
+          <Image
+            src="/logo.png"
+            alt="FXMed"
+            width={200}
+            height={100}
             className="h-[100px] w-auto mx-auto mb-4"
           />
           <h1 className="font-dm-sans font-bold text-green-deep text-[2rem] mb-2">

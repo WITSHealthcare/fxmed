@@ -52,16 +52,12 @@ export async function POST(request: NextRequest) {
       
       try {
         const provider = createAIProvider(currentProvider)
-        console.log(`Generating blog content with ${currentProvider} for topic: ${prompt}`)
-        const startTime = Date.now()
         
         generatedContent = await provider.generateBlogContent(
           prompt.trim(),
           category || 'Health Education'
         )
         
-        const duration = Date.now() - startTime
-        console.log(`Content generated successfully with ${currentProvider} in ${duration}ms`)
         providerName = currentProvider
         break
       } catch (error: any) {

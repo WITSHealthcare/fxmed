@@ -936,7 +936,7 @@ export default function CrmDashboard({
       monthlyRecurringRevenue,
       loggedExpenses,
     }
-  }, [revenueStreams, financialTasks, financialExpenses, financialDashboard.estimatedRevenue, financialDashboard.websiteBookingRevenue])
+  }, [revenueStreams, financialTasks, financialExpenses, financialDashboard.estimatedRevenue, financialDashboard.websiteBookingRevenue, financialDashboard.collectionRate])
 
   const revenueStreamCards = useMemo(() => {
     return revenueStreams.filter((stream) => !stream.hidden).map((stream) => ({

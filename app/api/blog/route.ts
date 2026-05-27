@@ -1,17 +1,34 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { sanitizeRichText } from '@/lib/content-sanitizer'
 
-// Create admin client with public key
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+const supabaseAdmin = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+  : null
+
+function requireSupabase() {
+  if (!supabaseAdmin) {
+    throw new Error('Supabase public environment variables are missing')
   }
-)
+
+  return supabaseAdmin
+}
+
+function sanitizePostInput<T extends Record<string, any>>(input: T): T {
+  return {
+    ...input,
+    ...(input.excerpt !== undefined ? { excerpt: sanitizeRichText(input.excerpt) } : {}),
+    ...(input.content !== undefined ? { content: sanitizeRichText(input.content) } : {}),
+  }
+}
 
 // GET - Fetch all posts (for admin) or published posts (for public)
 export async function GET(request: NextRequest) {
@@ -20,8 +37,9 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const slug = searchParams.get('slug')
     const limit = searchParams.get('limit')
+    const supabase = requireSupabase()
     
-    let query = supabaseAdmin
+    let query = supabase
       .from('blog_posts')
       .select('*')
       .order('created_at', { ascending: false })
@@ -58,9 +76,10 @@ export async function GET(request: NextRequest) {
 // POST - Create new post
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const supabase = requireSupabase()
+    const body = sanitizePostInput(await request.json())
     
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('blog_posts')
       .insert(body)
       .select()
@@ -90,8 +109,9 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       )
     }
+    const supabase = requireSupabase()
     
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from('blog_posts')
       .delete()
       .eq('id', id)
@@ -111,6 +131,7 @@ export async function DELETE(request: NextRequest) {
 // PATCH - Update post (status, content, or any fields)
 export async function PATCH(request: NextRequest) {
   try {
+    const supabase = requireSupabase()
     const body = await request.json()
     const { id, status, ...updateData } = body
     
@@ -129,15 +150,15 @@ export async function PATCH(request: NextRequest) {
     if (status) updateObj.status = status
     if (updateData.title !== undefined) updateObj.title = updateData.title
     if (updateData.slug !== undefined) updateObj.slug = updateData.slug
-    if (updateData.excerpt !== undefined) updateObj.excerpt = updateData.excerpt
-    if (updateData.content !== undefined) updateObj.content = updateData.content
+    if (updateData.excerpt !== undefined) updateObj.excerpt = sanitizeRichText(updateData.excerpt)
+    if (updateData.content !== undefined) updateObj.content = sanitizeRichText(updateData.content)
     if (updateData.author !== undefined) updateObj.author = updateData.author
     if (updateData.category !== undefined) updateObj.category = updateData.category
     if (updateData.thumbnail_url !== undefined) updateObj.thumbnail_url = updateData.thumbnail_url
     if (updateData.thumbnail_alt !== undefined) updateObj.thumbnail_alt = updateData.thumbnail_alt
     if (updateData.read_time !== undefined) updateObj.read_time = updateData.read_time
     
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('blog_posts')
       .update(updateObj)
       .eq('id', id)

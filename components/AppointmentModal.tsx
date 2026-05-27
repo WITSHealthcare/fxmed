@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Image from 'next/image'
 import BookingModal from '@/components/BookingModal'
 
 export default function AppointmentModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -49,7 +50,7 @@ export default function AppointmentModal({ isOpen, onClose }: { isOpen: boolean;
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="bg-white/10 backdrop-blur rounded-[16px] p-6 border border-white/20">
                 <div className="text-3xl mb-3">
-                  <img src="/Telemedicine.png" alt="Telemedicine" className="w-12 h-12 mx-auto" />
+                  <Image src="/Telemedicine.png" alt="Telemedicine" width={48} height={48} className="mx-auto" />
                 </div>
                 <h3 className="font-dm-sans font-semibold text-lg mb-2">Telemedicine</h3>
                 <p className="font-dm-sans text-white/80 text-sm mb-4">WhatsApp Video or Google Meet</p>
@@ -68,7 +69,7 @@ export default function AppointmentModal({ isOpen, onClose }: { isOpen: boolean;
                   PREMIUM
                 </div>
                 <div className="text-3xl mb-3">
-                  <img src="/HomeVisit.png" alt="Home Visit" className="w-12 h-12 mx-auto" />
+                  <Image src="/HomeVisit.png" alt="Home Visit" width={48} height={48} className="mx-auto" />
                 </div>
                 <h3 className="font-dm-sans font-semibold text-lg mb-2">Home Visit</h3>
                 <p className="font-dm-sans text-white/80 text-sm mb-4">Mobile clinic comes to you</p>

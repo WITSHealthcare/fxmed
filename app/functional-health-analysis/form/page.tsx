@@ -123,7 +123,6 @@ export default function FunctionalHealthAnalysisForm() {
   }
 
   const handleSubmit = () => {
-    console.log('Form submitted:', formData)
     // Encode form data and redirect to investigations page
     const encodedData = btoa(JSON.stringify(formData))
     window.location.href = `/functional-health-analysis/investigations?data=${encodedData}`

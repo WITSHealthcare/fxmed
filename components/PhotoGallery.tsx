@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 
 export default function PhotoGallery() {
   const [activeTab, setActiveTab] = useState('team')
@@ -86,11 +87,12 @@ export default function PhotoGallery() {
               <>
                 <div className="lg:col-span-2 lg:row-span-2">
                   <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[400px] cursor-pointer group" onClick={() => openLightbox('/Hero Background.jpeg')}>
-                    <img 
-                      src="/Hero Background.jpeg" 
-                      alt="FXMed Healthcare" 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                    <Image
+                      fill
+                      src="/Hero Background.jpeg"
+                      alt="FXMed Healthcare"
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-6">
                       <div className="text-white">
                         <h3 className="font-dm-sans font-bold text-[1.5rem] mb-2">
@@ -113,11 +115,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/Team/Dr Kike Oduba.jpg')}>
-                  <img
+                  <Image
+                    fill
                     src="/Team/Dr Kike Oduba.jpg"
                     alt="Dr. Kike"
-                    className="w-full h-full object-cover object-[center_10%] group-hover:scale-105 transition-transform duration-300"
-                  />
+                    className="object-cover object-[center_10%] group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
                       <h4 className="font-dm-sans font-bold text-[1.1rem]">Dr. Kike</h4>
@@ -135,11 +138,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/diverse-business-team-meeting-office-hallway.jpg')}>
-                  <img 
-                    src="/diverse-business-team-meeting-office-hallway.jpg" 
-                    alt="Medical Team" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/diverse-business-team-meeting-office-hallway.jpg"
+                    alt="Medical Team"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
                       <h4 className="font-dm-sans font-bold text-[1.1rem]">Medical Team</h4>
@@ -157,11 +161,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/black-pregnant-women-posing.jpg')}>
-                  <img 
-                    src="/black-pregnant-women-posing.jpg" 
-                    alt="Maternal Care" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/black-pregnant-women-posing.jpg"
+                    alt="Maternal Care"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
                       <h4 className="font-dm-sans font-bold text-[1.1rem]">Maternal Care</h4>
@@ -186,11 +191,12 @@ export default function PhotoGallery() {
               <>
                 <div className="lg:col-span-2 lg:row-span-2">
                   <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[400px] cursor-pointer group" onClick={() => openLightbox('/fxmed-van/IMG_0287_1.jpeg')}>
-                    <img 
-                      src="/fxmed-van/IMG_0287_1.jpeg" 
-                      alt="FXMed Mobile Unit" 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                    <Image
+                      fill
+                      src="/fxmed-van/IMG_0287_1.jpeg"
+                      alt="FXMed Mobile Unit"
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                       <div className="text-white">
                         <h3 className="font-dm-sans font-bold text-[1.5rem] mb-2">
@@ -217,11 +223,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/fxmed-van/IMG_0191.jpeg')}>
-                  <img 
-                    src="/fxmed-van/IMG_0191.jpeg" 
-                    alt="FXMed Van Exterior" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/fxmed-van/IMG_0191.jpeg"
+                    alt="FXMed Van Exterior"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
                       <h4 className="font-dm-sans font-bold text-[1.1rem] mb-1">Mobile Healthcare</h4>
@@ -239,11 +246,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/fxmed-van/IMG_0273.jpeg')}>
-                  <img 
-                    src="/fxmed-van/IMG_0273.jpeg" 
-                    alt="Medical Equipment" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/fxmed-van/IMG_0273.jpeg"
+                    alt="Medical Equipment"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
                       <h4 className="font-dm-sans font-bold text-[1.1rem] mb-1">Advanced Equipment</h4>
@@ -261,11 +269,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/fxmed-van/IMG_0300.jpeg')}>
-                  <img 
-                    src="/fxmed-van/IMG_0300.jpeg" 
-                    alt="Van Interior" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/fxmed-van/IMG_0300.jpeg"
+                    alt="Van Interior"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
                       <h4 className="font-dm-sans font-bold text-[1.1rem] mb-1">Patient Care Area</h4>
@@ -283,11 +292,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/fxmed-van/IMG_0316.jpeg')}>
-                  <img 
-                    src="/fxmed-van/IMG_0316.jpeg" 
-                    alt="Medical Services" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/fxmed-van/IMG_0316.jpeg"
+                    alt="Medical Services"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
                       <h4 className="font-dm-sans font-bold text-[1.1rem] mb-1">Comprehensive Services</h4>
@@ -305,11 +315,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/fxmed-van/IMG_0343.jpeg')}>
-                  <img 
-                    src="/fxmed-van/IMG_0343.jpeg" 
-                    alt="Healthcare Team" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/fxmed-van/IMG_0343.jpeg"
+                    alt="Healthcare Team"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
                       <h4 className="font-dm-sans font-bold text-[1.1rem] mb-1">State-of-the-Art Interior</h4>
@@ -327,11 +338,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                                                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/fxmed-van/IMG_0355.jpeg')}>
-                  <img 
-                    src="/fxmed-van/IMG_0355.jpeg" 
-                    alt="Mobile Healthcare" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/fxmed-van/IMG_0355.jpeg"
+                    alt="Mobile Healthcare"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
                       <h4 className="font-dm-sans font-bold text-[1.1rem] mb-1">Accessible Care</h4>
@@ -349,11 +361,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/fxmed-van/IMG_0365.jpeg')}>
-                  <img 
-                    src="/fxmed-van/IMG_0365.jpeg" 
-                    alt="Mobile Medical Services" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/fxmed-van/IMG_0365.jpeg"
+                    alt="Mobile Medical Services"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
                       <h4 className="font-dm-sans font-bold text-[1.1rem] mb-1">Mobile Laboratory</h4>
@@ -371,11 +384,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[200px] cursor-pointer group" onClick={() => openLightbox('/fxmed-van/IMG_0370.jpeg')}>
-                  <img 
-                    src="/fxmed-van/IMG_0370.jpeg" 
-                    alt="Healthcare Technology" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/fxmed-van/IMG_0370.jpeg"
+                    alt="Healthcare Technology"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
                     <div className="text-white">
                       <h4 className="font-dm-sans font-bold text-[1.1rem] mb-1">Advanced Technology</h4>
@@ -399,11 +413,12 @@ export default function PhotoGallery() {
             {activeTab === 'team' && (
               <div className="col-span-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Dr Kike Oduba.jpg')}>
-                  <img
+                  <Image
+                    fill
                     src="/Team/Dr Kike Oduba.jpg"
                     alt="Dr. Kike Oduba"
-                    className="w-full h-full object-cover object-[center_10%] group-hover:scale-105 transition-transform duration-300"
-                  />
+                    className="object-cover object-[center_10%] group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
                       <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -428,11 +443,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Oladele Isaac.jpg')}>
-                  <img 
+                  <Image
+                    fill
                     src="/Team/Oladele Isaac.jpg"
                     alt="Dr Oladele Isaac"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
                       <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -458,11 +474,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Esther Ajani.jpg')}>
-                  <img
+                  <Image
+                    fill
                     src="/Team/Esther Ajani.jpg"
                     alt="Esther Ajani"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
                       <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -488,11 +505,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group col-span-1 lg:col-span-1" onClick={() => openLightbox('/Team/Bright Prince.jpg')}>
-                  <img
+                  <Image
+                    fill
                     src="/Team/Bright Prince.jpg"
                     alt="Bright Prince"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
                       <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -508,11 +526,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Daniel Kehinde.jpg')}>
-                  <img
+                  <Image
+                    fill
                     src="/Team/Daniel Kehinde.jpg"
                     alt="Daniel Kehinde"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
                       <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -537,11 +556,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/Team/Bolu Adeniyi.jpg')}>
-                  <img
+                  <Image
+                    fill
                     src="/Team/Bolu Adeniyi.jpg"
                     alt="Bolu Adeniyi"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
                       <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -573,11 +593,12 @@ export default function PhotoGallery() {
               <>
                 <div className="lg:col-span-2">
                   <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/community/IMG_0566.jpg')}>
-                    <img 
-                      src="/community/IMG_0566.jpg" 
-                      alt="Medical Team" 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                    <Image
+                      fill
+                      src="/community/IMG_0566.jpg"
+                      alt="Medical Team"
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                       <div className="text-white">
                         <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -604,11 +625,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/community/14th%20TOEMST%202025-22.jpg')}>
-                  <img 
-                    src="/community/14th%20TOEMST%202025-22.jpg" 
-                    alt="Community Health Event" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/community/14th%20TOEMST%202025-22.jpg"
+                    alt="Community Health Event"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
                       <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -632,11 +654,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/community/14th%20TOEMST%202025-561.jpg')}>
-                  <img 
-                    src="/community/14th%20TOEMST%202025-561.jpg" 
-                    alt="Community Healthcare Services" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/community/14th%20TOEMST%202025-561.jpg"
+                    alt="Community Healthcare Services"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
                       <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -660,11 +683,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/community/IMG_0743.jpg')}>
-                  <img 
-                    src="/community/IMG_0743.jpg" 
-                    alt="Community Health Screening" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/community/IMG_0743.jpg"
+                    alt="Community Health Screening"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
                       <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -688,11 +712,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/community/IMG_0833.jpg')}>
-                  <img 
-                    src="/community/IMG_0833.jpg" 
-                    alt="Patient Care Services" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/community/IMG_0833.jpg"
+                    alt="Patient Care Services"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
                       <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -716,11 +741,12 @@ export default function PhotoGallery() {
                   </div>
                 </div>
                 <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/community/fxmed%201.jpg')}>
-                  <img 
-                    src="/community/fxmed%201.jpg" 
-                    alt="FXMed Community Services" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  <Image
+                    fill
+                    src="/community/fxmed%201.jpg"
+                    alt="FXMed Community Services"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6">
                     <div className="text-white">
                       <h3 className="font-dm-sans font-bold text-[1.3rem] mb-2">
@@ -885,12 +911,13 @@ export default function PhotoGallery() {
               </svg>
             </button>
             
-            <img
+            <Image
+              fill
               src={selectedImage}
               alt="Enlarged view"
               className="max-w-full max-h-full object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
-            />
+              />
             
             <button
               onClick={closeLightbox}

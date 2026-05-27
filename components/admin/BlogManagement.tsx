@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
 import 'react-quill/dist/quill.snow.css'
 import ContentGenerationPanel from './AIGenerationPanel'
+import { sanitizeRichText } from '@/lib/content-sanitizer'
 
 // Dynamically import ReactQuill to avoid SSR issues
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
@@ -123,11 +125,14 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
             {post.thumbnail_url && (
-              <img
-                src={post.thumbnail_url}
-                alt={post.thumbnail_alt || post.title}
-                className="w-full h-64 object-cover rounded-[12px] mb-6"
-              />
+              <div className="relative w-full h-64 rounded-[12px] overflow-hidden mb-6">
+                <Image
+                  src={post.thumbnail_url}
+                  alt={post.thumbnail_alt || post.title}
+                  fill
+                  className="object-cover"
+                />
+              </div>
             )}
             
             <div className="flex items-center gap-4 mb-4 text-sm text-gray-500">
@@ -149,7 +154,7 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
 
             <div 
               className="prose prose-lg max-w-none font-dm-sans text-gray-700"
-              dangerouslySetInnerHTML={{ __html: post.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichText(post.content) }}
             />
           </div>
 
@@ -428,7 +433,6 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
   }
 
   const handlePublishDraft = async (post: BlogPost) => {
-    console.log('Publishing draft:', post.id, post.title)
     try {
       const response = await fetch('/api/drafts/publish', {
         method: 'POST',
@@ -438,8 +442,6 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
         body: JSON.stringify({ draftId: post.id }),
       })
 
-      console.log('Publish response status:', response.status)
-      
       if (!response.ok) {
         const errorData = await response.json()
         console.error('Publish API error:', errorData)
@@ -447,7 +449,6 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
       }
 
       const result = await response.json()
-      console.log('Publish result:', result)
       
       // Remove draft from posts and add published post
       setPosts(posts.filter(p => p.id !== post.id).concat(result.publishedPost))
@@ -681,7 +682,6 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
                         const file = e.target.files?.[0]
                         if (file) {
                           setUploadingImage(true)
-                          console.log('Starting image upload:', file.name, 'Size:', file.size)
                           try {
                             // Create FormData for server upload
                             const uploadFormData = new FormData()
@@ -693,8 +693,6 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
                               body: uploadFormData,
                             })
                             
-                            console.log('Upload API response status:', response.status)
-                            
                             if (!response.ok) {
                               const errorData = await response.json()
                               console.error('Upload API error:', errorData)
@@ -704,7 +702,6 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
                             }
                             
                             const result = await response.json()
-                            console.log('Upload result:', result)
                             
                             if (result.success && result.url) {
                               setFormData({...formData, thumbnail_url: result.url})
@@ -744,11 +741,14 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
                     </div>
                     {formData.thumbnail_url && (
                       <div className="mt-2">
-                        <img 
-                          src={formData.thumbnail_url} 
-                          alt={formData.thumbnail_alt || "Thumbnail preview"} 
-                          className="w-full h-32 object-cover rounded-lg border border-green-deep/20"
-                        />
+                        <div className="relative w-full h-32 rounded-lg border border-green-deep/20 overflow-hidden">
+                          <Image
+                            src={formData.thumbnail_url}
+                            alt={formData.thumbnail_alt || "Thumbnail preview"}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() => setFormData({...formData, thumbnail_url: '', thumbnail_alt: ''})}
@@ -917,11 +917,14 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
                     {/* Thumbnail */}
                     <div className="flex-shrink-0">
                       {post.thumbnail_url ? (
-                        <img
-                          src={post.thumbnail_url}
-                          alt={post.thumbnail_alt || post.title}
-                          className="w-20 h-20 object-cover rounded-lg"
-                        />
+                        <div className="relative w-20 h-20 rounded-lg overflow-hidden">
+                          <Image
+                            src={post.thumbnail_url}
+                            alt={post.thumbnail_alt || post.title}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
                       ) : (
                         <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,5 +1,7 @@
 'use client'
 
+import Image from 'next/image'
+
 export default function CorporateWellness() {
   return (
     <section id="corporate-wellness" className="bg-[#FCFFF0] py-[90px] px-[5%]">
@@ -7,15 +9,12 @@ export default function CorporateWellness() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Content - Image */}
           <div className="order-first lg:order-first">
-            <div className="relative rounded-[20px] overflow-hidden shadow-2xl">
-              <img 
-                src="/diverse-business-team-meeting-office-hallway.jpg" 
-                alt="Diverse business team in office hallway" 
-                className="w-full h-full min-h-[600px] object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = "data:image/svg+xml,%3Csvg width='600' height='400' viewBox='0 0 600 400' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='600' height='400' fill='%23FCFFF0'/%3E%3Ctext x='300' y='200' font-family='Arial' font-size='18' fill='%230F6839' text-anchor='middle'%3EDiverse Business Team%3C/text%3E%3C/svg%3E";
-                }}
+            <div className="relative rounded-[20px] overflow-hidden shadow-2xl min-h-[600px]">
+              <Image
+                src="/diverse-business-team-meeting-office-hallway.jpg"
+                alt="Diverse business team in office hallway"
+                fill
+                className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-green-deep/20 to-transparent"></div>
             </div>

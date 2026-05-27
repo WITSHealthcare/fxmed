@@ -25,7 +25,6 @@ class GoogleProvider implements AIProvider {
     
     for (const modelName of models) {
       try {
-        console.log(`Trying Google model: ${modelName}`)
         const model = this.client.getGenerativeModel({ model: modelName })
 
         const fullPrompt = `You are a professional health and wellness content writer for FXMed, a functional medicine practice.

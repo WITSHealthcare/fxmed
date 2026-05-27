@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { sanitizeRichText } from '@/lib/content-sanitizer'
 
 // Create admin client with public key
 const supabaseAdmin = createClient(
@@ -47,10 +48,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    const draft = {
+      ...body,
+      ...(body.excerpt !== undefined ? { excerpt: sanitizeRichText(body.excerpt) } : {}),
+      ...(body.content !== undefined ? { content: sanitizeRichText(body.content) } : {}),
+    }
     
     const { data, error } = await supabaseAdmin
       .from('draft_posts')
-      .insert(body)
+      .insert(draft)
       .select()
       .single()
     
@@ -116,8 +122,8 @@ export async function PATCH(request: NextRequest) {
     
     if (updateData.title !== undefined) updateObj.title = updateData.title
     if (updateData.slug !== undefined) updateObj.slug = updateData.slug
-    if (updateData.excerpt !== undefined) updateObj.excerpt = updateData.excerpt
-    if (updateData.content !== undefined) updateObj.content = updateData.content
+    if (updateData.excerpt !== undefined) updateObj.excerpt = sanitizeRichText(updateData.excerpt)
+    if (updateData.content !== undefined) updateObj.content = sanitizeRichText(updateData.content)
     if (updateData.author !== undefined) updateObj.author = updateData.author
     if (updateData.category !== undefined) updateObj.category = updateData.category
     if (updateData.thumbnail_url !== undefined) updateObj.thumbnail_url = updateData.thumbnail_url

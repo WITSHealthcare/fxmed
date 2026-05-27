@@ -72,29 +72,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     if (!supabase) {
-      // Fallback: Log the appointment data and return success for testing
-      const body = await request.json()
-      console.log('FALLBACK - Appointment data:', body)
-      
-      // Return a mock appointment response
-      const mockAppointment = {
-        id: `fallback_${Date.now()}`,
-        first_name: body.firstName,
-        last_name: body.lastName,
-        email: body.email,
-        phone: body.phone,
-        home_address: body.homeAddress,
-        consultation_type: body.consultationType,
-        preferred_date: body.preferredDate,
-        preferred_time: body.preferredTime,
-        symptoms: body.symptoms,
-        status: 'pending',
-        payment_status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-      
-      return NextResponse.json({ appointment: mockAppointment }, { status: 201 })
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
     }
 
     const body = await request.json()

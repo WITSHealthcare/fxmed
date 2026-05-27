@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import BlogManagement from '@/components/admin/BlogManagement'
 import CrmDashboard from '@/components/admin/CrmDashboard'
 import SeoAnalytics from '@/components/admin/SeoAnalytics'
@@ -10,6 +11,7 @@ import Messages from '@/components/admin/Messages'
 import AppointmentCalendar from '@/components/admin/AppointmentCalendar'
 import Notifications from '@/components/admin/Notifications'
 import UserManagement from '@/components/admin/UserManagement'
+import ZaraDashboard from '@/components/admin/ZaraDashboard'
 import { getCurrentAdminRole, signOut } from '@/lib/supabase-auth'
 import { adminRoleLabels, adminRolePermissions, canAccessCrmView, canAccessTab, type AdminRole, type AdminTab } from '@/lib/admin-auth'
 import { createClient } from '@supabase/supabase-js'
@@ -43,6 +45,7 @@ const adminNavItems: Array<{ id: AdminTab; label: string; icon: string; title: s
   { id: 'requests', label: 'Requests', icon: '📋', title: 'Requests', description: 'Manage appointment bookings and consultation requests' },
   { id: 'ambassador', label: 'Ambassador Program', icon: '🤝', title: 'Ambassador Program', description: 'Track ambassadors, referrals, and program performance' },
   { id: 'users', label: 'Users & Roles', icon: '🔐', title: 'Users & Roles', description: 'Create dashboard users and assign role-based access' },
+  { id: 'zara', label: 'Zara', icon: '🤖', title: 'Zara Conversations', description: 'View all interactions people have had with Zara, the AI assistant' },
 ]
 
 type Note = {
@@ -296,15 +299,12 @@ export default function AdminPanel() {
 
   // Import JSON content as drafts in batches
   const importDraftsFromJSON = async () => {
-    console.log('Starting import from JSON...')
     const contentItems = blogContentData as BlogContentItem[]
-    console.log('Content items loaded:', contentItems.length)
     const importedPosts: BlogPost[] = []
     const batchSize = 50
 
     for (let i = 0; i < contentItems.length; i += batchSize) {
       const batch = contentItems.slice(i, i + batchSize)
-      console.log(`Processing batch ${Math.floor(i / batchSize) + 1} (${batch.length} items)...`)
 
       for (const item of batch) {
         try {
@@ -329,7 +329,6 @@ export default function AdminPanel() {
           if (response.ok) {
             const { post } = await response.json()
             importedPosts.push(post)
-            console.log('Imported draft:', item.title)
           } else {
             console.error('Failed to import draft:', item.title, response.status)
           }
@@ -340,12 +339,10 @@ export default function AdminPanel() {
 
       // Add delay between batches
       if (i + batchSize < contentItems.length) {
-        console.log('Waiting 1 second before next batch...')
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
     }
 
-    console.log('Import complete. Total imported:', importedPosts.length)
     return importedPosts
   }
 
@@ -355,8 +352,6 @@ export default function AdminPanel() {
 
     const initializePosts = async () => {
       try {
-        console.log('Initializing posts...')
-        
         // Fetch drafts from draft_posts table
         const draftsResponse = await fetch('/api/drafts')
         if (!draftsResponse.ok) throw new Error('Failed to fetch drafts')
@@ -370,12 +365,8 @@ export default function AdminPanel() {
         const allDrafts = draftsData || []
         const publishedPosts = publishedData || []
         
-        console.log('Drafts loaded:', allDrafts.length)
-        console.log('Published posts loaded:', publishedPosts.length)
-        
         // Combine drafts and published posts for the admin interface
         setPosts([...allDrafts, ...publishedPosts])
-        console.log('Total posts loaded:', allDrafts.length + publishedPosts.length)
       } catch (error) {
         console.error('Error initializing posts:', error)
       } finally {
@@ -468,16 +459,13 @@ export default function AdminPanel() {
   const handleDirectSupabaseImport = async () => {
     setImporting(true)
     try {
-      console.log('Direct Supabase import triggered...')
       const contentItems = blogContentData as BlogContentItem[]
-      console.log('Content items loaded:', contentItems.length)
       
       const importedPosts: BlogPost[] = []
       const batchSize = 10 // Smaller batches for direct DB
 
       for (let i = 0; i < contentItems.length; i += batchSize) {
         const batch = contentItems.slice(i, i + batchSize)
-        console.log(`Processing batch ${Math.floor(i / batchSize) + 1} (${batch.length} items)...`)
 
         for (const item of batch) {
           try {
@@ -514,7 +502,6 @@ export default function AdminPanel() {
 
             if (data) {
               importedPosts.push(data)
-              console.log('Directly imported draft:', item.title)
             }
           } catch (error) {
             console.error(`Error importing draft: ${item.title}`, error)
@@ -523,12 +510,10 @@ export default function AdminPanel() {
 
         // Add delay between batches
         if (i + batchSize < contentItems.length) {
-          console.log('Waiting 500ms before next batch...')
           await new Promise(resolve => setTimeout(resolve, 500))
         }
       }
 
-      console.log('Direct Supabase import complete. Total imported:', importedPosts.length)
       setPosts([...importedPosts, ...posts])
       
     } catch (error) {
@@ -542,10 +527,8 @@ export default function AdminPanel() {
   const handleManualImport = async () => {
     setImporting(true)
     try {
-      console.log('Manual import triggered...')
       const importedPosts = await importDraftsFromJSON()
       setPosts([...importedPosts, ...posts])
-      console.log('Manual import complete!')
     } catch (error) {
       console.error('Manual import failed:', error)
     } finally {
@@ -588,9 +571,11 @@ export default function AdminPanel() {
       <header className="bg-green-deep shadow-custom border-b border-green-deep/20">
         <div className="flex items-center justify-between px-[5%] py-[18px]">
           <div className="flex items-center space-x-4">
-            <img 
-              src="/logo.png" 
-              alt="FXMed" 
+            <Image
+              src="/logo.png"
+              alt="FXMed"
+              width={240}
+              height={120}
               className="h-[120px] w-auto md:h-[120px] h-[80px]"
             />
           </div>
@@ -726,6 +711,10 @@ export default function AdminPanel() {
 
             {activeTab === 'users' && canAccessTab(currentRole, 'users') && (
               <UserManagement />
+            )}
+
+            {activeTab === 'zara' && canAccessTab(currentRole, 'zara') && (
+              <ZaraDashboard />
             )}
           </div>
         </div>

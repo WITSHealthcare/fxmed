@@ -241,8 +241,6 @@ Guidelines:
 - Respond ONLY with the JSON object`;
 
     try {
-      console.log('Testing Hugging Face API with key:', this.apiKey ? 'Present' : 'Missing')
-      
       const response = await fetch(
         'https://api-inference.huggingface.co/models/gpt2',
         {
@@ -257,8 +255,6 @@ Guidelines:
         }
       )
 
-      console.log('Hugging Face response status:', response.status)
-      
       if (!response.ok) {
         const errorText = await response.text()
         console.error('Hugging Face error response:', errorText)

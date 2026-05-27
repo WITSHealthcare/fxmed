@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 type Message = {
   id: string
@@ -20,13 +20,13 @@ export default function Messages() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
   const [filter, setFilter] = useState<'all' | 'unread' | 'read' | 'archived'>('all')
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     setLoading(true)
     try {
       const url = filter === 'all' ? '/api/messages' : `/api/messages?status=${filter}`
       const response = await fetch(url)
       if (!response.ok) throw new Error('Failed to fetch messages')
-      
+
       const { messages: data } = await response.json()
       setMessages(data || [])
     } catch (error) {
@@ -34,7 +34,7 @@ export default function Messages() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filter])
 
   const updateMessageStatus = async (id: string, status: string) => {
     try {
@@ -67,7 +67,7 @@ export default function Messages() {
 
   useEffect(() => {
     fetchMessages()
-  }, [filter])
+  }, [fetchMessages])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)

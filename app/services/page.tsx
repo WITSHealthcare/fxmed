@@ -3,6 +3,7 @@
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Link from 'next/link'
+import Image from 'next/image'
 
 const services = [
   {
@@ -229,7 +230,7 @@ export default function ServicesPage() {
               <div key={index} className="bg-white rounded-[20px] p-8 border border-green-deep/8 shadow-sm">
                 <div className="text-4xl mb-4">
                   {item.icon.startsWith('/') ? (
-                    <img src={item.icon} alt={item.title} className="w-12 h-12" />
+                    <Image src={item.icon} alt={item.title} width={48} height={48} />
                   ) : (
                     item.icon
                   )}
@@ -263,16 +264,13 @@ export default function ServicesPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Left - Icon & Basic Info */}
                   <div className="lg:col-span-1">
-                    <div className="w-16 h-16 mb-6">
-                      <img 
-                        src={service.icon} 
+                    <div className="w-16 h-16 mb-6 relative">
+                      <Image
+                        src={service.icon}
                         alt={service.title}
+                        width={64}
+                        height={64}
                         className="w-full h-full object-contain"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          target.parentElement!.innerHTML = '<span class="text-5xl">🏥</span>';
-                        }}
                       />
                     </div>
                     <h3 className="font-dm-sans font-bold text-green-deep text-[1.5rem] mb-3">{service.title}</h3>

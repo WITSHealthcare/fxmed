@@ -4,6 +4,7 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import AppointmentModal from '@/components/AppointmentModal'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState } from 'react'
 
 export default function Programs() {
@@ -113,7 +114,7 @@ export default function Programs() {
               >
                 <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-green-mid to-green-light transform scale-x-0 group-hover:scale-x-100 transition-transform duration-[0.35s] origin-left"></div>
                 <div className="mb-[18px]">
-                  <img src={program.icon} alt={program.title} className="w-8 h-8" />
+                  <Image src={program.icon} alt={program.title} width={32} height={32} />
                 </div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-dm-sans font-semibold text-green-deep text-[1.3rem]">

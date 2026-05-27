@@ -81,8 +81,7 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
         throw new Error('Failed to save appointment')
       }
 
-      const data = await response.json()
-      console.log('Appointment saved:', data)
+      await response.json()
       
       // Redirect to appropriate Paystack payment link based on consultation type
       const paymentLink = consultationType === 'telemedicine' 

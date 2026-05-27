@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useEffect } from 'react'
 
 export default function NotFound() {
@@ -20,16 +21,16 @@ export default function NotFound() {
       <div className="absolute inset-0 overflow-hidden">
         {/* Floating medical icons */}
         <div className="absolute top-20 left-10 w-16 h-16 bg-green-deep/10 rounded-[20px] flex items-center justify-center animate-float">
-          <img src="/Stethoscope.svg" alt="Stethoscope" className="w-8 h-8" />
+          <Image src="/Stethoscope.svg" alt="Stethoscope" width={32} height={32} />
         </div>
         <div className="absolute top-40 right-20 w-20 h-20 bg-gold/10 rounded-[20px] flex items-center justify-center animate-float-delayed">
-          <img src="/Pill.svg" alt="Pill" className="w-10 h-10" />
+          <Image src="/Pill.svg" alt="Pill" width={40} height={40} />
         </div>
         <div className="absolute bottom-32 left-20 w-16 h-16 bg-green-mid/10 rounded-[20px] flex items-center justify-center animate-float">
-          <img src="/TestTube.svg" alt="Test Tube" className="w-8 h-8" />
+          <Image src="/TestTube.svg" alt="Test Tube" width={32} height={32} />
         </div>
         <div className="absolute bottom-20 right-10 w-24 h-24 bg-green-deep/5 rounded-[20px] flex items-center justify-center animate-float-delayed">
-          <img src="/Sparkle.svg" alt="Sparkle" className="w-12 h-12" />
+          <Image src="/Sparkle.svg" alt="Sparkle" width={48} height={48} />
         </div>
       </div>
 
@@ -82,7 +83,7 @@ export default function NotFound() {
               className="bg-white rounded-[16px] p-4 border border-green-deep/10 hover:shadow-custom transition-all group no-underline"
             >
               <div className="w-12 h-12 rounded-[12px] bg-green-deep/10 flex items-center justify-center mb-3 group-hover:bg-green-deep/20 transition-colors">
-                <img src="/Hospital.svg" alt="About" className="w-6 h-6" />
+                <Image src="/Hospital.svg" alt="About" width={24} height={24} />
               </div>
               <h4 className="font-dm-sans font-semibold text-green-deep text-sm mb-1">About Us</h4>
               <p className="font-dm-sans text-text-mid text-xs">Learn more about FXMed</p>
@@ -93,7 +94,7 @@ export default function NotFound() {
               className="bg-white rounded-[16px] p-4 border border-green-deep/10 hover:shadow-custom transition-all group no-underline"
             >
               <div className="w-12 h-12 rounded-[12px] bg-green-deep/10 flex items-center justify-center mb-3 group-hover:bg-green-deep/20 transition-colors">
-                <img src="/OrangeSlice.svg" alt="Programs" className="w-6 h-6" />
+                <Image src="/OrangeSlice.svg" alt="Programs" width={24} height={24} />
               </div>
               <h4 className="font-dm-sans font-semibold text-green-deep text-sm mb-1">Programs</h4>
               <p className="font-dm-sans text-text-mid text-xs">Explore our wellness programs</p>
@@ -104,7 +105,7 @@ export default function NotFound() {
               className="bg-white rounded-[16px] p-4 border border-green-deep/10 hover:shadow-custom transition-all group no-underline"
             >
               <div className="w-12 h-12 rounded-[12px] bg-green-deep/10 flex items-center justify-center mb-3 group-hover:bg-green-deep/20 transition-colors">
-                <img src="/Dna.svg" alt="Pricing" className="w-6 h-6" />
+                <Image src="/Dna.svg" alt="Pricing" width={24} height={24} />
               </div>
               <h4 className="font-dm-sans font-semibold text-green-deep text-sm mb-1">Pricing</h4>
               <p className="font-dm-sans text-text-mid text-xs">View our consultation plans</p>
@@ -115,7 +116,7 @@ export default function NotFound() {
               className="bg-white rounded-[16px] p-4 border border-green-deep/10 hover:shadow-custom transition-all group no-underline"
             >
               <div className="w-12 h-12 rounded-[12px] bg-gold/10 flex items-center justify-center mb-3 group-hover:bg-gold/20 transition-colors">
-                <img src="/FXMed Elite White.svg" alt="Elite" className="w-6 h-6" />
+                <Image src="/FXMed Elite White.svg" alt="Elite" width={24} height={24} />
               </div>
               <h4 className="font-dm-sans font-semibold text-green-deep text-sm mb-1">FXMed Elite</h4>
               <p className="font-dm-sans text-text-mid text-xs">Premium concierge care</p>

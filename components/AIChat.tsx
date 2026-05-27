@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import Image from 'next/image'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -21,6 +22,7 @@ export default function ChatAssistant() {
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const sessionId = useMemo(() => crypto.randomUUID(), [])
 
   useEffect(() => {
     const showTimer = setTimeout(() => setShowCallout(true), 1500)
@@ -54,6 +56,7 @@ export default function ChatAssistant() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          sessionId,
           messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
         }),
       })
@@ -94,7 +97,7 @@ export default function ChatAssistant() {
             </button>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
-                <img src="/Zara.png" alt="Zara" className="w-full h-full object-cover" />
+                <Image src="/Zara.png" alt="Zara" width={28} height={28} className="w-full h-full object-cover" />
               </div>
               <span className="font-dm-sans font-semibold text-green-deep text-sm">Zara</span>
             </div>
@@ -109,7 +112,7 @@ export default function ChatAssistant() {
           className="bg-gold w-14 h-14 rounded-full shadow-lg overflow-hidden hover:bg-gold-light transition-colors p-0"
           aria-label="Open Zara"
         >
-          <img src="/Zara Transparent.png" alt="Zara" className="w-full h-full object-cover" />
+          <Image src="/Zara Transparent.png" alt="Zara" width={56} height={56} className="w-full h-full object-cover" />
         </button>
       </div>
     )
@@ -121,7 +124,7 @@ export default function ChatAssistant() {
       <div className="bg-green-deep text-cream p-4 rounded-t-2xl flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full overflow-hidden">
-            <img src="/Zara.png" alt="Zara" className="w-full h-full object-cover" />
+            <Image src="/Zara.png" alt="Zara" width={32} height={32} className="w-full h-full object-cover" />
           </div>
           <div>
             <h3 className="font-dm-sans font-semibold text-sm">Zara</h3>
@@ -177,7 +180,7 @@ export default function ChatAssistant() {
           <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {message.role === 'assistant' && (
               <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mr-2 mt-1">
-                <img src="/Zara.png" alt="Zara" className="w-full h-full object-cover" />
+                <Image src="/Zara.png" alt="Zara" width={24} height={24} className="w-full h-full object-cover" />
               </div>
             )}
             <div className={`max-w-[78%] ${
@@ -193,7 +196,7 @@ export default function ChatAssistant() {
         {isTyping && (
           <div className="flex justify-start">
             <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mr-2 mt-1">
-              <img src="/Zara.png" alt="Zara" className="w-full h-full object-cover" />
+              <Image src="/Zara.png" alt="Zara" width={24} height={24} className="w-full h-full object-cover" />
             </div>
             <div className="bg-gray-100 rounded-2xl px-4 py-3">
               <div className="flex gap-1 items-center">

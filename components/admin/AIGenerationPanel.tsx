@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { stripHtml } from '@/lib/content-sanitizer'
 
 interface GeneratedContent {
   title: string
@@ -269,12 +270,9 @@ export default function ContentGenerationPanel({ onApplyContent, currentCategory
                   {/* Content Preview */}
                   <div className="mb-3">
                     <label className="text-xs font-semibold text-gray-600 uppercase">Content Preview</label>
-                    <div 
-                      className="text-sm text-text-mid mt-1 max-h-32 overflow-y-auto p-2 bg-white rounded border border-green-100"
-                      dangerouslySetInnerHTML={{ 
-                        __html: generatedContent.content.substring(0, 300) + '...' 
-                      }}
-                    />
+                    <div className="text-sm text-text-mid mt-1 max-h-32 overflow-y-auto p-2 bg-white rounded border border-green-100">
+                      {stripHtml(generatedContent.content).substring(0, 300)}...
+                    </div>
                   </div>
 
                   {/* Suggested Tags */}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 type BlogPost = {
   id: string
@@ -178,9 +179,11 @@ export default function FreshPerspectives() {
                       {/* Thumbnail */}
                       <div className="w-16 h-16 rounded-lg mr-4 flex-shrink-0 overflow-hidden bg-gray-100">
                         {post.thumbnail_url ? (
-                          <img 
-                            src={post.thumbnail_url} 
+                          <Image
+                            src={post.thumbnail_url}
                             alt={post.thumbnail_alt || post.title}
+                            width={64}
+                            height={64}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                           />
                         ) : (
@@ -225,9 +228,11 @@ export default function FreshPerspectives() {
                   >
                     <div className="flex items-start">
                       <div className="w-16 h-16 rounded-lg mr-4 flex-shrink-0 overflow-hidden">
-                        <img 
-                          src={post.thumbnail_url} 
+                        <Image
+                          src={post.thumbnail_url!}
                           alt={post.title}
+                          width={64}
+                          height={64}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         />
                       </div>
@@ -286,10 +291,11 @@ export default function FreshPerspectives() {
                 {/* Featured Image */}
                 <div className="relative h-[300px] overflow-hidden">
                   {featuredPost?.thumbnail_url ? (
-                    <img 
-                      src={featuredPost.thumbnail_url} 
+                    <Image
+                      src={featuredPost.thumbnail_url}
                       alt={featuredPost.thumbnail_alt || featuredPost.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-mid/20 to-green-deep/20">

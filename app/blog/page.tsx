@@ -1,13 +1,14 @@
-import dynamic from 'next/dynamic'
+import nextDynamic from 'next/dynamic'
 import { createClient } from '@supabase/supabase-js'
 import BlogPostsGrid from '@/components/blog/BlogPostsGrid'
+import { sanitizeRichText, stripHtml } from '@/lib/content-sanitizer'
 
-// Revalidate page every 60 seconds (ISR - Incremental Static Regeneration)
-export const revalidate = 60
+// Fetch blog content at request time so deploy builds do not depend on Supabase reachability.
+export const dynamic = 'force-dynamic'
 
 // Dynamically import Navigation and Footer with SSR disabled to prevent context errors
-const Navigation = dynamic(() => import('@/components/Navigation'), { ssr: false })
-const Footer = dynamic(() => import('@/components/Footer'), { ssr: false })
+const Navigation = nextDynamic(() => import('@/components/Navigation'), { ssr: false })
+const Footer = nextDynamic(() => import('@/components/Footer'), { ssr: false })
 
 interface BlogPost {
   id: string
@@ -42,7 +43,11 @@ async function getBlogPosts(): Promise<BlogPost[]> {
       return []
     }
 
-    return data || []
+    return (data || []).map((post) => ({
+      ...post,
+      excerpt: stripHtml(post.excerpt || ''),
+      content: sanitizeRichText(post.content || ''),
+    }))
   } catch (error) {
     console.error('Error fetching blog posts:', error)
     return []

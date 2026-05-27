@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import Image from 'next/image'
 import AppointmentModal from '@/components/AppointmentModal'
 import ContactModal from '@/components/ContactModal'
 
@@ -92,9 +93,11 @@ const isHomePage = pathname === '/'
       }`}>
         <div className="flex items-center justify-between px-[5%] py-[18px]">
           <a href="/" className="flex items-center no-underline">
-            <img 
-              src="/logo.png" 
-              alt="FXMed" 
+            <Image
+              src="/logo.png"
+              alt="FXMed"
+              width={240}
+              height={120}
               className="h-[120px] w-auto md:h-[120px] h-[80px]"
             />
           </a>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import ContactModal from '@/components/ContactModal'
 
 export default function Footer() {
@@ -14,9 +15,11 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Logo */}
           <div className="flex justify-center items-center">
-            <img 
-                src="/logo.png" 
-                alt="FXMed Logo" 
+            <Image
+                src="/logo.png"
+                alt="FXMed Logo"
+                width={320}
+                height={160}
                 className="h-40 w-auto"
               />
           </div>
