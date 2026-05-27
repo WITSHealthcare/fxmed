@@ -22,7 +22,7 @@ export default function Hero() {
       </div>
       
       <div className="absolute top-40 right-[35%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float-delayed hidden md:flex">
-        <Image src="/Ambulance.svg?v=3" alt="Ambulance" width={32} height={32} />
+        <Image src="/Ambulance.svg" alt="Ambulance" width={32} height={32} />
       </div>
       
       <div className="absolute bottom-40 left-[30%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float hidden md:flex">
@@ -38,7 +38,7 @@ export default function Hero() {
       </div>
       
       <div className="absolute top-[45%] right-[20%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float-delayed hidden md:flex">
-        <Image src="/Avocado.svg?v=2" alt="Avocado" width={32} height={32} />
+        <Image src="/Avocado.svg" alt="Avocado" width={32} height={32} />
       </div>
       
       {/* Content */}
