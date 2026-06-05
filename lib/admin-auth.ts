@@ -1,7 +1,7 @@
 import type { User } from '@supabase/supabase-js'
 
 export type AdminRole = 'admin' | 'clinical' | 'ambassador' | 'sales'
-export type AdminTab = 'blog' | 'crm' | 'seo' | 'health' | 'messages' | 'requests' | 'ambassador' | 'users' | 'zara'
+export type AdminTab = 'blog' | 'crm' | 'seo' | 'health' | 'messages' | 'requests' | 'ambassador' | 'tools' | 'users' | 'zara'
 export type CrmAccess = 'clinical' | 'financial'
 
 export const adminRoleLabels: Record<AdminRole, string> = {
@@ -13,11 +13,11 @@ export const adminRoleLabels: Record<AdminRole, string> = {
 
 export const adminRolePermissions: Record<AdminRole, { tabs: AdminTab[]; crmViews: CrmAccess[] }> = {
   admin: {
-    tabs: ['blog', 'crm', 'seo', 'health', 'messages', 'requests', 'ambassador', 'users', 'zara'],
+    tabs: ['blog', 'crm', 'seo', 'health', 'messages', 'requests', 'ambassador', 'tools', 'users', 'zara'],
     crmViews: ['clinical', 'financial'],
   },
   clinical: {
-    tabs: ['blog', 'crm', 'health', 'requests'],
+    tabs: ['blog', 'crm', 'health', 'requests', 'tools'],
     crmViews: ['clinical'],
   },
   ambassador: {
@@ -25,7 +25,7 @@ export const adminRolePermissions: Record<AdminRole, { tabs: AdminTab[]; crmView
     crmViews: [],
   },
   sales: {
-    tabs: ['crm', 'seo', 'messages'],
+    tabs: ['crm', 'seo', 'messages', 'tools'],
     crmViews: ['financial'],
   },
 }
