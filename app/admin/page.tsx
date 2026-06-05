@@ -12,6 +12,7 @@ import AppointmentCalendar from '@/components/admin/AppointmentCalendar'
 import Notifications from '@/components/admin/Notifications'
 import UserManagement from '@/components/admin/UserManagement'
 import ZaraDashboard from '@/components/admin/ZaraDashboard'
+import AdminTools from '@/components/admin/AdminTools'
 import { getCurrentAdminRole, signOut } from '@/lib/supabase-auth'
 import { adminRoleLabels, adminRolePermissions, canAccessCrmView, canAccessTab, type AdminRole, type AdminTab } from '@/lib/admin-auth'
 import { createClient } from '@supabase/supabase-js'
@@ -44,6 +45,7 @@ const adminNavItems: Array<{ id: AdminTab; label: string; icon: string; title: s
   { id: 'messages', label: 'Messages', icon: '💬', title: 'Messages', description: 'View and manage messages from patients and visitors' },
   { id: 'requests', label: 'Requests', icon: '📋', title: 'Requests', description: 'Manage appointment bookings and consultation requests' },
   { id: 'ambassador', label: 'Ambassador Program', icon: '🤝', title: 'Ambassador Program', description: 'Track ambassadors, referrals, and program performance' },
+  { id: 'tools', label: 'Tools', icon: '🧰', title: 'Tools', description: 'Quick access to admin workflows and operational utilities' },
   { id: 'users', label: 'Users & Roles', icon: '🔐', title: 'Users & Roles', description: 'Create dashboard users and assign role-based access' },
   { id: 'zara', label: 'Zara', icon: '🤖', title: 'Zara Conversations', description: 'View all interactions people have had with Zara, the AI assistant' },
 ]
@@ -708,6 +710,8 @@ export default function AdminPanel() {
                 </p>
               </div>
             )}
+
+            {activeTab === 'tools' && canAccessTab(currentRole, 'tools') && <AdminTools />}
 
             {activeTab === 'users' && canAccessTab(currentRole, 'users') && (
               <UserManagement />
