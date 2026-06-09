@@ -1,10 +1,20 @@
 import type { Metadata } from 'next'
 
-export const siteUrl = (
+function normalizeSiteUrl(url: string) {
+  const trimmedUrl = url.trim().replace(/\/+$/, '')
+
+  if (/^https?:\/\//i.test(trimmedUrl)) {
+    return trimmedUrl
+  }
+
+  return `https://${trimmedUrl}`
+}
+
+export const siteUrl = normalizeSiteUrl(
   process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-  'https://www.fxmed.ng'
-).replace(/\/$/, '')
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    'https://www.fxmed.ng',
+)
 
 export const siteName = 'FXMed'
 export const defaultImage = '/fxmed-website-picture.png'
