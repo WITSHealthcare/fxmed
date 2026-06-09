@@ -11,9 +11,7 @@ function normalizeSiteUrl(url: string) {
 }
 
 export const siteUrl = normalizeSiteUrl(
-  process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-    'https://www.fxmed.ng',
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://www.fxmed.ng',
 )
 
 export const siteName = 'FXMed'
