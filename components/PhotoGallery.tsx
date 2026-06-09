@@ -412,7 +412,7 @@ export default function PhotoGallery() {
             {/* Our Team Tab */}
             {activeTab === 'team' && (
               <div className="col-span-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Dr Kike Oduba.jpg')}>
+                <div className="relative aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg cursor-pointer group " onClick={() => openLightbox('/Team/Dr Kike Oduba.jpg')}>
                   <Image
                     fill
                     src="/Team/Dr Kike Oduba.jpg"
@@ -442,7 +442,7 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Oladele Isaac.jpg')}>
+                <div className="relative aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg cursor-pointer group " onClick={() => openLightbox('/Team/Oladele Isaac.jpg')}>
                   <Image
                     fill
                     src="/Team/Oladele Isaac.jpg"
@@ -473,7 +473,7 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-                                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Esther Ajani.jpg')}>
+                                <div className="relative aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg cursor-pointer group " onClick={() => openLightbox('/Team/Esther Ajani.jpg')}>
                   <Image
                     fill
                     src="/Team/Esther Ajani.jpg"
@@ -504,7 +504,7 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group col-span-1 lg:col-span-1" onClick={() => openLightbox('/Team/Bright Prince.jpg')}>
+                <div className="relative aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg cursor-pointer group col-span-1 lg:col-span-1" onClick={() => openLightbox('/Team/Bright Prince.jpg')}>
                   <Image
                     fill
                     src="/Team/Bright Prince.jpg"
@@ -525,7 +525,7 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group " onClick={() => openLightbox('/Team/Daniel Kehinde.jpg')}>
+                <div className="relative aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg cursor-pointer group " onClick={() => openLightbox('/Team/Daniel Kehinde.jpg')}>
                   <Image
                     fill
                     src="/Team/Daniel Kehinde.jpg"
@@ -555,7 +555,7 @@ export default function PhotoGallery() {
                     </div>
                   </div>
                 </div>
-                <div className="relative rounded-[20px] overflow-hidden shadow-lg h-full min-h-[300px] cursor-pointer group" onClick={() => openLightbox('/Team/Bolu Adeniyi.jpg')}>
+                <div className="relative aspect-[2/3] rounded-[20px] overflow-hidden shadow-lg cursor-pointer group" onClick={() => openLightbox('/Team/Bolu Adeniyi.jpg')}>
                   <Image
                     fill
                     src="/Team/Bolu Adeniyi.jpg"

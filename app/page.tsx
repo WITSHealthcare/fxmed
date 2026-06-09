@@ -16,6 +16,21 @@ import HealthCTA from '@/components/HealthCTA'
 import FXMedElite from '@/components/FXMedElite'
 import Footer from '@/components/Footer'
 import ChatAssistant from '@/components/AIChat'
+import { createMetadata } from '@/lib/seo'
+
+export const metadata = createMetadata({
+  title: 'FXMed | Functional Medicine Clinic That Comes to You',
+  description:
+    'Book functional medicine, mobile healthcare, lab testing, concierge care, health risk assessments and nutrition support with FXMed in Lagos and Cypress, Texas.',
+  keywords: [
+    'functional medicine clinic',
+    'mobile healthcare',
+    'concierge medicine',
+    'health risk assessment',
+    'home lab testing',
+    'Lagos healthcare',
+  ],
+})
 
 export default function Home() {
   return (

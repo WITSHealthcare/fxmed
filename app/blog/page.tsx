@@ -2,9 +2,19 @@ import nextDynamic from 'next/dynamic'
 import { createClient } from '@supabase/supabase-js'
 import BlogPostsGrid from '@/components/blog/BlogPostsGrid'
 import { sanitizeRichText, stripHtml } from '@/lib/content-sanitizer'
+import { createMetadata } from '@/lib/seo'
 
 // Fetch blog content at request time so deploy builds do not depend on Supabase reachability.
 export const dynamic = 'force-dynamic'
+
+export const metadata = createMetadata({
+  title: 'Functional Medicine Blog | FXMed',
+  description:
+    'Read FXMed health insights on functional medicine, preventive care, nutrition, hormonal health, mobile healthcare and practical wellness strategies.',
+  path: '/blog',
+  image: '/blog/functional-medicine.jpg',
+  keywords: ['functional medicine blog', 'preventive health', 'nutrition tips', 'hormonal health'],
+})
 
 // Dynamically import Navigation and Footer with SSR disabled to prevent context errors
 const Navigation = nextDynamic(() => import('@/components/Navigation'), { ssr: false })
