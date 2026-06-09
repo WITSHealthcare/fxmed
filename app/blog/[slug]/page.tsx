@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import { sanitizeRichText, stripHtml } from '@/lib/content-sanitizer'
+import { absoluteUrl, createMetadata, siteName } from '@/lib/seo'
 
 export const revalidate = 60
 
@@ -75,6 +76,36 @@ async function getRelatedPosts(post: BlogPost): Promise<BlogPost[]> {
   return data || []
 }
 
+export async function generateMetadata({ params }: { params: { slug: string } }) {
+  try {
+    const post = await getPost(params.slug)
+
+    if (!post) {
+      return createMetadata({
+        title: 'Article Not Found | FXMed',
+        description: 'This FXMed article could not be found.',
+        path: `/blog/${params.slug}`,
+        noIndex: true,
+      })
+    }
+
+    return createMetadata({
+      title: `${post.title} | FXMed`,
+      description: stripHtml(post.excerpt || post.content).slice(0, 155),
+      path: `/blog/${post.slug}`,
+      image: post.thumbnail_url || '/blog/functional-medicine.jpg',
+      keywords: [post.category, 'FXMed', 'functional medicine', 'health education'],
+    })
+  } catch (error) {
+    console.error('Failed to generate blog post metadata:', error)
+    return createMetadata({
+      title: 'FXMed Health Article',
+      description: 'Read health education and functional medicine insights from FXMed.',
+      path: `/blog/${params.slug}`,
+    })
+  }
+}
+
 const markdownToHtml = (content: string): string => {
   if (!content) return ''
 
@@ -130,6 +161,28 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
 
   const relatedPosts = await getRelatedPosts(post)
   const articleHtml = markdownToHtml(post.content)
+  const articleJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.title,
+    description: stripHtml(post.excerpt || post.content).slice(0, 200),
+    image: post.thumbnail_url ? absoluteUrl(post.thumbnail_url) : absoluteUrl('/blog/functional-medicine.jpg'),
+    datePublished: post.created_at,
+    dateModified: post.created_at,
+    author: {
+      '@type': 'Person',
+      name: post.author || siteName,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: siteName,
+      logo: {
+        '@type': 'ImageObject',
+        url: absoluteUrl('/logo.png'),
+      },
+    },
+    mainEntityOfPage: absoluteUrl(`/blog/${post.slug}`),
+  }
 
   return (
     <main className="min-h-screen bg-[#FCFFF0]">
@@ -235,6 +288,10 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
       </article>
 
       <Footer />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
     </main>
   )
 }

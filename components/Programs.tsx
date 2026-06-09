@@ -180,7 +180,7 @@ export default function Programs() {
                   Book Maternal Consultation →
                 </button>
                 <a href="/maternal-wellness" className="font-dm-sans bg-transparent text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] no-underline border border-green-deep/40 transition-all hover:border-green-deep hover:bg-green-deep/8 inline-block text-center">
-                  Learn More
+                  Learn More About Maternal Wellness
                 </a>
               </div>
               </div>

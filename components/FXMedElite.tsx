@@ -40,7 +40,7 @@ export default function FXMedElite() {
             </p>
             <Link href="/elite">
               <button className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-bold text-lg hover:bg-gold-light transition-all transform hover:scale-105 shadow-xl">
-                Learn More
+                Learn More About FXMed Elite
               </button>
             </Link>
           </div>
