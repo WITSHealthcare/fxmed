@@ -1,6 +1,7 @@
-import nextDynamic from 'next/dynamic'
 import { createClient } from '@supabase/supabase-js'
 import BlogPostsGrid from '@/components/blog/BlogPostsGrid'
+import Navigation from '@/components/Navigation'
+import Footer from '@/components/Footer'
 import { sanitizeRichText, stripHtml } from '@/lib/content-sanitizer'
 import { createMetadata } from '@/lib/seo'
 
@@ -15,10 +16,6 @@ export const metadata = createMetadata({
   image: '/blog/functional-medicine.jpg',
   keywords: ['functional medicine blog', 'preventive health', 'nutrition tips', 'hormonal health'],
 })
-
-// Dynamically import Navigation and Footer with SSR disabled to prevent context errors
-const Navigation = nextDynamic(() => import('@/components/Navigation'), { ssr: false })
-const Footer = nextDynamic(() => import('@/components/Footer'), { ssr: false })
 
 interface BlogPost {
   id: string
