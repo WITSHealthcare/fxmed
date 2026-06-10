@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import 'react-quill/dist/quill.snow.css'
+import 'react-quill-new/dist/quill.snow.css'
 import ContentGenerationPanel from './AIGenerationPanel'
 import { sanitizeRichText } from '@/lib/content-sanitizer'
 
 // Dynamically import ReactQuill to avoid SSR issues
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false })
 
 interface BlogPost {
   id: string
@@ -787,7 +787,7 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
                   }}
                   formats={[
                     'header', 'bold', 'italic', 'underline', 'strike',
-                    'blockquote', 'code-block', 'list', 'bullet',
+                    'blockquote', 'code-block', 'list',
                     'script', 'indent', 'color', 'background', 'align',
                     'link', 'image'
                   ]}
