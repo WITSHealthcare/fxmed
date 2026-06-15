@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { isDashboardUserSession, signIn, signOut } from '@/lib/supabase-auth'
+import { signIn, signOut } from '@/lib/supabase-auth'
+import { isDashboardUser } from '@/lib/admin-auth'
 
 export default function AdminLogin() {
   const router = useRouter()
@@ -19,10 +20,12 @@ export default function AdminLogin() {
     setLoading(true)
 
     try {
-      await signIn(email, password)
-      const userCanAccessDashboard = await isDashboardUserSession()
+      // Use the user returned by sign-in directly. Calling getUser() right after
+      // signInWithPassword contends for the auth storage lock and can hang the
+      // login ("Signing in..." forever), which surfaces as a failed page load.
+      const { user } = await signIn(email, password)
 
-      if (!userCanAccessDashboard) {
+      if (!isDashboardUser(user)) {
         await signOut()
         throw new Error('Access denied. Dashboard role required.')
       }
