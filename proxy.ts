@@ -11,11 +11,23 @@ export async function proxy(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+  // Build a redirect that carries over any auth cookies refreshed during getUser().
+  // Returning a bare NextResponse.redirect() drops those cookies, which de-syncs the
+  // browser and server sessions and causes intermittent logouts / redirect bounces.
+  const redirectTo = (target: string, params?: Record<string, string>) => {
+    const url = request.nextUrl.clone()
+    url.pathname = target
+    url.search = ''
+    if (params) {
+      for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value)
+    }
+    const redirect = NextResponse.redirect(url)
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie))
+    return redirect
+  }
+
   if (!supabaseUrl || !supabaseAnonKey) {
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/admin/login'
-    loginUrl.searchParams.set('error', 'auth-config')
-    return pathname === '/admin/login' ? response : NextResponse.redirect(loginUrl)
+    return pathname === '/admin/login' ? response : redirectTo('/admin/login', { error: 'auth-config' })
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -35,27 +47,26 @@ export async function proxy(request: NextRequest) {
     },
   })
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  const isAllowedDashboardUser = isDashboardUser(user)
+  let isAllowedDashboardUser = false
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    isAllowedDashboardUser = isDashboardUser(user)
+  } catch (error) {
+    // Never let a transient auth lookup failure turn into a 500 ("This page couldn't
+    // load"). Treat it as unauthenticated; the client-side guard on /admin re-checks
+    // and redirects if needed.
+    console.error('proxy auth check failed:', error)
+    isAllowedDashboardUser = false
+  }
 
   if (pathname === '/admin/login') {
-    if (isAllowedDashboardUser) {
-      const adminUrl = request.nextUrl.clone()
-      adminUrl.pathname = '/admin'
-      adminUrl.search = ''
-      return NextResponse.redirect(adminUrl)
-    }
-
-    return NextResponse.next()
+    return isAllowedDashboardUser ? redirectTo('/admin') : response
   }
 
   if (!isAllowedDashboardUser) {
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/admin/login'
-    loginUrl.searchParams.set('next', pathname)
-    return NextResponse.redirect(loginUrl)
+    return redirectTo('/admin/login', { next: pathname })
   }
 
   return response

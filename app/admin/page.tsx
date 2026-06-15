@@ -13,9 +13,8 @@ import Notifications from '@/components/admin/Notifications'
 import UserManagement from '@/components/admin/UserManagement'
 import ZaraDashboard from '@/components/admin/ZaraDashboard'
 import AdminTools from '@/components/admin/AdminTools'
-import { getCurrentAdminRole, signOut } from '@/lib/supabase-auth'
+import { getCurrentAdminRole, signOut, supabase } from '@/lib/supabase-auth'
 import { adminRoleLabels, adminRolePermissions, canAccessCrmView, canAccessTab, type AdminRole, type AdminTab } from '@/lib/admin-auth'
-import { createClient } from '@supabase/supabase-js'
 import blogContentData from '@/app/blog/fxmed-content (1).json'
 
 interface BlogPost {
@@ -237,17 +236,6 @@ const patientsSeed: Patient[] = [
 ]
 
 export default function AdminPanel() {
-  // Create direct Supabase client inside component
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    }
-  )
   const router = useRouter()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
@@ -491,7 +479,7 @@ export default function AdminPanel() {
               updated_at: new Date().toISOString()
             }
 
-            const { data, error } = await supabaseAdmin
+            const { data, error } = await supabase
               .from('draft_posts')
               .insert(postData)
               .select()
