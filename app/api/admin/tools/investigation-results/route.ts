@@ -31,7 +31,7 @@ function normalizeMeta(value: unknown) {
 
 function normalizeResults(value: unknown) {
   if (!Array.isArray(value)) return []
-  return value.map(value => { const item = object(value); return { test: text(item.test), result: text(item.result), unit: text(item.unit), referenceRange: text(item.referenceRange), flag: text(item.flag), remark: text(item.remark) } }).filter(item => item.test && item.result)
+  return value.map(value => { const item = object(value); return { section: text(item.section), test: text(item.test), result: text(item.result), unit: text(item.unit), referenceRange: text(item.referenceRange), flag: text(item.flag), remark: text(item.remark) } }).filter(item => item.test && item.result)
 }
 
 function mapRow(row: any) {
