@@ -223,6 +223,7 @@ export default function AdminTools() {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const mealPlanInputRef = useRef<HTMLInputElement | null>(null)
   const investFormRef = useRef<HTMLDivElement | null>(null)
+  const resultPdfInputRef = useRef<HTMLInputElement | null>(null)
   const [activeTool, setActiveTool] = useState<ActiveTool>('letterhead')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [status, setStatus] = useState<FormatterStatus>('idle')
@@ -259,6 +260,10 @@ export default function AdminTools() {
   const [resultMessage, setResultMessage] = useState('')
   const [resultHistory, setResultHistory] = useState<InvestigationResultHistoryItem[]>([])
   const [resultHistoryLoading, setResultHistoryLoading] = useState(true)
+  const [resultPdfFile, setResultPdfFile] = useState<File | null>(null)
+  const [resultExtractionPrompt, setResultExtractionPrompt] = useState('')
+  const [resultExtractionStatus, setResultExtractionStatus] = useState<FormatterStatus>('idle')
+  const [resultExtractionMessage, setResultExtractionMessage] = useState('')
 
   const refreshHistory = async () => {
     try {
@@ -554,6 +559,31 @@ export default function AdminTools() {
 
   const updateResultRow = (index: number, field: keyof InvestigationResult, value: string) => {
     setResultRows((current) => current.map((row, i) => i === index ? { ...row, [field]: value } : row))
+  }
+
+  const extractResultsFromPdf = async () => {
+    if (!resultPdfFile || !resultExtractionPrompt.trim()) {
+      setResultExtractionStatus('error')
+      setResultExtractionMessage('Choose a PDF and specify which results you want to extract.')
+      return
+    }
+    setResultExtractionStatus('working'); setResultExtractionMessage('')
+    try {
+      const form = new FormData()
+      form.append('document', resultPdfFile)
+      form.append('instructions', resultExtractionPrompt)
+      const response = await fetch(`${INVESTIGATION_RESULTS_API}/extract`, { method: 'POST', body: form })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(data?.error || 'Unable to extract results')
+      const allowedFlags = new Set(['', 'Normal', 'High', 'Low', 'Abnormal'])
+      const extracted: InvestigationResult[] = (Array.isArray(data.results) ? data.results : []).map((row: InvestigationResult) => ({ ...row, flag: allowedFlags.has(row.flag) ? row.flag : '' }))
+      if (!extracted.length) throw new Error('None of the requested results were found in this PDF.')
+      setResultRows(extracted)
+      setResultExtractionStatus('success')
+      setResultExtractionMessage(`${extracted.length} result${extracted.length === 1 ? '' : 's'} extracted. Review and edit them before generating the final PDF.`)
+    } catch (error: any) {
+      setResultExtractionStatus('error'); setResultExtractionMessage(error?.message || 'Unable to extract results from this PDF.')
+    }
   }
 
   const generateResultReport = async () => {
@@ -1263,6 +1293,24 @@ export default function AdminTools() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {([['fullName','Full Name','Amara Okafor'],['email','Email Address','patient@example.com'],['phone','Phone Number','+234 ...'],['age','Age','42'],['gender','Gender','Female']] as const).map(([field,label,placeholder]) => <div key={field}><label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">{label}</label><input value={resultPatient[field]} onChange={e => setResultPatient(current => ({ ...current, [field]: e.target.value }))} placeholder={placeholder} className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none" /></div>)}
               {([['reportTitle','Report Title'],['specimen','Specimen'],['clinician','Requesting Clinician'],['collectedAt','Collected Date / Time'],['reportedAt','Reported Date / Time']] as const).map(([field,label]) => <div key={field}><label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">{label}</label><input value={resultMeta[field]} onChange={e => setResultMeta(current => ({ ...current, [field]: e.target.value }))} placeholder={field === 'specimen' ? 'e.g. Serum / Whole blood' : ''} className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none" /></div>)}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-gold/40 bg-gold/10 p-4">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+              <div>
+                <h4 className="text-sm font-dm-sans font-semibold text-green-deep">Extract Results from a PDF with AI</h4>
+                <p className="mt-1 text-xs font-dm-sans text-text-mid">Upload an existing laboratory report and describe the exact tests or panels to import. Extracted results remain editable.</p>
+              </div>
+              <button type="button" onClick={() => resultPdfInputRef.current?.click()} className="shrink-0 bg-gold hover:bg-gold-light text-green-deep px-4 py-2 rounded-lg font-dm-sans font-semibold text-sm">Choose PDF</button>
+            </div>
+            <input ref={resultPdfInputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={event => { setResultPdfFile(event.target.files?.[0] || null); setResultExtractionStatus('idle'); setResultExtractionMessage('') }} />
+            <div className="mt-3 rounded-lg border border-green-deep/10 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep">{resultPdfFile ? `${resultPdfFile.name} · ${formatFileSize(resultPdfFile.size)}` : 'No PDF selected'}</div>
+            <label className="block mt-3 text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">What should AI extract?</label>
+            <textarea value={resultExtractionPrompt} onChange={event => setResultExtractionPrompt(event.target.value)} rows={3} placeholder="e.g. Extract the complete Full Blood Count panel and HbA1c only. Keep all units and reference ranges." className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans resize-y focus:border-green-deep focus:outline-none" />
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              {resultExtractionMessage ? <p className={`text-sm font-dm-sans ${resultExtractionStatus === 'error' ? 'text-red-600' : 'text-green-deep'}`}>{resultExtractionMessage}</p> : <span />}
+              <button type="button" onClick={extractResultsFromPdf} disabled={!resultPdfFile || !resultExtractionPrompt.trim() || resultExtractionStatus === 'working'} className="bg-green-deep hover:bg-green-deep/90 disabled:bg-gray-300 disabled:text-gray-500 text-cream px-5 py-2.5 rounded-lg font-dm-sans font-semibold text-sm">{resultExtractionStatus === 'working' ? 'Extracting...' : 'Extract Requested Results'}</button>
             </div>
           </div>
 
