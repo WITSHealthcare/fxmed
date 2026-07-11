@@ -13,6 +13,7 @@ import Notifications from '@/components/admin/Notifications'
 import UserManagement from '@/components/admin/UserManagement'
 import ZaraDashboard from '@/components/admin/ZaraDashboard'
 import AdminTools from '@/components/admin/AdminTools'
+import Contacts from '@/components/admin/Contacts'
 import { getCurrentAdminRole, signOut, supabase } from '@/lib/supabase-auth'
 import { adminRoleLabels, adminRolePermissions, canAccessCrmView, canAccessTab, type AdminRole, type AdminTab } from '@/lib/admin-auth'
 import blogContentData from '@/app/blog/fxmed-content (1).json'
@@ -47,6 +48,7 @@ const adminNavItems: Array<{ id: AdminTab; label: string; icon: string; title: s
   { id: 'tools', label: 'Tools', icon: '🧰', title: 'Tools', description: 'Quick access to admin workflows and operational utilities' },
   { id: 'users', label: 'Users & Roles', icon: '🔐', title: 'Users & Roles', description: 'Create dashboard users and assign role-based access' },
   { id: 'zara', label: 'Zara', icon: '🤖', title: 'Zara Conversations', description: 'View all interactions people have had with Zara, the AI assistant' },
+  { id: 'contacts', label: 'Contacts', icon: '📇', title: 'Outreach Contacts', description: 'Details and biodata collected from people at outreaches' },
 ]
 
 type Note = {
@@ -708,6 +710,8 @@ export default function AdminPanel() {
             {activeTab === 'zara' && canAccessTab(currentRole, 'zara') && (
               <ZaraDashboard />
             )}
+
+            {activeTab === 'contacts' && canAccessTab(currentRole, 'contacts') && <Contacts />}
           </div>
         </div>
       </div>
