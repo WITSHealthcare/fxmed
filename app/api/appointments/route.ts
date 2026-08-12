@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createBookingAppointment } from '@/lib/microsoftBookings'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -102,7 +103,40 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error
 
-    return NextResponse.json({ appointment: data }, { status: 201 })
+    let appointment = data
+
+    // Telemedicine bookings get an auto-created Teams meeting via Microsoft Bookings.
+    // Best-effort: a Graph/Bookings failure must never fail the booking itself.
+    if (appointment.consultation_type === 'telemedicine') {
+      try {
+        const meeting = await createBookingAppointment({
+          firstName: appointment.first_name,
+          lastName: appointment.last_name,
+          email: appointment.email,
+          phone: appointment.phone,
+          preferredDate: appointment.preferred_date,
+          preferredTime: appointment.preferred_time,
+        })
+
+        const { data: updated, error: updateError } = await supabase
+          .from('appointments')
+          .update({
+            teams_meeting_url: meeting.onlineMeetingUrl,
+            ms_booking_appointment_id: meeting.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', appointment.id)
+          .select()
+          .single()
+
+        if (updateError) throw updateError
+        appointment = updated
+      } catch (meetingError) {
+        console.error('Failed to create Teams meeting for appointment', appointment.id, meetingError)
+      }
+    }
+
+    return NextResponse.json({ appointment }, { status: 201 })
   } catch (error: any) {
     console.error('Error creating appointment:', error)
     return NextResponse.json(

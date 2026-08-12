@@ -87,6 +87,8 @@ type WebsiteAppointment = {
   symptoms: string
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
   payment_status: 'pending' | 'paid' | 'failed'
+  teams_meeting_url?: string | null
+  ms_booking_appointment_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -650,6 +652,34 @@ export default function CrmDashboard({
     } catch (error) {
       console.error('Error updating payment status:', error)
       fetchAppointments()
+    }
+  }
+
+  const [creatingTeamsMeetingId, setCreatingTeamsMeetingId] = useState<string | null>(null)
+
+  const createTeamsMeeting = async (appointmentId: string) => {
+    setCreatingTeamsMeetingId(appointmentId)
+    try {
+      const response = await fetch(`/api/appointments/${appointmentId}/teams-meeting`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json().catch(() => ({ error: 'Failed to create Teams meeting' }))
+        throw new Error(error)
+      }
+
+      const { appointment: updatedAppointment } = await response.json()
+      setAppointments((prev) =>
+        prev.map((appointment) =>
+          appointment.id === appointmentId ? updatedAppointment : appointment
+        )
+      )
+    } catch (error) {
+      console.error('Error creating Teams meeting:', error)
+      alert(error instanceof Error ? error.message : 'Failed to create Teams meeting')
+    } finally {
+      setCreatingTeamsMeetingId(null)
     }
   }
 
@@ -1838,6 +1868,29 @@ export default function CrmDashboard({
                           {new Date(appointment.preferred_date).toLocaleDateString()}
                         </span>
                       </div>
+                      {appointment.consultation_type === 'telemedicine' && (
+                        <div className="mt-2">
+                          {appointment.teams_meeting_url ? (
+                            <a
+                              href={appointment.teams_meeting_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-dm-sans text-blue-600 hover:underline break-all"
+                            >
+                              Teams meeting link
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => createTeamsMeeting(appointment.id)}
+                              disabled={creatingTeamsMeetingId === appointment.id}
+                              className="text-xs font-dm-sans px-2 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+                            >
+                              {creatingTeamsMeetingId === appointment.id ? 'Creating...' : 'Create Teams meeting'}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {!appointmentsLoading && appointments.length === 0 && (
