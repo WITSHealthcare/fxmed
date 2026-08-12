@@ -185,16 +185,16 @@ export default function AmbassadorApplicationForm() {
       <fieldset aria-labelledby="professional-background-heading" className="rounded-[22px] border border-green-deep/10 bg-white p-6 shadow-[0_8px_30px_rgba(26,61,46,0.05)] sm:p-8">
         <h2 id="professional-background-heading" className="mb-6 font-dm-sans text-xl font-bold text-green-deep">Professional background</h2>
         <div className="grid gap-5 sm:grid-cols-2">
-          {field('organization', 'Organization, company, or school', { maxLength: 160, autoComplete: 'organization' })}
-          {field('jobTitle', 'Job title or role', { maxLength: 120, autoComplete: 'organization-title' })}
-          <div className="sm:col-span-2">{field('fieldOfExpertise', 'Area of expertise or field *', { required: true, maxLength: 160 })}</div>
+          {field('organization', 'Organization, company, or school *', { required: true, maxLength: 160, autoComplete: 'organization' })}
+          {field('jobTitle', 'Job title or role *', { required: true, maxLength: 120, autoComplete: 'organization-title' })}
+          <div className="sm:col-span-2">{field('fieldOfExpertise', 'Area of expertise or field', { maxLength: 160 })}</div>
         </div>
       </fieldset>
 
       <fieldset aria-labelledby="ambassador-information-heading" className="rounded-[22px] border border-green-deep/10 bg-white p-6 shadow-[0_8px_30px_rgba(26,61,46,0.05)] sm:p-8">
         <h2 id="ambassador-information-heading" className="mb-6 font-dm-sans text-xl font-bold text-green-deep">Ambassador information</h2>
         <div className="space-y-5">
-          {textarea('motivation', 'Why do you want to become an FXMed Elite Ambassador? *', 'Tell us what motivates you to join this partnership.', 1600)}
+          {textarea('motivation', 'Why do you want to become an FXMed Elite Ambassador?', 'Tell us what motivates you to join this partnership.', 1600, false)}
         </div>
       </fieldset>
 

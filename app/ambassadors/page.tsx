@@ -104,7 +104,7 @@ export default function AmbassadorsPage() {
       </section>
 
       <section className="bg-white px-[5%] pb-0 pt-[90px]">
-        <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <p className="mb-4 inline-block rounded-[20px] bg-green-mid/10 px-4 py-1.5 font-dm-sans text-[0.75rem] font-semibold uppercase tracking-[0.14em] text-green-mid">About the program</p>
             <h2 className="font-dm-sans text-[clamp(2rem,4vw,3.2rem)] font-bold leading-tight text-green-deep">A trusted partnership built around excellence and care.</h2>
@@ -118,7 +118,7 @@ export default function AmbassadorsPage() {
       </section>
 
       <section
-        className="relative -mt-10 overflow-hidden px-[5%] sm:-mt-14"
+        className="relative z-0 mt-0 overflow-hidden px-[5%] sm:-mt-6 lg:-mt-10"
         aria-label="FXMed mobile healthcare equipment"
         style={{ background: 'linear-gradient(to bottom, #ffffff 0%, #ffffff 48%, #FCFFF0 48%, #FCFFF0 100%)' }}
       >
