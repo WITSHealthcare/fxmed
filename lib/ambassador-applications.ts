@@ -13,8 +13,8 @@ export type AmbassadorApplication = {
   city: string
   organization: string | null
   job_title: string | null
-  field_of_expertise: string
-  motivation: string
+  field_of_expertise: string | null
+  motivation: string | null
   consent: boolean
   status: AmbassadorStatus
   created_at: string
@@ -29,10 +29,10 @@ type ApplicationInput = {
   gender: string
   stateRegion: string
   city: string
-  organization: string | null
-  jobTitle: string | null
-  fieldOfExpertise: string
-  motivation: string
+  organization: string
+  jobTitle: string
+  fieldOfExpertise: string | null
+  motivation: string | null
   consent: boolean
 }
 
@@ -54,7 +54,7 @@ const limits: Record<keyof Omit<ApplicationInput, 'consent'>, number> = {
   motivation: 1600,
 }
 
-const requiredFields: Array<keyof Omit<ApplicationInput, 'consent' | 'organization' | 'jobTitle'>> = [
+const requiredFields: Array<keyof Omit<ApplicationInput, 'consent' | 'fieldOfExpertise' | 'motivation'>> = [
   'firstName',
   'lastName',
   'email',
@@ -62,8 +62,8 @@ const requiredFields: Array<keyof Omit<ApplicationInput, 'consent' | 'organizati
   'gender',
   'stateRegion',
   'city',
-  'fieldOfExpertise',
-  'motivation',
+  'organization',
+  'jobTitle',
 ]
 
 function clean(value: unknown) {
