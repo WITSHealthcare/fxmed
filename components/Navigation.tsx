@@ -52,6 +52,9 @@ const isHomePage = pathname === '/'
     if (href === '/services') {
       return isServicesPage
     }
+    if (href === '/ambassadors') {
+      return pathname?.startsWith('/ambassadors')
+    }
     if (href.startsWith('/programs')) {
       return pathname?.startsWith('/programs')
     }
@@ -167,6 +170,7 @@ const isHomePage = pathname === '/'
             </li>
             
             <li><button onClick={() => setShowContactModal(true)} className="text-[0.8rem] font-medium transition-colors hover:text-gold text-white">Contact</button></li>
+            <li><a href="/ambassadors" className="text-[0.8rem] font-medium no-underline transition-colors hover:text-gold text-white">Ambassadors</a></li>
             <li><a href="/blog" className="text-[0.8rem] font-medium no-underline transition-colors hover:text-gold text-white">Blog</a></li>
             <li><a href="/#about" className="text-[0.8rem] font-medium no-underline transition-colors hover:text-gold text-white">About</a></li>
           </ul>
@@ -264,6 +268,9 @@ const isHomePage = pathname === '/'
               <li><a href="/blog" onClick={closeMobileMenu} className={`block text-[0.9rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-2 px-3 rounded-lg ${
                 isActiveLink('/blog') ? 'bg-gold/20 text-gold font-semibold' : ''
               }`}>Blog</a></li>
+              <li><a href="/ambassadors" onClick={closeMobileMenu} className={`block text-[0.9rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-2 px-3 rounded-lg ${
+                isActiveLink('/ambassadors') ? 'bg-gold/20 text-gold font-semibold' : ''
+              }`}>Ambassadors</a></li>
               <li><a href="/#about" onClick={closeMobileMenu} className={`block text-[0.9rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-2 px-3 rounded-lg ${
                 isActiveLink('/#about') ? 'bg-gold/20 text-gold font-semibold' : ''
               }`}>About</a></li>

@@ -60,7 +60,7 @@ export default function Footer() {
                 <a href="/blog" className="hover:text-gold transition-colors">Blog</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
-                <a href="/#stories" className="hover:text-gold transition-colors">Ambassadors</a>
+                <a href="/ambassadors" className="hover:text-gold transition-colors">Ambassadors</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
                 <button

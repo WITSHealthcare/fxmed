@@ -29,3 +29,12 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+tmp/
+
+# Local AI workspace files
+.claude/projects/
+
+# Unused source and intermediate ambassador images kept locally
+public/AmbassadorTshirt-transparent.png
+public/AmbassadorTshirt.png
+public/Equipment.png
