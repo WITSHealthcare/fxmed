@@ -116,6 +116,8 @@ export const publicRoutes = [
   '/maternal-wellness',
   '/elite',
   '/blog',
+  '/ambassadors',
+  '/ambassadors/apply',
 ]
 
 export const serviceCatalog = [
