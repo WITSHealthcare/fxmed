@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getAuthorizedCrmRole } from '@/lib/admin-api-auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -52,8 +53,9 @@ function getAllowedDealUpdates(body: any) {
   return updates
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    if (!await getAuthorizedCrmRole(request, 'financial')) return NextResponse.json({ error: 'Financial CRM access required' }, { status: 403 })
     const { data, error } = await supabase
       .from('financial_deals')
       .select('*')
@@ -73,6 +75,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!await getAuthorizedCrmRole(request, 'financial')) return NextResponse.json({ error: 'Financial CRM access required' }, { status: 403 })
     const body = await request.json()
     const validation = validateDealPayload(body, true)
     if (validation.error) {
@@ -110,6 +113,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    if (!await getAuthorizedCrmRole(request, 'financial')) return NextResponse.json({ error: 'Financial CRM access required' }, { status: 403 })
     const body = await request.json()
     const { id } = body
 
@@ -151,6 +155,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    if (!await getAuthorizedCrmRole(request, 'financial')) return NextResponse.json({ error: 'Financial CRM access required' }, { status: 403 })
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 

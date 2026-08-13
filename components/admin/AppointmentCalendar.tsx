@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { CalendarXIcon, MagnifyingGlassIcon, XIcon } from '@phosphor-icons/react'
 
 type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
 
@@ -233,17 +234,7 @@ export default function AppointmentCalendar() {
       <div className="border-b border-gray-100 px-5 py-4 sm:px-7">
         <div className="relative mx-auto max-w-2xl">
           <label htmlFor="appointment-search" className="sr-only">Search for a patient</label>
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-4-4" />
-          </svg>
+          <MagnifyingGlassIcon aria-hidden="true" size={20} weight="bold" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             id="appointment-search"
             type="search"
@@ -487,14 +478,14 @@ export default function AppointmentCalendar() {
                 aria-label="Close appointment details"
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-xl text-gray-600 hover:bg-gray-200"
               >
-                ×
+                <XIcon size={19} weight="bold" />
               </button>
             </div>
 
             <div className="overflow-y-auto p-5 sm:p-7">
               {selectedAppointments.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-12 text-center">
-                  <div className="mb-3 text-4xl">📅</div>
+                  <CalendarXIcon size={42} weight="duotone" className="mx-auto mb-3 text-green-mid" />
                   <p className="font-dm-sans text-lg font-semibold text-gray-700">No appointments on this day</p>
                   <p className="mt-1 text-sm text-gray-500">Choose another date to view its schedule.</p>
                 </div>

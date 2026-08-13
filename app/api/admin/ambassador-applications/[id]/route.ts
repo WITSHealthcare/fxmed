@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 import { ambassadorStatuses, type AmbassadorStatus } from '@/lib/ambassador-applications'
+import { writeRequestAdminActivity } from '@/lib/admin-activity'
 
 function getDatabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -67,6 +68,14 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       .select('*')
       .single()
     if (error) throw error
+    await writeRequestAdminActivity(database, request, {
+      action: 'update_ambassador_application',
+      module: 'Ambassador Program',
+      description: `Changed ambassador application status to ${body.status.replace(/_/g, ' ')}`,
+      entityType: 'ambassador_application',
+      entityId: id,
+      metadata: { previous_status: current.status, status: body.status },
+    })
     return NextResponse.json({ application: data })
   } catch (error) {
     console.error('Error updating ambassador application:', error)

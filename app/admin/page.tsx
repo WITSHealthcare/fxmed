@@ -2,11 +2,23 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import {
+  AddressBookIcon,
+  ArticleIcon,
+  CalendarCheckIcon,
+  ChartLineUpIcon,
+  ChatCircleDotsIcon,
+  HandshakeIcon,
+  HospitalIcon,
+  RobotIcon,
+  ShieldCheckIcon,
+  SignOutIcon,
+  ToolboxIcon,
+  UsersThreeIcon,
+} from '@phosphor-icons/react'
 import BlogManagement from '@/components/admin/BlogManagement'
 import CrmDashboard from '@/components/admin/CrmDashboard'
 import SeoAnalytics from '@/components/admin/SeoAnalytics'
-import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysis'
 import Messages from '@/components/admin/Messages'
 import AppointmentCalendar from '@/components/admin/AppointmentCalendar'
 import Notifications from '@/components/admin/Notifications'
@@ -15,6 +27,8 @@ import ZaraDashboard from '@/components/admin/ZaraDashboard'
 import AdminTools from '@/components/admin/AdminTools'
 import Contacts from '@/components/admin/Contacts'
 import AmbassadorProgram from '@/components/admin/AmbassadorProgram'
+import EmrWorkspace from '@/components/admin/emr/EmrWorkspace'
+import AdminAccountMenu from '@/components/admin/AdminAccountMenu'
 import { getCurrentAdminRole, signOut, supabase } from '@/lib/supabase-auth'
 import { adminRoleLabels, adminRolePermissions, canAccessCrmView, canAccessTab, type AdminRole, type AdminTab } from '@/lib/admin-auth'
 import blogContentData from '@/app/blog/fxmed-content (1).json'
@@ -38,18 +52,18 @@ type Stage = "Outreach" | "Follow Up" | "Enrolment" | "Onboarding" | "Active"
 type Risk = "High" | "Medium" | "Low"
 type CrmView = "clinical" | "financial"
 
-const adminNavItems: Array<{ id: AdminTab; label: string; icon: string; title: string; description: string }> = [
-  { id: 'blog', label: 'Blog Management', icon: '📝', title: 'Blog Management', description: 'Manage your blog posts, drafts, and content' },
-  { id: 'crm', label: 'CRM', icon: '👥', title: 'CRM Dashboard', description: 'Track patients, manage pipeline, and optimize outreach' },
-  { id: 'seo', label: 'SEO Analytics', icon: '📈', title: 'SEO Analytics', description: 'Monitor search performance and optimize content' },
-  { id: 'health', label: 'Health Analysis', icon: '🏥', title: 'Functional Health Analysis', description: 'Review and manage health assessment submissions' },
-  { id: 'messages', label: 'Messages', icon: '💬', title: 'Messages', description: 'View and manage messages from patients and visitors' },
-  { id: 'requests', label: 'Requests', icon: '📋', title: 'Requests', description: 'Manage appointment bookings and consultation requests' },
-  { id: 'ambassador', label: 'Ambassador Program', icon: '🤝', title: 'Ambassador Program', description: 'Track ambassadors, referrals, and program performance' },
-  { id: 'tools', label: 'Tools', icon: '🧰', title: 'Tools', description: 'Quick access to admin workflows and operational utilities' },
-  { id: 'users', label: 'Users & Roles', icon: '🔐', title: 'Users & Roles', description: 'Create dashboard users and assign role-based access' },
-  { id: 'zara', label: 'Zara', icon: '🤖', title: 'Zara Conversations', description: 'View all interactions people have had with Zara, the AI assistant' },
-  { id: 'contacts', label: 'Contacts', icon: '📇', title: 'Outreach Contacts', description: 'Details and biodata collected from people at outreaches' },
+const adminNavItems: Array<{ id: AdminTab; label: string; Icon: typeof ArticleIcon; title: string; description: string }> = [
+  { id: 'blog', label: 'Blog Management', Icon: ArticleIcon, title: 'Blog Management', description: 'Manage your blog posts, drafts, and content' },
+  { id: 'crm', label: 'CRM', Icon: UsersThreeIcon, title: 'CRM Dashboard', description: 'Track patients, manage pipeline, and optimize outreach' },
+  { id: 'seo', label: 'SEO Analytics', Icon: ChartLineUpIcon, title: 'SEO Analytics', description: 'Monitor search performance and optimize content' },
+  { id: 'messages', label: 'Messages', Icon: ChatCircleDotsIcon, title: 'Messages', description: 'View and manage messages from patients and visitors' },
+  { id: 'requests', label: 'Requests', Icon: CalendarCheckIcon, title: 'Requests', description: 'Manage appointment bookings and consultation requests' },
+  { id: 'ambassador', label: 'Ambassador Program', Icon: HandshakeIcon, title: 'Ambassador Program', description: 'Track ambassadors, referrals, and program performance' },
+  { id: 'tools', label: 'Tools', Icon: ToolboxIcon, title: 'Tools', description: 'Quick access to admin workflows and operational utilities' },
+  { id: 'users', label: 'Users & Roles', Icon: ShieldCheckIcon, title: 'Users & Roles', description: 'Create dashboard users and assign role-based access' },
+  { id: 'zara', label: 'Zara', Icon: RobotIcon, title: 'Zara Conversations', description: 'View all interactions people have had with Zara, the AI assistant' },
+  { id: 'contacts', label: 'Contacts', Icon: AddressBookIcon, title: 'Outreach Contacts', description: 'Details and biodata collected from people at outreaches' },
+  { id: 'healthcare', label: 'Healthcare / EMR', Icon: HospitalIcon, title: 'Healthcare / EMR', description: 'Manage clinical patients, encounters, records, investigations, medications and care plans' },
 ]
 
 type Note = {
@@ -559,86 +573,82 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
-      {/* Top Header */}
-      <header className="bg-green-deep shadow-custom border-b border-green-deep/20">
-        <div className="flex items-center justify-between px-[5%] py-[18px]">
-          <div className="flex items-center space-x-4">
-            <Image
-              src="/logo.png"
-              alt="FXMed"
-              width={240}
-              height={120}
-              className="h-[120px] w-auto md:h-[120px] h-[80px]"
-            />
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="text-right">
-              <h1 className="text-2xl font-dm-sans font-bold text-cream">
-                Admin Panel
-              </h1>
-              <p className="text-sm text-cream/70">
-                Management Dashboard
-              </p>
-            </div>
-            <Notifications />
+    <div className="min-h-screen bg-[#f7f5ee] font-dm-sans text-green-deep lg:grid lg:grid-cols-[292px_minmax(0,1fr)]">
+      <aside className="relative z-30 flex h-auto flex-col overflow-hidden bg-green-deep px-5 py-5 text-white shadow-[12px_0_50px_rgba(26,61,46,0.10)] lg:sticky lg:top-0 lg:h-screen lg:px-7 lg:py-7">
+        <AdminNodes className="pointer-events-none absolute inset-0 h-full w-full text-gold/15" />
+        <div className="relative flex items-center justify-between lg:block">
+          <div
+            role="img"
+            aria-label="FXMed"
+            className="h-16 w-48 bg-no-repeat sm:w-52 lg:w-56"
+            style={{ backgroundImage: "url('/logo.png')", backgroundPosition: '51% 45%', backgroundSize: '115.5% auto' }}
+          />
+          <button type="button" onClick={handleLogout} className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-white/70 transition hover:bg-white/10 hover:text-white lg:hidden"><SignOutIcon size={18} weight="duotone" />Sign out</button>
+        </div>
+
+        <div className="relative mt-4 rounded-[22px] border border-white/10 bg-white/[0.07] p-5 backdrop-blur-sm lg:mt-7">
+          <span className="inline-flex rounded-full bg-gold px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-green-deep">FXMed Admin</span>
+          <p className="mt-4 text-lg font-bold">Management Portal</p>
+          <p className="mt-1 text-xs tracking-[0.05em] text-white/50">{currentRole ? adminRoleLabels[currentRole] : 'Dashboard access'}</p>
+        </div>
+
+        <nav className="relative mt-4 flex gap-2 overflow-x-auto pb-2 lg:mt-7 lg:block lg:min-h-0 lg:flex-1 lg:space-y-1.5 lg:overflow-y-auto lg:pb-4 lg:pr-1">
+          {availableTabs.map((item) => (
+            <div key={item.id} className={item.id === 'healthcare' ? 'mt-5 border-t border-white/10 pt-5' : ''}>
+              {item.id === 'healthcare' && <p className="mb-3 px-4 text-[10px] font-bold uppercase tracking-[0.16em] text-gold/70">Healthcare</p>}
             <button
-              onClick={handleLogout}
-              className="font-dm-sans bg-white/10 hover:bg-white/20 text-cream px-4 py-2 rounded-[30px] font-semibold text-sm transition-all"
+              onClick={() => setActiveTab(item.id)}
+              className={`group flex shrink-0 items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-sm font-semibold transition-all lg:w-full ${
+                activeTab === item.id
+                  ? 'bg-gold text-green-deep shadow-[0_8px_24px_rgba(201,226,101,0.18)]'
+                  : 'text-white/65 hover:bg-white/[0.08] hover:text-white'
+              }`}
             >
-              Logout
+              <item.Icon
+                size={22}
+                weight={activeTab === item.id ? 'fill' : 'duotone'}
+                aria-hidden="true"
+                className={`shrink-0 transition-colors ${activeTab === item.id ? 'text-green-deep' : 'text-white/55 group-hover:text-gold'}`}
+              />
+              <span>{item.label}</span>
             </button>
-          </div>
-        </div>
-      </header>
+            </div>
+          ))}
+        </nav>
 
-      <div className="flex flex-1">
-        {/* Left Sidebar Navigation */}
-        <div className="w-64 bg-green-deep/95 border-r border-green-deep/20">
-          {/* Admin Dashboard Title */}
-          <div className="px-4 pt-6 pb-4">
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 px-4 py-3">
-              <h3 className="text-center font-dm-sans font-bold text-cream text-sm tracking-wider">
-                ADMIN DASHBOARD
-              </h3>
+        <div className="relative mt-auto hidden border-t border-white/10 pt-5 lg:block">
+          <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3 text-left text-sm font-semibold text-white/60 transition hover:bg-white/[0.08] hover:text-white"><SignOutIcon size={22} weight="duotone" />Sign out</button>
+        </div>
+      </aside>
+
+      <main className="min-w-0 pb-8">
+        <header className="sticky top-0 z-20 border-b border-green-deep/10 bg-[#f7f5ee]/95 px-4 py-5 shadow-[0_10px_30px_rgba(26,61,46,0.04)] backdrop-blur-xl sm:px-7 lg:px-10 lg:py-7 xl:px-12">
+          <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-5">
+            <div className="flex min-w-0 items-center gap-4">
+              {activeNavItem && <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-[15px] bg-green-deep text-gold shadow-[0_8px_20px_rgba(26,61,46,0.14)] sm:flex"><activeNavItem.Icon size={25} weight="fill" /></span>}
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-green-mid">Admin workspace</p>
+                <h1 className="mt-1 truncate text-[clamp(1.7rem,3vw,2.5rem)] font-bold leading-none tracking-[-0.035em]">{activeNavItem?.title}</h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <AdminAccountMenu roleLabel={currentRole ? adminRoleLabels[currentRole] : 'Dashboard user'} />
+              <Notifications />
             </div>
           </div>
-          
-          {/* Main Navigation */}
-          <nav className="px-4 pb-6">
-            <div className="space-y-2">
-              {availableTabs.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full px-4 py-3 rounded-lg font-dm-sans text-sm font-medium transition-all text-left flex items-center space-x-3 ${
-                    activeTab === item.id
-                      ? 'bg-gold text-green-deep shadow-md'
-                      : 'text-cream/85 hover:bg-green-deep/20 hover:text-cream'
-                  }`}
-                >
-                  <span>{item.icon}</span>
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>
-          </nav>
-        </div>
+        </header>
 
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-auto">
-          <div className="max-w-6xl mx-auto px-8 py-8">
-            {/* Content Header */}
-            <div className="mb-8">
-              <div className="flex items-start justify-between gap-4">
-                <h2 className="text-3xl font-dm-sans font-bold text-green-deep mb-2">
-                  {activeNavItem?.title}
-                </h2>
+        <div className="mx-auto max-w-[1600px] px-4 py-7 sm:px-7 lg:px-10 lg:py-9 xl:px-12">
+          <div className="mb-8 rounded-[22px] border border-green-deep/10 bg-white px-5 py-5 shadow-[0_8px_30px_rgba(26,61,46,0.05)] sm:px-7">
+            <div className="flex flex-wrap items-center justify-between gap-5">
+              <div>
+                <p className="max-w-3xl text-sm leading-6 text-text-mid">{activeNavItem?.description}</p>
+              </div>
                 {activeTab === 'crm' && canViewClinicalCrm && canViewFinancialCrm && (
-                  <div className="flex items-center bg-gray-100 rounded-full p-1 border border-green-deep/10">
+                  <div className="flex items-center rounded-full border border-green-deep/10 bg-[#f7f5ee] p-1">
                     <button
                       onClick={() => setCrmView('clinical')}
-                      className={`px-4 py-2 rounded-full text-sm font-dm-sans font-medium transition-colors ${
+                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                         crmView === 'clinical'
                           ? 'bg-green-deep text-white shadow-sm'
                           : 'text-gray-700 hover:text-green-deep'
@@ -648,7 +658,7 @@ export default function AdminPanel() {
                     </button>
                     <button
                       onClick={() => setCrmView('financial')}
-                      className={`px-4 py-2 rounded-full text-sm font-dm-sans font-medium transition-colors ${
+                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                         crmView === 'financial'
                           ? 'bg-green-deep text-white shadow-sm'
                           : 'text-gray-700 hover:text-green-deep'
@@ -658,16 +668,10 @@ export default function AdminPanel() {
                     </button>
                   </div>
                 )}
-              </div>
-              <p className="text-text-mid">
-                {activeNavItem?.description}
-              </p>
-              {currentRole && (
-                <p className="text-xs text-text-mid mt-2">Signed in as {adminRoleLabels[currentRole]}</p>
-              )}
             </div>
+          </div>
 
-            {/* Content Area */}
+          <div className="min-w-0">
             {activeTab === 'blog' && canAccessTab(currentRole, 'blog') && (
               <BlogManagement posts={posts} setPosts={setPosts} />
             )}
@@ -686,8 +690,6 @@ export default function AdminPanel() {
             )}
 
             {activeTab === 'seo' && canAccessTab(currentRole, 'seo') && <SeoAnalytics />}
-
-            {activeTab === 'health' && canAccessTab(currentRole, 'health') && <FunctionalHealthAnalysis />}
 
             {activeTab === 'messages' && canAccessTab(currentRole, 'messages') && <Messages />}
 
@@ -708,9 +710,28 @@ export default function AdminPanel() {
             )}
 
             {activeTab === 'contacts' && canAccessTab(currentRole, 'contacts') && <Contacts />}
+
+            {activeTab === 'healthcare' && canAccessTab(currentRole, 'healthcare') && <EmrWorkspace />}
           </div>
         </div>
-      </div>
+      </main>
     </div>
+  )
+}
+
+function AdminNodes({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 292 900" preserveAspectRatio="none" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1">
+        <path d="M18 70 102 118 55 210 144 270 92 370" />
+        <path d="M210 28 255 124 190 205 272 290 215 390" />
+        <path d="M20 610 105 560 175 650 255 590 280 740 190 830" />
+      </g>
+      <g fill="currentColor">
+        <circle cx="18" cy="70" r="3" /><circle cx="102" cy="118" r="4" /><circle cx="55" cy="210" r="3" /><circle cx="144" cy="270" r="4" /><circle cx="92" cy="370" r="3" />
+        <circle cx="210" cy="28" r="3" /><circle cx="255" cy="124" r="4" /><circle cx="190" cy="205" r="3" /><circle cx="272" cy="290" r="4" /><circle cx="215" cy="390" r="3" />
+        <circle cx="20" cy="610" r="3" /><circle cx="105" cy="560" r="4" /><circle cx="175" cy="650" r="3" /><circle cx="255" cy="590" r="4" /><circle cx="280" cy="740" r="3" /><circle cx="190" cy="830" r="4" />
+      </g>
+    </svg>
   )
 }

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
+import { writeRequestAdminActivity } from '@/lib/admin-activity'
+import { checkRateLimit, cleanPublicString, isEmail } from '@/lib/request-security'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -19,6 +22,7 @@ const supabase = supabaseUrl && supabaseServiceKey
 // GET - Fetch all appointments or filter by patient ID
 export async function GET(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'requests')) return NextResponse.json({ error: 'Requests access required' }, { status: 403 })
     if (!supabase) {
       return NextResponse.json(
         { error: 'Database connection not available' },
@@ -78,22 +82,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const rateLimit = checkRateLimit(request, 'appointment-create', 8, 15 * 60 * 1000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many appointment requests. Please try again shortly.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } })
+    }
+
     const body = await request.json()
+    const firstName = cleanPublicString(body.firstName, 100)
+    const lastName = cleanPublicString(body.lastName, 100)
+    const email = cleanPublicString(body.email, 180)?.toLowerCase()
+    const phone = cleanPublicString(body.phone, 40)
+    const consultationType = cleanPublicString(body.consultationType, 40)
+    const preferredDate = cleanPublicString(body.preferredDate, 10)
+    const preferredTime = cleanPublicString(body.preferredTime, 80)
+    if (!firstName || !lastName || !email || !isEmail(email) || !phone || !preferredDate || !preferredTime) {
+      return NextResponse.json({ error: 'Complete valid appointment details are required.' }, { status: 400 })
+    }
+    if (!['telemedicine', 'home-visit'].includes(consultationType || '')) {
+      return NextResponse.json({ error: 'A valid consultation type is required.' }, { status: 400 })
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate) || Number.isNaN(Date.parse(`${preferredDate}T00:00:00Z`))) {
+      return NextResponse.json({ error: 'A valid appointment date is required.' }, { status: 400 })
+    }
 
     const { data, error } = await supabase
       .from('appointments')
       .insert([{
-        first_name: body.firstName,
-        last_name: body.lastName,
-        email: body.email,
-        phone: body.phone,
-        home_address: body.homeAddress,
-        consultation_type: body.consultationType,
-        preferred_date: body.preferredDate,
-        preferred_time: body.preferredTime,
-        symptoms: body.symptoms,
-        status: body.status || 'pending',
-        payment_status: body.paymentStatus || 'pending',
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        phone,
+        home_address: cleanPublicString(body.homeAddress, 500),
+        consultation_type: consultationType,
+        preferred_date: preferredDate,
+        preferred_time: preferredTime,
+        symptoms: cleanPublicString(body.symptoms, 3000),
+        status: 'pending',
+        payment_status: 'pending',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }])
@@ -115,6 +140,7 @@ export async function POST(request: NextRequest) {
 // PATCH - Update appointment status
 export async function PATCH(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'requests')) return NextResponse.json({ error: 'Requests access required' }, { status: 403 })
     if (!supabase) {
       return NextResponse.json(
         { error: 'Database connection not available' },
@@ -123,15 +149,29 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { id, ...updates } = body
+    const { id } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Appointment ID required' }, { status: 400 })
     }
 
-    const updateData: any = {
-      ...updates,
-      updated_at: new Date().toISOString()
+    const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    if (body.status !== undefined) {
+      if (!['pending', 'confirmed', 'completed', 'cancelled'].includes(body.status)) {
+        return NextResponse.json({ error: 'A valid appointment status is required' }, { status: 400 })
+      }
+      updateData.status = body.status
+    }
+    if (body.payment_status !== undefined) {
+      if (!['pending', 'paid', 'failed'].includes(body.payment_status)) {
+        return NextResponse.json({ error: 'A valid payment status is required' }, { status: 400 })
+      }
+      updateData.payment_status = body.payment_status
+    }
+    if (body.patient_id !== undefined) updateData.patient_id = body.patient_id || null
+    if (body.encounter_id !== undefined) updateData.encounter_id = body.encounter_id || null
+    if (Object.keys(updateData).length === 1) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
     const { data, error } = await supabase
@@ -142,6 +182,15 @@ export async function PATCH(request: NextRequest) {
       .single()
 
     if (error) throw error
+
+    await writeRequestAdminActivity(supabase, request, {
+      action: 'update_appointment',
+      module: 'Requests',
+      description: `Updated appointment for ${data.first_name || ''} ${data.last_name || ''}`.trim(),
+      entityType: 'appointment',
+      entityId: data.id,
+      metadata: { status: data.status, payment_status: data.payment_status },
+    })
 
     return NextResponse.json({ appointment: data })
   } catch (error: any) {
@@ -156,6 +205,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete appointment
 export async function DELETE(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'requests')) return NextResponse.json({ error: 'Requests access required' }, { status: 403 })
     if (!supabase) {
       return NextResponse.json(
         { error: 'Database connection not available' },
@@ -176,6 +226,14 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id)
 
     if (error) throw error
+
+    await writeRequestAdminActivity(supabase, request, {
+      action: 'delete_appointment',
+      module: 'Requests',
+      description: 'Deleted an appointment request',
+      entityType: 'appointment',
+      entityId: id,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

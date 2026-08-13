@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { ambassadorInputToRow, validateAmbassadorApplication } from '@/lib/ambassador-applications'
+import { checkRateLimit } from '@/lib/request-security'
 
 function getDatabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -11,6 +12,10 @@ function getDatabase() {
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = checkRateLimit(request, 'ambassador-application-create', 4, 60 * 60 * 1000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many applications. Please try again later.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } })
+    }
     const body = await request.json().catch(() => null)
     const validation = validateAmbassadorApplication(body)
     if (!validation.success) {

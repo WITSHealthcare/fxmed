@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { RobotIcon } from '@phosphor-icons/react'
 
 interface ChatSession {
   id: string
@@ -198,7 +199,7 @@ export default function ZaraDashboard() {
       <div className="flex-1 bg-white rounded-[20px] shadow-sm border border-green-deep/10 flex flex-col overflow-hidden">
         {!selectedSession ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-            <div className="text-5xl mb-4">🤖</div>
+            <RobotIcon size={52} weight="duotone" className="mb-4 text-green-mid" />
             <h3 className="font-dm-sans font-semibold text-green-deep text-lg mb-2">Zara Conversations</h3>
             <p className="font-dm-sans text-text-mid text-sm max-w-xs">
               Select a conversation on the left to read the full chat thread.

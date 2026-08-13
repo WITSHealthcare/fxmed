@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { EnvelopeSimpleIcon } from '@phosphor-icons/react'
 
 type Message = {
   id: string
@@ -231,7 +232,7 @@ export default function Messages() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <div className="text-4xl mb-2">📩</div>
+                <EnvelopeSimpleIcon size={42} weight="duotone" className="mx-auto mb-2 text-green-mid" />
                 <p className="font-dm-sans text-text-mid">
                   Select a message to view details
                 </p>

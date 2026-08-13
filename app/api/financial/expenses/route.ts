@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getAuthorizedCrmRole } from '@/lib/admin-api-auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -23,8 +24,9 @@ const runWithRetry = async (operation: () => any, retries = 2): Promise<any> => 
   throw lastError
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    if (!await getAuthorizedCrmRole(request, 'financial')) return NextResponse.json({ error: 'Financial CRM access required' }, { status: 403 })
     const { data, error } = await runWithRetry(() =>
       supabase
         .from('financial_expenses')
@@ -46,16 +48,22 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!await getAuthorizedCrmRole(request, 'financial')) return NextResponse.json({ error: 'Financial CRM access required' }, { status: 403 })
     const body = await request.json()
     const now = new Date().toISOString()
+    const description = typeof body.description === 'string' ? body.description.trim().slice(0, 500) : ''
+    const amount = Number(body.amount)
+    if (!description || !Number.isFinite(amount) || amount < 0) {
+      return NextResponse.json({ error: 'A description and non-negative amount are required' }, { status: 400 })
+    }
 
     const { data, error } = await runWithRetry(() =>
       supabase
         .from('financial_expenses')
         .insert([{
           id: body.id || `expense-${Date.now()}`,
-          description: body.description,
-          amount: body.amount,
+          description,
+          amount,
           expense_date: body.expense_date || now,
           created_at: now,
           updated_at: now,
@@ -78,6 +86,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    if (!await getAuthorizedCrmRole(request, 'financial')) return NextResponse.json({ error: 'Financial CRM access required' }, { status: 403 })
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 

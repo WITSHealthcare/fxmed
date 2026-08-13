@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { HandshakeIcon } from '@phosphor-icons/react'
 import {
   ambassadorStatuses,
   formatAmbassadorStatus,
@@ -204,7 +205,7 @@ export default function AmbassadorApplications({ onPortalChanged }: { onPortalCh
       {loading ? (
         <div className="py-20 text-center"><div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-b-2 border-green-deep" /><p className="font-dm-sans text-text-mid">Loading applications…</p></div>
       ) : applications.length === 0 ? (
-        <div className="py-20 text-center"><div className="mb-4 text-5xl">🤝</div><h4 className="font-dm-sans text-xl font-bold text-green-deep">No applications found</h4><p className="mt-2 font-dm-sans text-sm text-text-mid">New submissions from /ambassadors/apply will appear here.</p></div>
+        <div className="py-20 text-center"><HandshakeIcon size={52} weight="duotone" className="mx-auto mb-4 text-green-mid" /><h4 className="font-dm-sans text-xl font-bold text-green-deep">No applications found</h4><p className="mt-2 font-dm-sans text-sm text-text-mid">New submissions from /ambassadors/apply will appear here.</p></div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[850px] border-collapse text-left font-dm-sans">

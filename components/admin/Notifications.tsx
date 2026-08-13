@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
+import { BellIcon, CalendarCheckIcon, ChatCircleDotsIcon, GearSixIcon } from '@phosphor-icons/react'
 
 type Notification = {
   id: string
@@ -17,20 +18,28 @@ export default function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return
     try {
-      // Fetch unread messages
-      const messagesResponse = await fetch('/api/messages?status=unread')
-      const { messages: unreadMessages } = await messagesResponse.json()
-
-      // Fetch appointments (you'll need to create this endpoint)
-      // For now, we'll just use messages as notifications
+      const messagesResponse = await fetch('/api/messages?status=unread', {
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      })
+      if (!messagesResponse.ok) {
+        if (messagesResponse.status === 401 || messagesResponse.status === 403) {
+          setNotifications([])
+          setUnreadCount(0)
+        }
+        return
+      }
+      const payload = await messagesResponse.json()
+      const unreadMessages = Array.isArray(payload.messages) ? payload.messages : []
       
       const notificationsData: Notification[] = unreadMessages.map((msg: any) => ({
         id: msg.id,
         type: 'message' as const,
-        title: `New message from ${msg.name}`,
-        message: msg.message.substring(0, 100) + (msg.message.length > 100 ? '...' : ''),
+        title: `New message from ${msg.name || 'a visitor'}`,
+        message: String(msg.message || '').substring(0, 100) + (String(msg.message || '').length > 100 ? '...' : ''),
         timestamp: msg.created_at,
         read: false,
         link: '/admin?tab=messages'
@@ -38,29 +47,67 @@ export default function Notifications() {
 
       setNotifications(notificationsData)
       setUnreadCount(notificationsData.length)
-    } catch (error) {
-      console.error('Error fetching notifications:', error)
+    } catch {
+      // A polling request can briefly fail during local hot reloads, deployments,
+      // sleep/wake or a lost connection. Keep the last successful state and retry.
     }
+  }, [])
+
+  const persistReadStatus = async (ids: string[]) => {
+    const response = await fetch('/api/messages', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ ids, status: 'read' }),
+    })
+
+    if (!response.ok) throw new Error('Failed to mark notifications as read')
   }
 
-  const markAsRead = (id: string) => {
+  const markAsRead = async (id: string) => {
+    const notification = notifications.find(item => item.id === id)
+    if (!notification || notification.read) return
+
     setNotifications(prev => 
       prev.map(n => n.id === id ? { ...n, read: true } : n)
     )
     setUnreadCount(prev => Math.max(0, prev - 1))
+
+    try {
+      await persistReadStatus([id])
+    } catch {
+      await fetchNotifications()
+    }
   }
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    const unreadIds = notifications.filter(notification => !notification.read).map(notification => notification.id)
+    if (!unreadIds.length) return
+
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
     setUnreadCount(0)
+
+    try {
+      await persistReadStatus(unreadIds)
+      await fetchNotifications()
+    } catch {
+      await fetchNotifications()
+    }
   }
 
   useEffect(() => {
-    fetchNotifications()
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000)
-    return () => clearInterval(interval)
-  }, [])
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void fetchNotifications()
+    }
+    refresh()
+    const interval = window.setInterval(refresh, 60000)
+    window.addEventListener('online', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('online', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [fetchNotifications])
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp)
@@ -82,14 +129,13 @@ export default function Notifications() {
       {/* Notification Bell Icon */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-cream hover:bg-white/10 rounded-full transition-all"
+        aria-label={unreadCount ? `${unreadCount} unread notifications` : 'Notifications'}
+        aria-expanded={isOpen}
+        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-green-deep/10 bg-white text-green-deep shadow-sm transition-all hover:-translate-y-0.5 hover:border-green-mid/30 hover:shadow-md"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-        </svg>
+        <BellIcon size={22} weight="duotone" />
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 bg-gold text-green-deep text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-bold text-green-deep ring-2 ring-[#f7f5ee]">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -105,13 +151,13 @@ export default function Notifications() {
           />
 
           {/* Dropdown */}
-          <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-hidden">
+          <div className="absolute right-0 top-full z-50 mt-3 max-h-[28rem] w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-[20px] border border-green-deep/10 bg-white shadow-2xl">
             {/* Header */}
-            <div className="bg-green-deep text-white px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center justify-between bg-green-deep px-5 py-4 text-white">
               <h3 className="font-dm-sans font-semibold">Notifications</h3>
               {unreadCount > 0 && (
                 <button
-                  onClick={markAllAsRead}
+                  onClick={() => void markAllAsRead()}
                   className="text-xs font-dm-sans hover:text-gold transition-colors"
                 >
                   Mark all as read
@@ -123,7 +169,7 @@ export default function Notifications() {
             <div className="overflow-y-auto max-h-72">
               {notifications.length === 0 ? (
                 <div className="p-8 text-center">
-                  <div className="text-4xl mb-2">🔔</div>
+                  <BellIcon size={38} weight="duotone" className="mx-auto mb-3 text-green-mid" />
                   <p className="font-dm-sans text-text-mid text-sm">
                     No new notifications
                   </p>
@@ -135,23 +181,23 @@ export default function Notifications() {
                     className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
                       !notification.read ? 'bg-gold/10' : ''
                     }`}
-                    onClick={() => {
-                      markAsRead(notification.id)
+                    onClick={async () => {
+                      await markAsRead(notification.id)
                       if (notification.link) {
                         window.location.href = notification.link
                       }
                     }}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0">
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[11px] bg-green-mid/10 text-green-mid">
                         {notification.type === 'message' && (
-                          <span className="text-2xl">💬</span>
+                          <ChatCircleDotsIcon size={20} weight="duotone" />
                         )}
                         {notification.type === 'appointment' && (
-                          <span className="text-2xl">📅</span>
+                          <CalendarCheckIcon size={20} weight="duotone" />
                         )}
                         {notification.type === 'system' && (
-                          <span className="text-2xl">⚙️</span>
+                          <GearSixIcon size={20} weight="duotone" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">

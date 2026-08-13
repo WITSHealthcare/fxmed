@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRequestAmbassador } from '@/lib/ambassador-portal'
+import { checkRateLimit } from '@/lib/request-security'
 
 function clean(value: unknown, max: number) {
   return typeof value === 'string' ? value.trim().slice(0, max) : ''
@@ -7,6 +8,8 @@ function clean(value: unknown, max: number) {
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = checkRateLimit(request, 'ambassador-referral-create', 30, 60 * 60 * 1000)
+    if (!rateLimit.allowed) return NextResponse.json({ error: 'Too many referrals submitted. Please try again later.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } })
     const context = await getRequestAmbassador(request)
     if (!context) return NextResponse.json({ error: 'Active ambassador access required' }, { status: 403 })
     const { profile, database } = context

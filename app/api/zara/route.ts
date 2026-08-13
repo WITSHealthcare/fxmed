@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { isDashboardUser } from '@/lib/admin-auth'
+import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 
 function getAdminSupabase() {
   return createClient(
@@ -11,24 +10,8 @@ function getAdminSupabase() {
   )
 }
 
-async function getRequestUser(request: NextRequest) {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: () => {},
-      },
-    }
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
-}
-
 export async function GET(request: NextRequest) {
-  const user = await getRequestUser(request)
-  if (!isDashboardUser(user)) {
+  if (!await getAuthorizedAdminRole(request, 'zara')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -47,8 +30,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getRequestUser(request)
-  if (!isDashboardUser(user)) {
+  if (!await getAuthorizedAdminRole(request, 'zara')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

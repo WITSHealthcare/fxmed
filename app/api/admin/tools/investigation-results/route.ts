@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import { canAccessTab, getUserAdminRole } from '@/lib/admin-auth'
+import { getRequestAdminUser, getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 
 export const runtime = 'nodejs'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -10,13 +9,7 @@ const text = (value: unknown, fallback = '') => typeof value === 'string' && val
 const object = (value: unknown) => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 
 async function getToolsUser(request: NextRequest) {
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !anonKey) return null
-  const client = createServerClient(supabaseUrl, anonKey, { cookies: { getAll: () => request.cookies.getAll(), setAll() {} } })
-  try {
-    const { data: { user } } = await client.auth.getUser()
-    return canAccessTab(getUserAdminRole(user), 'tools') ? user : null
-  } catch { return null }
+  return await getAuthorizedAdminRole(request, 'tools') ? getRequestAdminUser(request) : null
 }
 
 function normalizePatient(value: unknown) {

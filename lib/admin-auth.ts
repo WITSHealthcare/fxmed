@@ -1,7 +1,7 @@
 import type { User } from '@supabase/supabase-js'
 
 export type AdminRole = 'admin' | 'clinical' | 'sales'
-export type AdminTab = 'blog' | 'crm' | 'seo' | 'health' | 'messages' | 'requests' | 'ambassador' | 'tools' | 'users' | 'zara' | 'contacts'
+export type AdminTab = 'blog' | 'crm' | 'seo' | 'messages' | 'requests' | 'ambassador' | 'tools' | 'users' | 'zara' | 'contacts' | 'healthcare'
 export type CrmAccess = 'clinical' | 'financial'
 
 export const adminRoleLabels: Record<AdminRole, string> = {
@@ -12,15 +12,15 @@ export const adminRoleLabels: Record<AdminRole, string> = {
 
 export const adminRolePermissions: Record<AdminRole, { tabs: AdminTab[]; crmViews: CrmAccess[] }> = {
   admin: {
-    tabs: ['blog', 'crm', 'seo', 'health', 'messages', 'requests', 'ambassador', 'tools', 'users', 'zara', 'contacts'],
+    tabs: ['blog', 'crm', 'seo', 'messages', 'requests', 'ambassador', 'tools', 'users', 'zara', 'contacts', 'healthcare'],
     crmViews: ['clinical', 'financial'],
   },
   clinical: {
-    tabs: ['blog', 'crm', 'health', 'requests', 'tools', 'contacts'],
+    tabs: ['blog', 'crm', 'requests', 'tools', 'contacts', 'healthcare'],
     crmViews: ['clinical'],
   },
   sales: {
-    tabs: ['crm', 'seo', 'messages', 'tools', 'contacts'],
+    tabs: ['crm', 'seo', 'messages', 'requests', 'tools', 'contacts'],
     crmViews: ['financial'],
   },
 }
@@ -37,6 +37,7 @@ export function getUserAdminRole(user: User | null): AdminRole | null {
 
   const appMetadata = user.app_metadata
   const userMetadata = user.user_metadata
+  if (appMetadata?.dashboard_active === false) return null
   const email = user.email?.toLowerCase()
   const role = appMetadata?.role || userMetadata?.role
 

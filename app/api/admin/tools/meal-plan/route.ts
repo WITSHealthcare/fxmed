@@ -5,9 +5,8 @@ import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
-import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
-import { canAccessTab, getUserAdminRole } from '@/lib/admin-auth'
+import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 
 export const runtime = 'nodejs'
 
@@ -55,34 +54,6 @@ type PdfContext = {
     bold: PDFFont
   }
   logoImage?: Awaited<ReturnType<PDFDocument['embedPng']>>
-}
-
-async function getRequestRole(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase auth configuration is missing')
-  }
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll() {
-        // This route only reads auth state.
-      },
-    },
-  })
-
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
-
-  if (error) throw error
-  return getUserAdminRole(user)
 }
 
 function decodeXml(value: string) {
@@ -683,8 +654,7 @@ async function buildMealPlanPdf(plan: MealPlan, images: Map<string, Uint8Array>)
 
 export async function POST(request: NextRequest) {
   try {
-    const role = await getRequestRole(request)
-    if (!canAccessTab(role, 'tools')) {
+    if (!await getAuthorizedAdminRole(request, 'tools')) {
       return NextResponse.json({ error: 'Tools access required' }, { status: 403 })
     }
 
