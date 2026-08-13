@@ -96,14 +96,27 @@ export default function AmbassadorsPage() {
             <p className="mb-9 mt-7 max-w-xl font-dm-sans text-lg leading-8 text-cream/85">
               An exclusive opportunity for carefully selected partners and individuals to introduce their networks to concierge functional medicine, mobile luxury clinics, and personalized wellness services.
             </p>
-            <Link href="/ambassadors/apply" className="inline-flex rounded-full bg-gold px-8 py-4 font-dm-sans font-bold text-green-deep no-underline shadow-lg transition hover:-translate-y-0.5 hover:bg-gold-light">
-              Become an FXMed Elite Ambassador
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href="/ambassadors/apply" className="inline-flex rounded-full bg-gold px-8 py-4 font-dm-sans font-bold text-green-deep no-underline shadow-lg transition hover:-translate-y-0.5 hover:bg-gold-light">
+                Become an FXMed Elite Ambassador
+              </Link>
+              <a
+                href="/FXMed-Ambassador-Brochure.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex rounded-full border border-gold/60 bg-gold/10 px-7 py-4 font-dm-sans font-bold text-gold no-underline backdrop-blur-sm transition hover:-translate-y-0.5 hover:bg-gold hover:text-green-deep"
+              >
+                View Ambassador Brochure
+              </a>
+              <Link href="/ambassador-portal/login" className="inline-flex rounded-full border border-white/30 bg-white/10 px-7 py-4 font-dm-sans font-bold text-white no-underline backdrop-blur-sm transition hover:bg-white hover:text-green-deep">
+                Ambassador login
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="bg-white px-[5%] pb-0 pt-[90px]">
+      <section className="bg-white px-[5%] pb-8 pt-[90px] sm:pb-10">
         <div className="relative z-10 mx-auto grid max-w-7xl gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <p className="mb-4 inline-block rounded-[20px] bg-green-mid/10 px-4 py-1.5 font-dm-sans text-[0.75rem] font-semibold uppercase tracking-[0.14em] text-green-mid">About the program</p>
@@ -113,12 +126,34 @@ export default function AmbassadorsPage() {
             <p>FXMed Elite is redefining healthcare for individuals, families, and executives seeking convenient, personalized care through concierge functional medicine, mobile luxury clinics, and tailored wellness services.</p>
             <p>Our Ambassador Program enables trusted professionals and individuals to connect suitable people and organizations in their networks with this elevated healthcare experience.</p>
             <p>Ambassadors are selected for their alignment with our values of <strong className="text-green-deep">discretion, excellence, and care</strong>.</p>
+            <div className="!mt-8 flex flex-col gap-5 rounded-[20px] border border-green-deep/10 bg-[#FCFFF0] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <div className="flex items-center gap-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] bg-gold/30 text-green-deep">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                    <path d="M14 2v6h6M8 13h8M8 17h6" />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-green-mid">Program brochure</p>
+                  <h3 className="mt-1 text-lg font-bold leading-6 text-green-deep">Explore the FXMed Ambassador Program</h3>
+                </div>
+              </div>
+              <a
+                href="/FXMed-Ambassador-Brochure.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex shrink-0 justify-center rounded-full bg-green-deep px-6 py-3 text-sm font-bold text-white no-underline transition hover:bg-green-mid"
+              >
+                View brochure
+              </a>
+            </div>
           </div>
         </div>
       </section>
 
       <section
-        className="relative z-0 mt-0 overflow-hidden px-[5%] sm:-mt-6 lg:-mt-10"
+        className="relative z-0 mt-0 overflow-hidden px-[5%]"
         aria-label="FXMed mobile healthcare equipment"
         style={{ background: 'linear-gradient(to bottom, #ffffff 0%, #ffffff 48%, #FCFFF0 48%, #FCFFF0 100%)' }}
       >
@@ -270,6 +305,7 @@ export default function AmbassadorsPage() {
         <Link href="/ambassadors/apply" className="inline-flex rounded-full bg-green-deep px-8 py-4 font-dm-sans font-bold text-white no-underline transition hover:-translate-y-0.5 hover:bg-green-mid">
           Apply to Become an Ambassador
         </Link>
+        <p className="mt-5 font-dm-sans text-sm text-green-deep/70">Already activated? <Link href="/ambassador-portal/login" className="font-bold text-green-deep underline underline-offset-4">Sign in to your portal</Link></p>
       </section>
 
       <Footer />

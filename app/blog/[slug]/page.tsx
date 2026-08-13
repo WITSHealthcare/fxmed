@@ -76,15 +76,16 @@ async function getRelatedPosts(post: BlogPost): Promise<BlogPost[]> {
   return data || []
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
   try {
-    const post = await getPost(params.slug)
+    const post = await getPost(slug)
 
     if (!post) {
       return createMetadata({
         title: 'Article Not Found | FXMed',
         description: 'This FXMed article could not be found.',
-        path: `/blog/${params.slug}`,
+        path: `/blog/${slug}`,
         noIndex: true,
       })
     }
@@ -101,7 +102,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     return createMetadata({
       title: 'FXMed Health Article',
       description: 'Read health education and functional medicine insights from FXMed.',
-      path: `/blog/${params.slug}`,
+      path: `/blog/${slug}`,
     })
   }
 }
@@ -145,11 +146,12 @@ const getCategoryColor = (category: string) => {
   return colors[category] || 'bg-gray-500 text-white'
 }
 
-export default async function BlogPostPage({ params }: { params: { slug: string } }) {
+export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
   let post: BlogPost | null = null
 
   try {
-    post = await getPost(params.slug)
+    post = await getPost(slug)
   } catch (error) {
     console.error('Failed to initialize blog post page:', error)
     notFound()

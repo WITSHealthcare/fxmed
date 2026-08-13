@@ -8,30 +8,52 @@ interface Message {
   content: string
 }
 
-const SUGGESTIONS = [
+const GENERAL_SUGGESTIONS = [
   "What services do you offer?",
   "How do I book a home visit?",
   "What are your prices?",
   "Tell me about your programs",
 ]
 
-export default function ChatAssistant() {
-  const [isOpen, setIsOpen] = useState(false)
+const AMBASSADOR_SUGGESTIONS = [
+  'How do I submit a referral?',
+  'How are commissions approved?',
+  'When will I receive a payout?',
+  'How do I update my bank details?',
+]
+
+type ChatAssistantProps = {
+  context?: 'general' | 'ambassador'
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  showLauncher?: boolean
+}
+
+export default function ChatAssistant({ context = 'general', open, onOpenChange, showLauncher = true }: ChatAssistantProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
   const [showCallout, setShowCallout] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const sessionId = useMemo(() => crypto.randomUUID(), [])
+  const isOpen = open ?? internalOpen
+  const suggestions = context === 'ambassador' ? AMBASSADOR_SUGGESTIONS : GENERAL_SUGGESTIONS
+
+  const setIsOpen = (value: boolean) => {
+    setInternalOpen(value)
+    onOpenChange?.(value)
+  }
 
   useEffect(() => {
+    if (!showLauncher || context === 'ambassador') return
     const showTimer = setTimeout(() => setShowCallout(true), 1500)
     const hideTimer = setTimeout(() => setShowCallout(false), 121500)
     return () => {
       clearTimeout(showTimer)
       clearTimeout(hideTimer)
     }
-  }, [])
+  }, [context, showLauncher])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -57,6 +79,7 @@ export default function ChatAssistant() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
+          context,
           messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
         }),
       })
@@ -81,6 +104,7 @@ export default function ChatAssistant() {
   }
 
   if (!isOpen) {
+    if (!showLauncher) return null
     return (
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
         {showCallout && (
@@ -102,7 +126,7 @@ export default function ChatAssistant() {
               <span className="font-dm-sans font-semibold text-green-deep text-sm">Zara</span>
             </div>
             <p className="font-dm-sans text-gray-700 text-sm leading-[1.5]">
-              Hi there! 👋 Have any questions about FXMed? I'm here to help — ask me anything!
+              {context === 'ambassador' ? "Hi! I can help with referrals, commissions, payouts, and your Ambassador Portal." : "Hi there! 👋 Have any questions about FXMed? I'm here to help — ask me anything!"}
             </p>
             <div className="absolute -bottom-2 right-6 w-4 h-4 bg-white border-r border-b border-green-deep/10 rotate-45"></div>
           </div>
@@ -119,7 +143,7 @@ export default function ChatAssistant() {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-96 h-[560px] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-green-deep/10">
+    <div className="fixed bottom-4 right-4 h-[min(560px,calc(100vh-2rem))] w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-green-deep/10 sm:bottom-6 sm:right-6 sm:w-96">
       {/* Header */}
       <div className="bg-green-deep text-cream p-4 rounded-t-2xl flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -157,13 +181,13 @@ export default function ChatAssistant() {
                   <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
                 </svg>
               </div>
-              <h4 className="font-dm-sans font-semibold text-green-deep mb-2">Welcome to FXMed!</h4>
+              <h4 className="font-dm-sans font-semibold text-green-deep mb-2">{context === 'ambassador' ? 'Ambassador Support' : 'Welcome to FXMed!'}</h4>
               <p className="text-[0.85rem] leading-[1.6]">
-                Hi, I'm Zara! I can answer questions about FXMed's services, programs, and pricing — or help you book an appointment.
+                {context === 'ambassador' ? "Hi, I'm Zara. I can help you navigate referrals, commissions, payouts, profile details, and the Ambassador Program." : "Hi, I'm Zara! I can answer questions about FXMed's services, programs, and pricing — or help you book an appointment."}
               </p>
             </div>
             <div className="flex flex-wrap gap-2 justify-center">
-              {SUGGESTIONS.map((suggestion) => (
+              {suggestions.map((suggestion) => (
                 <button
                   key={suggestion}
                   onClick={() => handleSend(suggestion)}
@@ -218,7 +242,7 @@ export default function ChatAssistant() {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask me anything..."
+            placeholder={context === 'ambassador' ? 'Ask about the Ambassador Program…' : 'Ask me anything...'}
             disabled={isTyping}
             className="flex-1 px-4 py-2.5 border border-gray-200 rounded-full text-sm focus:outline-none focus:border-green-deep/40 disabled:opacity-50"
           />

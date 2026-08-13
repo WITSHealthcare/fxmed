@@ -37,7 +37,7 @@ function DetailItem({ label, value, wide = false }: { label: string; value?: str
   )
 }
 
-export default function AmbassadorApplications() {
+export default function AmbassadorApplications({ onPortalChanged }: { onPortalChanged?: () => void }) {
   const [applications, setApplications] = useState<AmbassadorApplication[]>([])
   const [selected, setSelected] = useState<AmbassadorApplication | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | AmbassadorStatus>('all')
@@ -49,6 +49,8 @@ export default function AmbassadorApplications() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [updating, setUpdating] = useState(false)
+  const [inviting, setInviting] = useState(false)
+  const [portalMessage, setPortalMessage] = useState('')
   const pageSize = 20
 
   const fetchApplications = useCallback(async () => {
@@ -126,6 +128,29 @@ export default function AmbassadorApplications() {
     setDateFrom('')
     setDateTo('')
     setPage(1)
+  }
+
+  const createPortalAccess = async () => {
+    if (!selected || selected.status !== 'approved') return
+    if (!window.confirm(`Grant Ambassador Portal access to ${selected.email}? They will receive a secure email to create their password, then they will be taken directly into the portal.`)) return
+    setInviting(true)
+    setPortalMessage('')
+    setError('')
+    try {
+      const response = await fetch('/api/admin/ambassador-portal/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: selected.id }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || 'Failed to create portal access')
+      setPortalMessage(result.message || 'Portal access created successfully.')
+      onPortalChanged?.()
+    } catch (inviteError) {
+      setError(inviteError instanceof Error ? inviteError.message : 'Failed to create portal access')
+    } finally {
+      setInviting(false)
+    }
   }
 
   return (
@@ -219,6 +244,15 @@ export default function AmbassadorApplications() {
                   {nextStatuses[selected.status].map((status) => <button key={status} type="button" onClick={() => updateStatus(status)} disabled={updating} className={`rounded-lg border px-4 py-2 font-dm-sans text-sm font-semibold disabled:opacity-50 ${status === 'rejected' ? 'border-red-200 text-red-700 hover:bg-red-50' : 'border-green-deep bg-green-deep text-white hover:bg-green-mid'}`}>{updating ? 'Updating…' : `Mark ${formatAmbassadorStatus(status)}`}</button>)}
                 </div>
               </div>
+              {selected.status === 'approved' && (
+                <div className="mb-6 rounded-xl border border-green-mid/20 bg-green-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div><p className="font-dm-sans text-sm font-bold text-green-deep">Ambassador Portal access</p><p className="mt-1 max-w-xl font-dm-sans text-xs leading-5 text-text-mid">Send a secure activation link. The Ambassador creates a password, enters the portal automatically, and receives a short first-time setup guide.</p></div>
+                    <button type="button" onClick={createPortalAccess} disabled={inviting} className="rounded-lg bg-gold px-4 py-2.5 font-dm-sans text-sm font-bold text-green-deep disabled:opacity-50">{inviting ? 'Sending activation email…' : 'Grant or resend portal access'}</button>
+                  </div>
+                  {portalMessage && <p className="mt-3 font-dm-sans text-sm font-semibold text-green-700">{portalMessage}</p>}
+                </div>
+              )}
 
               <div className="space-y-7">
                 <section><h4 className="mb-4 border-b border-gray-100 pb-2 font-dm-sans text-lg font-bold text-green-deep">Personal information</h4><dl className="grid gap-4 sm:grid-cols-2"><DetailItem label="Email" value={selected.email} /><DetailItem label="Phone" value={selected.phone} /><DetailItem label="Gender" value={selected.gender} /><DetailItem label="State" value={selected.state_region} /><DetailItem label="City" value={selected.city} /></dl></section>

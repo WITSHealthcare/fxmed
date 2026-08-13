@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { adminRoleLabels, type AdminRole, isAdminUser } from '@/lib/admin-auth'
 
-const validRoles = new Set<AdminRole>(['admin', 'clinical', 'ambassador', 'sales'])
+const validRoles = new Set<AdminRole>(['admin', 'clinical', 'sales'])
 
 function getSupabaseAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
