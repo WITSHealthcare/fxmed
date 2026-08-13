@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { CaretDownIcon, LightningIcon, SparkleIcon, SpinnerGapIcon, WarningCircleIcon } from '@phosphor-icons/react'
 import { stripHtml } from '@/lib/content-sanitizer'
 
 interface GeneratedContent {
@@ -123,27 +124,18 @@ export default function ContentGenerationPanel({ onApplyContent, currentCategory
       >
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-gold-light flex items-center justify-center">
-            <svg className="w-6 h-6 text-green-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+            <LightningIcon size={24} weight="fill" className="text-green-deep" />
           </div>
           <div className="text-left">
             <h3 className="font-dm-sans font-semibold text-green-deep">
-              ✨ Blog Assistant
+              Blog Assistant
             </h3>
             <p className="text-sm text-text-mid">
               Generate blog posts with content assistance
             </p>
           </div>
         </div>
-        <svg 
-          className={`w-5 h-5 text-green-deep transition-transform ${expanded ? 'rotate-180' : ''}`} 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        <CaretDownIcon size={20} weight="bold" className={`text-green-deep transition-transform ${expanded ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Expanded Content */}
@@ -157,8 +149,8 @@ export default function ContentGenerationPanel({ onApplyContent, currentCategory
             </div>
           ) : availableProviders.length === 0 ? (
             <div className="py-4 px-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600 text-sm">
-                ⚠️ No content providers configured. Please add API keys to your environment variables.
+              <p className="flex items-center gap-2 text-red-600 text-sm">
+                <WarningCircleIcon size={19} weight="fill" />No content providers configured. Please add API keys to your environment variables.
               </p>
             </div>
           ) : (
@@ -207,17 +199,12 @@ export default function ContentGenerationPanel({ onApplyContent, currentCategory
               >
                 {generating ? (
                   <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <SpinnerGapIcon size={20} weight="bold" className="-ml-1 mr-3 animate-spin" />
                     Generating blog post...
                   </span>
                 ) : (
                   <span className="flex items-center justify-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
+                    <LightningIcon size={20} weight="fill" className="mr-2" />
                     Generate Blog Post
                   </span>
                 )}
@@ -227,9 +214,7 @@ export default function ContentGenerationPanel({ onApplyContent, currentCategory
               {error && (
                 <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                   <div className="flex items-start">
-                    <svg className="w-5 h-5 text-red-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <WarningCircleIcon size={20} weight="fill" className="mr-2 mt-0.5 text-red-500" />
                     <div className="flex-1">
                       <p className="text-red-700 text-sm">{error}</p>
                       <button
@@ -248,7 +233,7 @@ export default function ContentGenerationPanel({ onApplyContent, currentCategory
                 <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-dm-sans font-semibold text-green-deep">
-                      ✨ Generated Content
+                      <span className="flex items-center gap-2"><SparkleIcon size={18} weight="fill" />Generated Content</span>
                     </h4>
                     <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full">
                       Generated Content

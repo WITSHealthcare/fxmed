@@ -1,21 +1,13 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
-import { canAccessTab, getUserAdminRole } from '@/lib/admin-auth'
+import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 
 export const runtime = 'nodejs'
 const MAX_FILE_SIZE = 15 * 1024 * 1024
 const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest']
 
 async function hasToolsAccess(request: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) return false
-  const client = createServerClient(url, key, { cookies: { getAll: () => request.cookies.getAll(), setAll() {} } })
-  try {
-    const { data: { user } } = await client.auth.getUser()
-    return canAccessTab(getUserAdminRole(user), 'tools')
-  } catch { return false }
+  return Boolean(await getAuthorizedAdminRole(request, 'tools'))
 }
 
 function parseJson(text: string) {

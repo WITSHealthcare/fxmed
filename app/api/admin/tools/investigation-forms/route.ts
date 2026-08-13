@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import { canAccessTab, getUserAdminRole } from '@/lib/admin-auth'
+import { getRequestAdminUser, getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 
 export const runtime = 'nodejs'
 
@@ -75,29 +74,7 @@ function normalizeTests(value: unknown): InvestigationTest[] {
 }
 
 async function getToolsAccess(request: NextRequest) {
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !anonKey) return null
-
-  const authedClient = createServerClient(supabaseUrl, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll() {
-        // This route only reads auth state.
-      },
-    },
-  })
-
-  try {
-    const {
-      data: { user },
-    } = await authedClient.auth.getUser()
-    const role = getUserAdminRole(user)
-    return canAccessTab(role, 'tools') ? user : null
-  } catch {
-    return null
-  }
+  return await getAuthorizedAdminRole(request, 'tools') ? getRequestAdminUser(request) : null
 }
 
 function mapForm(row: any) {

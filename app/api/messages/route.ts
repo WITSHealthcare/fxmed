@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
+import { writeRequestAdminActivity } from '@/lib/admin-activity'
+import { checkRateLimit, cleanPublicString, isEmail } from '@/lib/request-security'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -9,6 +12,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 // GET - Fetch all messages or filter by status
 export async function GET(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'messages')) return NextResponse.json({ error: 'Messages access required' }, { status: 403 })
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
 
@@ -38,17 +42,27 @@ export async function GET(request: NextRequest) {
 // POST - Create new message
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = checkRateLimit(request, 'message-create', 8, 15 * 60 * 1000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many messages. Please try again shortly.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } })
+    }
     const body = await request.json()
+    const name = cleanPublicString(body.name, 150)
+    const email = cleanPublicString(body.email, 180)?.toLowerCase()
+    const message = cleanPublicString(body.message, 5000)
+    if (!name || !email || !isEmail(email) || !message) {
+      return NextResponse.json({ error: 'Name, a valid email address, and message are required.' }, { status: 400 })
+    }
 
     const { data, error } = await supabase
       .from('messages')
       .insert([{
-        name: body.name,
-        email: body.email,
-        phone: body.phone || null,
-        subject: body.subject || null,
-        message: body.message,
-        status: body.status || 'unread',
+        name,
+        email,
+        phone: cleanPublicString(body.phone, 40),
+        subject: cleanPublicString(body.subject, 200),
+        message,
+        status: 'unread',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }])
@@ -70,28 +84,42 @@ export async function POST(request: NextRequest) {
 // PATCH - Update message status
 export async function PATCH(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'messages')) return NextResponse.json({ error: 'Messages access required' }, { status: 403 })
     const body = await request.json()
-    const { id, ...updates } = body
+    const ids = Array.isArray(body.ids) ? body.ids : body.id ? [body.id] : []
+    const status = body.status
 
-    if (!id) {
-      return NextResponse.json({ error: 'Message ID required' }, { status: 400 })
+    if (!ids.length || ids.some((id: unknown) => typeof id !== 'string')) {
+      return NextResponse.json({ error: 'At least one valid message ID is required' }, { status: 400 })
     }
 
-    const updateData: any = {
-      ...updates,
+    if (!['unread', 'read', 'archived'].includes(status)) {
+      return NextResponse.json({ error: 'A valid message status is required' }, { status: 400 })
+    }
+
+    const updateData = {
+      status,
       updated_at: new Date().toISOString()
     }
 
     const { data, error } = await supabase
       .from('messages')
       .update(updateData)
-      .eq('id', id)
+      .in('id', ids)
       .select()
-      .single()
 
     if (error) throw error
 
-    return NextResponse.json({ message: data })
+    await writeRequestAdminActivity(supabase, request, {
+      action: 'update_message_status',
+      module: 'Messages',
+      description: `Marked ${ids.length} message${ids.length === 1 ? '' : 's'} as ${status}`,
+      entityType: 'message',
+      entityId: ids.length === 1 ? ids[0] : null,
+      metadata: { status, count: ids.length },
+    })
+
+    return NextResponse.json({ message: data?.[0] || null, messages: data || [] })
   } catch (error: any) {
     console.error('Error updating message:', error)
     return NextResponse.json(
@@ -104,6 +132,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete message
 export async function DELETE(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'messages')) return NextResponse.json({ error: 'Messages access required' }, { status: 403 })
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -117,6 +146,14 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id)
 
     if (error) throw error
+
+    await writeRequestAdminActivity(supabase, request, {
+      action: 'delete_message',
+      module: 'Messages',
+      description: 'Deleted a contact message',
+      entityType: 'message',
+      entityId: id,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

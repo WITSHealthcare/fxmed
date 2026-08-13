@@ -40,6 +40,8 @@ interface FormData {
 
 export default function FunctionalHealthAnalysisForm() {
   const [currentSection, setCurrentSection] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [formData, setFormData] = useState<FormData>({
     personalInfo: {
       firstName: '',
@@ -122,10 +124,18 @@ export default function FunctionalHealthAnalysisForm() {
     }
   }
 
-  const handleSubmit = () => {
-    // Encode form data and redirect to investigations page
-    const encodedData = btoa(JSON.stringify(formData))
-    window.location.href = `/functional-health-analysis/investigations?data=${encodedData}`
+  const handleSubmit = async () => {
+    setSubmitting(true)
+    setSubmitError('')
+    const response = await fetch('/api/health-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setSubmitError(result.error || 'We could not save your assessment. Please try again.')
+      setSubmitting(false)
+      return
+    }
+    sessionStorage.setItem('fxmed-health-analysis', JSON.stringify(formData))
+    window.location.href = `/functional-health-analysis/investigations?assessment=${encodeURIComponent(result.id)}`
   }
 
   const validateSection = () => {
@@ -656,6 +666,7 @@ export default function FunctionalHealthAnalysisForm() {
           </div>
 
           {renderSection()}
+          {submitError && <p className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{submitError}</p>}
         </div>
 
         {/* Navigation Buttons */}
@@ -670,10 +681,10 @@ export default function FunctionalHealthAnalysisForm() {
           {currentSection === sections.length - 1 ? (
             <button
               onClick={handleSubmit}
-              disabled={!validateSection()}
+              disabled={!validateSection() || submitting}
               className="px-8 py-3 rounded-lg bg-green-deep text-white font-dm-sans font-semibold transition-all hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Submit Request
+              {submitting ? 'Saving…' : 'Submit Request'}
             </button>
           ) : (
             <button

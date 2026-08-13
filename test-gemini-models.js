@@ -53,7 +53,8 @@ function testGeminiModel(apiKey, modelName) {
 }
 
 async function testAllModels() {
-  const apiKey = 'AIzaSyB2QivlVr_3ID659BKCp4EqC1sOhb_TUO0';
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) throw new Error('GOOGLE_AI_API_KEY is required');
   
   const models = [
     'gemini-1.5-pro-latest',

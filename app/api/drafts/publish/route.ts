@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { sanitizeRichText } from '@/lib/content-sanitizer'
+import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 
-// Create admin client with public key
+// Server-only client; route authorization is enforced before every operation.
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
   {
     auth: {
       autoRefreshToken: false,
@@ -17,6 +18,7 @@ const supabaseAdmin = createClient(
 // POST - Publish draft to blog_posts table
 export async function POST(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'blog')) return NextResponse.json({ error: 'Blog access required' }, { status: 403 })
     const body = await request.json()
     
     const { draftId } = body

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendZaraMessage, type ZaraMessage } from '@/lib/ai/zara-providers'
 import { getRequestAmbassador } from '@/lib/ambassador-portal'
+import { checkRateLimit } from '@/lib/request-security'
 
 function getSupabase() {
   return createClient(
@@ -9,6 +10,45 @@ function getSupabase() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
+}
+
+function chatString(value: unknown, max: number) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : ''
+}
+
+async function createChatAppointment(input: Record<string, string>) {
+  const firstName = chatString(input.firstName, 100)
+  const lastName = chatString(input.lastName, 100)
+  const email = chatString(input.email, 180).toLowerCase()
+  const phone = chatString(input.phone, 40)
+  const consultationType = chatString(input.consultationType, 40)
+  const preferredDate = chatString(input.preferredDate, 10)
+  const preferredTime = chatString(input.preferredTime, 80)
+  if (!firstName || !lastName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !phone || !['telemedicine', 'home-visit'].includes(consultationType) || !/^\d{4}-\d{2}-\d{2}$/.test(preferredDate) || !preferredTime) {
+    return { appointment: null, success: false }
+  }
+  const now = new Date().toISOString()
+  const { data, error } = await getSupabase().from('appointments').insert({
+    first_name: firstName, last_name: lastName, email, phone,
+    home_address: chatString(input.homeAddress, 500) || null,
+    consultation_type: consultationType, preferred_date: preferredDate,
+    preferred_time: preferredTime, symptoms: chatString(input.symptoms, 3000) || null,
+    status: 'pending', payment_status: 'pending', created_at: now, updated_at: now,
+  }).select().single()
+  return { appointment: data, success: !error }
+}
+
+async function createChatEnquiry(input: Record<string, string>) {
+  const name = chatString(input.name, 150)
+  const email = chatString(input.email, 180).toLowerCase()
+  const message = chatString(input.message, 5000)
+  if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !message) return false
+  const now = new Date().toISOString()
+  const { error } = await getSupabase().from('messages').insert({
+    name, email, phone: chatString(input.phone, 40) || null,
+    subject: 'Enquiry via Zara', message, status: 'unread', created_at: now, updated_at: now,
+  })
+  return !error
 }
 
 async function persistMessages(
@@ -117,8 +157,26 @@ Keep answers short, friendly, action-oriented, and in plain text without markdow
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, sessionId, context } = await request.json()
-    const userMessage: string = messages[messages.length - 1]?.content ?? ''
+    const rateLimit = checkRateLimit(request, 'zara-chat', 25, 15 * 60 * 1000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ message: 'Too many messages. Please wait a moment and try again.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } })
+    }
+    const { messages: rawMessages, sessionId, context } = await request.json()
+    if (!Array.isArray(rawMessages) || rawMessages.length === 0 || rawMessages.length > 30) {
+      return NextResponse.json({ message: 'A valid conversation is required.' }, { status: 400 })
+    }
+    const messages: ZaraMessage[] = rawMessages.map((message: unknown): ZaraMessage => {
+      const item = message as Record<string, unknown>
+      return {
+        role: item.role === 'assistant' ? 'assistant' as const : 'user' as const,
+        content: typeof item.content === 'string' ? item.content.trim().slice(0, 4000) : '',
+      }
+    }).filter((message) => message.content)
+    if (!messages.length || messages[messages.length - 1].role !== 'user') {
+      return NextResponse.json({ message: 'A valid user message is required.' }, { status: 400 })
+    }
+    const safeSessionId = typeof sessionId === 'string' && /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(sessionId) ? sessionId : null
+    const userMessage = messages[messages.length - 1].content
 
     let systemPrompt = SYSTEM_PROMPT
     if (context === 'ambassador') {
@@ -127,27 +185,21 @@ export async function POST(request: NextRequest) {
       systemPrompt = AMBASSADOR_SYSTEM_PROMPT
     }
 
-    const result = await sendZaraMessage(messages as ZaraMessage[], systemPrompt)
+    const result = await sendZaraMessage(messages, systemPrompt)
 
     // Ambassador Support is informational only. Even if a provider elects to
     // call one of Zara's public-site tools, do not create bookings or enquiries
     // from the protected portal context.
     if (context === 'ambassador' && (result.bookingData || result.enquiryData)) {
       const replyText = 'I cannot complete that action from Ambassador Support. Please use Contact Support in the sidebar so our Ambassador Program team can assist you.'
-      if (sessionId) await persistMessages(sessionId, userMessage, replyText, false)
+      if (safeSessionId) await persistMessages(safeSessionId, userMessage, replyText, false)
       return NextResponse.json({ message: replyText })
     }
 
     // Provider wants to book an appointment
     if (result.bookingData) {
-      const baseUrl = request.nextUrl.origin
-      const bookingResponse = await fetch(`${baseUrl}/api/appointments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(result.bookingData),
-      })
-      const bookingResult = await bookingResponse.json()
-      const bookingSuccess = bookingResponse.ok
+      const bookingResult = await createChatAppointment(result.bookingData)
+      const bookingSuccess = bookingResult.success
 
       const confirmationMsg = bookingSuccess
         ? 'Your appointment has been booked! You will receive a confirmation shortly.'
@@ -178,8 +230,8 @@ export async function POST(request: NextRequest) {
         // keep the default confirmationMsg
       }
 
-      if (sessionId) {
-        await persistMessages(sessionId, userMessage, replyText, bookingSuccess, bookingSuccess ? result.bookingData : undefined)
+      if (safeSessionId) {
+        await persistMessages(safeSessionId, userMessage, replyText, bookingSuccess, bookingSuccess ? result.bookingData : undefined)
       }
 
       return NextResponse.json({
@@ -191,24 +243,13 @@ export async function POST(request: NextRequest) {
 
     // Provider wants to log an enquiry
     if (result.enquiryData) {
-      const baseUrl = request.nextUrl.origin
       const { name, email, phone, message: enquiryMessage } = result.enquiryData
-      await fetch(`${baseUrl}/api/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          email,
-          phone: phone || null,
-          subject: 'Enquiry via Zara',
-          message: enquiryMessage,
-        }),
-      })
+      await createChatEnquiry({ name, email, phone, message: enquiryMessage })
 
       const replyText = `Thank you, ${name.split(' ')[0]}! I've passed your question to our team and someone will get back to you at ${email} shortly. In the meantime, feel free to ask me anything else.`
 
-      if (sessionId) {
-        await persistMessages(sessionId, userMessage, replyText, false)
+      if (safeSessionId) {
+        await persistMessages(safeSessionId, userMessage, replyText, false)
       }
 
       return NextResponse.json({ message: replyText })
@@ -217,8 +258,8 @@ export async function POST(request: NextRequest) {
     // Regular text response
     const replyText = result.message || "I'm here to help!"
 
-    if (sessionId) {
-      await persistMessages(sessionId, userMessage, replyText, false)
+    if (safeSessionId) {
+      await persistMessages(safeSessionId, userMessage, replyText, false)
     }
 
     return NextResponse.json({ message: replyText })

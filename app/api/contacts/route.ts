@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import { canAccessTab, getUserAdminRole } from '@/lib/admin-auth'
+import { writeRequestAdminActivity } from '@/lib/admin-activity'
+import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
+import { checkRateLimit, cleanPublicString, isEmail } from '@/lib/request-security'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -21,48 +22,18 @@ const SUBMITTABLE_FIELDS = [
   'outreach_event',
 ] as const
 
-function cleanString(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
-// Verify the caller is a signed-in dashboard user who can access the Contacts
-// tab. Returns the role on success, or null when access should be denied.
-async function getContactsAccess(request: NextRequest) {
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !anonKey) return null
-
-  const authedClient = createServerClient(supabaseUrl, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll() {
-        // This route does not refresh auth cookies.
-      },
-    },
-  })
-
-  try {
-    const {
-      data: { user },
-    } = await authedClient.auth.getUser()
-    const role = getUserAdminRole(user)
-    return canAccessTab(role, 'contacts') ? role : null
-  } catch {
-    return null
-  }
-}
-
 // POST - Public: register a new contact from the outreach form.
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = checkRateLimit(request, 'contact-create', 8, 15 * 60 * 1000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many registrations. Please try again shortly.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } })
+    }
     const body = await request.json()
 
     const record: Record<string, string | null> = {}
     for (const field of SUBMITTABLE_FIELDS) {
-      record[field] = cleanString(body[field])
+      record[field] = cleanPublicString(body[field], field === 'health_concern' || field === 'conditions' || field === 'medications' ? 2000 : 500)
     }
 
     if (!record.full_name) {
@@ -70,6 +41,9 @@ export async function POST(request: NextRequest) {
     }
     if (!record.phone) {
       return NextResponse.json({ error: 'Phone number is required' }, { status: 400 })
+    }
+    if (record.email && !isEmail(record.email)) {
+      return NextResponse.json({ error: 'A valid email address is required' }, { status: 400 })
     }
 
     const { data, error } = await supabase
@@ -93,7 +67,7 @@ export async function POST(request: NextRequest) {
 // GET - Admin: list contacts, optionally filtered by status or outreach event.
 export async function GET(request: NextRequest) {
   try {
-    const role = await getContactsAccess(request)
+    const role = await getAuthorizedAdminRole(request, 'contacts')
     if (!role) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
@@ -126,7 +100,7 @@ export async function GET(request: NextRequest) {
 // PATCH - Admin: update a contact's status or notes.
 export async function PATCH(request: NextRequest) {
   try {
-    const role = await getContactsAccess(request)
+    const role = await getAuthorizedAdminRole(request, 'contacts')
     if (!role) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
@@ -138,8 +112,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     const updates: Record<string, unknown> = {}
-    if (typeof body.status === 'string') updates.status = body.status
-    if (typeof body.notes === 'string') updates.notes = body.notes
+    if (typeof body.status === 'string') {
+      if (!['new', 'contacted', 'enrolled', 'archived'].includes(body.status)) {
+        return NextResponse.json({ error: 'A valid contact status is required' }, { status: 400 })
+      }
+      updates.status = body.status
+    }
+    if (typeof body.notes === 'string') updates.notes = body.notes.trim().slice(0, 5000)
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
@@ -154,6 +133,15 @@ export async function PATCH(request: NextRequest) {
 
     if (error) throw error
 
+    await writeRequestAdminActivity(supabase, request, {
+      action: 'update_contact',
+      module: 'Outreach Contacts',
+      description: `Updated outreach contact ${data.full_name || data.id}`,
+      entityType: 'contact',
+      entityId: data.id,
+      metadata: { status: data.status },
+    })
+
     return NextResponse.json({ contact: data })
   } catch (error: any) {
     console.error('Error updating contact:', error)
@@ -167,7 +155,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Admin: remove a contact.
 export async function DELETE(request: NextRequest) {
   try {
-    const role = await getContactsAccess(request)
+    const role = await getAuthorizedAdminRole(request, 'contacts')
     if (!role) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
@@ -180,6 +168,14 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabase.from('contacts').delete().eq('id', id)
     if (error) throw error
+
+    await writeRequestAdminActivity(supabase, request, {
+      action: 'delete_contact',
+      module: 'Outreach Contacts',
+      description: 'Deleted an outreach contact',
+      entityType: 'contact',
+      entityId: id,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

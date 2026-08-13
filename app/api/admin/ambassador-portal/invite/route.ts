@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 import { getAmbassadorDatabase, makeAmbassadorCode } from '@/lib/ambassador-portal'
+import { siteUrl } from '@/lib/seo'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
     const { data: application, error: applicationError } = await database.from('ambassador_applications').select('*').eq('id', body.application_id).single()
     if (applicationError || !application) return NextResponse.json({ error: 'Application not found.' }, { status: 404 })
     if (application.status !== 'approved') return NextResponse.json({ error: 'Approve the application before creating portal access.' }, { status: 409 })
-    const redirectTo = `${new URL(request.url).origin}/ambassador-portal/setup`
+    const redirectTo = `${siteUrl}/ambassador-portal/setup`
     const { data: existingProfile } = await database.from('ambassador_profiles').select('*').eq('application_id', application.id).maybeSingle()
     if (existingProfile) {
       const { data: existingUser, error: userError } = await database.auth.admin.getUserById(existingProfile.user_id)

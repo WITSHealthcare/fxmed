@@ -3,6 +3,8 @@ const https = require('https');
 
 function testModel(modelName) {
   return new Promise((resolve) => {
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    if (!apiKey) throw new Error('GOOGLE_AI_API_KEY is required');
     const data = JSON.stringify({
       contents: [{
         parts: [{
@@ -14,7 +16,7 @@ function testModel(modelName) {
     const options = {
       hostname: 'generativelanguage.googleapis.com',
       port: 443,
-      path: `/v1beta/models/${modelName}:generateContent?key=AIzaSyB2QivlVr_3ID659BKCp4EqC1sOhb_TUO0`,
+      path: `/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { AddressBookIcon, MapPinIcon } from '@phosphor-icons/react'
 
 type ContactStatus = 'new' | 'contacted' | 'enrolled' | 'archived'
 
@@ -62,6 +63,20 @@ export default function Contacts() {
   const [eventFilter, setEventFilter] = useState<string>('all')
   const [notesDraft, setNotesDraft] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
+  const [clinicalSaving, setClinicalSaving] = useState(false)
+  const [clinicalMessage, setClinicalMessage] = useState('')
+
+  const createClinicalPatient = async (contact: Contact) => {
+    if (!contact.date_of_birth) { setClinicalMessage('Add the contact date of birth before creating a clinical record.'); return }
+    const parts = contact.full_name.trim().split(/\s+/)
+    setClinicalSaving(true)
+    setClinicalMessage('')
+    const sex = contact.gender?.toLowerCase() === 'female' || contact.gender?.toLowerCase() === 'male' ? contact.gender.toLowerCase() : 'unknown'
+    const response = await fetch('/api/admin/emr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: 'patients', contact_id: contact.id, first_name: parts[0], last_name: parts.slice(1).join(' ') || 'Unknown', date_of_birth: contact.date_of_birth, sex, phone: contact.phone, email: contact.email, address: contact.address, city: contact.city, state: contact.state }) })
+    const result = await response.json()
+    setClinicalMessage(response.ok ? `Clinical record ${result.record.mrn} created.` : result.error || 'Unable to create clinical record.')
+    setClinicalSaving(false)
+  }
 
   const fetchContacts = useCallback(async () => {
     setLoading(true)
@@ -220,7 +235,7 @@ export default function Contacts() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">📇</div>
+          <AddressBookIcon size={58} weight="duotone" className="mx-auto mb-4 text-green-mid" />
           <h3 className="text-xl font-dm-sans font-bold text-green-deep mb-2">No contacts</h3>
           <p className="font-dm-sans text-text-mid">
             Registrations from the <span className="font-semibold">/register</span> page will appear here.
@@ -248,7 +263,7 @@ export default function Contacts() {
                 </div>
                 <p className="font-dm-sans text-text-mid text-sm">{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
                 {c.outreach_event && (
-                  <p className="font-dm-sans text-text-mid text-xs mt-1">📍 {c.outreach_event}</p>
+                  <p className="mt-1 flex items-center gap-1 font-dm-sans text-xs text-text-mid"><MapPinIcon size={14} weight="fill" />{c.outreach_event}</p>
                 )}
                 <p className="font-dm-sans text-text-mid text-xs mt-1">{formatDate(c.created_at)}</p>
               </div>
@@ -313,6 +328,9 @@ export default function Contacts() {
                   <DetailRow label="Registered" value={formatDate(selected.created_at)} />
                 </DetailSection>
 
+                <button onClick={() => createClinicalPatient(selected)} disabled={clinicalSaving} className="primary w-full disabled:opacity-50">{clinicalSaving ? 'Creating record…' : 'Create clinical patient'}</button>
+                {clinicalMessage && <p className="mt-2 rounded-lg bg-white p-3 text-sm text-text-mid">{clinicalMessage}</p>}
+
                 <div className="mt-4">
                   <label className="block font-dm-sans font-semibold text-green-deep text-sm mb-2">Notes</label>
                   <textarea
@@ -333,7 +351,7 @@ export default function Contacts() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <div className="text-4xl mb-2">📇</div>
+                <AddressBookIcon size={42} weight="duotone" className="mx-auto mb-2 text-green-mid" />
                 <p className="font-dm-sans text-text-mid">Select a contact to view details</p>
               </div>
             )}

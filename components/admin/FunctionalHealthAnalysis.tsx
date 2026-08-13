@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { ClipboardTextIcon, EyeIcon, PhoneCallIcon, PlusCircleIcon, XIcon } from '@phosphor-icons/react'
 
 interface HealthAnalysisSubmission {
   id: string
@@ -130,11 +131,34 @@ interface FunctionalHealthAnalysisProps {
   submissions?: HealthAnalysisSubmission[]
 }
 
-export default function FunctionalHealthAnalysis({ submissions = mockSubmissions }: FunctionalHealthAnalysisProps) {
+export default function FunctionalHealthAnalysis({ submissions = [] }: FunctionalHealthAnalysisProps) {
   const [submissionsList, setSubmissionsList] = useState<HealthAnalysisSubmission[]>(submissions)
   const [selectedSubmission, setSelectedSubmission] = useState<HealthAnalysisSubmission | null>(null)
   const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'reviewed' | 'contacted' | 'completed'>('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [patients, setPatients] = useState<Array<{ id: string; mrn: string; first_name: string; last_name: string }>>([])
+  const [patientLinks, setPatientLinks] = useState<Record<string,string>>({})
+
+  useEffect(() => {
+    fetch('/api/admin/emr?resource=assessments').then(async response => {
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error)
+      setSubmissionsList((result.records || []).map((record: any) => {
+        const details = record.assessment_data || {}
+        const personal = details.personalInfo || {}
+        const concerns = details.healthConcerns || {}
+        return {
+          id: record.id,
+          patientName: [personal.firstName, personal.lastName].filter(Boolean).join(' ') || 'Unknown patient',
+          email: personal.email || '', phone: personal.phone || '', age: personal.age || '', gender: personal.gender || '',
+          primaryConcern: concerns.primaryConcern || 'Not provided', symptoms: concerns.symptoms || [], duration: concerns.duration || '', severity: concerns.severity || '',
+          submittedAt: record.submitted_at, testRecommendations: record.recommendations || [], status: record.status,
+        }
+      }))
+    }).catch(error => console.error('Unable to load health analysis submissions:', error))
+  }, [])
+
+  useEffect(() => { fetch('/api/admin/emr?resource=patients&pageSize=100').then(response => response.json()).then(result => setPatients(result.patients || [])).catch(() => {}) }, [])
 
   // Filter submissions based on status and search term
   const filteredSubmissions = submissionsList.filter(submission => {
@@ -171,12 +195,15 @@ export default function FunctionalHealthAnalysis({ submissions = mockSubmissions
     })
   }
 
-  const updateSubmissionStatus = (id: string, newStatus: HealthAnalysisSubmission['status']) => {
-    setSubmissionsList(prev => 
-      prev.map(sub => 
-        sub.id === id ? { ...sub, status: newStatus } : sub
-      )
-    )
+  const updateSubmissionStatus = async (id: string, newStatus: HealthAnalysisSubmission['status']) => {
+    const response = await fetch('/api/admin/emr', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: 'assessments', id, status: newStatus }) })
+    if (response.ok) setSubmissionsList(prev => prev.map(sub => sub.id === id ? { ...sub, status: newStatus } : sub))
+  }
+
+  const linkPatient = async (id: string) => {
+    const patientId = patientLinks[id]
+    if (!patientId) return
+    await fetch('/api/admin/emr', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: 'assessments', id, patient_id: patientId }) })
   }
 
   return (
@@ -190,7 +217,7 @@ export default function FunctionalHealthAnalysis({ submissions = mockSubmissions
               <p className="text-2xl font-bold text-green-deep font-dm-sans">{submissionsList.length}</p>
             </div>
             <div className="w-12 h-12 bg-green-deep/10 rounded-lg flex items-center justify-center">
-              <span className="text-xl">📋</span>
+              <ClipboardTextIcon size={24} weight="duotone" className="text-green-deep" />
             </div>
           </div>
         </div>
@@ -204,7 +231,7 @@ export default function FunctionalHealthAnalysis({ submissions = mockSubmissions
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <span className="text-xl">🆕</span>
+              <PlusCircleIcon size={24} weight="duotone" className="text-green-mid" />
             </div>
           </div>
         </div>
@@ -218,7 +245,7 @@ export default function FunctionalHealthAnalysis({ submissions = mockSubmissions
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <span className="text-xl">👁️</span>
+              <EyeIcon size={24} weight="duotone" className="text-blue-700" />
             </div>
           </div>
         </div>
@@ -232,7 +259,7 @@ export default function FunctionalHealthAnalysis({ submissions = mockSubmissions
               </p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <span className="text-xl">📞</span>
+              <PhoneCallIcon size={24} weight="duotone" className="text-amber-700" />
             </div>
           </div>
         </div>
@@ -344,6 +371,7 @@ export default function FunctionalHealthAnalysis({ submissions = mockSubmissions
                       <option value="contacted">Contacted</option>
                       <option value="completed">Completed</option>
                     </select>
+                    <div className="mt-2 flex gap-1"><select value={patientLinks[submission.id] || ''} onChange={(e) => setPatientLinks(current => ({ ...current, [submission.id]: e.target.value }))} className="max-w-44 rounded border border-gray-300 px-2 py-1 text-xs"><option value="">Link patient…</option>{patients.map(patient => <option key={patient.id} value={patient.id}>{patient.mrn} · {patient.first_name} {patient.last_name}</option>)}</select><button onClick={() => linkPatient(submission.id)} className="rounded bg-green-deep px-2 py-1 text-xs text-white">Link</button></div>
                   </td>
                 </tr>
               ))}
@@ -361,9 +389,7 @@ export default function FunctionalHealthAnalysis({ submissions = mockSubmissions
               onClick={() => setSelectedSubmission(null)}
               className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors z-10"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <XIcon size={24} weight="bold" />
             </button>
 
             {/* Modal Header */}

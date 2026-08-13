@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAIProvider, getAvailableProviders } from '@/lib/ai/providers'
+import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 
 export async function POST(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'blog')) return NextResponse.json({ error: 'Blog access required' }, { status: 403 })
     // Parse request body
     const body = await request.json()
     const { prompt, provider: requestedProvider, category } = body
@@ -119,7 +121,8 @@ export async function POST(request: NextRequest) {
 }
 
 // GET endpoint to check available providers
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!await getAuthorizedAdminRole(request, 'blog')) return NextResponse.json({ error: 'Blog access required' }, { status: 403 })
   const providers = getAvailableProviders()
   return NextResponse.json({
     available: providers,

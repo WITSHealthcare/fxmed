@@ -18,6 +18,10 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import {
+  ChartBarIcon, ChartLineUpIcon, CheckIcon, ClipboardTextIcon, DotsThreeVerticalIcon,
+  FileTextIcon, RobotIcon, UserCircleIcon, UsersThreeIcon, XIcon,
+} from '@phosphor-icons/react'
 
 type Stage = "Outreach" | "Follow Up" | "Enrolment" | "Onboarding" | "Active"
 type NavItem = "overview" | "pipeline" | "coordinator" | "documents" | "reporting" | "ai-agent"
@@ -540,6 +544,28 @@ export default function CrmDashboard({
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null)
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null)
   const [savingPatient, setSavingPatient] = useState(false)
+  const [clinicalPatient, setClinicalPatient] = useState<Patient | null>(null)
+  const [clinicalForm, setClinicalForm] = useState({ date_of_birth: '', sex: '', first_name: '', last_name: '' })
+  const [clinicalSaving, setClinicalSaving] = useState(false)
+  const [clinicalError, setClinicalError] = useState('')
+
+  const beginClinicalConversion = (patient: Patient) => {
+    const parts = patient.name.trim().split(/\s+/)
+    setClinicalForm({ first_name: parts[0] || '', last_name: parts.slice(1).join(' ') || '', date_of_birth: '', sex: '' })
+    setClinicalError('')
+    setClinicalPatient(patient)
+  }
+
+  const createClinicalPatient = async () => {
+    if (!clinicalPatient) return
+    setClinicalSaving(true)
+    setClinicalError('')
+    const response = await fetch('/api/admin/emr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: 'patients', crm_patient_id: clinicalPatient.id, first_name: clinicalForm.first_name, last_name: clinicalForm.last_name, date_of_birth: clinicalForm.date_of_birth, sex: clinicalForm.sex, email: clinicalPatient.email, phone: clinicalPatient.phone }) })
+    const result = await response.json()
+    if (!response.ok) setClinicalError(result.error || 'Unable to create the clinical patient record.')
+    else { setClinicalPatient(null); setViewingPatient(null) }
+    setClinicalSaving(false)
+  }
 
   const fetchRevenueStreams = async () => {
     try {
@@ -697,12 +723,12 @@ export default function CrmDashboard({
   )
 
   const navItems = [
-    { id: "overview", label: "Overview", icon: "📊" },
-    { id: "pipeline", label: "Pipeline", icon: "📈" },
-    { id: "coordinator", label: "Coordinator", icon: "👥" },
-    { id: "documents", label: "Documents", icon: "📄" },
-    { id: "reporting", label: "Reporting", icon: "📋" },
-    { id: "ai-agent", label: "AI Agent", icon: "🤖" },
+    { id: "overview", label: "Overview", Icon: ChartBarIcon },
+    { id: "pipeline", label: "Pipeline", Icon: ChartLineUpIcon },
+    { id: "coordinator", label: "Coordinator", Icon: UsersThreeIcon },
+    { id: "documents", label: "Documents", Icon: FileTextIcon },
+    { id: "reporting", label: "Reporting", Icon: ClipboardTextIcon },
+    { id: "ai-agent", label: "AI Agent", Icon: RobotIcon },
   ]
 
   const pipelineStages: Stage[] = ["Outreach", "Follow Up", "Enrolment", "Onboarding", "Active"]
@@ -1432,9 +1458,7 @@ export default function CrmDashboard({
               }}
               className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors"
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-              </svg>
+              <DotsThreeVerticalIcon size={18} weight="bold" />
             </button>
             {showMenu && (
               <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-200 z-10 py-1">
@@ -1547,7 +1571,7 @@ export default function CrmDashboard({
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <span className="mr-2">{item.icon}</span>
+                <item.Icon size={19} weight={activeSection === item.id ? 'fill' : 'duotone'} className="mr-2 inline-block align-[-0.2em]" />
                 {item.label}
               </button>
             ))}
@@ -1946,7 +1970,7 @@ export default function CrmDashboard({
                               onClick={() => toggleFinancialTask(task.id)}
                               className={`w-5 h-5 rounded border mt-0.5 shrink-0 text-[11px] leading-4 ${task.done ? "bg-green-600 border-green-600 text-white" : "border-gray-300"}`}
                             >
-                              {task.done ? "✓" : ""}
+                              {task.done ? <CheckIcon size={13} weight="bold" /> : null}
                             </button>
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
@@ -2329,7 +2353,7 @@ export default function CrmDashboard({
               onClick={() => setShowAgentPanel(false)}
               className="text-gray-500 hover:text-gray-700"
             >
-              ✕
+              <XIcon size={20} weight="bold" />
             </button>
           </div>
 
@@ -2438,7 +2462,7 @@ export default function CrmDashboard({
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-dm-sans font-bold text-green-deep">Add New Lead</h3>
               <button onClick={() => setShowLeadModal(false)} className="text-gray-500 hover:text-gray-700">
-                ✕
+                <XIcon size={20} weight="bold" />
               </button>
             </div>
 
@@ -2677,15 +2701,15 @@ export default function CrmDashboard({
                 onClick={() => setViewingPatient(null)} 
                 className="text-gray-500 hover:text-gray-700 p-2"
               >
-                ✕
+                <XIcon size={20} weight="bold" />
               </button>
             </div>
 
             <div className="space-y-6">
               {/* Header Info */}
               <div className="flex items-start gap-4 pb-6 border-b border-gray-200">
-                <div className="w-16 h-16 rounded-full bg-green-deep/10 flex items-center justify-center text-2xl">
-                  👤
+                <div className="w-16 h-16 rounded-full bg-green-deep/10 flex items-center justify-center text-green-mid">
+                  <UserCircleIcon size={38} weight="duotone" />
                 </div>
                 <div className="flex-1">
                   <h4 className="text-xl font-dm-sans font-semibold text-green-deep">{viewingPatient.name}</h4>
@@ -2788,6 +2812,12 @@ export default function CrmDashboard({
               {/* Actions */}
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button
+                  onClick={() => beginClinicalConversion(viewingPatient)}
+                  className="flex-1 px-4 py-2 rounded-lg bg-green-deep text-white font-dm-sans font-semibold hover:bg-green-mid"
+                >
+                  Create clinical patient
+                </button>
+                <button
                   onClick={() => setViewingPatient(null)}
                   className="flex-1 px-4 py-2 rounded-lg border border-green-deep/20 font-dm-sans hover:bg-gray-50"
                 >
@@ -2795,6 +2825,23 @@ export default function CrmDashboard({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {clinicalPatient && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setClinicalPatient(null) }}>
+          <div className="w-full max-w-lg rounded-[22px] bg-white p-6 shadow-2xl">
+            <h3 className="text-2xl font-bold text-green-deep">Create clinical patient</h3>
+            <p className="mt-2 text-sm text-text-mid">Confirm the legal name, date of birth and sex before creating the permanent EMR record.</p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-bold text-green-deep">First name<input className="input mt-2" value={clinicalForm.first_name} onChange={(event) => setClinicalForm({ ...clinicalForm, first_name: event.target.value })} /></label>
+              <label className="text-sm font-bold text-green-deep">Last name<input className="input mt-2" value={clinicalForm.last_name} onChange={(event) => setClinicalForm({ ...clinicalForm, last_name: event.target.value })} /></label>
+              <label className="text-sm font-bold text-green-deep">Date of birth<input type="date" className="input mt-2" value={clinicalForm.date_of_birth} onChange={(event) => setClinicalForm({ ...clinicalForm, date_of_birth: event.target.value })} /></label>
+              <label className="text-sm font-bold text-green-deep">Sex<select className="input mt-2" value={clinicalForm.sex} onChange={(event) => setClinicalForm({ ...clinicalForm, sex: event.target.value })}><option value="">Select…</option><option value="female">Female</option><option value="male">Male</option><option value="intersex">Intersex</option><option value="unknown">Unknown</option></select></label>
+            </div>
+            {clinicalError && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{clinicalError}</p>}
+            <div className="mt-6 flex justify-end gap-3"><button onClick={() => setClinicalPatient(null)} className="secondary">Cancel</button><button disabled={clinicalSaving || !clinicalForm.first_name || !clinicalForm.last_name || !clinicalForm.date_of_birth || !clinicalForm.sex} onClick={createClinicalPatient} className="primary disabled:opacity-50">{clinicalSaving ? 'Creating…' : 'Create patient record'}</button></div>
           </div>
         </div>
       )}
@@ -2809,7 +2856,7 @@ export default function CrmDashboard({
                 onClick={() => setEditingPatient(null)} 
                 className="text-gray-500 hover:text-gray-700"
               >
-                ✕
+                <XIcon size={20} weight="bold" />
               </button>
             </div>
 

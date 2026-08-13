@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { sanitizeRichText } from '@/lib/content-sanitizer'
+import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 
-// Create admin client with public key
+// Server-only client; route authorization is enforced before every operation.
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
   {
     auth: {
       autoRefreshToken: false,
@@ -14,9 +15,30 @@ const supabaseAdmin = createClient(
   }
 )
 
+function cleanString(value: unknown, maxLength: number) {
+  if (typeof value !== 'string') return undefined
+  return value.trim().slice(0, maxLength)
+}
+
+function getDraftInput(input: Record<string, unknown>, partial = false) {
+  const draft: Record<string, unknown> = {}
+  const fields: Array<[string, number]> = [
+    ['title', 300], ['slug', 300], ['author', 150], ['category', 120],
+    ['thumbnail_url', 2000], ['thumbnail_alt', 500], ['read_time', 80],
+  ]
+  for (const [field, maxLength] of fields) {
+    if (input[field] !== undefined) draft[field] = cleanString(input[field], maxLength)
+  }
+  if (input.excerpt !== undefined) draft.excerpt = sanitizeRichText(cleanString(input.excerpt, 10_000) || '')
+  if (input.content !== undefined) draft.content = sanitizeRichText(cleanString(input.content, 500_000) || '')
+  if (!partial && (!draft.title || !draft.slug)) return { error: 'Title and slug are required.' }
+  return { draft }
+}
+
 // GET - Fetch all draft posts
 export async function GET(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'blog')) return NextResponse.json({ error: 'Blog access required' }, { status: 403 })
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     
@@ -47,16 +69,13 @@ export async function GET(request: NextRequest) {
 // POST - Create new draft post
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const draft = {
-      ...body,
-      ...(body.excerpt !== undefined ? { excerpt: sanitizeRichText(body.excerpt) } : {}),
-      ...(body.content !== undefined ? { content: sanitizeRichText(body.content) } : {}),
-    }
+    if (!await getAuthorizedAdminRole(request, 'blog')) return NextResponse.json({ error: 'Blog access required' }, { status: 403 })
+    const input = getDraftInput(await request.json())
+    if (input.error) return NextResponse.json({ error: input.error }, { status: 400 })
     
     const { data, error } = await supabaseAdmin
       .from('draft_posts')
-      .insert(draft)
+      .insert(input.draft!)
       .select()
       .single()
     
@@ -75,6 +94,7 @@ export async function POST(request: NextRequest) {
 // DELETE - Delete a draft post
 export async function DELETE(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'blog')) return NextResponse.json({ error: 'Blog access required' }, { status: 403 })
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     
@@ -105,8 +125,9 @@ export async function DELETE(request: NextRequest) {
 // PATCH - Update draft post
 export async function PATCH(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'blog')) return NextResponse.json({ error: 'Blog access required' }, { status: 403 })
     const body = await request.json()
-    const { id, ...updateData } = body
+    const { id } = body
     
     if (!id) {
       return NextResponse.json(
@@ -115,20 +136,10 @@ export async function PATCH(request: NextRequest) {
       )
     }
     
-    // Build update object
-    const updateObj: any = {
-      updated_at: new Date().toISOString()
-    }
-    
-    if (updateData.title !== undefined) updateObj.title = updateData.title
-    if (updateData.slug !== undefined) updateObj.slug = updateData.slug
-    if (updateData.excerpt !== undefined) updateObj.excerpt = sanitizeRichText(updateData.excerpt)
-    if (updateData.content !== undefined) updateObj.content = sanitizeRichText(updateData.content)
-    if (updateData.author !== undefined) updateObj.author = updateData.author
-    if (updateData.category !== undefined) updateObj.category = updateData.category
-    if (updateData.thumbnail_url !== undefined) updateObj.thumbnail_url = updateData.thumbnail_url
-    if (updateData.thumbnail_alt !== undefined) updateObj.thumbnail_alt = updateData.thumbnail_alt
-    if (updateData.read_time !== undefined) updateObj.read_time = updateData.read_time
+    const input = getDraftInput(body, true)
+    if (input.error) return NextResponse.json({ error: input.error }, { status: 400 })
+    if (!input.draft || Object.keys(input.draft).length === 0) return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 })
+    const updateObj = { ...input.draft, updated_at: new Date().toISOString() }
     
     const { data, error } = await supabaseAdmin
       .from('draft_posts')

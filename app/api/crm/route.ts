@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
+import { writeRequestAdminActivity } from '@/lib/admin-activity'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -11,9 +13,25 @@ const isMissingSpecifySourceColumnError = (error: any) => {
   return message.includes('specify_source') && message.includes('column')
 }
 
+const allowedPatientFields = new Set([
+  'name', 'age', 'program', 'risk', 'stage', 'source', 'specify_source', 'owner',
+  'phone', 'email', 'last_touch', 'next_step', 'next_date', 'progress', 'tags',
+  'preferred', 'appointment', 'consent_status', 'document_count', 'reminder_status',
+  'notes', 'status',
+])
+
+function getAllowedPatientData(body: Record<string, unknown>) {
+  const data: Record<string, unknown> = {}
+  for (const [field, value] of Object.entries(body)) {
+    if (allowedPatientFields.has(field)) data[field] = value
+  }
+  return data
+}
+
 // GET - Fetch all patients or single patient by ID
 export async function GET(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'crm')) return NextResponse.json({ error: 'CRM access required' }, { status: 403 })
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     
@@ -56,7 +74,13 @@ export async function GET(request: NextRequest) {
 // POST - Create new patient
 export async function POST(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'crm')) return NextResponse.json({ error: 'CRM access required' }, { status: 403 })
     const body = await request.json()
+    const patientData = getAllowedPatientData(body)
+    if (typeof patientData.name !== 'string' || !patientData.name.trim()) {
+      return NextResponse.json({ error: 'Patient name is required' }, { status: 400 })
+    }
+    patientData.name = patientData.name.trim().slice(0, 200)
     
     // Generate ID if not provided
     if (!body.id) {
@@ -69,17 +93,17 @@ export async function POST(request: NextRequest) {
       const lastNum = existing && existing.length > 0 
         ? parseInt(existing[0].id.replace('FX', '')) 
         : 0
-      body.id = `FX${String(lastNum + 1).padStart(3, '0')}`
+      patientData.id = `FX${String(lastNum + 1).padStart(3, '0')}`
     }
     
     let { data, error } = await supabase
       .from('crm_patients')
-      .insert([body])
+      .insert([patientData])
       .select()
       .single()
 
-    if (error && body.specify_source && isMissingSpecifySourceColumnError(error)) {
-      const { specify_source, ...bodyWithoutSpecifySource } = body
+    if (error && patientData.specify_source && isMissingSpecifySourceColumnError(error)) {
+      const { specify_source, ...bodyWithoutSpecifySource } = patientData
       const retry = await supabase
         .from('crm_patients')
         .insert([bodyWithoutSpecifySource])
@@ -91,7 +115,15 @@ export async function POST(request: NextRequest) {
     }
     
     if (error) throw error
-    
+
+    await writeRequestAdminActivity(supabase, request, {
+      action: 'create_crm_record',
+      module: 'CRM',
+      description: `Created CRM record for ${data.name || data.email || data.id}`,
+      entityType: 'crm_patient',
+      entityId: data.id,
+    })
+
     return NextResponse.json({ patient: data }, { status: 201 })
   } catch (error: any) {
     console.error('Error creating patient:', error)
@@ -105,13 +137,19 @@ export async function POST(request: NextRequest) {
 // PATCH - Update patient
 export async function PATCH(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'crm')) return NextResponse.json({ error: 'CRM access required' }, { status: 403 })
     const body = await request.json()
-    const { id, ...updates } = body
+    const { id } = body
     
     if (!id) {
       return NextResponse.json({ error: 'Patient ID required' }, { status: 400 })
     }
     
+    const updates = getAllowedPatientData(body)
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
     const { data, error } = await supabase
       .from('crm_patients')
       .update(updates)
@@ -120,7 +158,15 @@ export async function PATCH(request: NextRequest) {
       .single()
     
     if (error) throw error
-    
+
+    await writeRequestAdminActivity(supabase, request, {
+      action: 'update_crm_record',
+      module: 'CRM',
+      description: `Updated CRM record for ${data.name || data.email || data.id}`,
+      entityType: 'crm_patient',
+      entityId: data.id,
+    })
+
     return NextResponse.json({ patient: data })
   } catch (error: any) {
     console.error('Error updating patient:', error)
@@ -134,6 +180,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete patient
 export async function DELETE(request: NextRequest) {
   try {
+    if (!await getAuthorizedAdminRole(request, 'crm')) return NextResponse.json({ error: 'CRM access required' }, { status: 403 })
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     
@@ -147,7 +194,15 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id)
     
     if (error) throw error
-    
+
+    await writeRequestAdminActivity(supabase, request, {
+      action: 'delete_crm_record',
+      module: 'CRM',
+      description: 'Deleted a CRM record',
+      entityType: 'crm_patient',
+      entityId: id,
+    })
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting patient:', error)

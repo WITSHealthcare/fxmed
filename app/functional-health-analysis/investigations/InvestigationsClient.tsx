@@ -55,6 +55,11 @@ export default function InvestigationsClient() {
       } catch (error) {
         console.error('Error parsing form data:', error)
       }
+    } else {
+      const saved = sessionStorage.getItem('fxmed-health-analysis')
+      if (saved) {
+        try { setFormData(JSON.parse(saved)) } catch (error) { console.error('Error restoring assessment data:', error) }
+      }
     }
     setIsLoading(false)
   }, [searchParams])
