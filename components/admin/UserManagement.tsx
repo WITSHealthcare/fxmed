@@ -15,7 +15,6 @@ type ManagedUser = {
 const roleOptions: Array<{ id: AdminRole; label: string; description: string }> = [
   { id: 'admin', label: adminRoleLabels.admin, description: 'Full dashboard access and user management.' },
   { id: 'clinical', label: adminRoleLabels.clinical, description: 'Blog, Clinical CRM, Health Analysis, and Requests.' },
-  { id: 'ambassador', label: adminRoleLabels.ambassador, description: 'Ambassador Program only.' },
   { id: 'sales', label: adminRoleLabels.sales, description: 'Financial CRM, SEO Analytics, and Messages.' },
 ]
 

@@ -1,13 +1,12 @@
 import type { User } from '@supabase/supabase-js'
 
-export type AdminRole = 'admin' | 'clinical' | 'ambassador' | 'sales'
+export type AdminRole = 'admin' | 'clinical' | 'sales'
 export type AdminTab = 'blog' | 'crm' | 'seo' | 'health' | 'messages' | 'requests' | 'ambassador' | 'tools' | 'users' | 'zara' | 'contacts'
 export type CrmAccess = 'clinical' | 'financial'
 
 export const adminRoleLabels: Record<AdminRole, string> = {
   admin: 'Admin',
   clinical: 'Clinical Team Member',
-  ambassador: 'Ambassador',
   sales: 'Sales Rep',
 }
 
@@ -19,10 +18,6 @@ export const adminRolePermissions: Record<AdminRole, { tabs: AdminTab[]; crmView
   clinical: {
     tabs: ['blog', 'crm', 'health', 'requests', 'tools', 'contacts'],
     crmViews: ['clinical'],
-  },
-  ambassador: {
-    tabs: ['ambassador'],
-    crmViews: [],
   },
   sales: {
     tabs: ['crm', 'seo', 'messages', 'tools', 'contacts'],
@@ -47,7 +42,6 @@ export function getUserAdminRole(user: User | null): AdminRole | null {
 
   if (role === 'admin' || appMetadata?.is_admin === true || userMetadata?.is_admin === true) return 'admin'
   if (role === 'clinical') return 'clinical'
-  if (role === 'ambassador') return 'ambassador'
   if (role === 'sales') return 'sales'
   if (email && getConfiguredAdminEmails().includes(email)) return 'admin'
 

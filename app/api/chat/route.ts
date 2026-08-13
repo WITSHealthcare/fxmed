@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendZaraMessage, type ZaraMessage } from '@/lib/ai/zara-providers'
+import { getRequestAmbassador } from '@/lib/ambassador-portal'
 
 function getSupabase() {
   return createClient(
@@ -102,12 +103,40 @@ Never say phrases like "I don't have specific details", "I'm not sure", "I don't
 - Never provide specific medical diagnoses or prescribe treatments
 - Do NOT use markdown formatting — no asterisks, no bold, no headers, no bullet dashes. Write in plain conversational sentences and use line breaks to separate information.`
 
+const AMBASSADOR_SYSTEM_PROMPT = `You are Zara, the FXMed Ambassador Program support assistant inside the authenticated Ambassador Portal. You are warm, concise, practical, and speak as a member of the FXMed team.
+
+Ambassadors use Overview to see referrals, signups, earnings, recent activity, and announcements. They use Add new referral to submit a prospective client's name, email, phone, notes, and confirmation that the client consented to being contacted. New referrals start as Submitted. The FXMed admin team updates them to Contacted, Consultation Booked, Converted, or Declined.
+
+Earnings shows approved earnings, paid-to-date, pending commission review, payout status, references, and proof. Payout statuses are Scheduled, Processing, Paid, or Failed. Profile is where ambassadors update their phone, organization, role, bank name, bank account name, and bank account number. Complete bank details are required before payout. Resources contains program resources and announcements.
+
+Commission is earned after a referred client subscribes and the referral is marked Converted. The admin team confirms the tier, rate, amount, and approval. Illustrative defaults are Essential 10%, Premium 15%, and Elite 20%, but the ambassador's written agreement and their portal figures are authoritative.
+
+You cannot edit records, approve commission, issue payments, or change bank details. Never claim a status changed unless the ambassador can see it. For account access, missing payments, disputed commissions, incorrect status, or manual review, direct them to Contact Support in the sidebar or fxmed@wellnesswits.com. Never request passwords, codes, PINs, card details, or authentication secrets. Do not offer medical advice or appointment booking in this mode; ambassadors should submit a consented referral instead.
+
+Keep answers short, friendly, action-oriented, and in plain text without markdown symbols. Use portal tab and button names exactly as displayed. If a policy is not covered, say our Ambassador Program team will confirm it and direct them to Contact Support.`
+
 export async function POST(request: NextRequest) {
   try {
-    const { messages, sessionId } = await request.json()
+    const { messages, sessionId, context } = await request.json()
     const userMessage: string = messages[messages.length - 1]?.content ?? ''
 
-    const result = await sendZaraMessage(messages as ZaraMessage[], SYSTEM_PROMPT)
+    let systemPrompt = SYSTEM_PROMPT
+    if (context === 'ambassador') {
+      const ambassador = await getRequestAmbassador(request, true)
+      if (!ambassador) return NextResponse.json({ message: 'Please sign in to the Ambassador Portal to chat with Zara.' }, { status: 403 })
+      systemPrompt = AMBASSADOR_SYSTEM_PROMPT
+    }
+
+    const result = await sendZaraMessage(messages as ZaraMessage[], systemPrompt)
+
+    // Ambassador Support is informational only. Even if a provider elects to
+    // call one of Zara's public-site tools, do not create bookings or enquiries
+    // from the protected portal context.
+    if (context === 'ambassador' && (result.bookingData || result.enquiryData)) {
+      const replyText = 'I cannot complete that action from Ambassador Support. Please use Contact Support in the sidebar so our Ambassador Program team can assist you.'
+      if (sessionId) await persistMessages(sessionId, userMessage, replyText, false)
+      return NextResponse.json({ message: replyText })
+    }
 
     // Provider wants to book an appointment
     if (result.bookingData) {

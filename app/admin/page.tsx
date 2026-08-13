@@ -14,7 +14,7 @@ import UserManagement from '@/components/admin/UserManagement'
 import ZaraDashboard from '@/components/admin/ZaraDashboard'
 import AdminTools from '@/components/admin/AdminTools'
 import Contacts from '@/components/admin/Contacts'
-import AmbassadorApplications from '@/components/admin/AmbassadorApplications'
+import AmbassadorProgram from '@/components/admin/AmbassadorProgram'
 import { getCurrentAdminRole, signOut, supabase } from '@/lib/supabase-auth'
 import { adminRoleLabels, adminRolePermissions, canAccessCrmView, canAccessTab, type AdminRole, type AdminTab } from '@/lib/admin-auth'
 import blogContentData from '@/app/blog/fxmed-content (1).json'
@@ -694,7 +694,7 @@ export default function AdminPanel() {
             {activeTab === 'requests' && canAccessTab(currentRole, 'requests') && <AppointmentCalendar />}
 
             {activeTab === 'ambassador' && canAccessTab(currentRole, 'ambassador') && (
-              <AmbassadorApplications />
+              <AmbassadorProgram />
             )}
 
             {activeTab === 'tools' && canAccessTab(currentRole, 'tools') && <AdminTools />}
