@@ -63,6 +63,9 @@ export default function Footer() {
                 <a href="/ambassadors" className="hover:text-gold transition-colors">Ambassadors</a>
               </li>
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
+                <a href="/careers" className="hover:text-gold transition-colors">Careers</a>
+              </li>
+              <li className="font-dm-sans text-cream/80 text-[0.9rem]">
                 <button
                   onClick={() => setShowContactModal(true)}
                   className="hover:text-gold transition-colors"
