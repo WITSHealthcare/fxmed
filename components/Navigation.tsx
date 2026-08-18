@@ -100,7 +100,7 @@ const isHomePage = pathname === '/'
               src="/logo.png"
               alt="FXMed"
               width={240}
-              height={120}
+              height={135}
               className="h-[120px] w-auto md:h-[120px] h-[80px]"
             />
           </a>

@@ -129,7 +129,7 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-cream flex items-center justify-center px-4 py-10">
       <div className="max-w-2xl w-full">
         <div className="text-center mb-8">
-          <Image src="/logo.png" alt="FXMed" width={200} height={100} className="h-[90px] w-auto mx-auto mb-4" priority />
+          <Image src="/logo.png" alt="FXMed" width={200} height={113} className="h-[90px] w-auto mx-auto mb-4" priority />
           <h1 className="font-dm-sans font-bold text-green-deep text-[2rem] mb-2">Outreach Registration</h1>
           <p className="font-dm-sans text-text-mid">
             Please share a few details so our team can support your health journey.

@@ -50,7 +50,7 @@ export default function AdminLogin() {
             src="/logo.png"
             alt="FXMed"
             width={200}
-            height={100}
+            height={113}
             className="h-[100px] w-auto mx-auto mb-4"
           />
           <h1 className="font-dm-sans font-bold text-green-deep text-[2rem] mb-2">
