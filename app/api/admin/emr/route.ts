@@ -36,6 +36,10 @@ const patientFields = [
   'marital_status','blood_group','genotype','occupation','emergency_contact_name','emergency_contact_phone','emergency_contact_relationship',
 ] as const
 
+// NOT NULL columns on emr_patients. Blanking one is never valid, so an empty value is
+// ignored on update rather than sent as a null the constraint would reject.
+const requiredPatientFields = new Set<string>(['first_name','last_name','date_of_birth','sex','country'])
+
 const enumValues: Record<string, string[]> = {
   sex: ['female','male','intersex','unknown'],
   patient_status: ['active','inactive','deceased'],
@@ -211,7 +215,12 @@ export async function POST(request: NextRequest) {
   try {
     if (resource === 'patients') {
       const record: Record<string, unknown> = { created_by: user.id }
-      for (const field of patientFields) record[field] = field === 'date_of_birth' ? cleanDate(body[field]) : cleanText(body[field], field === 'address' ? 1000 : 180)
+      // Omit blank fields rather than inserting null, so NOT NULL columns that carry a
+      // database default (country) fall back to it instead of failing the constraint.
+      for (const field of patientFields) {
+        const value = field === 'date_of_birth' ? cleanDate(body[field]) : cleanText(body[field], field === 'address' ? 1000 : 180)
+        if (value !== null) record[field] = value
+      }
       record.sex = enumValue(body.sex, 'sex', 'unknown')
       if (!record.first_name || !record.last_name || !record.date_of_birth) return NextResponse.json({ error: 'First name, last name and date of birth are required.' }, { status: 400 })
       record.crm_patient_id = cleanText(body.crm_patient_id, 80)
@@ -264,7 +273,12 @@ export async function PATCH(request: NextRequest) {
   try {
     if (resource === 'patients') {
       const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
-      for (const field of patientFields) if (field in body) updates[field] = field === 'date_of_birth' ? cleanDate(body[field]) : cleanText(body[field], field === 'address' ? 1000 : 180)
+      for (const field of patientFields) {
+        if (!(field in body)) continue
+        const value = field === 'date_of_birth' ? cleanDate(body[field]) : cleanText(body[field], field === 'address' ? 1000 : 180)
+        if (value === null && requiredPatientFields.has(field)) continue
+        updates[field] = value
+      }
       if ('status' in body) updates.status = enumValue(body.status, 'patient_status', 'active')
       const { data, error } = await database.from('emr_patients').update(updates).eq('id', id).select('*').single()
       if (error) throw error
