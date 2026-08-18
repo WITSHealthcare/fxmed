@@ -6,6 +6,11 @@ import AppointmentModal from '@/components/AppointmentModal'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
+import JsonLd from '@/components/JsonLd'
+import { createBreadcrumbJsonLd } from '@/lib/seo'
+
+
+const breadcrumbJsonLd = createBreadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Programs', path: '/programs' }])
 
 export default function Programs() {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
@@ -69,6 +74,7 @@ export default function Programs() {
 
   return (
     <main className="min-h-screen bg-[#FCFFF0]">
+      <JsonLd data={breadcrumbJsonLd} />
       <Navigation />
       
       {/* Hero Section */}

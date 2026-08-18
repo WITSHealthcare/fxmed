@@ -8,6 +8,7 @@ export const metadata = createMetadata({
   keywords: ['FXMed Elite ambassador', 'healthcare ambassador program', 'concierge healthcare partnership Nigeria'],
 })
 
+
 export default function AmbassadorsLayout({ children }: { children: ReactNode }) {
   return children
 }

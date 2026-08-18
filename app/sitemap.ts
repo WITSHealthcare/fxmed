@@ -17,7 +17,7 @@ async function getPublishedBlogSlugs() {
 
     const { data, error } = await supabase
       .from('blog_posts')
-      .select('slug,created_at')
+      .select('slug,created_at,updated_at')
       .eq('status', 'published')
       .order('created_at', { ascending: false })
 
@@ -36,16 +36,16 @@ async function getPublishedBlogSlugs() {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
   const staticEntries = publicRoutes.map((route) => ({
-    url: absoluteUrl(route),
-    lastModified: now,
-    changeFrequency: route === '/' ? 'weekly' : 'monthly',
-    priority: route === '/' ? 1 : route === '/blog' ? 0.8 : 0.7,
+    url: absoluteUrl(route.path),
+    lastModified: new Date(route.lastModified),
+    changeFrequency: route.changeFrequency,
+    priority: route.priority,
   })) satisfies MetadataRoute.Sitemap
 
   const blogPosts = await getPublishedBlogSlugs()
   const blogEntries = blogPosts.map((post) => ({
     url: absoluteUrl(`/blog/${post.slug}`),
-    lastModified: post.created_at ? new Date(post.created_at) : now,
+    lastModified: post.updated_at || post.created_at ? new Date(post.updated_at || post.created_at) : now,
     changeFrequency: 'monthly',
     priority: 0.6,
   })) satisfies MetadataRoute.Sitemap

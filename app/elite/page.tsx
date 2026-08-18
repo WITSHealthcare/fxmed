@@ -38,42 +38,42 @@ export default function Elite() {
 
   const services = [
     {
-      icon: <Image src="/Virus.svg" alt="Virus" width={32} height={32} />,
+      icon: <Image src="/Virus.svg" alt="" width={32} height={32} />,
       title: "Chronic Disease Management",
       description: "Hypertension, Diabetes, etc."
     },
     {
-      icon: <Image src="/Spade.svg" alt="Spade" width={32} height={32} />,
+      icon: <Image src="/Spade.svg" alt="" width={32} height={32} />,
       title: "Physiotherapy & Pain Management",
       description: "Comprehensive pain relief"
     },
     {
-      icon: <Image src="/FirstAidKit.svg" alt="First Aid Kit" width={32} height={32} />,
+      icon: <Image src="/FirstAidKit.svg" alt="" width={32} height={32} />,
       title: "Lifestyle Medicine",
       description: "Functional Wellness Assessments"
     },
     {
-      icon: <Image src="/DeviceMobile.svg" alt="Device Mobile" width={32} height={32} />,
+      icon: <Image src="/DeviceMobile.svg" alt="" width={32} height={32} />,
       title: "Same-Day Teleconsults",
       description: "Direct specialist access"
     },
     {
-      icon: <Image src="/BowlFood 2.svg" alt="Bowl Food" width={32} height={32} />,
+      icon: <Image src="/BowlFood 2.svg" alt="" width={32} height={32} />,
       title: "Nutrition Coaching",
       description: "Personalized meal plans"
     },
     {
-      icon: <Image src="/TestTube 2.svg" alt="Test Tube" width={32} height={32} />,
+      icon: <Image src="/TestTube 2.svg" alt="" width={32} height={32} />,
       title: "Laboratory Testing",
       description: "At-home or via courier"
     },
     {
-      icon: <Image src="/FlowerLotus.svg" alt="Flower Lotus" width={32} height={32} />,
+      icon: <Image src="/FlowerLotus.svg" alt="" width={32} height={32} />,
       title: "Mental Wellness",
       description: "Psychological support"
     },
     {
-      icon: <Image src="/Ambulance 2.svg" alt="Ambulance" width={32} height={32} />,
+      icon: <Image src="/Ambulance 2.svg" alt="" width={32} height={32} />,
       title: "Mobile Clinic Access",
       description: "On-demand health visits"
     }

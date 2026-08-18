@@ -1,4 +1,5 @@
-import { createMetadata } from '@/lib/seo'
+import JsonLd from '@/components/JsonLd'
+import { createBreadcrumbJsonLd, createMedicalWebPageJsonLd, createMetadata } from '@/lib/seo'
 
 export const metadata = createMetadata({
   title: 'Adrenal Reset Program | FXMed',
@@ -8,6 +9,21 @@ export const metadata = createMetadata({
   keywords: ['adrenal reset', 'chronic fatigue support', 'stress and sleep program'],
 })
 
+
+const medicalPageJsonLd = createMedicalWebPageJsonLd({
+  name: 'Adrenal Reset Program',
+  description: 'Restore energy, improve sleep and address stress patterns with FXMed’s Adrenal Reset functional medicine program.',
+  path: '/programs/adrenal-reset',
+  condition: 'Adrenal fatigue',
+})
+
+const breadcrumbJsonLd = createBreadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Programs', path: '/programs' }, { name: 'Adrenal Reset', path: '/programs/adrenal-reset' }])
+
 export default function AdrenalResetLayout({ children }: { children: React.ReactNode }) {
-  return children
+  return (
+    <>
+      <JsonLd data={[breadcrumbJsonLd, medicalPageJsonLd]} />
+      {children}
+    </>
+  )
 }

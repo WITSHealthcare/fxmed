@@ -1,4 +1,5 @@
-import { createMetadata } from '@/lib/seo'
+import JsonLd from '@/components/JsonLd'
+import { createBreadcrumbJsonLd, createMetadata } from '@/lib/seo'
 
 export const metadata = createMetadata({
   title: 'Maternal Wellness Packages | FXMed',
@@ -9,6 +10,14 @@ export const metadata = createMetadata({
   keywords: ['maternal wellness', 'pregnancy wellness', 'antenatal care', 'postnatal care', 'fertility support'],
 })
 
+
+const breadcrumbJsonLd = createBreadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Maternal Wellness', path: '/maternal-wellness' }])
+
 export default function MaternalWellnessLayout({ children }: { children: React.ReactNode }) {
-  return children
+  return (
+    <>
+      <JsonLd data={breadcrumbJsonLd} />
+      {children}
+    </>
+  )
 }

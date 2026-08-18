@@ -51,7 +51,7 @@ export default function FXMedElite() {
               <div className="space-y-6">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 flex items-center justify-center text-[1.3rem] flex-shrink-0">
-                    <Image src="/Spade.svg" alt="Spade" width={32} height={32} />
+                    <Image src="/Spade.svg" alt="" width={32} height={32} />
                   </div>
                   <div>
                     <h3 className="font-dm-sans font-bold text-green-deep text-lg mb-2">Discreet & Exclusive Access</h3>
@@ -60,7 +60,7 @@ export default function FXMedElite() {
                 </div>
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 flex items-center justify-center text-[1.3rem] flex-shrink-0">
-                    <Image src="/DeviceMobile.svg" alt="Device" width={32} height={32} />
+                    <Image src="/DeviceMobile.svg" alt="" width={32} height={32} />
                   </div>
                   <div>
                     <h3 className="font-dm-sans font-bold text-green-deep text-lg mb-2">24/7 Virtual Concierge</h3>
@@ -69,7 +69,7 @@ export default function FXMedElite() {
                 </div>
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 flex items-center justify-center text-[1.3rem] flex-shrink-0">
-                    <Image src="/Ambulance 2.svg" alt="Ambulance" width={32} height={32} />
+                    <Image src="/Ambulance 2.svg" alt="" width={32} height={32} />
                   </div>
                   <div>
                     <h3 className="font-dm-sans font-bold text-green-deep text-lg mb-2">At-Home Mini-Clinic</h3>

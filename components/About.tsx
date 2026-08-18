@@ -5,22 +5,22 @@ import Image from 'next/image'
 export default function WhyFXMed() {
   const benefits = [
     {
-      icon: <Image src="/House.svg" alt="House" width={32} height={32} />,
+      icon: <Image src="/House.svg" alt="" width={32} height={32} />,
       title: "We Come to You",
       description: "House calls, workplace visits, and mobile diagnostics. Quality care without the waiting room."
     },
     {
-      icon: <Image src="/Dna.svg" alt="DNA" width={32} height={32} />,
+      icon: <Image src="/Dna.svg" alt="" width={32} height={32} />,
       title: "Root Cause Medicine",
       description: "We use advanced biomarker testing and in-depth health history to find what's really driving your symptoms."
     },
     {
-      icon: <Image src="/DeviceMobileCamera.svg" alt="Device" width={32} height={32} />,
+      icon: <Image src="/DeviceMobileCamera.svg" alt="" width={32} height={32} />,
       title: "Always Connected",
       description: "The WellnessWits app keeps you connected to your care team 24/7, with tracking and guidance at your fingertips."
     },
     {
-      icon: <Image src="/User.svg" alt="User" width={32} height={32} />,
+      icon: <Image src="/User.svg" alt="" width={32} height={32} />,
       title: "Truly Personalized",
       description: "No cookie-cutter plans. Every protocol — nutrition, lifestyle, supplements — is built specifically for you."
     }
