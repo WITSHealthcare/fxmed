@@ -9,6 +9,7 @@ export const metadata = createMetadata({
   keywords: ['functional medicine programs', 'gut repair program', 'hormone balance', 'thyroid recovery'],
 })
 
+
 export default function ProgramsLayout({ children }: { children: React.ReactNode }) {
   return children
 }

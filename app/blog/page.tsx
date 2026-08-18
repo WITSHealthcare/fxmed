@@ -3,7 +3,8 @@ import BlogPostsGrid from '@/components/blog/BlogPostsGrid'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import { sanitizeRichText, stripHtml } from '@/lib/content-sanitizer'
-import { createMetadata } from '@/lib/seo'
+import JsonLd from '@/components/JsonLd'
+import { createBreadcrumbJsonLd, createMetadata } from '@/lib/seo'
 
 // Fetch blog content at request time so deploy builds do not depend on Supabase reachability.
 export const dynamic = 'force-dynamic'
@@ -61,12 +62,19 @@ async function getBlogPosts(): Promise<BlogPost[]> {
   }
 }
 
+
+const breadcrumbJsonLd = createBreadcrumbJsonLd([
+  { name: 'Home', path: '/' },
+  { name: 'Blog', path: '/blog' },
+])
+
 export default async function BlogPage() {
   // Fetch data on server before page loads
   const blogPosts = await getBlogPosts()
 
   return (
     <main className="min-h-screen bg-[#FCFFF0]">
+      <JsonLd data={breadcrumbJsonLd} />
       <Navigation />
       
       {/* Blog Header */}

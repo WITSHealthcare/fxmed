@@ -18,27 +18,27 @@ export default function Hero() {
       
       {/* Glassmorphism Icons */}
       <div className="absolute top-[480px] left-[20%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float hidden md:flex">
-        <Image src="/Sparkle.svg" alt="Sparkle" width={32} height={32} />
+        <Image src="/Sparkle.svg" alt="" width={32} height={32} />
       </div>
       
       <div className="absolute top-40 right-[35%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float-delayed hidden md:flex">
-        <Image src="/Ambulance.svg" alt="Ambulance" width={32} height={32} />
+        <Image src="/Ambulance.svg" alt="" width={32} height={32} />
       </div>
       
       <div className="absolute bottom-40 left-[30%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float hidden md:flex">
-        <Image src="/BowlFood.svg" alt="Bowl Food" width={32} height={32} />
+        <Image src="/BowlFood.svg" alt="" width={32} height={32} />
       </div>
       
       <div className="absolute top-60 left-1/4 w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float-delayed hidden md:flex">
-        <Image src="/Hospital.svg" alt="Hospital" width={32} height={32} />
+        <Image src="/Hospital.svg" alt="" width={32} height={32} />
       </div>
       
       <div className="absolute top-[640px] right-[32%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float hidden md:flex">
-        <Image src="/OrangeSlice.svg" alt="Orange Slice" width={32} height={32} />
+        <Image src="/OrangeSlice.svg" alt="" width={32} height={32} />
       </div>
       
       <div className="absolute top-[45%] right-[20%] w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center animate-float-delayed hidden md:flex">
-        <Image src="/Avocado.svg" alt="Avocado" width={32} height={32} />
+        <Image src="/Avocado.svg" alt="" width={32} height={32} />
       </div>
       
       {/* Content */}

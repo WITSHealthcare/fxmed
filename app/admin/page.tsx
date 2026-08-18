@@ -8,6 +8,7 @@ import {
   CalendarCheckIcon,
   ChartLineUpIcon,
   ChatCircleDotsIcon,
+  BriefcaseIcon,
   HandshakeIcon,
   HospitalIcon,
   RobotIcon,
@@ -27,6 +28,7 @@ import ZaraDashboard from '@/components/admin/ZaraDashboard'
 import AdminTools from '@/components/admin/AdminTools'
 import Contacts from '@/components/admin/Contacts'
 import AmbassadorProgram from '@/components/admin/AmbassadorProgram'
+import CareersManagement from '@/components/admin/CareersManagement'
 import EmrWorkspace from '@/components/admin/emr/EmrWorkspace'
 import AdminAccountMenu from '@/components/admin/AdminAccountMenu'
 import { getCurrentAdminRole, signOut, supabase } from '@/lib/supabase-auth'
@@ -59,6 +61,7 @@ const adminNavItems: Array<{ id: AdminTab; label: string; Icon: typeof ArticleIc
   { id: 'messages', label: 'Messages', Icon: ChatCircleDotsIcon, title: 'Messages', description: 'View and manage messages from patients and visitors' },
   { id: 'requests', label: 'Requests', Icon: CalendarCheckIcon, title: 'Requests', description: 'Manage appointment bookings and consultation requests' },
   { id: 'ambassador', label: 'Ambassador Program', Icon: HandshakeIcon, title: 'Ambassador Program', description: 'Track ambassadors, referrals, and program performance' },
+  { id: 'careers', label: 'Careers', Icon: BriefcaseIcon, title: 'Careers', description: 'Publish and manage the job openings shown on the public careers page' },
   { id: 'tools', label: 'Tools', Icon: ToolboxIcon, title: 'Tools', description: 'Quick access to admin workflows and operational utilities' },
   { id: 'users', label: 'Users & Roles', Icon: ShieldCheckIcon, title: 'Users & Roles', description: 'Create dashboard users and assign role-based access' },
   { id: 'zara', label: 'Zara', Icon: RobotIcon, title: 'Zara Conversations', description: 'View all interactions people have had with Zara, the AI assistant' },
@@ -698,6 +701,8 @@ export default function AdminPanel() {
             {activeTab === 'ambassador' && canAccessTab(currentRole, 'ambassador') && (
               <AmbassadorProgram />
             )}
+
+            {activeTab === 'careers' && canAccessTab(currentRole, 'careers') && <CareersManagement />}
 
             {activeTab === 'tools' && canAccessTab(currentRole, 'tools') && <AdminTools />}
 

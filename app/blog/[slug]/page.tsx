@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import { sanitizeRichText, stripHtml } from '@/lib/content-sanitizer'
-import { absoluteUrl, createMetadata, siteName } from '@/lib/seo'
+import { absoluteUrl, createBreadcrumbJsonLd, createMetadata, siteName } from '@/lib/seo'
 
 export const revalidate = 60
 
@@ -21,6 +21,7 @@ interface BlogPost {
   thumbnail_alt?: string | null
   read_time: string
   created_at: string
+  updated_at?: string | null
 }
 
 function getSupabaseClient() {
@@ -170,7 +171,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     description: stripHtml(post.excerpt || post.content).slice(0, 200),
     image: post.thumbnail_url ? absoluteUrl(post.thumbnail_url) : absoluteUrl('/blog/functional-medicine.jpg'),
     datePublished: post.created_at,
-    dateModified: post.created_at,
+    dateModified: post.updated_at || post.created_at,
     author: {
       '@type': 'Person',
       name: post.author || siteName,
@@ -185,6 +186,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     },
     mainEntityOfPage: absoluteUrl(`/blog/${post.slug}`),
   }
+  const breadcrumbJsonLd = createBreadcrumbJsonLd([
+    { name: 'Home', path: '/' },
+    { name: 'Blog', path: '/blog' },
+    { name: post.title, path: `/blog/${post.slug}` },
+  ])
 
   return (
     <main className="min-h-screen bg-[#FCFFF0]">
@@ -292,7 +298,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <Footer />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify([articleJsonLd, breadcrumbJsonLd]) }}
       />
     </main>
   )

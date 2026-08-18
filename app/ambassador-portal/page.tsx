@@ -104,7 +104,7 @@ export default function AmbassadorPortal() {
       <aside className="relative z-30 flex h-auto flex-col overflow-hidden bg-green-deep px-5 py-5 text-white shadow-[12px_0_50px_rgba(26,61,46,0.08)] lg:sticky lg:top-0 lg:h-screen lg:px-7 lg:py-8">
         <PortalNodes className="pointer-events-none absolute inset-0 h-full w-full text-gold/15" />
         <div className="flex items-center justify-between lg:block">
-          <Image src="/logo.png" alt="FXMed" width={280} height={140} priority className="relative h-24 w-auto brightness-0 invert lg:h-28" />
+          <Image src="/logo.png" alt="FXMed" width={280} height={158} priority className="relative h-24 w-auto brightness-0 invert lg:h-28" />
           <button type="button" onClick={logout} className="relative rounded-full border border-white/20 px-4 py-2 text-xs font-semibold transition hover:bg-white/10 lg:hidden">Sign out</button>
         </div>
         <div className="relative mt-5 rounded-[22px] border border-white/10 bg-white/[0.07] p-5 backdrop-blur-sm lg:mt-9">

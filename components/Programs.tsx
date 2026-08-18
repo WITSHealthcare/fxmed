@@ -7,25 +7,25 @@ import MaternalBookingModal from './MaternalBookingModal'
 
 const programs = [
   {
-    icon: <Image src="/healthicons_thyroid-24px.svg" alt="Thyroid" width={32} height={32} />,
+    icon: <Image src="/healthicons_thyroid-24px.svg" alt="" width={32} height={32} />,
     title: "Thyroid Recovery",
     description: "A comprehensive protocol for hyperthyroidism, Hashimoto's, and thyroid imbalances using functional testing and targeted nutrition to restore thyroid function naturally.",
     link: "/programs/thyroid-recovery"
   },
   {
-    icon: <Image src="/lets-icons_chemistry.svg" alt="Hormone" width={32} height={32} />,
+    icon: <Image src="/lets-icons_chemistry.svg" alt="" width={32} height={32} />,
     title: "Hormone Balance",
     description: "Hormonal chaos affects everything â mood, weight, sleep, and fertility. We identify your unique hormonal patterns and create a personalized rebalancing protocol.",
     link: "/programs/hormone-balance"
   },
   {
-    icon: <Image src="/healthicons_intestine.svg" alt="Gut" width={32} height={32} />,
+    icon: <Image src="/healthicons_intestine.svg" alt="" width={32} height={32} />,
     title: "Gut Repair",
     description: "From bloating to IBS, leaky gut to microbiome disruption â our Gut Repair program uses advanced stool analysis and targeted nutrition to heal your digestive system.",
     link: "/programs/gut-repair"
   },
   {
-    icon: <Image src="/healthicons_intestine.svg" alt="Gut Analysis" width={32} height={32} />,
+    icon: <Image src="/healthicons_intestine.svg" alt="" width={32} height={32} />,
     title: "Gut Analysis",
     description: "Not sure what's causing your gut issues? Our deep diagnostic gut analysis identifies pathogens, dysbiosis, and inflammation markers so we can build the right protocol.",
     link: "/functional-health-analysis"
@@ -37,7 +37,7 @@ const programs = [
     link: "/programs/adrenal-reset"
   },
   {
-    icon: <Image src="/healthicons_autoimmune-disease-outline-24px.svg" alt="Immune" width={32} height={32} />,
+    icon: <Image src="/healthicons_autoimmune-disease-outline-24px.svg" alt="" width={32} height={32} />,
     title: "Immune Support",
     description: "Frequent infections, autoimmune flares, or just chronically run-down? Our Immune Support program identifies and addresses the root causes of immune dysregulation.",
     link: "/programs/immune-support"

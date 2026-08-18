@@ -47,7 +47,7 @@ export default function FunctionalHealthAnalysis() {
               <div className="bg-white/10 backdrop-blur rounded-[24px] p-8 border border-white/20">
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <Image src="/Dna 2.svg" alt="Genetic Markers" width={40} height={40} className="w-10 h-10 brightness-0 invert" />
+                    <Image src="/Dna 2.svg" alt="" width={40} height={40} className="w-10 h-10 brightness-0 invert" />
                     <div>
                       <h3 className="font-dm-sans font-semibold text-gold text-lg">Genetic Markers</h3>
                       <p className="text-sm text-white/70">Analyze your genetic predispositions</p>
@@ -55,7 +55,7 @@ export default function FunctionalHealthAnalysis() {
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    <Image src="/TestTube 3.svg" alt="Lab Analysis" width={40} height={40} className="w-10 h-10 brightness-0 invert" />
+                    <Image src="/TestTube 3.svg" alt="" width={40} height={40} className="w-10 h-10 brightness-0 invert" />
                     <div>
                       <h3 className="font-dm-sans font-semibold text-gold text-lg">Lab Analysis</h3>
                       <p className="text-sm text-white/70">Comprehensive blood work interpretation</p>
@@ -63,7 +63,7 @@ export default function FunctionalHealthAnalysis() {
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    <Image src="/AsteriskSimple.svg" alt="Risk Assessment" width={40} height={40} className="w-10 h-10 brightness-0 invert" />
+                    <Image src="/AsteriskSimple.svg" alt="" width={40} height={40} className="w-10 h-10 brightness-0 invert" />
                     <div>
                       <h3 className="font-dm-sans font-semibold text-gold text-lg">Risk Assessment</h3>
                       <p className="text-sm text-white/70">Predict future health challenges</p>
@@ -71,7 +71,7 @@ export default function FunctionalHealthAnalysis() {
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    <Image src="/FirstAidKit 2.svg" alt="Personalized Plan" width={40} height={40} className="w-10 h-10 brightness-0 invert" />
+                    <Image src="/FirstAidKit 2.svg" alt="" width={40} height={40} className="w-10 h-10 brightness-0 invert" />
                     <div>
                       <h3 className="font-dm-sans font-semibold text-gold text-lg">Personalized Plan</h3>
                       <p className="text-sm text-white/70">Custom wellness strategies</p>
@@ -117,7 +117,7 @@ export default function FunctionalHealthAnalysis() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="bg-white rounded-[20px] p-6 shadow-lg hover:shadow-xl transition-shadow">
               <div className="mb-4">
-                <Image src="/Brain.svg" alt="Cognitive Health" width={40} height={40} />
+                <Image src="/Brain.svg" alt="" width={40} height={40} />
               </div>
               <h3 className="font-dm-sans font-semibold text-green-deep text-xl mb-3">Cognitive Health</h3>
               <p className="font-dm-sans text-text-mid leading-[1.6]">
@@ -127,7 +127,7 @@ export default function FunctionalHealthAnalysis() {
 
             <div className="bg-white rounded-[20px] p-6 shadow-lg hover:shadow-xl transition-shadow">
               <div className="mb-4">
-                <Image src="/Heartbeat.svg" alt="Heart & Metabolism" width={40} height={40} />
+                <Image src="/Heartbeat.svg" alt="" width={40} height={40} />
               </div>
               <h3 className="font-dm-sans font-semibold text-green-deep text-xl mb-3">Heart & Metabolism</h3>
               <p className="font-dm-sans text-text-mid leading-[1.6]">
@@ -137,7 +137,7 @@ export default function FunctionalHealthAnalysis() {
 
             <div className="bg-white rounded-[20px] p-6 shadow-lg hover:shadow-xl transition-shadow">
               <div className="mb-4">
-                <Image src="/lets-icons_chemistry.svg" alt="Hormonal Balance" width={40} height={40} />
+                <Image src="/lets-icons_chemistry.svg" alt="" width={40} height={40} />
               </div>
               <h3 className="font-dm-sans font-semibold text-green-deep text-xl mb-3">Hormonal Balance</h3>
               <p className="font-dm-sans text-text-mid leading-[1.6]">
@@ -147,7 +147,7 @@ export default function FunctionalHealthAnalysis() {
 
             <div className="bg-white rounded-[20px] p-6 shadow-lg hover:shadow-xl transition-shadow">
               <div className="mb-4">
-                <Image src="/ShieldCheckered.svg" alt="Immune Function" width={40} height={40} />
+                <Image src="/ShieldCheckered.svg" alt="" width={40} height={40} />
               </div>
               <h3 className="font-dm-sans font-semibold text-green-deep text-xl mb-3">Immune Function</h3>
               <p className="font-dm-sans text-text-mid leading-[1.6]">

@@ -1,7 +1,8 @@
 import AmbassadorApplicationForm from '@/components/AmbassadorApplicationForm'
 import Footer from '@/components/Footer'
+import JsonLd from '@/components/JsonLd'
 import Navigation from '@/components/Navigation'
-import { createMetadata } from '@/lib/seo'
+import { createBreadcrumbJsonLd, createMetadata } from '@/lib/seo'
 
 export const metadata = createMetadata({
   title: 'Apply to the FXMed Elite Ambassador Program | FXMed',
@@ -9,9 +10,16 @@ export const metadata = createMetadata({
   path: '/ambassadors/apply',
 })
 
+const breadcrumbJsonLd = createBreadcrumbJsonLd([
+  { name: 'Home', path: '/' },
+  { name: 'Ambassadors', path: '/ambassadors' },
+  { name: 'Apply', path: '/ambassadors/apply' },
+])
+
 export default function AmbassadorApplicationPage() {
   return (
     <main className="min-h-screen bg-cream">
+      <JsonLd data={breadcrumbJsonLd} />
       <Navigation />
       <section className="bg-green-deep px-[5%] pb-20 pt-48 text-white">
         <div className="mx-auto max-w-5xl text-center">

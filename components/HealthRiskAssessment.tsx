@@ -240,7 +240,10 @@ interface AssessmentResult {
   recommendations: string
 }
 
-export default function HealthRiskAssessment() {
+export default function HealthRiskAssessment({ headingLevel = 'h2' }: { headingLevel?: 'h1' | 'h2' } = {}) {
+  // Rendered as a section on the homepage (which owns its own h1) and as the
+  // primary content of /health-assessment, where this heading is the page h1.
+  const Heading = headingLevel
   const [screen, setScreen] = useState<'welcome' | 'assessment' | 'results'>('welcome')
   const [category, setCategory] = useState<string>('')
   const [currentQuestion, setCurrentQuestion] = useState(0)
@@ -490,9 +493,9 @@ export default function HealthRiskAssessment() {
               <div className="inline-block text-green-mid bg-green-mid/10 px-4 py-1.5 rounded-[20px] text-[0.75rem] font-semibold tracking-[0.14em] uppercase mb-4">
                 Health Assessment
               </div>
-              <h2 className="font-dm-sans font-bold text-green-deep text-[clamp(2rem,4vw,3rem)] leading-[1.15] mb-4">
+              <Heading className="font-dm-sans font-bold text-green-deep text-[clamp(2rem,4vw,3rem)] leading-[1.15] mb-4">
                 A 3-minute assessment could discover <span className="italic bg-[#CADE68] px-2 rounded">risk</span><br/>before they become <span className="italic bg-[#CADE68] px-2 rounded">diagnosis</span>
-              </h2>
+              </Heading>
               <p className="font-dm-sans text-black text-[1.05rem] leading-[1.7] max-w-[560px] mx-auto">
                 Take our comprehensive health assessment to get personalized insights and actionable recommendations from our functional medicine experts.
               </p>

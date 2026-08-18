@@ -1,7 +1,7 @@
 import type { User } from '@supabase/supabase-js'
 
 export type AdminRole = 'admin' | 'clinical' | 'sales'
-export type AdminTab = 'blog' | 'crm' | 'seo' | 'messages' | 'requests' | 'ambassador' | 'tools' | 'users' | 'zara' | 'contacts' | 'healthcare'
+export type AdminTab = 'blog' | 'crm' | 'seo' | 'messages' | 'requests' | 'ambassador' | 'careers' | 'tools' | 'users' | 'zara' | 'contacts' | 'healthcare'
 export type CrmAccess = 'clinical' | 'financial'
 
 export const adminRoleLabels: Record<AdminRole, string> = {
@@ -12,7 +12,7 @@ export const adminRoleLabels: Record<AdminRole, string> = {
 
 export const adminRolePermissions: Record<AdminRole, { tabs: AdminTab[]; crmViews: CrmAccess[] }> = {
   admin: {
-    tabs: ['blog', 'crm', 'seo', 'messages', 'requests', 'ambassador', 'tools', 'users', 'zara', 'contacts', 'healthcare'],
+    tabs: ['blog', 'crm', 'seo', 'messages', 'requests', 'ambassador', 'careers', 'tools', 'users', 'zara', 'contacts', 'healthcare'],
     crmViews: ['clinical', 'financial'],
   },
   clinical: {

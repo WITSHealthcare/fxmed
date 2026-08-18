@@ -3,6 +3,8 @@ import Image from 'next/image'
 import Footer from '@/components/Footer'
 import Navigation from '@/components/Navigation'
 import CompensationModel from '@/components/ambassadors/CompensationModel'
+import JsonLd from '@/components/JsonLd'
+import { createBreadcrumbJsonLd } from '@/lib/seo'
 
 const clientServices = [
   { icon: '/AmbulanceIcon.svg', iconBackground: 'bg-[#FFD2E2]', title: 'Concierge care', text: 'Fully equipped luxury medical vans, tele-consultations, and personalized in-home care.' },
@@ -26,9 +28,13 @@ const steps = [
   ['04', 'Earn', 'Receive your agreed commission after a successful client signup.'],
 ]
 
+
+const breadcrumbJsonLd = createBreadcrumbJsonLd([{ name: 'Home', path: '/' }, { name: 'Ambassadors', path: '/ambassadors' }])
+
 export default function AmbassadorsPage() {
   return (
     <main className="min-h-screen bg-cream">
+      <JsonLd data={breadcrumbJsonLd} />
       <Navigation />
 
       <section className="relative flex min-h-[820px] items-center overflow-hidden bg-black px-[5%] pb-24 pt-48 text-white">

@@ -1,6 +1,8 @@
 'use client'
 
 import Navigation from '@/components/Navigation'
+import FaqSection from '@/components/FaqSection'
+import { servicesFaqs } from '@/lib/faqs'
 import Footer from '@/components/Footer'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -387,6 +389,11 @@ export default function ServicesPage() {
           </div>
         </div>
       </section>
+
+      <FaqSection
+        items={servicesFaqs}
+        subtitle="Common questions about how we work, what we charge and where we practise"
+      />
 
       <Footer />
     </main>

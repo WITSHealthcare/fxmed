@@ -53,6 +53,7 @@ const tabLabels: Record<AdminTab, string> = {
   messages: 'Messages',
   requests: 'Requests',
   ambassador: 'Ambassador Program',
+  careers: 'Careers',
   tools: 'Admin Tools',
   users: 'Users & Roles',
   zara: 'Zara Conversations',

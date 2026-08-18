@@ -7,7 +7,7 @@ export default function HealthAssessmentPage() {
     <main className="min-h-screen">
       <Navigation />
       <div className="pt-24">
-        <HealthRiskAssessment />
+        <HealthRiskAssessment headingLevel="h1" />
       </div>
       <Footer />
     </main>
