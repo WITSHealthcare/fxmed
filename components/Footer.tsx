@@ -16,11 +16,11 @@ export default function Footer() {
           {/* Logo */}
           <div className="flex justify-center items-center">
             <Image
-                src="/logo.png"
-                alt="FXMed Logo"
-                width={320}
-                height={160}
-                className="h-40 w-auto"
+                src="/logo-trimmed.png"
+                alt="FXMed"
+                width={262}
+                height={64}
+                className="h-16 w-auto"
               />
           </div>
           
