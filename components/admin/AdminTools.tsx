@@ -64,6 +64,7 @@ type OutputFormat = 'docx' | 'pdf'
 const HISTORY_DB_NAME = 'fxmed-admin-tools'
 const LETTERHEAD_HISTORY_STORE_NAME = 'letterhead-documents'
 const MEAL_PLAN_HISTORY_STORE_NAME = 'meal-plan-documents'
+const PARTNER_LABORATORIES = ['Mecure', 'Synlab'] as const
 const INVESTIGATION_FORMS_API = '/api/admin/tools/investigation-forms'
 const INVESTIGATION_RESULTS_API = '/api/admin/tools/investigation-results'
 const initialResultMeta = { reportTitle: 'Laboratory Investigation Report', specimen: '', collectedAt: '', reportedAt: '', clinician: '', notes: '' }
@@ -246,6 +247,11 @@ export default function AdminTools() {
     gender: '',
   })
   const [investPanelTitle, setInvestPanelTitle] = useState('Core Functional Medicine Panel')
+  // Partner verification stamp. Off by default: it should only appear on forms
+  // actually being taken to the partner laboratory.
+  const [investStampOn, setInvestStampOn] = useState(false)
+  const [investStampPartner, setInvestStampPartner] = useState('Mecure')
+  const [investStampDate, setInvestStampDate] = useState('')
   const [investTests, setInvestTests] = useState<InvestigationTest[]>(() =>
     CORE_PANEL_TESTS.map((test) => ({ ...test }))
   )
@@ -482,6 +488,15 @@ export default function AdminTools() {
       return
     }
 
+    // A stamp without a date verifies nothing, so refuse rather than issue one.
+    if (investStampOn && (!investStampDate || !investStampPartner.trim())) {
+      setInvestStatus('error')
+      setInvestMessage('Choose the partner laboratory and the date the form will be used, or turn the stamp off.')
+      return
+    }
+
+    const stamp = investStampOn ? { partner: investStampPartner.trim(), validOn: investStampDate } : undefined
+
     setInvestStatus('working')
     setInvestMessage('')
 
@@ -490,6 +505,7 @@ export default function AdminTools() {
         ...investPatient,
         panelTitle: investPanelTitle,
         tests,
+        stamp,
       })
 
       const downloadName = makeInvestigationDownloadName(investPatient.fullName)
@@ -1105,6 +1121,50 @@ export default function AdminTools() {
               placeholder="Core Functional Medicine Panel"
               className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none"
             />
+          </div>
+
+          <div className="mt-4 rounded-lg border border-green-deep/15 bg-white p-3">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={investStampOn}
+                onChange={(event) => setInvestStampOn(event.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-green-deep"
+              />
+              <span>
+                <span className="block text-sm font-dm-sans font-semibold text-green-deep">Include partner verification stamp</span>
+                <span className="mt-0.5 block text-xs font-dm-sans text-text-mid">
+                  Stamps the form so the partner laboratory can confirm FXMed authorised this patient for these tests on a given date.
+                </span>
+              </span>
+            </label>
+
+            {investStampOn && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Partner Laboratory</label>
+                  <select
+                    value={investStampPartner}
+                    onChange={(event) => setInvestStampPartner(event.target.value)}
+                    className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none"
+                  >
+                    {PARTNER_LABORATORIES.map((partner) => (
+                      <option key={partner} value={partner}>{partner}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Valid On</label>
+                  <input
+                    type="date"
+                    value={investStampDate}
+                    onChange={(event) => setInvestStampDate(event.target.value)}
+                    className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none"
+                  />
+                  <p className="mt-1 text-xs font-dm-sans text-text-mid">The date the patient will attend for the tests.</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
