@@ -136,7 +136,7 @@ function PatientChart({ patientId, onBack, onChanged }: { patientId: string; onB
   return <div className="space-y-6">
     <button onClick={onBack} className="inline-flex items-center gap-2 text-sm font-bold text-green-mid hover:text-green-deep"><ArrowLeftIcon size={18} />Back to patient registry</button>
     <section className="overflow-hidden rounded-[26px] border border-green-deep/10 bg-white shadow-[0_10px_40px_rgba(26,61,46,0.07)]">
-      <div className="bg-green-deep p-6 text-white sm:p-8"><div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-gold">{patient.mrn}</p><h2 className="mt-2 text-3xl font-bold">{fullName(patient)}</h2><p className="mt-2 text-sm text-white/65">{age(patient.date_of_birth)} years · {label(patient.sex)} · {patient.phone || 'No phone'}</p></div><Status value={patient.status} /></div></div>
+      <div className="bg-green-deep p-6 text-white sm:p-8"><div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-gold">{patient.mrn}</p><h2 className="mt-2 text-3xl font-bold">{fullName(patient)}</h2><p className="mt-2 text-sm text-white/65">{age(patient.date_of_birth)} years · {label(patient.sex)} · {patient.phone || 'No phone'}</p></div><div className="flex flex-col items-end gap-3"><Status value={patient.status} /><button onClick={() => setModal('report')} className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-green-deep transition-colors hover:bg-gold-light"><FileTextIcon size={18} weight="duotone" />Generate patient report</button></div></div></div>
       <div className="grid gap-4 p-5 md:grid-cols-3 sm:p-7"><SummaryAlert title="Allergies" warning items={chart.allergies.filter((x: any) => x.status === 'active').map((x: any) => `${x.allergen}${x.reaction ? ` — ${x.reaction}` : ''}`)} empty="No known allergies" /><SummaryAlert title="Active conditions" items={chart.diagnoses.filter((x: any) => x.status === 'active').map((x: any) => x.diagnosis_name)} empty="No active diagnoses" /><SummaryAlert title="Current medications" items={chart.medications.filter((x: any) => x.status === 'active').map((x: any) => `${x.medication_name} ${x.strength || ''}`.trim())} empty="No active medications" /></div>
     </section>
     <section className="flex gap-2 overflow-x-auto rounded-[18px] border border-green-deep/10 bg-white p-2">{tabs.map(item => <button key={item} onClick={() => setTab(item)} className={`shrink-0 rounded-[12px] px-4 py-2.5 text-sm font-bold ${tab === item ? 'bg-green-deep text-white' : 'text-text-mid hover:bg-green-deep/5'}`}>{label(item)}</button>)}</section>
@@ -144,13 +144,14 @@ function PatientChart({ patientId, onBack, onChanged }: { patientId: string; onB
     {tab === 'overview' && <PatientOverview chart={chart} />}
     {tab === 'timeline' && <Timeline chart={chart} />}
     {tab === 'encounters' && <RecordList records={chart.encounters} kind="encounter" patient={patient} chart={chart} onUpdate={load} />}
-    {tab === 'notes' && <RecordList records={chart.notes} kind="note" patient={patient} chart={chart} onUpdate={load} />}
+    {tab === 'notes' && <div className="space-y-6"><RecordList records={chart.encounters} kind="encounter" patient={patient} chart={chart} onUpdate={load} /><RecordList records={chart.notes} kind="note" patient={patient} chart={chart} onUpdate={load} /></div>}
     {tab === 'diagnoses' && <div className="grid gap-6 xl:grid-cols-2"><RecordList records={chart.diagnoses} kind="diagnosis" onUpdate={load} /><RecordList records={chart.allergies} kind="allergy" onUpdate={load} /></div>}
     {tab === 'medications' && <RecordList records={chart.medications} kind="medication" patient={patient} chart={chart} prescriptions={chart.prescriptions} onUpdate={load} />}
-    {tab === 'investigations' && <div className="grid gap-6 xl:grid-cols-2"><RecordList records={chart.investigations} kind="investigation" onUpdate={load} onCreateResult={record => setModal(`result:${record.id}`)} /><RecordList records={chart.results} kind="result" onUpdate={load} /><RecordList records={chart.imaging} kind="imaging" onUpdate={load} /></div>}
+    {tab === 'investigations' && <div className="grid gap-6 xl:grid-cols-2"><RecordList records={chart.investigations} kind="investigation" onUpdate={load} onCreateResult={record => setModal(`result:${record.id}`)} /><RecordList records={chart.results} kind="result" onUpdate={load} /><RecordList records={chart.imaging} kind="imaging" onUpdate={load} /><div className="xl:col-span-2"><InvestigationAttachments chart={chart} /></div></div>}
     {tab === 'documents' && <PatientDocuments chart={chart} onChanged={load} />}
     {tab === 'care_plans' && <div className="grid gap-6 xl:grid-cols-2"><CarePlanList chart={chart} patient={patient} onUpdate={load} /><RecordList records={chart.tasks} kind="task" onUpdate={load} /></div>}
-    {modal && <ClinicalModal type={modal.split(':')[0]} patient={patient} chart={chart} fixed={{ order_id: modal.split(':')[1] }} patients={[patient]} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); onChanged() }} />}
+    {modal === 'report' && <PatientReportModal patient={patient} onClose={() => setModal(null)} />}
+    {modal && modal !== 'report' && <ClinicalModal type={modal.split(':')[0]} patient={patient} chart={chart} fixed={{ order_id: modal.split(':')[1] }} patients={[patient]} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); onChanged() }} />}
   </div>
 }
 
@@ -225,8 +226,151 @@ function PatientDocuments({ chart }: { chart: Chart; onChanged: () => void }) {
 
 function RecordList({ records, kind, patient, chart, prescriptions = [], onUpdate, onCreateResult }: { records: any[]; kind: string; patient?: Patient; chart?: Chart; prescriptions?: any[]; onUpdate: () => void; onCreateResult?: (record: any) => void }) {
   const [amending, setAmending] = useState<any>(null)
-  async function update(record: any, status: string, extra: Record<string,unknown> = {}) { const response = await fetch(api, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: resourceForKind(kind), id: record.id, status, ...extra }) }); if (response.ok) onUpdate() }
-  return <><Panel title={kind === 'allergy' ? 'Allergies' : label(`${kind}s`)} subtitle={`${records.length} record${records.length === 1 ? '' : 's'}`}><div className="mt-5 space-y-3">{records.length ? records.map(record => <div key={record.id} className="rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="font-bold">{recordTitle(record, resourceForKind(kind))}</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-text-mid">{recordDetail(record, kind)}</p><p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-green-mid/70">{dateTime.format(new Date(record.created_at || record.ordered_at || record.recorded_at || record.result_date))}</p></div>{record.status && <Status value={record.status} />}</div><div className="mt-3 flex flex-wrap gap-2">{kind === 'encounter' && record.status !== 'completed' && <button onClick={() => update(record, 'completed')} className="secondary">Complete encounter</button>}{kind === 'note' && record.status === 'draft' && <button onClick={() => update(record, 'final')} className="secondary">Finalize note</button>}{kind === 'note' && (record.status === 'final' || record.status === 'amended') && patient && <button onClick={() => setAmending(record)} className="secondary">Add amendment</button>}{kind === 'diagnosis' && record.status === 'active' && <button onClick={() => update(record, 'resolved', { resolved_at: new Date().toISOString() })} className="secondary">Mark resolved</button>}{kind === 'medication' && record.status === 'active' && <button onClick={() => update(record, 'completed', { end_date: new Date().toISOString().slice(0,10) })} className="secondary">Complete medication</button>}{kind === 'medication' && patient && <button onClick={() => printPrescription(patient, record, prescriptions.find(item => item.medication_id === record.id))} className="secondary"><PrinterIcon />Print prescription</button>}{kind === 'investigation' && record.status !== 'completed' && record.status !== 'cancelled' && onCreateResult && <button onClick={() => onCreateResult(record)} className="secondary">Add result</button>}{kind === 'result' && !record.reviewed_at && <button onClick={() => update(record, '', { review: true })} className="secondary">Mark reviewed</button>}{kind === 'task' && record.status !== 'completed' && <button onClick={() => update(record, 'completed', { completed_at: new Date().toISOString() })} className="secondary">Complete task</button>}</div></div>) : <Empty text={`No ${kind.replace('_',' ')} records.`} />}</div></Panel>{amending && patient && <ClinicalModal type="amendment" patient={patient} chart={chart} fixed={{ parent_note_id: amending.id, encounter_id: amending.encounter_id, note_type: amending.note_type }} patients={[patient]} onClose={() => setAmending(null)} onSaved={() => { setAmending(null); onUpdate() }} />}</>
+  const [attaching, setAttaching] = useState<any>(null)
+  const [openDetail, setOpenDetail] = useState<string | null>(null)
+  const [editing, setEditing] = useState<any>(null)
+  const [error, setError] = useState('')
+  // Failures used to be swallowed, so a rejected update looked identical to
+  // nothing happening. Surface the server's reason instead.
+  // Amendments are stored as notes carrying parent_note_id. They belong under
+  // the note they amend, not as separate entries in the list.
+  const visible = kind === 'note' ? records.filter((item: any) => !item.parent_note_id) : records
+  async function update(record: any, status: string, extra: Record<string,unknown> = {}) {
+    setError('')
+    const response = await fetch(api, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: resourceForKind(kind), id: record.id, status, ...extra }) })
+    if (response.ok) { onUpdate(); return }
+    const result = await response.json().catch(() => ({}))
+    setError(result.error || `Update failed (${response.status}).`)
+  }
+  return <><Panel title={kind === 'allergy' ? 'Allergies' : label(`${kind}s`)} subtitle={`${visible.length} record${visible.length === 1 ? '' : 's'}`}><div className="mt-5 space-y-3">{error && <Alert tone="error">{error}</Alert>}{visible.length ? visible.map(record => <div key={record.id} className="rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="font-bold">{recordTitle(record, resourceForKind(kind))}</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-text-mid">{recordDetail(record, kind)}</p><p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-green-mid/70">{dateTime.format(new Date(record.created_at || record.ordered_at || record.recorded_at || record.result_date))}</p></div>{record.status && <Status value={record.status} />}</div><div className="mt-3 flex flex-wrap gap-2">{kind === 'encounter' && <button onClick={() => setOpenDetail(openDetail === record.id ? null : record.id)} aria-expanded={openDetail === record.id} aria-controls={`encounter-detail-${record.id}`} className="secondary">{openDetail === record.id ? 'Hide details' : 'View details'}</button>}{kind === 'encounter' && record.status !== 'completed' && <button onClick={() => update(record, 'completed')} className="secondary">Complete encounter</button>}{(kind === 'note' || kind === 'encounter') && patient && <button onClick={() => setEditing(record)} className="secondary"><PencilSimpleIcon size={18} weight="duotone" />{kind === 'encounter' ? 'Edit encounter' : 'Edit note'}</button>}{kind === 'note' && record.status === 'draft' && <button onClick={() => update(record, 'final')} className="secondary">Finalize note</button>}{kind === 'note' && (record.status === 'final' || record.status === 'amended') && patient && <button onClick={() => setAmending(record)} className="secondary">Add amendment</button>}{(kind === 'note' || kind === 'encounter') && patient && <button onClick={() => setAttaching(record)} className="secondary"><FileArrowUpIcon size={18} weight="duotone" />Attach file</button>}{kind === 'diagnosis' && record.status === 'active' && <button onClick={() => update(record, 'resolved', { resolved_at: new Date().toISOString() })} className="secondary">Mark resolved</button>}{kind === 'medication' && record.status === 'active' && <button onClick={() => update(record, 'completed', { end_date: new Date().toISOString().slice(0,10) })} className="secondary">Complete medication</button>}{kind === 'medication' && patient && <button onClick={() => printPrescription(patient, record, prescriptions.find(item => item.medication_id === record.id))} className="secondary"><PrinterIcon />Print prescription</button>}{kind === 'investigation' && record.status !== 'completed' && record.status !== 'cancelled' && onCreateResult && <button onClick={() => onCreateResult(record)} className="secondary">Add result</button>}{kind === 'result' && !record.reviewed_at && <button onClick={() => update(record, '', { review: true })} className="secondary">Mark reviewed</button>}{kind === 'task' && record.status !== 'completed' && <button onClick={() => update(record, 'completed', { completed_at: new Date().toISOString() })} className="secondary">Complete task</button>}</div>{kind === 'encounter' && openDetail === record.id && <EncounterDetail record={record} chart={chart} patient={patient} onUpdate={onUpdate} />}{kind === 'note' && <NoteAmendments amendments={records.filter((item: any) => item.parent_note_id === record.id)} />}{kind === 'note' && <Attachments files={noteFiles(chart, record.id)} />}</div>) : <Empty text={`No ${kind.replace('_',' ')} records.`} />}</div></Panel>{amending && patient && <ClinicalModal type="amendment" patient={patient} chart={chart} fixed={{ parent_note_id: amending.id, encounter_id: amending.encounter_id, note_type: amending.note_type }} patients={[patient]} onClose={() => setAmending(null)} onSaved={() => { setAmending(null); onUpdate() }} />}{editing && patient && <ClinicalModal type={kind === 'encounter' ? 'encounter_edit' : 'note_edit'} editingRecord={editing} patient={patient} chart={chart} patients={[patient]} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); onUpdate() }} />}{attaching && patient && <ClinicalModal type={kind === 'encounter' ? 'encounter_document' : 'note_document'} patient={patient} chart={chart} fixed={kind === 'encounter' ? { encounter_id: attaching.id } : { note_id: attaching.id, encounter_id: attaching.encounter_id }} patients={[patient]} onClose={() => setAttaching(null)} onSaved={() => { setAttaching(null); onUpdate() }} />}</>
+}
+
+// Documents have no "investigation" category; laboratory and imaging are the
+// diagnostic ones, so those are what surface alongside orders and results.
+const investigationCategories = ['laboratory', 'imaging']
+
+function InvestigationAttachments({ chart }: { chart: Chart }) {
+  const files = (chart.documents || []).filter((item: any) => investigationCategories.includes(item.category))
+  return <Panel title="Investigation attachments" subtitle={`${files.length} laboratory or imaging document${files.length === 1 ? '' : 's'}`}>
+    {files.length ? <Attachments files={files} showHeading={false} /> : <div className="mt-5"><Empty text="No laboratory or imaging documents uploaded." /></div>}
+  </Panel>
+}
+
+function NoteAmendments({ amendments }: { amendments: any[] }) {
+  if (!amendments.length) return null
+  const ordered = [...amendments].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  return <div className="mt-3 border-t border-green-deep/10 pt-3">
+    <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">{ordered.length} amendment{ordered.length === 1 ? '' : 's'}</p>
+    <div className="mt-2 space-y-2">{ordered.map((item: any, index: number) => <div key={item.id} className="rounded-[12px] border border-green-deep/10 bg-white p-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-text-mid/70">Amendment {index + 1} · {dateTime.format(new Date(item.created_at))}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-text-dark">{item.content}</p>
+    </div>)}</div>
+  </div>
+}
+
+function Attachments({ files, showHeading = true }: { files: any[]; showHeading?: boolean }) {
+  async function open(id: string) {
+    const response = await fetch(`${api}?resource=document_url&id=${id}`)
+    const result = await response.json()
+    if (response.ok) window.open(result.url, '_blank', 'noopener,noreferrer')
+  }
+  if (!files.length) return null
+  return <div className={showHeading ? 'mt-3 border-t border-green-deep/10 pt-3' : 'mt-5'}>
+    {showHeading && <p className="text-[10px] font-bold uppercase tracking-wide text-green-mid">{files.length} attachment{files.length === 1 ? '' : 's'}</p>}
+    <div className="mt-2 grid gap-2 sm:grid-cols-2">{files.map((item: any) => <button key={item.id} onClick={() => open(item.id)} className="flex items-center gap-3 rounded-[12px] border border-green-deep/10 bg-white p-3 text-left hover:border-green-mid">
+      <FileTextIcon size={20} weight="duotone" className="shrink-0 text-green-mid" />
+      <span className="min-w-0"><span className="block truncate text-sm font-bold">{item.title}</span><span className="block text-[11px] text-text-mid">{label(item.category)} · {formatBytes(item.file_size)}</span></span>
+    </button>)}</div>
+  </div>
+}
+
+// Files attached directly to a note.
+function noteFiles(chart: Chart | undefined, noteId: string) {
+  return (chart?.documents || []).filter((item: any) => item.note_id === noteId)
+}
+
+// Files attached to the encounter itself. Documents attached to a note within
+// the encounter also carry its encounter_id, so they are excluded here to avoid
+// showing the same file in two places.
+function encounterFiles(chart: Chart | undefined, encounterId: string) {
+  return (chart?.documents || []).filter((item: any) => item.encounter_id === encounterId && !item.note_id)
+}
+
+function formatBytes(size?: number | null) {
+  if (!size) return 'Unknown size'
+  const units = ['B', 'KB', 'MB']
+  let value = size, unit = 0
+  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++ }
+  return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`
+}
+
+// The encounter form captures eleven narrative fields; the list row only ever
+// showed the chief complaint, so the rest of the documentation was stored but
+// unreadable. This renders every section that has content.
+const encounterSections: Array<[string, string]> = [
+  ['chief_complaint', 'Chief complaint'],
+  ['history_presenting_illness', 'History of presenting illness'],
+  ['past_medical_history', 'Past medical history'],
+  ['surgical_history', 'Surgical history'],
+  ['family_history', 'Family history'],
+  ['social_history', 'Social history'],
+  ['review_of_systems', 'Review of systems'],
+  ['examination', 'Examination'],
+  ['clinical_assessment', 'Assessment'],
+  ['treatment_plan', 'Plan'],
+  ['follow_up_plan', 'Follow-up'],
+]
+
+// Units live next to the reading so a number is never shown bare.
+const vitalReadings: Array<[string, string, (record: any) => any]> = [
+  ['Blood pressure', 'mmHg', (v) => v.systolic_bp && v.diastolic_bp ? `${v.systolic_bp}/${v.diastolic_bp}` : null],
+  ['Heart rate', 'bpm', (v) => v.heart_rate],
+  ['Respiratory rate', '/min', (v) => v.respiratory_rate],
+  ['Temperature', '°C', (v) => v.temperature_c],
+  ['SpO₂', '%', (v) => v.spo2],
+  ['Weight', 'kg', (v) => v.weight_kg],
+  ['Height', 'cm', (v) => v.height_cm],
+  ['BMI', '', (v) => v.bmi],
+  ['Blood glucose', '', (v) => v.blood_glucose],
+  ['Pain score', '/10', (v) => v.pain_score],
+]
+
+function EncounterDetail({ record, chart, patient, onUpdate }: { record: any; chart?: Chart; patient?: Patient; onUpdate?: () => void }) {
+  const [editingVitals, setEditingVitals] = useState<any>(null)
+  const sections = encounterSections.filter(([key]) => record[key])
+  // Vitals are recorded separately and linked by encounter_id, so pull the
+  // readings taken during this encounter rather than the patient's latest.
+  const vitals = (chart?.vitals || []).filter((item: any) => item.encounter_id === record.id)
+  return <div id={`encounter-detail-${record.id}`} className="mt-4 rounded-[14px] border border-green-deep/10 bg-white p-5">
+    <dl className="grid gap-4 sm:grid-cols-3">
+      <Detail label="Encounter" value={record.encounter_number} />
+      <Detail label="Type" value={label(record.encounter_type)} />
+      <Detail label="Status" value={label(record.status)} />
+      <Detail label="Started" value={record.started_at && dateTime.format(new Date(record.started_at))} />
+      <Detail label="Completed" value={record.completed_at && dateTime.format(new Date(record.completed_at))} />
+      <Detail label="Recorded" value={record.created_at && dateTime.format(new Date(record.created_at))} />
+    </dl>
+    {vitals.length > 0 && <div className="mt-5 border-t border-green-deep/10 pt-5">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-green-mid">Vital signs</p>
+      {vitals.map((observation: any) => {
+        const readings = vitalReadings.map(([title, unit, read]) => [title, read(observation), unit] as const).filter(([, value]) => value !== null && value !== undefined && value !== '')
+        return <div key={observation.id} className="mt-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-text-mid">{dateTime.format(new Date(observation.recorded_at))}</p>
+            {patient && <button onClick={() => setEditingVitals(observation)} className="text-xs font-bold text-green-mid hover:underline">Correct</button>}
+          </div>
+          {readings.length ? <div className="mt-2 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">{readings.map(([title, value, unit]) => <MiniStat key={title} label={title} value={`${value}${unit ? ` ${unit}` : ''}`} />)}</div> : <p className="mt-1 text-sm text-text-mid">No observations recorded.</p>}
+          {observation.notes && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-mid">{observation.notes}</p>}
+        </div>
+      })}
+    </div>}
+    {editingVitals && patient && <ClinicalModal type="vitals_edit" editingRecord={editingVitals} patient={patient} chart={chart} patients={[patient]} onClose={() => setEditingVitals(null)} onSaved={() => { setEditingVitals(null); onUpdate?.() }} />}
+    <Attachments files={encounterFiles(chart, record.id)} />
+    {sections.length ? <div className="mt-5 space-y-4 border-t border-green-deep/10 pt-5">{sections.map(([key, title]) => <div key={key}>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-green-mid">{title}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-text-dark">{record[key]}</p>
+    </div>)}</div> : <p className="mt-5 border-t border-green-deep/10 pt-5 text-sm text-text-mid">No clinical documentation was recorded for this encounter.</p>}
+  </div>
 }
 
 function CarePlanList({ chart, patient, onUpdate }: { chart: Chart; patient: Patient; onUpdate: () => void }) {
@@ -235,10 +379,194 @@ function CarePlanList({ chart, patient, onUpdate }: { chart: Chart; patient: Pat
   return <><Panel title="Care plans" subtitle={`${chart.carePlans.length} coordinated plan${chart.carePlans.length === 1 ? '' : 's'}`}><div className="mt-5 space-y-4">{chart.carePlans.length ? chart.carePlans.map((item: any) => <div key={item.id} className="rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold">{item.title}</p><p className="mt-1 text-sm text-text-mid">{item.goals || item.description}</p></div><Status value={item.status} /></div><div className="mt-4 space-y-2">{item.items?.map((step: any) => <div key={step.id} className="flex items-center gap-3 rounded-xl bg-white p-3 text-sm"><CheckCircleIcon className={step.status === 'completed' ? 'text-green-mid' : 'text-text-mid/35'} weight={step.status === 'completed' ? 'fill' : 'regular'} /><span className="flex-1 font-semibold">{step.title}</span>{step.status !== 'completed' && <button onClick={() => complete(step)} className="text-xs font-bold text-green-mid">Complete</button>}</div>)}</div><button onClick={() => setPlan(item)} className="secondary mt-4"><PlusIcon />Add plan item</button></div>) : <Empty text="No care plans yet." />}</div></Panel>{plan && <ClinicalModal type="care_plan_item" patient={patient} chart={chart} fixed={{ care_plan_id: plan.id }} patients={[patient]} onClose={() => setPlan(null)} onSaved={() => { setPlan(null); onUpdate() }} />}</>
 }
 
-function ClinicalModal({ type, patient, chart, fixed = {}, patients, onClose, onSaved }: { type: string; patient?: Patient; chart?: Chart; fixed?: Record<string,any>; patients: Patient[]; onClose: () => void; onSaved: () => void }) {
+function PatientReportModal({ patient, onClose }: { patient: Patient; onClose: () => void }) {
+  // Computed once on mount rather than every render, and in local time so the
+  // default range does not shift a day either side of UTC midnight.
+  const [today] = useState(() => toDateInput(new Date()))
+  const [from, setFrom] = useState(() => { const now = new Date(); return toDateInput(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())) })
+  const [to, setTo] = useState(() => toDateInput(new Date()))
+  const [report, setReport] = useState('')
+  const [meta, setMeta] = useState<{ provider?: string; documentsRead?: number; skipped?: string[] }>({})
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function generate() {
+    setLoading(true); setError(''); setReport('')
+    const response = await fetch(`${api}/report`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ patientId: patient.id, from, to }),
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) setError(result.error || 'Report generation failed.')
+    else { setReport(result.report); setMeta({ provider: result.provider, documentsRead: result.documentsRead, skipped: result.skipped }) }
+    setLoading(false)
+  }
+
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
+    <div role="dialog" aria-modal="true" className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[26px] bg-white shadow-2xl">
+      <div className="sticky top-0 z-10 flex items-start justify-between border-b border-green-deep/10 bg-white px-6 py-5">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-green-mid">Patient report</p>
+          <h3 className="mt-1 text-2xl font-bold">Comprehensive care summary</h3>
+          <p className="mt-1 text-sm text-text-mid">{patient.mrn} · {fullName(patient)}</p>
+        </div>
+        <button onClick={onClose} className="icon-button"><XIcon /></button>
+      </div>
+
+      <div className="p-6">
+        <div className="grid gap-5 sm:grid-cols-3">
+          <Field label="From"><input type="date" className="input" value={from} max={to} onChange={e => setFrom(e.target.value)} /></Field>
+          <Field label="To"><input type="date" className="input" value={to} min={from} max={today} onChange={e => setTo(e.target.value)} /></Field>
+          <div className="flex items-end">
+            <button onClick={generate} disabled={loading} className="primary w-full disabled:opacity-50">{loading ? 'Generating…' : report ? 'Regenerate' : 'Generate report'}</button>
+          </div>
+        </div>
+
+        {loading && <p className="mt-5 text-sm text-text-mid">Reading the record and any uploaded documents. This can take a minute.</p>}
+        {error && <Alert tone="error">{error}</Alert>}
+
+        {report && <>
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-text-mid">
+              Drafted by {meta.provider} · {meta.documentsRead || 0} document{meta.documentsRead === 1 ? '' : 's'} read
+              {meta.skipped?.length ? ` · ${meta.skipped.length} skipped` : ''}
+            </p>
+            <button onClick={() => printPatientReport(patient, report, from, to)} className="secondary"><PrinterIcon />Download PDF</button>
+          </div>
+          {meta.skipped?.length ? <div className="mt-3 rounded-[12px] border border-amber-200 bg-amber-50 p-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800">Not read</p>
+            <ul className="mt-1 space-y-0.5">{meta.skipped.map(item => <li key={item} className="text-xs text-amber-800">{item}</li>)}</ul>
+          </div> : null}
+          <Alert tone="info">Review and edit before sharing. AI-drafted clinical summaries must be checked by a clinician.</Alert>
+          <textarea value={report} onChange={e => setReport(e.target.value)} rows={26} className="input mt-4 font-mono text-[13px] leading-6" />
+        </>}
+      </div>
+    </div>
+  </div>
+}
+
+// Renders the report as an official FXMed clinical document, matching the
+// letterhead, palette and footer used by the investigation result PDFs.
+const REPORT_INK = '#0f2419'
+const REPORT_ACCENT = '#cade68'
+
+// Emoji and decorative symbols are stripped defensively: the prompt forbids
+// them, but a model can still slip one in and they look wrong in a formal
+// clinical document. Ranges are explicit because the TypeScript target predates
+// unicode property escapes.
+function stripDecorations(value: string) {
+  return value
+    .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')
+    .replace(/[←-⇿⌀-⏿①-⓿■-➿⬀-⯿️‍]/g, '')
+    .trim()
+}
+
+function inline(value: string) {
+  const clean = escapeHtml(stripDecorations(value))
+  return clean.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+}
+
+function splitRow(line: string) {
+  return line.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(cell => cell.trim())
+}
+
+// Minimal Markdown -> styled HTML. Handles headings, bullet and numbered lists,
+// and tables, which the model is instructed to use for any tabular data.
+function reportBodyHtml(markdown: string) {
+  const lines = markdown.split('\n')
+  const out: string[] = []
+  let list: 'ul' | 'ol' | null = null
+  const closeList = () => { if (list) { out.push(`</${list}>`); list = null } }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+
+    // table: a header row followed by a --- separator row
+    if (/^\s*\|/.test(line) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|?\s*$/.test(lines[i + 1])) {
+      closeList()
+      const headers = splitRow(line)
+      const rows: string[][] = []
+      i += 2
+      while (i < lines.length && /^\s*\|/.test(lines[i])) { rows.push(splitRow(lines[i])); i++ }
+      i--
+      out.push(`<table style="width:100%;border-collapse:collapse;font-size:12px;margin:14px 0"><thead><tr style="background:${REPORT_INK};color:#fff;text-align:left">${headers.map(h => `<th style="padding:9px 8px;font-weight:700">${inline(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row, index) => `<tr style="background:${index % 2 ? '#fafafa' : '#fff'}">${row.map(cell => `<td style="padding:9px 8px;border-bottom:1px solid #eef0ec;vertical-align:top">${inline(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`)
+      continue
+    }
+
+    const bullet = /^\s*[-*]\s+(.*)$/.exec(line)
+    if (bullet) {
+      if (list !== 'ul') { closeList(); out.push('<ul style="margin:8px 0 8px 20px;padding:0">'); list = 'ul' }
+      out.push(`<li style="margin:4px 0;line-height:1.6">${inline(bullet[1])}</li>`)
+      continue
+    }
+    const numbered = /^\s*\d+[.)]\s+(.*)$/.exec(line)
+    if (numbered) {
+      if (list !== 'ol') { closeList(); out.push('<ol style="margin:8px 0 8px 20px;padding:0">'); list = 'ol' }
+      out.push(`<li style="margin:4px 0;line-height:1.6">${inline(numbered[1])}</li>`)
+      continue
+    }
+
+    closeList()
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line)
+    if (heading) {
+      const depth = heading[1].length
+      if (depth <= 2) out.push(`<h2 style="font-size:17px;color:${REPORT_INK};border-bottom:2px solid #e5e7eb;padding-bottom:7px;margin:26px 0 12px">${inline(heading[2])}</h2>`)
+      else out.push(`<h3 style="font-size:14px;color:${REPORT_INK};margin:18px 0 6px">${inline(heading[2])}</h3>`)
+      continue
+    }
+    if (line.trim()) out.push(`<p style="margin:9px 0;font-size:13px;line-height:1.7;color:#374151">${inline(line)}</p>`)
+  }
+  closeList()
+  return out.join('')
+}
+
+function reportField(label: string, value: string) {
+  return `<div><div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">${escapeHtml(label)}</div><div style="font-size:15px;font-weight:600;color:${REPORT_INK}">${escapeHtml(value || '—')}</div></div>`
+}
+
+function printPatientReport(patient: Patient, markdown: string, from: string, to: string) {
+  const origin = window.location.origin
+  const content = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(fullName(patient))} — Comprehensive Care Summary</title><style>
+    @page{size:A4;margin:16mm}
+    body{font-family:Arial,Helvetica,sans-serif;color:${REPORT_INK};margin:0 auto;max-width:820px;padding:24px}
+    table{page-break-inside:auto}tr{page-break-inside:avoid}h2,h3{page-break-after:avoid}
+  </style></head><body>
+    <div style="text-align:center;margin-bottom:28px;padding-bottom:24px;border-bottom:2px solid ${REPORT_ACCENT}">
+      <div style="display:inline-block;background:rgba(107,142,35,.1);color:#6b8e23;border-radius:20px;padding:7px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.14em">Confidential Medical Document</div>
+      <div style="margin:14px 0 6px"><img src="${origin}/FXMed_Logo_Black.png" style="height:52px;width:auto" /></div>
+      <h1 style="font-size:29px;color:${REPORT_INK};margin:0 0 6px">Comprehensive Care Summary</h1>
+      <div style="font-size:14px;color:#666;font-weight:600">${escapeHtml(fullName(patient))}</div>
+    </div>
+    <section style="margin-bottom:25px">
+      <h2 style="font-size:17px;color:${REPORT_INK};border-bottom:2px solid #e5e7eb;padding-bottom:7px;margin:0 0 14px">Patient Information</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px 24px">
+        ${reportField('Full Name', fullName(patient))}
+        ${reportField('MRN', patient.mrn)}
+        ${reportField('Age / Sex', `${age(patient.date_of_birth)} / ${label(patient.sex)}`)}
+        ${reportField('Reporting Period', `${date.format(new Date(from))} — ${date.format(new Date(to))}`)}
+        ${reportField('Date Issued', date.format(new Date()))}
+        ${reportField('Phone', patient.phone || '')}
+      </div>
+    </section>
+    ${reportBodyHtml(markdown)}
+    <footer style="margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:11px;line-height:1.6;color:#6b7280">
+      FXMed Functional Medicine · +234 907 703 1311 · +1 832 779 2347 · fxmed@wellnesswits.com<br>
+      Treating the root cause — not just the symptoms<br>
+      This summary reflects the records held for the period shown and does not replace a consultation.
+    </footer>
+    <script>window.onload=()=>window.print()<\/script>
+  </body></html>`
+  const url = URL.createObjectURL(new Blob([content], { type: 'text/html' }))
+  window.open(url, '_blank', 'noopener,noreferrer')
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+function ClinicalModal({ type, patient, chart, fixed = {}, patients, editingRecord, onClose, onSaved }: { type: string; patient?: Patient; chart?: Chart; fixed?: Record<string,any>; patients: Patient[]; editingRecord?: any; onClose: () => void; onSaved: () => void }) {
   const config = formConfig(type), editingPatient = type === 'patient' ? patient : undefined
-  const [form, setForm] = useState<Record<string,any>>({ ...(editingPatient || {}), patient_id: patient?.id || '', ...fixed, status: editingPatient?.status || config.defaultStatus || '' }), [saving, setSaving] = useState(false), [error, setError] = useState('')
-  async function submit(event: React.FormEvent) { event.preventDefault(); setSaving(true); setError(''); if (type === 'document') return upload(); const response = await fetch(api, { method: editingPatient ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: config.resource, ...(editingPatient ? { id: editingPatient.id } : {}), ...form }) }); const result = await response.json(); if (!response.ok) setError(result.error || 'Unable to save clinical record.'); else onSaved(); setSaving(false) }
+  // Editing applies to the patient record or to any clinical record passed in.
+  const editing = editingPatient || editingRecord
+  const [form, setForm] = useState<Record<string,any>>({ ...(editing || {}), patient_id: patient?.id || '', ...fixed, status: editing?.status || config.defaultStatus || '', ...(editingRecord?.created_at ? { record_date: toDateTimeInput(editingRecord.created_at) } : {}) }), [saving, setSaving] = useState(false), [error, setError] = useState('')
+  async function submit(event: React.FormEvent) { event.preventDefault(); setSaving(true); setError(''); if (type === 'document' || type === 'note_document' || type === 'encounter_document') return upload(); const response = await fetch(api, { method: editing ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: config.resource, ...(editing ? { id: editing.id } : {}), ...form }) }); const result = await response.json(); if (!response.ok) setError(result.error || 'Unable to save clinical record.'); else onSaved(); setSaving(false) }
   async function upload() { const file = form.file as File; if (!file) { setError('Choose a clinical document.'); setSaving(false); return } const data = new FormData(); Object.entries(form).forEach(([key,value]) => { if (value !== undefined && value !== null && value !== '') data.set(key, value as any) }); const response = await fetch(api, { method: 'POST', body: data }); const result = await response.json(); if (!response.ok) setError(result.error || 'Upload failed.'); else onSaved(); setSaving(false) }
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}><div role="dialog" aria-modal="true" className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[26px] bg-white shadow-2xl"><div className="sticky top-0 z-10 flex items-start justify-between border-b border-green-deep/10 bg-white px-6 py-5"><div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-green-mid">Clinical record</p><h3 className="mt-1 text-2xl font-bold">{config.title}</h3>{patient && <p className="mt-1 text-sm text-text-mid">{patient.mrn} · {fullName(patient)}</p>}</div><button onClick={onClose} className="icon-button"><XIcon /></button></div><form onSubmit={submit} className="p-6"><div className="grid gap-5 sm:grid-cols-2">{!patient && type !== 'patient' && <Field label="Patient" required><select className="input" value={form.patient_id} onChange={e => setForm({ ...form, patient_id: e.target.value })} required><option value="">Select patient…</option>{patients.map(p => <option key={p.id} value={p.id}>{p.mrn} · {fullName(p)}</option>)}</select></Field>}{config.fields.map(field => <FormField key={field.name} field={field} value={form[field.name] ?? ''} onChange={value => setForm({ ...form, [field.name]: value })} chart={chart} />)}</div>{error && <Alert tone="error">{error}</Alert>}<div className="mt-7 flex justify-end gap-3"><button type="button" onClick={onClose} className="secondary">Cancel</button><button disabled={saving} className="primary disabled:opacity-50">{saving ? 'Saving…' : config.submit}</button></div></form></div></div>
 }
@@ -247,20 +575,25 @@ type FieldDef = { name: string; label: string; type?: string; required?: boolean
 function formConfig(type: string): { title: string; resource: string; submit: string; defaultStatus?: string; fields: FieldDef[] } {
   const configs: Record<string, any> = {
     patient: { title: 'Patient demographics', resource: 'patients', submit: 'Save patient record', fields: [{name:'first_name',label:'First name',required:true},{name:'middle_name',label:'Middle name'},{name:'last_name',label:'Last name',required:true},{name:'date_of_birth',label:'Date of birth',type:'date',required:true},{name:'sex',label:'Sex',type:'select',required:true,options:['female','male']},{name:'phone',label:'Phone'},{name:'email',label:'Email',type:'email'},{name:'address',label:'Address',wide:true},{name:'city',label:'City'},{name:'state',label:'State'},{name:'blood_group',label:'Blood group',options:['A+','A-','B+','B-','AB+','AB-','O+','O-'],type:'select'},{name:'genotype',label:'Genotype'},{name:'emergency_contact_name',label:'Emergency contact'},{name:'emergency_contact_phone',label:'Emergency phone'},{name:'status',label:'Record status',type:'select',options:['active','inactive','deceased']}] },
-    encounter: { title: 'Start clinical encounter', resource: 'encounters', submit: 'Start encounter', defaultStatus:'in_progress', fields: [{name:'encounter_type',label:'Encounter type',type:'select',options:['consultation','follow_up','home_visit','telemedicine','procedure'],required:true},{name:'chief_complaint',label:'Chief complaint',wide:true,required:true},{name:'history_presenting_illness',label:'History of presenting illness',type:'textarea',wide:true},{name:'past_medical_history',label:'Past medical history',type:'textarea'},{name:'surgical_history',label:'Surgical history',type:'textarea'},{name:'family_history',label:'Family history',type:'textarea'},{name:'social_history',label:'Social history',type:'textarea'},{name:'review_of_systems',label:'Review of systems',type:'textarea',wide:true},{name:'examination',label:'Examination',type:'textarea',wide:true},{name:'clinical_assessment',label:'Assessment',type:'textarea',wide:true},{name:'treatment_plan',label:'Plan',type:'textarea',wide:true},{name:'follow_up_plan',label:'Follow-up',type:'textarea',wide:true}] },
-    vitals: { title: 'Record vital signs', resource: 'vitals', submit: 'Save observations', fields: [{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'systolic_bp',label:'Systolic BP',type:'number'},{name:'diastolic_bp',label:'Diastolic BP',type:'number'},{name:'heart_rate',label:'Heart rate',type:'number'},{name:'respiratory_rate',label:'Respiratory rate',type:'number'},{name:'temperature_c',label:'Temperature °C',type:'number'},{name:'spo2',label:'SpO₂ %',type:'number'},{name:'weight_kg',label:'Weight kg',type:'number'},{name:'height_cm',label:'Height cm',type:'number'},{name:'blood_glucose',label:'Blood glucose',type:'number'},{name:'pain_score',label:'Pain score (0–10)',type:'number'},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
-    note: { title: 'Add clinical note', resource: 'notes', submit: 'Save clinical note', defaultStatus:'draft', fields: [{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'note_type',label:'Note type',type:'select',options:['consultation','progress','nursing','procedure','discharge','follow_up'],required:true},{name:'content',label:'Clinical documentation',type:'textarea',wide:true,required:true},{name:'status',label:'Status',type:'select',options:['draft','final'],required:true}] },
+    encounter: { title: 'Start clinical encounter', resource: 'encounters', submit: 'Start encounter', defaultStatus:'in_progress', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_type',label:'Encounter type',type:'select',options:['consultation','follow_up','home_visit','telemedicine','procedure'],required:true},{name:'chief_complaint',label:'Chief complaint',wide:true,required:true},{name:'history_presenting_illness',label:'History of presenting illness',type:'textarea',wide:true},{name:'past_medical_history',label:'Past medical history',type:'textarea'},{name:'surgical_history',label:'Surgical history',type:'textarea'},{name:'family_history',label:'Family history',type:'textarea'},{name:'social_history',label:'Social history',type:'textarea'},{name:'review_of_systems',label:'Review of systems',type:'textarea',wide:true},{name:'examination',label:'Examination',type:'textarea',wide:true},{name:'clinical_assessment',label:'Assessment',type:'textarea',wide:true},{name:'treatment_plan',label:'Plan',type:'textarea',wide:true},{name:'follow_up_plan',label:'Follow-up',type:'textarea',wide:true}] },
+    vitals: { title: 'Record vital signs', resource: 'vitals', submit: 'Save observations', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'systolic_bp',label:'Systolic BP',type:'number'},{name:'diastolic_bp',label:'Diastolic BP',type:'number'},{name:'heart_rate',label:'Heart rate',type:'number'},{name:'respiratory_rate',label:'Respiratory rate',type:'number'},{name:'temperature_c',label:'Temperature °C',type:'number'},{name:'spo2',label:'SpO₂ %',type:'number'},{name:'weight_kg',label:'Weight kg',type:'number'},{name:'height_cm',label:'Height cm',type:'number'},{name:'blood_glucose',label:'Blood glucose',type:'number'},{name:'pain_score',label:'Pain score (0–10)',type:'number'},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
+    note: { title: 'Add clinical note', resource: 'notes', submit: 'Save clinical note', defaultStatus:'draft', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'note_type',label:'Note type',type:'select',options:['consultation','progress','nursing','nutrition','procedure','discharge','follow_up'],required:true},{name:'content',label:'Clinical documentation',type:'textarea',wide:true,required:true},{name:'status',label:'Status',type:'select',options:['draft','final'],required:true}] },
+    vitals_edit: { title: 'Correct vital signs', resource: 'vitals', submit: 'Save corrections', fields: [{name:'record_date',label:'Date and time recorded',type:'datetime-local'},{name:'systolic_bp',label:'Systolic BP',type:'number'},{name:'diastolic_bp',label:'Diastolic BP',type:'number'},{name:'heart_rate',label:'Heart rate',type:'number'},{name:'respiratory_rate',label:'Respiratory rate',type:'number'},{name:'temperature_c',label:'Temperature °C',type:'number'},{name:'spo2',label:'SpO₂ %',type:'number'},{name:'weight_kg',label:'Weight kg',type:'number'},{name:'height_cm',label:'Height cm',type:'number'},{name:'blood_glucose',label:'Blood glucose',type:'number'},{name:'pain_score',label:'Pain score (0–10)',type:'number'},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
+    note_edit: { title: 'Edit clinical note', resource: 'notes', submit: 'Save note', fields: [{name:'record_date',label:'Date and time of note',type:'datetime-local'},{name:'note_type',label:'Note type',type:'select',options:['consultation','progress','nursing','nutrition','procedure','discharge','follow_up'],required:true},{name:'content',label:'Clinical documentation',type:'textarea',wide:true,required:true},{name:'status',label:'Status',type:'select',options:['draft','final','amended'],required:true}] },
+    encounter_edit: { title: 'Edit encounter', resource: 'encounters', submit: 'Save encounter', fields: [{name:'record_date',label:'Date and time of encounter',type:'datetime-local'},{name:'encounter_type',label:'Encounter type',type:'select',options:['consultation','follow_up','home_visit','telemedicine','procedure'],required:true},{name:'status',label:'Status',type:'select',options:['planned','waiting','in_progress','completed','cancelled'],required:true},{name:'chief_complaint',label:'Chief complaint',wide:true,required:true},{name:'history_presenting_illness',label:'History of presenting illness',type:'textarea',wide:true},{name:'past_medical_history',label:'Past medical history',type:'textarea'},{name:'surgical_history',label:'Surgical history',type:'textarea'},{name:'family_history',label:'Family history',type:'textarea'},{name:'social_history',label:'Social history',type:'textarea'},{name:'review_of_systems',label:'Review of systems',type:'textarea',wide:true},{name:'examination',label:'Examination',type:'textarea',wide:true},{name:'clinical_assessment',label:'Assessment',type:'textarea',wide:true},{name:'treatment_plan',label:'Plan',type:'textarea',wide:true},{name:'follow_up_plan',label:'Follow-up',type:'textarea',wide:true}] },
     amendment: { title: 'Add signed note amendment', resource: 'notes', submit: 'Sign amendment', defaultStatus:'amended', fields: [{name:'content',label:'Amendment',type:'textarea',wide:true,required:true}] },
-    diagnosis: { title: 'Record diagnosis', resource: 'diagnoses', submit: 'Save diagnosis', defaultStatus:'active', fields: [{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'diagnosis_name',label:'Diagnosis',required:true},{name:'icd10_code',label:'ICD-10 code'},{name:'status',label:'Status',type:'select',options:['active','resolved','historical']},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
+    diagnosis: { title: 'Record diagnosis', resource: 'diagnoses', submit: 'Save diagnosis', defaultStatus:'active', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'diagnosis_name',label:'Diagnosis',required:true},{name:'icd10_code',label:'ICD-10 code'},{name:'status',label:'Status',type:'select',options:['active','resolved','historical']},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
     allergy: { title: 'Record allergy', resource: 'allergies', submit: 'Save allergy', defaultStatus:'active', fields: [{name:'allergen',label:'Allergen',required:true},{name:'reaction',label:'Reaction'},{name:'severity',label:'Severity',type:'select',options:['mild','moderate','severe','unknown']},{name:'identified_at',label:'Date identified',type:'date'},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
-    medication: { title: 'Create prescription', resource: 'medications', submit: 'Sign prescription', defaultStatus:'active', fields: [{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'medication_name',label:'Medication',required:true},{name:'generic_name',label:'Generic name'},{name:'strength',label:'Strength',required:true},{name:'dose',label:'Dose',required:true},{name:'route',label:'Route',type:'select',options:['oral','intravenous','intramuscular','subcutaneous','topical','inhaled','other'],required:true},{name:'frequency',label:'Frequency',required:true},{name:'duration',label:'Duration',required:true},{name:'quantity',label:'Quantity',required:true},{name:'start_date',label:'Start date',type:'date'},{name:'end_date',label:'End date',type:'date'},{name:'instructions',label:'Instructions',type:'textarea',wide:true}] },
-    investigation: { title: 'Order investigation', resource: 'investigations', submit: 'Place order', defaultStatus:'ordered', fields: [{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'test_name',label:'Test / investigation',required:true},{name:'category',label:'Category',type:'select',options:['laboratory','imaging','cardiology','pathology','other']},{name:'clinical_indication',label:'Clinical indication',type:'textarea',wide:true,required:true},{name:'priority',label:'Priority',type:'select',options:['routine','urgent','stat']}] },
+    medication: { title: 'Create prescription', resource: 'medications', submit: 'Sign prescription', defaultStatus:'active', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'medication_name',label:'Medication',required:true},{name:'generic_name',label:'Generic name'},{name:'strength',label:'Strength',required:true},{name:'dose',label:'Dose',required:true},{name:'route',label:'Route',type:'select',options:['oral','intravenous','intramuscular','subcutaneous','topical','inhaled','other'],required:true},{name:'frequency',label:'Frequency',required:true},{name:'duration',label:'Duration',required:true},{name:'quantity',label:'Quantity',required:true},{name:'start_date',label:'Start date',type:'date'},{name:'end_date',label:'End date',type:'date'},{name:'instructions',label:'Instructions',type:'textarea',wide:true}] },
+    investigation: { title: 'Order investigation', resource: 'investigations', submit: 'Place order', defaultStatus:'ordered', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'test_name',label:'Test / investigation',required:true},{name:'category',label:'Category',type:'select',options:['laboratory','imaging','cardiology','pathology','other']},{name:'clinical_indication',label:'Clinical indication',type:'textarea',wide:true,required:true},{name:'priority',label:'Priority',type:'select',options:['routine','urgent','stat']}] },
     result: { title: 'Record investigation result', resource: 'results', submit: 'Save result', fields: [{name:'test_name',label:'Test name',required:true},{name:'result',label:'Result',required:true},{name:'unit',label:'Unit'},{name:'reference_range',label:'Reference range'},{name:'abnormal_flag',label:'Flag',type:'select',options:['normal','low','high','critical','abnormal']},{name:'performing_facility',label:'Performing facility'},{name:'result_date',label:'Result date',type:'datetime-local'},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
-    imaging: { title: 'Record imaging study', resource: 'imaging', submit: 'Save imaging record', fields: [{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'modality',label:'Modality',type:'select',options:['x_ray','ultrasound','ct','mri','mammography','other'],required:true},{name:'body_region',label:'Body region'},{name:'indication',label:'Clinical indication',type:'textarea',wide:true,required:true},{name:'performed_at',label:'Performed at',type:'datetime-local'},{name:'report',label:'Clinical report',type:'textarea',wide:true}] },
-    care_plan: { title: 'Create care plan', resource: 'care_plans', submit: 'Create care plan', defaultStatus:'active', fields: [{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'title',label:'Plan title',required:true},{name:'description',label:'Description',type:'textarea',wide:true},{name:'goals',label:'Clinical goals',type:'textarea',wide:true,required:true},{name:'start_date',label:'Start date',type:'date'},{name:'target_date',label:'Target date',type:'date'}] },
+    imaging: { title: 'Record imaging study', resource: 'imaging', submit: 'Save imaging record', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'modality',label:'Modality',type:'select',options:['x_ray','ultrasound','ct','mri','mammography','other'],required:true},{name:'body_region',label:'Body region'},{name:'indication',label:'Clinical indication',type:'textarea',wide:true,required:true},{name:'performed_at',label:'Performed at',type:'datetime-local'},{name:'report',label:'Clinical report',type:'textarea',wide:true}] },
+    care_plan: { title: 'Create care plan', resource: 'care_plans', submit: 'Create care plan', defaultStatus:'active', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'title',label:'Plan title',required:true},{name:'description',label:'Description',type:'textarea',wide:true},{name:'goals',label:'Clinical goals',type:'textarea',wide:true,required:true},{name:'start_date',label:'Start date',type:'date'},{name:'target_date',label:'Target date',type:'date'}] },
     care_plan_item: { title: 'Add care plan item', resource: 'care_plan_items', submit: 'Add plan item', defaultStatus:'pending', fields: [{name:'title',label:'Plan item',required:true},{name:'instructions',label:'Instructions',type:'textarea',wide:true},{name:'due_date',label:'Due date',type:'date'}] },
     task: { title: 'Create follow-up task', resource: 'tasks', submit: 'Create task', defaultStatus:'pending', fields: [{name:'title',label:'Task',required:true},{name:'task_type',label:'Task type',type:'select',options:['follow_up','call','review','investigation','care_plan']},{name:'priority',label:'Priority',type:'select',options:['routine','urgent','stat']},{name:'due_at',label:'Due date and time',type:'datetime-local'}] },
-    document: { title: 'Upload clinical document', resource: 'documents', submit: 'Upload securely', fields: [{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'category',label:'Category',type:'select',options:['laboratory','imaging','referral','discharge','external_record','consent','other'],required:true},{name:'title',label:'Document title',required:true},{name:'file',label:'File',type:'file',required:true},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
+    encounter_document: { title: 'Attach file to encounter', resource: 'documents', submit: 'Attach securely', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'category',label:'Category',type:'select',options:['laboratory','imaging','referral','discharge','external_record','consent','other'],required:true},{name:'title',label:'Document title',required:true},{name:'file',label:'File',type:'file',required:true},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
+    note_document: { title: 'Attach file to note', resource: 'documents', submit: 'Attach securely', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'category',label:'Category',type:'select',options:['laboratory','imaging','referral','discharge','external_record','consent','other'],required:true},{name:'title',label:'Document title',required:true},{name:'file',label:'File',type:'file',required:true},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
+    document: { title: 'Upload clinical document', resource: 'documents', submit: 'Upload securely', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'category',label:'Category',type:'select',options:['laboratory','imaging','referral','discharge','external_record','consent','other'],required:true},{name:'title',label:'Document title',required:true},{name:'file',label:'File',type:'file',required:true},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
   }
   return configs[type] || configs.note
 }
@@ -292,6 +625,21 @@ function fullName(patient: Patient) { return [patient.first_name, patient.middle
 function patientName(patients: Patient[], id: string) { const p = patients.find(item => item.id === id); return p ? `${p.mrn} · ${fullName(p)}` : 'Patient record' }
 function age(dob: string) { const birth = new Date(`${dob}T00:00:00`), now = new Date(); let value = now.getFullYear() - birth.getFullYear(); if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) value--; return value }
 function formatTime(value?: string) { if (!value) return 'Time not set'; const [h,m] = value.split(':').map(Number); return new Intl.DateTimeFormat('en-NG',{hour:'numeric',minute:'2-digit'}).format(new Date(2000,0,1,h,m)) }
+// Local-time YYYY-MM-DD, avoiding the UTC shift toISOString would introduce.
+function toDateInput(value: Date) {
+  const offset = value.getTimezoneOffset() * 60000
+  return new Date(value.getTime() - offset).toISOString().slice(0, 10)
+}
+
+// datetime-local inputs need "YYYY-MM-DDTHH:mm" in local time, not an ISO
+// string with a timezone, or the browser leaves the field blank.
+function toDateTimeInput(value: string) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  const offset = parsed.getTimezoneOffset() * 60000
+  return new Date(parsed.getTime() - offset).toISOString().slice(0, 16)
+}
+
 function resourceForKind(kind: string) { return ({ encounter:'encounters',note:'notes',diagnosis:'diagnoses',allergy:'allergies',medication:'medications',investigation:'investigations',result:'results',imaging:'imaging',care_plan:'care_plans',task:'tasks' } as Record<string,string>)[kind] || kind }
 function recordTitle(record: any, resource: string) { if (resource === 'encounters') return `${record.encounter_number || 'Encounter'} · ${label(record.encounter_type)}`; if (resource === 'notes') return label(record.note_type); if (resource === 'diagnoses') return record.diagnosis_name; if (resource === 'allergies') return record.allergen; if (resource === 'medications') return `${record.medication_name || 'Medication'} ${record.strength || ''}`.trim(); if (resource === 'investigations') return record.test_name; if (resource === 'results') return `${record.test_name}: ${record.result}`; if (resource === 'imaging') return `${label(record.modality)}${record.body_region ? ` · ${record.body_region}` : ''}`; if (resource === 'care_plans') return record.title; return record.title || 'Clinical record' }
 function recordDetail(record: any, kind: string) { if (kind === 'encounter') return record.chief_complaint || record.clinical_assessment || 'Clinical encounter'; if (kind === 'note') return record.content; if (kind === 'diagnosis') return [record.icd10_code,record.notes].filter(Boolean).join(' · '); if (kind === 'allergy') return [record.reaction,label(record.severity)].filter(Boolean).join(' · '); if (kind === 'medication') return [record.dose,record.route,record.frequency,record.duration].filter(Boolean).join(' · '); if (kind === 'investigation') return [record.clinical_indication,label(record.priority)].filter(Boolean).join(' · '); if (kind === 'result') return [record.unit,record.reference_range,record.abnormal_flag && label(record.abnormal_flag)].filter(Boolean).join(' · '); if (kind === 'imaging') return record.report || record.indication; if (kind === 'care_plan') return record.goals || record.description; if (kind === 'task') return [label(record.task_type),record.due_at && `Due ${dateTime.format(new Date(record.due_at))}`].filter(Boolean).join(' · '); return record.notes || '' }
