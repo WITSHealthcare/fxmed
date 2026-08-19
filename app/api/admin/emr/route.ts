@@ -44,7 +44,7 @@ const enumValues: Record<string, string[]> = {
   sex: ['female','male','intersex','unknown'],
   patient_status: ['active','inactive','deceased'],
   encounter_status: ['planned','waiting','in_progress','completed','cancelled'],
-  note_type: ['consultation','progress','nursing','procedure','discharge','follow_up'],
+  note_type: ['consultation','progress','nursing','nutrition','procedure','discharge','follow_up'],
   note_status: ['draft','final','amended'],
   diagnosis_status: ['active','resolved','historical'],
   allergy_severity: ['mild','moderate','severe','unknown'],
@@ -314,6 +314,21 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ record: data })
     }
     const updates = buildUpdate(resource as ResourceName, body, user.id)
+    // Finalized notes are part of the clinical record. Editing is allowed, but
+    // the previous version is written to the audit log first so the history of
+    // what the note said stays reconstructable.
+    if (resource === 'notes' && 'content' in body) {
+      const { data: previous } = await database.from('emr_clinical_notes').select('content,note_type,status,patient_id').eq('id', id).maybeSingle()
+      if (previous && previous.content !== updates.content) {
+        await writeEmrAudit(database, user, {
+          action: 'revise_note',
+          entityType: 'emr_clinical_notes',
+          entityId: id,
+          patientId: previous.patient_id,
+          metadata: { previous_content: previous.content, previous_note_type: previous.note_type, previous_status: previous.status },
+        })
+      }
+    }
     if (resource === 'encounters' && body.status === 'completed') {
       const finalize = await getEmrContext(request, 'finalize_encounters')
       if (!finalize) return NextResponse.json({ error: 'Encounter finalization access required.' }, { status: 403 })
@@ -339,19 +354,29 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+// Clinical records are often entered after the fact. An explicit record_date
+// overrides the database default so historical entries carry the date care was
+// given, not the date they were typed in.
+function backdate(body: Record<string, any>) {
+  if (typeof body.record_date !== 'string' || !body.record_date) return null
+  const parsed = new Date(body.record_date)
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+}
+
 function buildRecord(resource: ResourceName, body: Record<string, any>, userId: string) {
   const now = new Date().toISOString()
+  const dated = backdate(body)
   switch (resource) {
-    case 'encounters': return { patient_id: body.patient_id, appointment_id: isUuid(body.appointment_id) ? body.appointment_id : null, provider_id: userId, encounter_type: cleanText(body.encounter_type, 80) || 'consultation', status: enumValue(body.status, 'encounter_status', 'in_progress'), chief_complaint: cleanText(body.chief_complaint), history_presenting_illness: cleanText(body.history_presenting_illness, 12000), past_medical_history: cleanText(body.past_medical_history, 12000), surgical_history: cleanText(body.surgical_history, 12000), family_history: cleanText(body.family_history, 12000), social_history: cleanText(body.social_history, 12000), review_of_systems: cleanText(body.review_of_systems, 12000), examination: cleanText(body.examination, 12000), clinical_assessment: cleanText(body.clinical_assessment, 12000), treatment_plan: cleanText(body.treatment_plan, 12000), follow_up_plan: cleanText(body.follow_up_plan, 4000), started_at: now }
-    case 'notes': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, author_id: userId, note_type: enumValue(body.note_type, 'note_type', 'progress'), content: cleanText(body.content, 50000), status: enumValue(body.status, 'note_status', 'draft'), finalized_at: body.status === 'final' ? now : null, parent_note_id: isUuid(body.parent_note_id) ? body.parent_note_id : null }
-    case 'vitals': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, systolic_bp: cleanNumber(body.systolic_bp), diastolic_bp: cleanNumber(body.diastolic_bp), heart_rate: cleanNumber(body.heart_rate), respiratory_rate: cleanNumber(body.respiratory_rate), temperature_c: cleanNumber(body.temperature_c), spo2: cleanNumber(body.spo2), weight_kg: cleanNumber(body.weight_kg), height_cm: cleanNumber(body.height_cm), bmi: calculateBmi(body.weight_kg, body.height_cm), blood_glucose: cleanNumber(body.blood_glucose), pain_score: cleanNumber(body.pain_score), notes: cleanText(body.notes), recorded_by: userId }
-    case 'diagnoses': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, provider_id: userId, diagnosis_name: cleanText(body.diagnosis_name, 240), icd10_code: cleanText(body.icd10_code, 30), status: enumValue(body.status, 'diagnosis_status', 'active'), notes: cleanText(body.notes) }
+    case 'encounters': return { patient_id: body.patient_id, appointment_id: isUuid(body.appointment_id) ? body.appointment_id : null, provider_id: userId, encounter_type: cleanText(body.encounter_type, 80) || 'consultation', status: enumValue(body.status, 'encounter_status', 'in_progress'), chief_complaint: cleanText(body.chief_complaint), history_presenting_illness: cleanText(body.history_presenting_illness, 12000), past_medical_history: cleanText(body.past_medical_history, 12000), surgical_history: cleanText(body.surgical_history, 12000), family_history: cleanText(body.family_history, 12000), social_history: cleanText(body.social_history, 12000), review_of_systems: cleanText(body.review_of_systems, 12000), examination: cleanText(body.examination, 12000), clinical_assessment: cleanText(body.clinical_assessment, 12000), treatment_plan: cleanText(body.treatment_plan, 12000), follow_up_plan: cleanText(body.follow_up_plan, 4000), started_at: dated || now, ...(dated ? { created_at: dated } : {}) }
+    case 'notes': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, author_id: userId, note_type: enumValue(body.note_type, 'note_type', 'progress'), content: cleanText(body.content, 50000), status: enumValue(body.status, 'note_status', 'draft'), finalized_at: body.status === 'final' ? (dated || now) : null, parent_note_id: isUuid(body.parent_note_id) ? body.parent_note_id : null, ...(dated ? { created_at: dated } : {}) }
+    case 'vitals': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, systolic_bp: cleanNumber(body.systolic_bp), diastolic_bp: cleanNumber(body.diastolic_bp), heart_rate: cleanNumber(body.heart_rate), respiratory_rate: cleanNumber(body.respiratory_rate), temperature_c: cleanNumber(body.temperature_c), spo2: cleanNumber(body.spo2), weight_kg: cleanNumber(body.weight_kg), height_cm: cleanNumber(body.height_cm), bmi: calculateBmi(body.weight_kg, body.height_cm), blood_glucose: cleanNumber(body.blood_glucose), pain_score: cleanNumber(body.pain_score), notes: cleanText(body.notes), recorded_by: userId, ...(dated ? { recorded_at: dated } : {}) }
+    case 'diagnoses': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, provider_id: userId, diagnosis_name: cleanText(body.diagnosis_name, 240), icd10_code: cleanText(body.icd10_code, 30), status: enumValue(body.status, 'diagnosis_status', 'active'), notes: cleanText(body.notes), ...(dated ? { diagnosed_at: dated, created_at: dated } : {}) }
     case 'allergies': return { patient_id: body.patient_id, allergen: cleanText(body.allergen, 240), reaction: cleanText(body.reaction, 500), severity: enumValue(body.severity, 'allergy_severity', 'unknown'), status: enumValue(body.status, 'allergy_status', 'active'), identified_at: cleanDate(body.identified_at), notes: cleanText(body.notes), recorded_by: userId }
-    case 'medications': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, prescriber_id: userId, medication_name: cleanText(body.medication_name, 240), generic_name: cleanText(body.generic_name, 240), strength: cleanText(body.strength, 100), dose: cleanText(body.dose, 100), route: cleanText(body.route, 100), frequency: cleanText(body.frequency, 120), duration: cleanText(body.duration, 120), quantity: cleanText(body.quantity, 100), instructions: cleanText(body.instructions, 2000), start_date: cleanDate(body.start_date), end_date: cleanDate(body.end_date), status: enumValue(body.status, 'medication_status', 'active') }
-    case 'investigations': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, ordering_provider_id: userId, test_name: cleanText(body.test_name, 240), category: cleanText(body.category, 120), clinical_indication: cleanText(body.clinical_indication, 2000), priority: enumValue(body.priority, 'investigation_priority', 'routine'), status: enumValue(body.status, 'investigation_status', 'ordered') }
+    case 'medications': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, prescriber_id: userId, medication_name: cleanText(body.medication_name, 240), generic_name: cleanText(body.generic_name, 240), strength: cleanText(body.strength, 100), dose: cleanText(body.dose, 100), route: cleanText(body.route, 100), frequency: cleanText(body.frequency, 120), duration: cleanText(body.duration, 120), quantity: cleanText(body.quantity, 100), instructions: cleanText(body.instructions, 2000), start_date: cleanDate(body.start_date), end_date: cleanDate(body.end_date), status: enumValue(body.status, 'medication_status', 'active'), ...(dated ? { created_at: dated } : {}) }
+    case 'investigations': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, ordering_provider_id: userId, test_name: cleanText(body.test_name, 240), category: cleanText(body.category, 120), clinical_indication: cleanText(body.clinical_indication, 2000), priority: enumValue(body.priority, 'investigation_priority', 'routine'), status: enumValue(body.status, 'investigation_status', 'ordered'), ...(dated ? { ordered_at: dated, created_at: dated } : {}) }
     case 'results': return { order_id: body.order_id, patient_id: body.patient_id, test_name: cleanText(body.test_name, 240), result: cleanText(body.result, 2000), unit: cleanText(body.unit, 80), reference_range: cleanText(body.reference_range, 160), abnormal_flag: body.abnormal_flag ? enumValue(body.abnormal_flag, 'abnormal_flag', 'normal') : null, performing_facility: cleanText(body.performing_facility, 240), result_date: body.result_date || now, notes: cleanText(body.notes, 2000) }
-    case 'imaging': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, ordering_provider_id: userId, modality: cleanText(body.modality, 120), body_region: cleanText(body.body_region, 160), indication: cleanText(body.indication, 2000), performed_at: body.performed_at || null, report: cleanText(body.report, 12000) }
-    case 'care_plans': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, title: cleanText(body.title, 240), description: cleanText(body.description, 8000), goals: cleanText(body.goals, 8000), status: enumValue(body.status, 'care_plan_status', 'active'), start_date: cleanDate(body.start_date), target_date: cleanDate(body.target_date), owner_id: userId }
+    case 'imaging': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, ordering_provider_id: userId, modality: cleanText(body.modality, 120), body_region: cleanText(body.body_region, 160), indication: cleanText(body.indication, 2000), performed_at: body.performed_at || dated || null, report: cleanText(body.report, 12000), ...(dated ? { created_at: dated } : {}) }
+    case 'care_plans': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, title: cleanText(body.title, 240), description: cleanText(body.description, 8000), goals: cleanText(body.goals, 8000), status: enumValue(body.status, 'care_plan_status', 'active'), start_date: cleanDate(body.start_date), target_date: cleanDate(body.target_date), owner_id: userId, ...(dated ? { created_at: dated } : {}) }
     case 'care_plan_items': return { care_plan_id: body.care_plan_id, title: cleanText(body.title, 240), instructions: cleanText(body.instructions, 2000), due_date: cleanDate(body.due_date), status: enumValue(body.status, 'care_item_status', 'pending'), position: cleanNumber(body.position) || 0 }
     case 'tasks': return { patient_id: isUuid(body.patient_id) ? body.patient_id : null, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, title: cleanText(body.title, 240), task_type: cleanText(body.task_type, 80) || 'follow_up', priority: enumValue(body.priority, 'investigation_priority', 'routine'), status: enumValue(body.status, 'task_status', 'pending'), assigned_to: isUuid(body.assigned_to) ? body.assigned_to : userId, due_at: body.due_at || null, created_by: userId }
   }
@@ -372,8 +397,8 @@ function validateRecord(resource: ResourceName, record: Record<string, any>) {
 
 function buildUpdate(resource: ResourceName, body: Record<string, any>, userId: string) {
   const fields: Record<ResourceName, string[]> = {
-    encounters: ['status','chief_complaint','history_presenting_illness','past_medical_history','surgical_history','family_history','social_history','review_of_systems','examination','clinical_assessment','treatment_plan','follow_up_plan'],
-    notes: ['content','status'], vitals: [], diagnoses: ['status','notes','resolved_at'], allergies: ['status','notes','reaction','severity'],
+    encounters: ['status','encounter_type','chief_complaint','history_presenting_illness','past_medical_history','surgical_history','family_history','social_history','review_of_systems','examination','clinical_assessment','treatment_plan','follow_up_plan'],
+    notes: ['content','status'], vitals: ['systolic_bp','diastolic_bp','heart_rate','respiratory_rate','temperature_c','spo2','weight_kg','height_cm','blood_glucose','pain_score','notes'], diagnoses: ['status','notes','resolved_at'], allergies: ['status','notes','reaction','severity'],
     medications: ['status','end_date','discontinued_reason','instructions'], investigations: ['status','priority','clinical_indication','completed_at'],
     results: ['notes','abnormal_flag'], care_plans: ['status','description','goals','target_date','completed_at'],
     care_plan_items: ['status','title','instructions','due_date','position','completed_at'], tasks: ['status','priority','due_at','assigned_to'],
@@ -381,6 +406,20 @@ function buildUpdate(resource: ResourceName, body: Record<string, any>, userId: 
   }
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   for (const field of fields[resource]) if (field in body) updates[field] = typeof body[field] === 'string' ? cleanText(body[field], 12000) : body[field]
+  // Let the recorded date be corrected after the fact, for entries captured
+  // late. Each resource keeps its own notion of when the care happened.
+  const dated = backdate(body)
+  if (dated && resource === 'encounters') { updates.created_at = dated; updates.started_at = dated }
+  if (dated && resource === 'notes') updates.created_at = dated
+  if (resource === 'vitals') {
+    // Vitals arrive from the form as strings; store them as numbers and keep
+    // BMI consistent with whatever weight and height end up being.
+    for (const field of ['systolic_bp','diastolic_bp','heart_rate','respiratory_rate','temperature_c','spo2','weight_kg','height_cm','blood_glucose','pain_score']) {
+      if (field in body) updates[field] = cleanNumber(body[field])
+    }
+    if ('weight_kg' in body || 'height_cm' in body) updates.bmi = calculateBmi(body.weight_kg, body.height_cm)
+    if (dated) updates.recorded_at = dated
+  }
   if (resource === 'diagnoses' && body.status) updates.status = enumValue(body.status, 'diagnosis_status', 'active')
   if (resource === 'allergies' && body.status) updates.status = enumValue(body.status, 'allergy_status', 'active')
   if (resource === 'medications' && body.status) updates.status = enumValue(body.status, 'medication_status', 'active')
@@ -414,7 +453,7 @@ async function uploadDocument(request: NextRequest) {
     const path = `${patientId}/${crypto.randomUUID()}-${safeName}`
     const { error: uploadError } = await database.storage.from('emr-documents').upload(path, file, { contentType: file.type, upsert: false })
     if (uploadError) throw uploadError
-    const { data, error } = await database.from('emr_documents').insert({ patient_id: patientId, encounter_id: isUuid(form.get('encounter_id')) ? form.get('encounter_id') : null, category: cleanText(form.get('category'), 50) || 'other', title: cleanText(form.get('title'), 240) || file.name, storage_path: path, original_name: file.name, mime_type: file.type, file_size: file.size, notes: cleanText(form.get('notes'), 2000), uploaded_by: user.id }).select('*').single()
+    const { data, error } = await database.from('emr_documents').insert({ patient_id: patientId, encounter_id: isUuid(form.get('encounter_id')) ? form.get('encounter_id') : null, note_id: isUuid(form.get('note_id')) ? form.get('note_id') : null, category: cleanText(form.get('category'), 50) || 'other', title: cleanText(form.get('title'), 240) || file.name, storage_path: path, original_name: file.name, mime_type: file.type, file_size: file.size, notes: cleanText(form.get('notes'), 2000), uploaded_by: user.id, ...(backdate({ record_date: form.get('record_date') }) ? { created_at: backdate({ record_date: form.get('record_date') }) } : {}) }).select('*').single()
     if (error) { await database.storage.from('emr-documents').remove([path]); throw error }
     await writeEmrAudit(database, user, { action: 'upload_document', entityType: 'emr_document', entityId: data.id, patientId: String(patientId), metadata: { mimeType: file.type, size: file.size } })
     return NextResponse.json({ record: data }, { status: 201 })

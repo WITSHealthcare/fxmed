@@ -16,6 +16,14 @@ export interface InvestigationFormData {
   gender: string
   panelTitle: string
   tests: InvestigationTest[]
+  // Optional partner verification stamp. Present only when the form is being
+  // taken to a partner laboratory, so they can confirm FXMed authorised it.
+  stamp?: InvestigationStamp
+}
+
+export interface InvestigationStamp {
+  partner: string
+  validOn: string
 }
 
 // The default "Core Functional Medicine Panel" used on the public site. Exposed
@@ -188,6 +196,38 @@ function buildSectionHtml(panelTitle: string, cardsHtml: string, withBadge: bool
   `
 }
 
+function formatStampDate(value: string) {
+  const parsed = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return value
+  return parsed.toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+// A verification mark the partner laboratory can check at the counter. Angled
+// and double-ruled so it reads as a stamp rather than as body copy.
+function buildStampHtml(stamp: InvestigationStamp, patientName: string) {
+  const partner = escapeHtml(stamp.partner.toUpperCase())
+  return `
+    <div style="margin-top: 34px; display: flex; justify-content: flex-end;">
+      <div style="transform: rotate(-2.5deg); border: 3px double #0F2419; border-radius: 10px; padding: 14px 20px; background: rgba(202,222,104,.12); text-align: center; min-width: 300px;">
+        <div style="font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #6B8E23;">
+          FXMed Functional Medicine
+        </div>
+        <div style="margin: 7px 0 4px; font-size: 19px; font-weight: 800; letter-spacing: .05em; color: #0F2419;">
+          VERIFIED FOR ${partner}
+        </div>
+        <div style="font-size: 12px; color: #0F2419; line-height: 1.55;">
+          ${escapeHtml(patientName || 'The named patient')} is authorised by FXMed<br>
+          to undergo the investigations listed on this form<br>
+          at ${escapeHtml(stamp.partner)}.
+        </div>
+        <div style="margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(15,36,25,.25); font-size: 13px; font-weight: 800; color: #0F2419;">
+          VALID ON: ${escapeHtml(formatStampDate(stamp.validOn))}
+        </div>
+      </div>
+    </div>
+  `
+}
+
 function buildFooterHtml() {
   return `
     <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center;">
@@ -268,7 +308,9 @@ export async function generateInvestigationFormPdf(data: InvestigationFormData):
     return isFirstPage ? headerHtml + patientHtml + sectionHtml : sectionHtml
   })
 
-  // Footer lives on the final page.
+  // Stamp then footer, both on the final page so the verification mark sits
+  // directly beneath the tests it authorises.
+  if (data.stamp?.validOn) pageHtmls[pageHtmls.length - 1] += buildStampHtml(data.stamp, data.fullName)
   pageHtmls[pageHtmls.length - 1] += footerHtml
 
   const html2canvas = (await import('html2canvas')).default

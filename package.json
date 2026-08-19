@@ -45,7 +45,7 @@
     "tailwindcss": "^3.3.0"
   },
   "overrides": {
-    "brace-expansion": "1.1.13",
+    "brace-expansion": "1.1.18",
     "postcss": "$postcss",
     "quill": "$quill",
     "ws": "8.20.1"
