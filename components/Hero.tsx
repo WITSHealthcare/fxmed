@@ -7,7 +7,7 @@ import AppointmentModal from '@/components/AppointmentModal'
 export default function Hero() {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
   return (
-    <section className="relative min-h-screen overflow-hidden flex items-center px-[5%] pt-[100px] pb-[60px]">
+    <section className="relative min-h-screen overflow-hidden flex items-center px-[5%] pt-[140px] pb-[60px] md:pt-[180px]">
       {/* Background Image */}
       <div className="absolute inset-0 bg-cover bg-center brightness-[0.35]" 
            style={{backgroundImage: "url('/Hero Background.jpeg')"}}>

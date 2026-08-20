@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { docxToText } from '@/lib/docx-text'
 
 // Models proven in this codebase. Both Gemini and Claude accept PDFs and images
 // directly, which is how uploaded documents are read without local OCR.
@@ -14,12 +15,33 @@ export type ReportAttachment = {
   base64: string
 }
 
-// Word documents cannot be passed to any provider as-is; they are listed in the
-// prompt by name instead so the report still acknowledges them.
+// Formats a provider can read as an attached file, without local conversion.
 export const READABLE_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+
+export const DOCX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+export const DOC_MIME_TYPE = 'application/msword'
 
 export function isReadable(mimeType: string) {
   return READABLE_MIME_TYPES.includes(mimeType)
+}
+
+// No provider accepts a Word file, so its text is extracted locally and added
+// to the prompt instead.
+export function isTextExtractable(mimeType: string) {
+  return mimeType === DOCX_MIME_TYPE || mimeType === DOC_MIME_TYPE
+}
+
+// Browsers label Word uploads inconsistently, so the bytes decide rather than
+// the recorded type: a zip container is .docx, and an OLE container is a true
+// legacy .doc, which has no reliable text extraction. Throws a message that is
+// safe to show a clinician.
+export async function extractDocumentText(mimeType: string, bytes: Buffer) {
+  if (!isTextExtractable(mimeType)) return ''
+  if (bytes[0] === 0x50 && bytes[1] === 0x4b) return docxToText(bytes)
+  if (bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0) {
+    throw new Error('legacy .doc format — re-save as .docx or PDF to include it')
+  }
+  throw new Error('Word file could not be opened')
 }
 
 async function tryGemini(prompt: string, attachments: ReportAttachment[]) {
