@@ -389,6 +389,8 @@ function PatientReportModal({ patient, onClose }: { patient: Patient; onClose: (
   const [meta, setMeta] = useState<{ provider?: string; documentsRead?: number; skipped?: string[] }>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // The prompt forbids second person, but a model can slip; flag it for the clinician to fix.
+  const secondPerson = /\b(you|your|yours|you're|you've)\b/i.test(report)
 
   async function generate() {
     setLoading(true); setError(''); setReport('')
@@ -437,7 +439,8 @@ function PatientReportModal({ patient, onClose }: { patient: Patient; onClose: (
             <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800">Not read</p>
             <ul className="mt-1 space-y-0.5">{meta.skipped.map(item => <li key={item} className="text-xs text-amber-800">{item}</li>)}</ul>
           </div> : null}
-          <Alert tone="info">Review and edit before sharing. AI-drafted clinical summaries must be checked by a clinician.</Alert>
+          <Alert tone="info">Written in the third person so the patient can pass it on to another health worker. Review and edit before sharing. AI-drafted clinical summaries must be checked by a clinician.</Alert>
+          {secondPerson && <Alert tone="error">This draft still addresses the patient directly (&ldquo;you&rdquo; / &ldquo;your&rdquo;). Regenerate, or edit those sentences into the third person before sharing.</Alert>}
           <textarea value={report} onChange={e => setReport(e.target.value)} rows={26} className="input mt-4 font-mono text-[13px] leading-6" />
         </>}
       </div>
