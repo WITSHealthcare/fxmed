@@ -3,6 +3,27 @@ import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 import { getAmbassadorDatabase, makeAmbassadorCode } from '@/lib/ambassador-portal'
 import { siteUrl } from '@/lib/seo'
 
+function isLocalUrl(value: string) {
+  try { return ['localhost', '127.0.0.1', '::1'].includes(new URL(value).hostname) }
+  catch { return true }
+}
+
+function portalSetupUrl(request: NextRequest) {
+  // Prefer the host handling the admin request so preview and production
+  // deployments send users back to themselves. Never email a localhost link
+  // from a production deployment, even if an environment variable is stale.
+  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim()
+  const forwardedProto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim()
+  const requestOrigin = forwardedHost ? `${forwardedProto || 'https'}://${forwardedHost}` : request.nextUrl.origin
+  const origin = process.env.NODE_ENV === 'production' && isLocalUrl(requestOrigin)
+    ? siteUrl
+    : requestOrigin
+  const safeOrigin = process.env.NODE_ENV === 'production' && isLocalUrl(origin)
+    ? 'https://www.fxmed.ng'
+    : origin.replace(/\/+$/, '')
+  return `${safeOrigin}/ambassador-portal/setup`
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (!await getAuthorizedAdminRole(request, 'ambassador')) return NextResponse.json({ error: 'Access denied' }, { status: 403 })
@@ -14,7 +35,7 @@ export async function POST(request: NextRequest) {
     const { data: application, error: applicationError } = await database.from('ambassador_applications').select('*').eq('id', body.application_id).single()
     if (applicationError || !application) return NextResponse.json({ error: 'Application not found.' }, { status: 404 })
     if (application.status !== 'approved') return NextResponse.json({ error: 'Approve the application before creating portal access.' }, { status: 409 })
-    const redirectTo = `${siteUrl}/ambassador-portal/setup`
+    const redirectTo = portalSetupUrl(request)
     const { data: existingProfile } = await database.from('ambassador_profiles').select('*').eq('application_id', application.id).maybeSingle()
     if (existingProfile) {
       const { data: existingUser, error: userError } = await database.auth.admin.getUserById(existingProfile.user_id)

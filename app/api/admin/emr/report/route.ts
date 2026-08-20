@@ -22,6 +22,57 @@ function section(title: string, rows: string[]) {
   return rows.length ? `\n## ${title}\n${rows.map(row => `- ${row}`).join('\n')}` : `\n## ${title}\nNone recorded.`
 }
 
+function money(value: unknown, currency = 'NGN') {
+  const amount = Number(value || 0)
+  try { return new Intl.NumberFormat('en-NG', { style: 'currency', currency }).format(amount) }
+  catch { return `${currency} ${amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
+}
+
+function tableCell(value: unknown) {
+  return String(value ?? '—').replace(/\|/g, '/').replace(/\s*\n\s*/g, ' ').trim() || '—'
+}
+
+function financialRecordsInRange(records: any[], from: string, to: string) {
+  const start = new Date(`${from}T00:00:00`).getTime()
+  const end = new Date(`${to}T23:59:59.999`).getTime()
+  return records.filter(record => {
+    const stamp = new Date(`${record.service_date}T00:00:00`).getTime()
+    return stamp >= start && stamp <= end
+  })
+}
+
+function buildFinancialReport(records: any[], from: string, to: string) {
+  const selected = financialRecordsInRange(records, from, to)
+  const currencies = Array.from(new Set(selected.map(record => record.currency || 'NGN')))
+  const totals = currencies.map(currency => {
+    const rows = selected.filter(record => (record.currency || 'NGN') === currency)
+    const billed = rows.reduce((sum, record) => sum + Number(record.amount_due || 0), 0)
+    const paid = rows.reduce((sum, record) => sum + Number(record.amount_paid || 0), 0)
+    return { currency, billed, paid, balance: billed - paid }
+  })
+  const lines = [
+    '## Financial Summary',
+    selected.length ? `This report contains ${selected.length} financial record${selected.length === 1 ? '' : 's'} for the selected period.` : 'No financial records were recorded for the selected period.',
+  ]
+  if (totals.length) {
+    lines.push('', '| Currency | Total billed | Total paid | Outstanding balance |', '| --- | ---: | ---: | ---: |')
+    for (const total of totals) lines.push(`| ${total.currency} | ${money(total.billed, total.currency)} | ${money(total.paid, total.currency)} | ${money(total.balance, total.currency)} |`)
+  }
+  lines.push('', '## Payment Records')
+  if (!selected.length) lines.push('None recorded.')
+  else {
+    lines.push('| Service date | Description | Billed | Paid | Balance | Status | Payment method | Reference |', '| --- | --- | ---: | ---: | ---: | --- | --- | --- |')
+    for (const record of selected) {
+      const currency = record.currency || 'NGN'
+      lines.push(`| ${tableCell(fmt(record.service_date))} | ${tableCell(record.description)} | ${money(record.amount_due, currency)} | ${money(record.amount_paid, currency)} | ${money(Number(record.amount_due || 0) - Number(record.amount_paid || 0), currency)} | ${tableCell(record.status)} | ${tableCell(record.payment_method)} | ${tableCell(record.payment_reference)} |`)
+    }
+  }
+  lines.push('', '## Status Notes')
+  const outstanding = selected.filter(record => ['pending','partial','overdue'].includes(record.status))
+  lines.push(outstanding.length ? `${outstanding.length} record${outstanding.length === 1 ? ' has' : 's have'} an outstanding balance.` : 'No outstanding balances are recorded for the selected period.')
+  return lines.join('\n')
+}
+
 // Flattens the chart into text the model can reason over. Kept explicit rather
 // than dumping raw JSON so the model sees clinical meaning, not column names.
 function buildClinicalSummary(data: any, from: string, to: string) {
@@ -135,9 +186,10 @@ export async function POST(request: NextRequest) {
     const patientId = body?.patientId
     const from = body?.from
     const to = body?.to
+    const reportType = body?.reportType === 'financial' ? 'financial' : 'clinical'
     if (!patientId || !from || !to) return NextResponse.json({ error: 'A patient and date range are required.' }, { status: 400 })
 
-    const [patient, encounters, notes, vitals, diagnoses, allergies, medications, orders, results, imaging, documents, carePlans] = await Promise.all([
+    const [patient, encounters, notes, vitals, diagnoses, allergies, medications, orders, results, imaging, documents, carePlans, financialRecords] = await Promise.all([
       database.from('emr_patients').select('*').eq('id', patientId).single(),
       database.from('emr_encounters').select('*').eq('patient_id', patientId).order('created_at'),
       database.from('emr_clinical_notes').select('*').eq('patient_id', patientId).order('created_at'),
@@ -150,8 +202,16 @@ export async function POST(request: NextRequest) {
       database.from('emr_imaging_records').select('*').eq('patient_id', patientId).order('created_at'),
       database.from('emr_documents').select('*').eq('patient_id', patientId).order('created_at'),
       database.from('emr_care_plans').select('*').eq('patient_id', patientId),
+      database.from('emr_financial_records').select('*').eq('patient_id', patientId).order('service_date'),
     ])
     if (patient.error || !patient.data) return NextResponse.json({ error: 'Patient not found.' }, { status: 404 })
+    if (financialRecords.error) throw financialRecords.error
+
+    if (reportType === 'financial') {
+      const report = buildFinancialReport(financialRecords.data || [], from, to)
+      await writeEmrAudit(database, user, { action: 'generate_financial_report', entityType: 'emr_patient', entityId: patientId, patientId, metadata: { from, to } })
+      return NextResponse.json({ report, provider: 'FXMed financial ledger', documentsRead: 0, skipped: [] })
+    }
 
     const chart = {
       patient: patient.data,
@@ -159,6 +219,7 @@ export async function POST(request: NextRequest) {
       diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [],
       investigations: orders.data || [], results: results.data || [], imaging: imaging.data || [],
       carePlans: carePlans.data || [],
+      financialRecords: financialRecords.data || [],
     }
 
     // Download the patient's documents so the model can read them directly.
@@ -218,7 +279,10 @@ export async function POST(request: NextRequest) {
 
     const prompt = `${SYSTEM_BRIEF}\n\n---\n\n${buildClinicalSummary(chart, from, to)}${manifest}${wordText}\n\n---\n\n${attachments.length ? `The ${attachments.length} document(s) attached to this message are this patient's uploaded clinical files. Read them and incorporate their findings.` : 'No documents were attached to this message.'}${extracted.length ? ` The text extracted from ${extracted.length} Word document(s) appears above; treat it as this patient's uploaded clinical files and incorporate its findings. Rows written as "| a | b | c |" came from tables in those documents.` : ''}\n\nWrite the report now.`
 
-    const { report, provider } = await generateClinicalReport(prompt, attachments)
+    const { report: clinicalReport, provider } = await generateClinicalReport(prompt, attachments)
+    // Financial figures are appended from the ledger rather than rewritten by
+    // the model, so the billed, paid and outstanding amounts remain exact.
+    const report = `${clinicalReport.trim()}\n\n${buildFinancialReport(financialRecords.data || [], from, to)}`
 
     await writeEmrAudit(database, user, {
       action: 'generate_patient_report',

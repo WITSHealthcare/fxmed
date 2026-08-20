@@ -27,6 +27,7 @@ const resources = {
   care_plan_items: { table: 'emr_care_plan_items', permission: 'manage_care_plans', patientField: null, orderField: 'created_at' },
   tasks: { table: 'emr_clinical_tasks', permission: 'edit_encounters', patientField: 'patient_id', orderField: 'created_at' },
   assessments: { table: 'emr_health_assessments', permission: 'view_clinical_records', patientField: 'patient_id', orderField: 'submitted_at' },
+  financial_records: { table: 'emr_financial_records', permission: 'manage_financial_records', patientField: 'patient_id', orderField: 'service_date' },
 } as const
 
 type ResourceName = keyof typeof resources
@@ -57,6 +58,9 @@ const enumValues: Record<string, string[]> = {
   care_item_status: ['pending','in_progress','completed','cancelled'],
   task_status: ['pending','in_progress','completed','cancelled'],
   assessment_status: ['new','reviewed','contacted','completed'],
+  financial_status: ['pending','partial','paid','overdue','waived','refunded'],
+  financial_currency: ['NGN','USD'],
+  payment_method: ['cash','card','bank_transfer','paystack','insurance','other'],
 }
 
 function enumValue(value: unknown, group: string, fallback: string) {
@@ -134,7 +138,7 @@ export async function GET(request: NextRequest) {
 
     if (resource === 'patient') {
       if (!isUuid(patientId)) return NextResponse.json({ error: 'A valid patient is required.' }, { status: 400 })
-      const [patient, encounters, notes, vitals, diagnoses, allergies, medications, prescriptions, orders, results, legacyReports, imaging, documents, carePlans, tasks, appointments, assessments, audit] = await Promise.all([
+      const [patient, encounters, notes, vitals, diagnoses, allergies, medications, prescriptions, orders, results, legacyReports, imaging, documents, carePlans, tasks, appointments, assessments, financialRecords, audit] = await Promise.all([
         database.from('emr_patients').select('*').eq('id', patientId).single(),
         database.from('emr_encounters').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
         database.from('emr_clinical_notes').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
@@ -152,12 +156,13 @@ export async function GET(request: NextRequest) {
         database.from('emr_clinical_tasks').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
         database.from('appointments').select('*').eq('patient_id', patientId).order('preferred_date', { ascending: false }),
         database.from('emr_health_assessments').select('*').eq('patient_id', patientId).order('submitted_at', { ascending: false }),
+        database.from('emr_financial_records').select('*').eq('patient_id', patientId).order('service_date', { ascending: false }).order('created_at', { ascending: false }),
         database.from('emr_audit_logs').select('id,action,entity_type,entity_id,user_email,created_at').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(100),
       ])
-      const error = patient.error || encounters.error || notes.error || vitals.error || diagnoses.error || allergies.error || medications.error || prescriptions.error || orders.error || results.error || legacyReports.error || imaging.error || documents.error || carePlans.error || tasks.error || appointments.error || assessments.error || audit.error
+      const error = patient.error || encounters.error || notes.error || vitals.error || diagnoses.error || allergies.error || medications.error || prescriptions.error || orders.error || results.error || legacyReports.error || imaging.error || documents.error || carePlans.error || tasks.error || appointments.error || assessments.error || financialRecords.error || audit.error
       if (error) throw error
       await writeEmrAudit(database, user, { action: 'view_patient_chart', entityType: 'emr_patient', entityId: patientId, patientId })
-      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], legacyReports: legacyReports.data || [], imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], assessments: assessments.data || [], audit: audit.data || [] })
+      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], legacyReports: legacyReports.data || [], imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], assessments: assessments.data || [], financialRecords: financialRecords.data || [], audit: audit.data || [] })
     }
 
     if (resource === 'appointments') {
@@ -379,6 +384,7 @@ function buildRecord(resource: ResourceName, body: Record<string, any>, userId: 
     case 'care_plans': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, title: cleanText(body.title, 240), description: cleanText(body.description, 8000), goals: cleanText(body.goals, 8000), status: enumValue(body.status, 'care_plan_status', 'active'), start_date: cleanDate(body.start_date), target_date: cleanDate(body.target_date), owner_id: userId, ...(dated ? { created_at: dated } : {}) }
     case 'care_plan_items': return { care_plan_id: body.care_plan_id, title: cleanText(body.title, 240), instructions: cleanText(body.instructions, 2000), due_date: cleanDate(body.due_date), status: enumValue(body.status, 'care_item_status', 'pending'), position: cleanNumber(body.position) || 0 }
     case 'tasks': return { patient_id: isUuid(body.patient_id) ? body.patient_id : null, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, title: cleanText(body.title, 240), task_type: cleanText(body.task_type, 80) || 'follow_up', priority: enumValue(body.priority, 'investigation_priority', 'routine'), status: enumValue(body.status, 'task_status', 'pending'), assigned_to: isUuid(body.assigned_to) ? body.assigned_to : userId, due_at: body.due_at || null, created_by: userId }
+    case 'financial_records': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, description: cleanText(body.description, 500), amount_due: cleanNumber(body.amount_due), amount_paid: cleanNumber(body.amount_paid) || 0, currency: enumValue(body.currency, 'financial_currency', 'NGN'), status: enumValue(body.status, 'financial_status', 'pending'), payment_method: body.payment_method ? enumValue(body.payment_method, 'payment_method', 'other') : null, payment_reference: cleanText(body.payment_reference, 240), service_date: cleanDate(body.service_date) || new Date().toISOString().slice(0, 10), due_date: cleanDate(body.due_date), paid_at: body.paid_at || (Number(body.amount_paid) > 0 ? now : null), notes: cleanText(body.notes, 4000), created_by: userId }
   }
 }
 
@@ -387,11 +393,13 @@ function validateRecord(resource: ResourceName, record: Record<string, any>) {
     encounters: ['patient_id','chief_complaint'], notes: ['patient_id','content','note_type'], diagnoses: ['patient_id','diagnosis_name'],
     allergies: ['patient_id','allergen'], medications: ['patient_id','medication_name','strength','dose','route','frequency','duration','quantity'],
     investigations: ['patient_id','test_name','clinical_indication'], results: ['patient_id','order_id','test_name','result'], imaging: ['patient_id','modality','indication'],
-    care_plans: ['patient_id','title','goals'], care_plan_items: ['care_plan_id','title'], tasks: ['title'],
+    care_plans: ['patient_id','title','goals'], care_plan_items: ['care_plan_id','title'], tasks: ['title'], financial_records: ['patient_id','description'],
   }
   const missing = required[resource]?.find(field => !record[field])
   if (missing) return `${missing.replace(/_/g, ' ')} is required.`
   if (resource === 'results' && !isUuid(record.order_id)) return 'A valid investigation order is required.'
+  if (resource === 'financial_records' && (record.amount_due === null || record.amount_due < 0 || record.amount_paid < 0)) return 'Valid non-negative billed and paid amounts are required.'
+  if (resource === 'financial_records' && record.amount_paid > record.amount_due) return 'Amount paid cannot exceed the amount billed.'
   return null
 }
 
@@ -403,6 +411,7 @@ function buildUpdate(resource: ResourceName, body: Record<string, any>, userId: 
     results: ['notes','abnormal_flag'], care_plans: ['status','description','goals','target_date','completed_at'],
     care_plan_items: ['status','title','instructions','due_date','position','completed_at'], tasks: ['status','priority','due_at','assigned_to'],
     imaging: ['modality','body_region','indication','performed_at','report'], assessments: ['status','reviewed_at','reviewed_by'],
+    financial_records: ['description','amount_due','amount_paid','currency','status','payment_method','payment_reference','service_date','due_date','paid_at','notes'],
   }
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   for (const field of fields[resource]) if (field in body) updates[field] = typeof body[field] === 'string' ? cleanText(body[field], 12000) : body[field]
@@ -430,6 +439,15 @@ function buildUpdate(resource: ResourceName, body: Record<string, any>, userId: 
   if (resource === 'assessments' && body.status) {
     updates.status = enumValue(body.status, 'assessment_status', 'new')
     if (body.status === 'reviewed') { updates.reviewed_by = userId; updates.reviewed_at = new Date().toISOString() }
+  }
+  if (resource === 'financial_records') {
+    if ('amount_due' in body) updates.amount_due = cleanNumber(body.amount_due)
+    if ('amount_paid' in body) updates.amount_paid = cleanNumber(body.amount_paid) || 0
+    if (body.status) updates.status = enumValue(body.status, 'financial_status', 'pending')
+    if (body.currency) updates.currency = enumValue(body.currency, 'financial_currency', 'NGN')
+    if (body.payment_method) updates.payment_method = enumValue(body.payment_method, 'payment_method', 'other')
+    if ('service_date' in body) updates.service_date = cleanDate(body.service_date)
+    if ('due_date' in body) updates.due_date = cleanDate(body.due_date)
   }
   if (resource === 'notes' && body.status) updates.status = enumValue(body.status, 'note_status', 'draft')
   if (resource === 'encounters' && body.status) updates.status = enumValue(body.status, 'encounter_status', 'in_progress')

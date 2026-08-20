@@ -127,16 +127,16 @@ function PatientChart({ patientId, onBack, onChanged }: { patientId: string; onB
   if (error) return <Alert tone="error">{error}</Alert>
   if (!chart) return <Loading />
   const patient = chart.patient
-  const tabs = ['overview','timeline','encounters','notes','diagnoses','medications','investigations','documents','care_plans']
+  const tabs = ['overview','timeline','encounters','notes','diagnoses','medications','investigations','financial','documents','care_plans']
   const actions = [
     ['encounter','Start encounter',StethoscopeIcon], ['vitals','Record vitals',PulseIcon], ['note','Clinical note',NotePencilIcon], ['diagnosis','Diagnosis',FirstAidKitIcon],
     ['patient','Edit demographics',PencilSimpleIcon], ['allergy','Allergy',WarningCircleIcon], ['medication','Prescription',PillIcon], ['investigation','Order test',FlaskIcon], ['imaging','Imaging',ImageSquareIcon],
-    ['care_plan','Care plan',HeartbeatIcon], ['task','Follow-up task',ListChecksIcon], ['document','Document',FileArrowUpIcon],
+    ['care_plan','Care plan',HeartbeatIcon], ['task','Follow-up task',ListChecksIcon], ['financial_record','Financial record',FileTextIcon], ['document','Document',FileArrowUpIcon],
   ] as const
   return <div className="space-y-6">
     <button onClick={onBack} className="inline-flex items-center gap-2 text-sm font-bold text-green-mid hover:text-green-deep"><ArrowLeftIcon size={18} />Back to patient registry</button>
     <section className="overflow-hidden rounded-[26px] border border-green-deep/10 bg-white shadow-[0_10px_40px_rgba(26,61,46,0.07)]">
-      <div className="bg-green-deep p-6 text-white sm:p-8"><div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-gold">{patient.mrn}</p><h2 className="mt-2 text-3xl font-bold">{fullName(patient)}</h2><p className="mt-2 text-sm text-white/65">{age(patient.date_of_birth)} years · {label(patient.sex)} · {patient.phone || 'No phone'}</p></div><div className="flex flex-col items-end gap-3"><Status value={patient.status} /><button onClick={() => setModal('report')} className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-green-deep transition-colors hover:bg-gold-light"><FileTextIcon size={18} weight="duotone" />Generate patient report</button></div></div></div>
+      <div className="bg-green-deep p-6 text-white sm:p-8"><div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-gold">{patient.mrn}</p><h2 className="mt-2 text-3xl font-bold">{fullName(patient)}</h2><p className="mt-2 text-sm text-white/65">{age(patient.date_of_birth)} years · {label(patient.sex)} · {patient.phone || 'No phone'}</p></div><div className="flex flex-col items-end gap-3"><Status value={patient.status} /><div className="flex flex-wrap justify-end gap-2"><button onClick={() => setModal('financial_report')} className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"><FileTextIcon size={18} weight="duotone" />Financial report</button><button onClick={() => setModal('report')} className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-green-deep transition-colors hover:bg-gold-light"><FileTextIcon size={18} weight="duotone" />Generate patient report</button></div></div></div></div>
       <div className="grid gap-4 p-5 md:grid-cols-3 sm:p-7"><SummaryAlert title="Allergies" warning items={chart.allergies.filter((x: any) => x.status === 'active').map((x: any) => `${x.allergen}${x.reaction ? ` — ${x.reaction}` : ''}`)} empty="No known allergies" /><SummaryAlert title="Active conditions" items={chart.diagnoses.filter((x: any) => x.status === 'active').map((x: any) => x.diagnosis_name)} empty="No active diagnoses" /><SummaryAlert title="Current medications" items={chart.medications.filter((x: any) => x.status === 'active').map((x: any) => `${x.medication_name} ${x.strength || ''}`.trim())} empty="No active medications" /></div>
     </section>
     <section className="flex gap-2 overflow-x-auto rounded-[18px] border border-green-deep/10 bg-white p-2">{tabs.map(item => <button key={item} onClick={() => setTab(item)} className={`shrink-0 rounded-[12px] px-4 py-2.5 text-sm font-bold ${tab === item ? 'bg-green-deep text-white' : 'text-text-mid hover:bg-green-deep/5'}`}>{label(item)}</button>)}</section>
@@ -148,10 +148,12 @@ function PatientChart({ patientId, onBack, onChanged }: { patientId: string; onB
     {tab === 'diagnoses' && <div className="grid gap-6 xl:grid-cols-2"><RecordList records={chart.diagnoses} kind="diagnosis" onUpdate={load} /><RecordList records={chart.allergies} kind="allergy" onUpdate={load} /></div>}
     {tab === 'medications' && <RecordList records={chart.medications} kind="medication" patient={patient} chart={chart} prescriptions={chart.prescriptions} onUpdate={load} />}
     {tab === 'investigations' && <div className="grid gap-6 xl:grid-cols-2"><RecordList records={chart.investigations} kind="investigation" onUpdate={load} onCreateResult={record => setModal(`result:${record.id}`)} /><RecordList records={chart.results} kind="result" onUpdate={load} /><RecordList records={chart.imaging} kind="imaging" onUpdate={load} /><div className="xl:col-span-2"><InvestigationAttachments chart={chart} /></div></div>}
+    {tab === 'financial' && <FinancialRecords chart={chart} onUpdate={load} onAdd={() => setModal('financial_record')} />}
     {tab === 'documents' && <PatientDocuments chart={chart} onChanged={load} />}
     {tab === 'care_plans' && <div className="grid gap-6 xl:grid-cols-2"><CarePlanList chart={chart} patient={patient} onUpdate={load} /><RecordList records={chart.tasks} kind="task" onUpdate={load} /></div>}
-    {modal === 'report' && <PatientReportModal patient={patient} onClose={() => setModal(null)} />}
-    {modal && modal !== 'report' && <ClinicalModal type={modal.split(':')[0]} patient={patient} chart={chart} fixed={{ order_id: modal.split(':')[1] }} patients={[patient]} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); onChanged() }} />}
+    {modal === 'report' && <PatientReportModal patient={patient} mode="clinical" onClose={() => setModal(null)} />}
+    {modal === 'financial_report' && <PatientReportModal patient={patient} mode="financial" onClose={() => setModal(null)} />}
+    {modal && !['report','financial_report'].includes(modal) && <ClinicalModal type={modal.split(':')[0]} patient={patient} chart={chart} fixed={{ order_id: modal.split(':')[1] }} patients={[patient]} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); onChanged() }} />}
   </div>
 }
 
@@ -176,6 +178,7 @@ function Timeline({ chart }: { chart: Chart }) {
     ...chart.imaging.map((x: any) => ({ at: x.performed_at || x.created_at, type: 'Imaging', title: `${x.modality}${x.body_region ? ` · ${x.body_region}` : ''}`, detail: x.report || x.indication })),
     ...chart.assessments.map((x: any) => ({ at: x.submitted_at, type: 'Health assessment', title: label(x.source), detail: label(x.status) })),
     ...chart.appointments.map((x: any) => ({ at: `${x.preferred_date}T${x.preferred_time || '00:00'}`, type: 'Appointment', title: label(x.consultation_type), detail: label(x.status) })),
+    ...(chart.financialRecords || []).map((x: any) => ({ at: `${x.service_date}T00:00:00`, type: 'Financial record', title: x.description, detail: `${formatMoney(x.amount_paid, x.currency)} paid of ${formatMoney(x.amount_due, x.currency)} · ${label(x.status)}` })),
   ].sort((a,b) => new Date(b.at).getTime() - new Date(a.at).getTime()), [chart])
   return <Panel title="Clinical timeline" subtitle="Persisted patient activity in chronological order."><div className="mt-6 space-y-0">{events.length ? events.map((event,index) => <div key={`${event.type}-${event.at}-${index}`} className="relative flex gap-5 pb-7 before:absolute before:left-[17px] before:top-9 before:h-[calc(100%-1rem)] before:w-px before:bg-green-deep/10 last:before:hidden"><span className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-deep text-gold"><PulseIcon size={18} weight="fill" /></span><div className="min-w-0 pt-0.5"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-green-mid">{event.type} · {dateTime.format(new Date(event.at))}</p><p className="mt-1 font-bold">{event.title}</p>{event.detail && <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-text-mid">{event.detail}</p>}</div></div>) : <Empty text="No clinical activity yet." />}</div></Panel>
 }
@@ -379,7 +382,28 @@ function CarePlanList({ chart, patient, onUpdate }: { chart: Chart; patient: Pat
   return <><Panel title="Care plans" subtitle={`${chart.carePlans.length} coordinated plan${chart.carePlans.length === 1 ? '' : 's'}`}><div className="mt-5 space-y-4">{chart.carePlans.length ? chart.carePlans.map((item: any) => <div key={item.id} className="rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold">{item.title}</p><p className="mt-1 text-sm text-text-mid">{item.goals || item.description}</p></div><Status value={item.status} /></div><div className="mt-4 space-y-2">{item.items?.map((step: any) => <div key={step.id} className="flex items-center gap-3 rounded-xl bg-white p-3 text-sm"><CheckCircleIcon className={step.status === 'completed' ? 'text-green-mid' : 'text-text-mid/35'} weight={step.status === 'completed' ? 'fill' : 'regular'} /><span className="flex-1 font-semibold">{step.title}</span>{step.status !== 'completed' && <button onClick={() => complete(step)} className="text-xs font-bold text-green-mid">Complete</button>}</div>)}</div><button onClick={() => setPlan(item)} className="secondary mt-4"><PlusIcon />Add plan item</button></div>) : <Empty text="No care plans yet." />}</div></Panel>{plan && <ClinicalModal type="care_plan_item" patient={patient} chart={chart} fixed={{ care_plan_id: plan.id }} patients={[patient]} onClose={() => setPlan(null)} onSaved={() => { setPlan(null); onUpdate() }} />}</>
 }
 
-function PatientReportModal({ patient, onClose }: { patient: Patient; onClose: () => void }) {
+function FinancialRecords({ chart, onUpdate, onAdd }: { chart: Chart; onUpdate: () => void; onAdd: () => void }) {
+  const records = useMemo(() => chart.financialRecords || [], [chart.financialRecords])
+  const [editing, setEditing] = useState<any>(null)
+  const totals = useMemo(() => Array.from(new Set(records.map((record: any) => record.currency || 'NGN'))).map(currency => {
+    const rows = records.filter((record: any) => (record.currency || 'NGN') === currency)
+    const billed = rows.reduce((sum: number, record: any) => sum + Number(record.amount_due || 0), 0)
+    const paid = rows.reduce((sum: number, record: any) => sum + Number(record.amount_paid || 0), 0)
+    return { currency: String(currency), billed, paid, balance: billed - paid }
+  }), [records])
+
+  return <>
+    <Panel title="Patient finances" subtitle="Charges, payments and outstanding balances linked directly to this patient." action={<button onClick={onAdd} className="primary"><PlusIcon size={18} />Add financial record</button>}>
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        {totals.map(total => <div key={total.currency} className="contents"><MiniStat label={`Billed (${total.currency})`} value={formatMoney(total.billed, total.currency)} /><MiniStat label={`Paid (${total.currency})`} value={formatMoney(total.paid, total.currency)} /><MiniStat label={`Balance (${total.currency})`} value={formatMoney(total.balance, total.currency)} /></div>)}
+      </div>
+      {records.length ? <div className="mt-6 overflow-x-auto rounded-[16px] border border-green-deep/10"><table className="w-full min-w-[980px] text-left text-sm"><thead><tr className="bg-[#FCFFF0] text-[11px] uppercase tracking-wide text-green-deep/55"><th className="p-4">Service date</th><th className="p-4">Description</th><th className="p-4">Billed</th><th className="p-4">Paid</th><th className="p-4">Balance</th><th className="p-4">Method / reference</th><th className="p-4">Status</th><th className="p-4"></th></tr></thead><tbody>{records.map((record: any) => <tr key={record.id} className="border-t border-green-deep/[0.07]"><td className="p-4 text-text-mid">{date.format(new Date(`${record.service_date}T00:00:00`))}</td><td className="p-4"><p className="font-bold">{record.description}</p>{record.notes && <p className="mt-1 max-w-sm text-xs text-text-mid">{record.notes}</p>}</td><td className="p-4 font-semibold">{formatMoney(record.amount_due, record.currency)}</td><td className="p-4 font-semibold text-emerald-700">{formatMoney(record.amount_paid, record.currency)}</td><td className="p-4 font-semibold text-amber-700">{formatMoney(Number(record.amount_due || 0) - Number(record.amount_paid || 0), record.currency)}</td><td className="p-4 text-text-mid"><p>{record.payment_method ? label(record.payment_method) : '—'}</p><p className="text-xs">{record.payment_reference || 'No reference'}</p></td><td className="p-4"><Status value={record.status} /></td><td className="p-4 text-right"><button onClick={() => setEditing(record)} className="secondary"><PencilSimpleIcon size={16} />Edit</button></td></tr>)}</tbody></table></div> : <Empty text="No financial records have been added for this patient." />}
+    </Panel>
+    {editing && <ClinicalModal type="financial_record_edit" editingRecord={editing} patient={chart.patient} chart={chart} patients={[chart.patient]} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); onUpdate() }} />}
+  </>
+}
+
+function PatientReportModal({ patient, mode, onClose }: { patient: Patient; mode: 'clinical' | 'financial'; onClose: () => void }) {
   // Computed once on mount rather than every render, and in local time so the
   // default range does not shift a day either side of UTC midnight.
   const [today] = useState(() => toDateInput(new Date()))
@@ -390,13 +414,13 @@ function PatientReportModal({ patient, onClose }: { patient: Patient; onClose: (
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   // The prompt forbids second person, but a model can slip; flag it for the clinician to fix.
-  const secondPerson = /\b(you|your|yours|you're|you've)\b/i.test(report)
+  const secondPerson = mode === 'clinical' && /\b(you|your|yours|you're|you've)\b/i.test(report)
 
   async function generate() {
     setLoading(true); setError(''); setReport('')
     const response = await fetch(`${api}/report`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ patientId: patient.id, from, to }),
+      body: JSON.stringify({ patientId: patient.id, from, to, reportType: mode }),
     })
     const result = await response.json().catch(() => ({}))
     if (!response.ok) setError(result.error || 'Report generation failed.')
@@ -408,8 +432,8 @@ function PatientReportModal({ patient, onClose }: { patient: Patient; onClose: (
     <div role="dialog" aria-modal="true" className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[26px] bg-white shadow-2xl">
       <div className="sticky top-0 z-10 flex items-start justify-between border-b border-green-deep/10 bg-white px-6 py-5">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-green-mid">Patient report</p>
-          <h3 className="mt-1 text-2xl font-bold">Comprehensive care summary</h3>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-green-mid">{mode === 'financial' ? 'Financial report' : 'Patient report'}</p>
+          <h3 className="mt-1 text-2xl font-bold">{mode === 'financial' ? 'Patient financial statement' : 'Comprehensive care summary'}</h3>
           <p className="mt-1 text-sm text-text-mid">{patient.mrn} · {fullName(patient)}</p>
         </div>
         <button onClick={onClose} className="icon-button"><XIcon /></button>
@@ -424,22 +448,22 @@ function PatientReportModal({ patient, onClose }: { patient: Patient; onClose: (
           </div>
         </div>
 
-        {loading && <p className="mt-5 text-sm text-text-mid">Reading the record and any uploaded documents. This can take a minute.</p>}
+        {loading && <p className="mt-5 text-sm text-text-mid">{mode === 'financial' ? 'Preparing the patient ledger for the selected period.' : 'Reading the record, financial ledger and any uploaded documents. This can take a minute.'}</p>}
         {error && <Alert tone="error">{error}</Alert>}
 
         {report && <>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-text-mid">
-              Drafted by {meta.provider} · {meta.documentsRead || 0} document{meta.documentsRead === 1 ? '' : 's'} read
+              Generated from {meta.provider}{mode === 'clinical' ? ` · ${meta.documentsRead || 0} document${meta.documentsRead === 1 ? '' : 's'} read` : ''}
               {meta.skipped?.length ? ` · ${meta.skipped.length} skipped` : ''}
             </p>
-            <button onClick={() => printPatientReport(patient, report, from, to)} className="secondary"><PrinterIcon />Download PDF</button>
+            <button onClick={() => printPatientReport(patient, report, from, to, mode)} className="secondary"><PrinterIcon />Download PDF</button>
           </div>
           {meta.skipped?.length ? <div className="mt-3 rounded-[12px] border border-amber-200 bg-amber-50 p-3">
             <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800">Not read</p>
             <ul className="mt-1 space-y-0.5">{meta.skipped.map(item => <li key={item} className="text-xs text-amber-800">{item}</li>)}</ul>
           </div> : null}
-          <Alert tone="info">Written in the third person so the patient can pass it on to another health worker. Review and edit before sharing. AI-drafted clinical summaries must be checked by a clinician.</Alert>
+          <Alert tone="info">{mode === 'financial' ? 'This statement is generated directly from the patient ledger. Confirm all entries and payment references before sharing.' : 'Written in the third person so the patient can pass it on to another health worker. The financial section is included from the patient ledger. Review and edit before sharing. AI-drafted clinical summaries must be checked by a clinician.'}</Alert>
           {secondPerson && <Alert tone="error">This draft still addresses the patient directly (&ldquo;you&rdquo; / &ldquo;your&rdquo;). Regenerate, or edit those sentences into the third person before sharing.</Alert>}
           <textarea value={report} onChange={e => setReport(e.target.value)} rows={26} className="input mt-4 font-mono text-[13px] leading-6" />
         </>}
@@ -527,17 +551,19 @@ function reportField(label: string, value: string) {
   return `<div><div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">${escapeHtml(label)}</div><div style="font-size:15px;font-weight:600;color:${REPORT_INK}">${escapeHtml(value || '—')}</div></div>`
 }
 
-function printPatientReport(patient: Patient, markdown: string, from: string, to: string) {
+function printPatientReport(patient: Patient, markdown: string, from: string, to: string, mode: 'clinical' | 'financial' = 'clinical') {
   const origin = window.location.origin
-  const content = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(fullName(patient))} — Comprehensive Care Summary</title><style>
+  const reportTitle = mode === 'financial' ? 'Patient Financial Statement' : 'Comprehensive Care Summary'
+  const documentType = mode === 'financial' ? 'Confidential Financial Document' : 'Confidential Medical Document'
+  const content = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(fullName(patient))} — ${reportTitle}</title><style>
     @page{size:A4;margin:16mm}
     body{font-family:Arial,Helvetica,sans-serif;color:${REPORT_INK};margin:0 auto;max-width:820px;padding:24px}
     table{page-break-inside:auto}tr{page-break-inside:avoid}h2,h3{page-break-after:avoid}
   </style></head><body>
     <div style="text-align:center;margin-bottom:28px;padding-bottom:24px;border-bottom:2px solid ${REPORT_ACCENT}">
-      <div style="display:inline-block;background:rgba(107,142,35,.1);color:#6b8e23;border-radius:20px;padding:7px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.14em">Confidential Medical Document</div>
+      <div style="display:inline-block;background:rgba(107,142,35,.1);color:#6b8e23;border-radius:20px;padding:7px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.14em">${documentType}</div>
       <div style="margin:14px 0 6px"><img src="${origin}/FXMed_Logo_Black.png" style="height:52px;width:auto" /></div>
-      <h1 style="font-size:29px;color:${REPORT_INK};margin:0 0 6px">Comprehensive Care Summary</h1>
+      <h1 style="font-size:29px;color:${REPORT_INK};margin:0 0 6px">${reportTitle}</h1>
       <div style="font-size:14px;color:#666;font-weight:600">${escapeHtml(fullName(patient))}</div>
     </div>
     <section style="margin-bottom:25px">
@@ -555,7 +581,7 @@ function printPatientReport(patient: Patient, markdown: string, from: string, to
     <footer style="margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:11px;line-height:1.6;color:#6b7280">
       FXMed Functional Medicine · +234 907 703 1311 · +1 832 779 2347 · fxmed@wellnesswits.com<br>
       Treating the root cause — not just the symptoms<br>
-      This summary reflects the records held for the period shown and does not replace a consultation.
+      ${mode === 'financial' ? 'This statement reflects financial records held for the period shown. Please report any discrepancy to FXMed.' : 'This summary reflects the records held for the period shown and does not replace a consultation.'}
     </footer>
     <script>window.onload=()=>window.print()<\/script>
   </body></html>`
@@ -568,14 +594,14 @@ function ClinicalModal({ type, patient, chart, fixed = {}, patients, editingReco
   const config = formConfig(type), editingPatient = type === 'patient' ? patient : undefined
   // Editing applies to the patient record or to any clinical record passed in.
   const editing = editingPatient || editingRecord
-  const [form, setForm] = useState<Record<string,any>>({ ...(editing || {}), patient_id: patient?.id || '', ...fixed, status: editing?.status || config.defaultStatus || '', ...(editingRecord?.created_at ? { record_date: toDateTimeInput(editingRecord.created_at) } : {}) }), [saving, setSaving] = useState(false), [error, setError] = useState('')
+  const [form, setForm] = useState<Record<string,any>>({ ...(config.defaultValues || {}), ...(editing || {}), patient_id: patient?.id || '', ...fixed, status: editing?.status || config.defaultStatus || '', ...(editingRecord?.created_at ? { record_date: toDateTimeInput(editingRecord.created_at) } : {}) }), [saving, setSaving] = useState(false), [error, setError] = useState('')
   async function submit(event: React.FormEvent) { event.preventDefault(); setSaving(true); setError(''); if (type === 'document' || type === 'note_document' || type === 'encounter_document') return upload(); const response = await fetch(api, { method: editing ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: config.resource, ...(editing ? { id: editing.id } : {}), ...form }) }); const result = await response.json(); if (!response.ok) setError(result.error || 'Unable to save clinical record.'); else onSaved(); setSaving(false) }
   async function upload() { const file = form.file as File; if (!file) { setError('Choose a clinical document.'); setSaving(false); return } const data = new FormData(); Object.entries(form).forEach(([key,value]) => { if (value !== undefined && value !== null && value !== '') data.set(key, value as any) }); const response = await fetch(api, { method: 'POST', body: data }); const result = await response.json(); if (!response.ok) setError(result.error || 'Upload failed.'); else onSaved(); setSaving(false) }
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}><div role="dialog" aria-modal="true" className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[26px] bg-white shadow-2xl"><div className="sticky top-0 z-10 flex items-start justify-between border-b border-green-deep/10 bg-white px-6 py-5"><div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-green-mid">Clinical record</p><h3 className="mt-1 text-2xl font-bold">{config.title}</h3>{patient && <p className="mt-1 text-sm text-text-mid">{patient.mrn} · {fullName(patient)}</p>}</div><button onClick={onClose} className="icon-button"><XIcon /></button></div><form onSubmit={submit} className="p-6"><div className="grid gap-5 sm:grid-cols-2">{!patient && type !== 'patient' && <Field label="Patient" required><select className="input" value={form.patient_id} onChange={e => setForm({ ...form, patient_id: e.target.value })} required><option value="">Select patient…</option>{patients.map(p => <option key={p.id} value={p.id}>{p.mrn} · {fullName(p)}</option>)}</select></Field>}{config.fields.map(field => <FormField key={field.name} field={field} value={form[field.name] ?? ''} onChange={value => setForm({ ...form, [field.name]: value })} chart={chart} />)}</div>{error && <Alert tone="error">{error}</Alert>}<div className="mt-7 flex justify-end gap-3"><button type="button" onClick={onClose} className="secondary">Cancel</button><button disabled={saving} className="primary disabled:opacity-50">{saving ? 'Saving…' : config.submit}</button></div></form></div></div>
 }
 
 type FieldDef = { name: string; label: string; type?: string; required?: boolean; options?: string[]; wide?: boolean; placeholder?: string }
-function formConfig(type: string): { title: string; resource: string; submit: string; defaultStatus?: string; fields: FieldDef[] } {
+function formConfig(type: string): { title: string; resource: string; submit: string; defaultStatus?: string; defaultValues?: Record<string, unknown>; fields: FieldDef[] } {
   const configs: Record<string, any> = {
     patient: { title: 'Patient demographics', resource: 'patients', submit: 'Save patient record', fields: [{name:'first_name',label:'First name',required:true},{name:'middle_name',label:'Middle name'},{name:'last_name',label:'Last name',required:true},{name:'date_of_birth',label:'Date of birth',type:'date',required:true},{name:'sex',label:'Sex',type:'select',required:true,options:['female','male']},{name:'phone',label:'Phone'},{name:'email',label:'Email',type:'email'},{name:'address',label:'Address',wide:true},{name:'city',label:'City'},{name:'state',label:'State'},{name:'blood_group',label:'Blood group',options:['A+','A-','B+','B-','AB+','AB-','O+','O-'],type:'select'},{name:'genotype',label:'Genotype'},{name:'emergency_contact_name',label:'Emergency contact'},{name:'emergency_contact_phone',label:'Emergency phone'},{name:'status',label:'Record status',type:'select',options:['active','inactive','deceased']}] },
     encounter: { title: 'Start clinical encounter', resource: 'encounters', submit: 'Start encounter', defaultStatus:'in_progress', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_type',label:'Encounter type',type:'select',options:['consultation','follow_up','home_visit','telemedicine','procedure'],required:true},{name:'chief_complaint',label:'Chief complaint',wide:true,required:true},{name:'history_presenting_illness',label:'History of presenting illness',type:'textarea',wide:true},{name:'past_medical_history',label:'Past medical history',type:'textarea'},{name:'surgical_history',label:'Surgical history',type:'textarea'},{name:'family_history',label:'Family history',type:'textarea'},{name:'social_history',label:'Social history',type:'textarea'},{name:'review_of_systems',label:'Review of systems',type:'textarea',wide:true},{name:'examination',label:'Examination',type:'textarea',wide:true},{name:'clinical_assessment',label:'Assessment',type:'textarea',wide:true},{name:'treatment_plan',label:'Plan',type:'textarea',wide:true},{name:'follow_up_plan',label:'Follow-up',type:'textarea',wide:true}] },
@@ -594,6 +620,8 @@ function formConfig(type: string): { title: string; resource: string; submit: st
     care_plan: { title: 'Create care plan', resource: 'care_plans', submit: 'Create care plan', defaultStatus:'active', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'title',label:'Plan title',required:true},{name:'description',label:'Description',type:'textarea',wide:true},{name:'goals',label:'Clinical goals',type:'textarea',wide:true,required:true},{name:'start_date',label:'Start date',type:'date'},{name:'target_date',label:'Target date',type:'date'}] },
     care_plan_item: { title: 'Add care plan item', resource: 'care_plan_items', submit: 'Add plan item', defaultStatus:'pending', fields: [{name:'title',label:'Plan item',required:true},{name:'instructions',label:'Instructions',type:'textarea',wide:true},{name:'due_date',label:'Due date',type:'date'}] },
     task: { title: 'Create follow-up task', resource: 'tasks', submit: 'Create task', defaultStatus:'pending', fields: [{name:'title',label:'Task',required:true},{name:'task_type',label:'Task type',type:'select',options:['follow_up','call','review','investigation','care_plan']},{name:'priority',label:'Priority',type:'select',options:['routine','urgent','stat']},{name:'due_at',label:'Due date and time',type:'datetime-local'}] },
+    financial_record: { title: 'Add financial record', resource: 'financial_records', submit: 'Save financial record', defaultStatus:'pending', defaultValues:{currency:'NGN',amount_paid:0}, fields: [{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'description',label:'Service or charge',required:true,wide:true},{name:'amount_due',label:'Amount billed',type:'number',required:true},{name:'amount_paid',label:'Amount paid',type:'number'},{name:'currency',label:'Currency',type:'select',options:['NGN','USD'],required:true},{name:'status',label:'Payment status',type:'select',options:['pending','partial','paid','overdue','waived','refunded'],required:true},{name:'payment_method',label:'Payment method',type:'select',options:['cash','card','bank_transfer','paystack','insurance','other']},{name:'payment_reference',label:'Payment reference'},{name:'paid_at',label:'Paid at',type:'datetime-local'},{name:'notes',label:'Financial notes',type:'textarea',wide:true}] },
+    financial_record_edit: { title: 'Edit financial record', resource: 'financial_records', submit: 'Save financial record', fields: [{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'description',label:'Service or charge',required:true,wide:true},{name:'amount_due',label:'Amount billed',type:'number',required:true},{name:'amount_paid',label:'Amount paid',type:'number'},{name:'currency',label:'Currency',type:'select',options:['NGN','USD'],required:true},{name:'status',label:'Payment status',type:'select',options:['pending','partial','paid','overdue','waived','refunded'],required:true},{name:'payment_method',label:'Payment method',type:'select',options:['cash','card','bank_transfer','paystack','insurance','other']},{name:'payment_reference',label:'Payment reference'},{name:'paid_at',label:'Paid at',type:'datetime-local'},{name:'notes',label:'Financial notes',type:'textarea',wide:true}] },
     encounter_document: { title: 'Attach file to encounter', resource: 'documents', submit: 'Attach securely', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'category',label:'Category',type:'select',options:['laboratory','imaging','referral','discharge','external_record','consent','other'],required:true},{name:'title',label:'Document title',required:true},{name:'file',label:'File',type:'file',required:true},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
     note_document: { title: 'Attach file to note', resource: 'documents', submit: 'Attach securely', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'category',label:'Category',type:'select',options:['laboratory','imaging','referral','discharge','external_record','consent','other'],required:true},{name:'title',label:'Document title',required:true},{name:'file',label:'File',type:'file',required:true},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
     document: { title: 'Upload clinical document', resource: 'documents', submit: 'Upload securely', fields: [{name:'record_date',label:'Date and time of record',type:'datetime-local',placeholder:'Leave blank to use now'},{name:'encounter_id',label:'Encounter',type:'encounter'},{name:'category',label:'Category',type:'select',options:['laboratory','imaging','referral','discharge','external_record','consent','other'],required:true},{name:'title',label:'Document title',required:true},{name:'file',label:'File',type:'file',required:true},{name:'notes',label:'Notes',type:'textarea',wide:true}] },
@@ -628,6 +656,7 @@ function fullName(patient: Patient) { return [patient.first_name, patient.middle
 function patientName(patients: Patient[], id: string) { const p = patients.find(item => item.id === id); return p ? `${p.mrn} · ${fullName(p)}` : 'Patient record' }
 function age(dob: string) { const birth = new Date(`${dob}T00:00:00`), now = new Date(); let value = now.getFullYear() - birth.getFullYear(); if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) value--; return value }
 function formatTime(value?: string) { if (!value) return 'Time not set'; const [h,m] = value.split(':').map(Number); return new Intl.DateTimeFormat('en-NG',{hour:'numeric',minute:'2-digit'}).format(new Date(2000,0,1,h,m)) }
+function formatMoney(value: unknown, currency = 'NGN') { return new Intl.NumberFormat('en-NG', { style: 'currency', currency }).format(Number(value || 0)) }
 // Local-time YYYY-MM-DD, avoiding the UTC shift toISOString would introduce.
 function toDateInput(value: Date) {
   const offset = value.getTimezoneOffset() * 60000
