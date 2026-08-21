@@ -36,8 +36,13 @@ function financialRecordsInRange(records: any[], from: string, to: string) {
   const start = new Date(`${from}T00:00:00`).getTime()
   const end = new Date(`${to}T23:59:59.999`).getTime()
   return records.filter(record => {
-    const stamp = new Date(`${record.service_date}T00:00:00`).getTime()
-    return stamp >= start && stamp <= end
+    const payments = record.payments || []
+    if (payments.some((payment: any) => {
+      const stamp = new Date(`${payment.payment_date}T00:00:00`).getTime()
+      return stamp >= start && stamp <= end
+    })) return true
+    const created = new Date(record.created_at).getTime()
+    return !payments.length && created >= start && created <= end
   })
 }
 
@@ -58,14 +63,26 @@ function buildFinancialReport(records: any[], from: string, to: string) {
     lines.push('', '| Currency | Total billed | Total paid | Outstanding balance |', '| --- | ---: | ---: | ---: |')
     for (const total of totals) lines.push(`| ${total.currency} | ${money(total.billed, total.currency)} | ${money(total.paid, total.currency)} | ${money(total.balance, total.currency)} |`)
   }
-  lines.push('', '## Payment Records')
+  lines.push('', '## Bills')
   if (!selected.length) lines.push('None recorded.')
   else {
-    lines.push('| Service date | Description | Billed | Paid | Balance | Status | Payment method | Reference |', '| --- | --- | ---: | ---: | ---: | --- | --- | --- |')
+    lines.push('| Description | Billed | Total paid | Balance | Status |', '| --- | ---: | ---: | ---: | --- |')
     for (const record of selected) {
       const currency = record.currency || 'NGN'
-      lines.push(`| ${tableCell(fmt(record.service_date))} | ${tableCell(record.description)} | ${money(record.amount_due, currency)} | ${money(record.amount_paid, currency)} | ${money(Number(record.amount_due || 0) - Number(record.amount_paid || 0), currency)} | ${tableCell(record.status)} | ${tableCell(record.payment_method)} | ${tableCell(record.payment_reference)} |`)
+      lines.push(`| ${tableCell(record.description)} | ${money(record.amount_due, currency)} | ${money(record.amount_paid, currency)} | ${money(Number(record.amount_due || 0) - Number(record.amount_paid || 0), currency)} | ${tableCell(record.status)} |`)
     }
+  }
+  lines.push('', '## Payment Installments')
+  const installments = selected.flatMap(record => (record.payments || []).map((payment: any) => ({ ...payment, description: record.description, currency: record.currency || 'NGN' })))
+    .filter(payment => {
+      const stamp = new Date(`${payment.payment_date}T00:00:00`).getTime()
+      return stamp >= new Date(`${from}T00:00:00`).getTime() && stamp <= new Date(`${to}T23:59:59.999`).getTime()
+    })
+    .sort((a, b) => new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime())
+  if (!installments.length) lines.push('No installment payments were recorded for the selected period.')
+  else {
+    lines.push('| Payment date | Bill | Amount | Method | Reference |', '| --- | --- | ---: | --- | --- |')
+    for (const payment of installments) lines.push(`| ${tableCell(fmt(payment.payment_date))} | ${tableCell(payment.description)} | ${money(payment.amount, payment.currency)} | ${tableCell(payment.payment_method)} | ${tableCell(payment.payment_reference)} |`)
   }
   lines.push('', '## Status Notes')
   const outstanding = selected.filter(record => ['pending','partial','overdue'].includes(record.status))
@@ -189,7 +206,7 @@ export async function POST(request: NextRequest) {
     const reportType = body?.reportType === 'financial' ? 'financial' : 'clinical'
     if (!patientId || !from || !to) return NextResponse.json({ error: 'A patient and date range are required.' }, { status: 400 })
 
-    const [patient, encounters, notes, vitals, diagnoses, allergies, medications, orders, results, imaging, documents, carePlans, financialRecords] = await Promise.all([
+    const [patient, encounters, notes, vitals, diagnoses, allergies, medications, orders, results, imaging, documents, carePlans, financialRecords, financialPayments] = await Promise.all([
       database.from('emr_patients').select('*').eq('id', patientId).single(),
       database.from('emr_encounters').select('*').eq('patient_id', patientId).order('created_at'),
       database.from('emr_clinical_notes').select('*').eq('patient_id', patientId).order('created_at'),
@@ -203,12 +220,15 @@ export async function POST(request: NextRequest) {
       database.from('emr_documents').select('*').eq('patient_id', patientId).order('created_at'),
       database.from('emr_care_plans').select('*').eq('patient_id', patientId),
       database.from('emr_financial_records').select('*').eq('patient_id', patientId).order('service_date'),
+      database.from('emr_financial_payments').select('*').eq('patient_id', patientId).order('payment_date'),
     ])
     if (patient.error || !patient.data) return NextResponse.json({ error: 'Patient not found.' }, { status: 404 })
     if (financialRecords.error) throw financialRecords.error
+    if (financialPayments.error) throw financialPayments.error
+    const ledger = (financialRecords.data || []).map((record: any) => ({ ...record, payments: (financialPayments.data || []).filter((payment: any) => payment.financial_record_id === record.id) }))
 
     if (reportType === 'financial') {
-      const report = buildFinancialReport(financialRecords.data || [], from, to)
+      const report = buildFinancialReport(ledger, from, to)
       await writeEmrAudit(database, user, { action: 'generate_financial_report', entityType: 'emr_patient', entityId: patientId, patientId, metadata: { from, to } })
       return NextResponse.json({ report, provider: 'FXMed financial ledger', documentsRead: 0, skipped: [] })
     }
@@ -219,7 +239,7 @@ export async function POST(request: NextRequest) {
       diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [],
       investigations: orders.data || [], results: results.data || [], imaging: imaging.data || [],
       carePlans: carePlans.data || [],
-      financialRecords: financialRecords.data || [],
+      financialRecords: ledger,
     }
 
     // Download the patient's documents so the model can read them directly.
@@ -282,7 +302,7 @@ export async function POST(request: NextRequest) {
     const { report: clinicalReport, provider } = await generateClinicalReport(prompt, attachments)
     // Financial figures are appended from the ledger rather than rewritten by
     // the model, so the billed, paid and outstanding amounts remain exact.
-    const report = `${clinicalReport.trim()}\n\n${buildFinancialReport(financialRecords.data || [], from, to)}`
+    const report = `${clinicalReport.trim()}\n\n${buildFinancialReport(ledger, from, to)}`
 
     await writeEmrAudit(database, user, {
       action: 'generate_patient_report',

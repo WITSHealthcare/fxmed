@@ -95,6 +95,8 @@ export async function POST(request: NextRequest) {
     const consultationType = cleanPublicString(body.consultationType, 40)
     const preferredDate = cleanPublicString(body.preferredDate, 10)
     const preferredTime = cleanPublicString(body.preferredTime, 80)
+    const dateOfBirth = cleanPublicString(body.dateOfBirth, 10)
+    const sex = cleanPublicString(body.sex, 20)?.toLowerCase()
     if (!firstName || !lastName || !email || !isEmail(email) || !phone || !preferredDate || !preferredTime) {
       return NextResponse.json({ error: 'Complete valid appointment details are required.' }, { status: 400 })
     }
@@ -103,6 +105,38 @@ export async function POST(request: NextRequest) {
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate) || Number.isNaN(Date.parse(`${preferredDate}T00:00:00Z`))) {
       return NextResponse.json({ error: 'A valid appointment date is required.' }, { status: 400 })
+    }
+
+    const hasRegistrationDetails = Boolean(dateOfBirth || sex)
+    if (hasRegistrationDetails && (!dateOfBirth || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth) || dateOfBirth > new Date().toISOString().slice(0, 10) || !sex || !['female','male','intersex','unknown'].includes(sex))) {
+      return NextResponse.json({ error: 'A valid date of birth and sex are required for patient registration.' }, { status: 400 })
+    }
+    if (hasRegistrationDetails && body.consentConfirmed !== true) return NextResponse.json({ error: 'Consent is required to submit patient registration details.' }, { status: 400 })
+
+    const [patientByPhone, patientByEmail] = await Promise.all([
+      supabase.from('emr_patients').select('id').eq('phone', phone).limit(1).maybeSingle(),
+      supabase.from('emr_patients').select('id').eq('email', email).limit(1).maybeSingle(),
+    ])
+    if (patientByPhone.error || patientByEmail.error) throw patientByPhone.error || patientByEmail.error
+    const existingPatientId = patientByPhone.data?.id || patientByEmail.data?.id || null
+    let registrationQueued = false
+
+    if (!existingPatientId && hasRegistrationDetails) {
+      const [pendingByPhone, pendingByEmail] = await Promise.all([
+        supabase.from('emr_patient_registration_requests').select('id').eq('status', 'pending').eq('phone', phone).limit(1),
+        supabase.from('emr_patient_registration_requests').select('id').eq('status', 'pending').eq('email', email).limit(1),
+      ])
+      if (pendingByPhone.error || pendingByEmail.error) throw pendingByPhone.error || pendingByEmail.error
+      if (pendingByPhone.data?.length || pendingByEmail.data?.length) registrationQueued = true
+      else {
+        const { error: registrationError } = await supabase.from('emr_patient_registration_requests').insert({
+          first_name: firstName, last_name: lastName, date_of_birth: dateOfBirth,
+          sex, phone, email, address: cleanPublicString(body.homeAddress, 500),
+          country: 'Nigeria', consent_confirmed: true, source: 'appointment_booking', status: 'pending',
+        })
+        if (registrationError) throw registrationError
+        registrationQueued = true
+      }
     }
 
     const { data, error } = await supabase
@@ -119,6 +153,7 @@ export async function POST(request: NextRequest) {
         symptoms: cleanPublicString(body.symptoms, 3000),
         status: 'pending',
         payment_status: 'pending',
+        patient_id: existingPatientId,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }])
@@ -127,7 +162,7 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error
 
-    return NextResponse.json({ appointment: data }, { status: 201 })
+    return NextResponse.json({ appointment: data, registrationQueued }, { status: 201 })
   } catch (error: any) {
     console.error('Error creating appointment:', error)
     return NextResponse.json(
