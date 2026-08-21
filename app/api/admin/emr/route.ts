@@ -28,6 +28,7 @@ const resources = {
   tasks: { table: 'emr_clinical_tasks', permission: 'edit_encounters', patientField: 'patient_id', orderField: 'created_at' },
   assessments: { table: 'emr_health_assessments', permission: 'view_clinical_records', patientField: 'patient_id', orderField: 'submitted_at' },
   financial_records: { table: 'emr_financial_records', permission: 'manage_financial_records', patientField: 'patient_id', orderField: 'service_date' },
+  financial_payments: { table: 'emr_financial_payments', permission: 'manage_financial_records', patientField: 'patient_id', orderField: 'payment_date' },
 } as const
 
 type ResourceName = keyof typeof resources
@@ -138,7 +139,7 @@ export async function GET(request: NextRequest) {
 
     if (resource === 'patient') {
       if (!isUuid(patientId)) return NextResponse.json({ error: 'A valid patient is required.' }, { status: 400 })
-      const [patient, encounters, notes, vitals, diagnoses, allergies, medications, prescriptions, orders, results, legacyReports, imaging, documents, carePlans, tasks, appointments, assessments, financialRecords, audit] = await Promise.all([
+      const [patient, encounters, notes, vitals, diagnoses, allergies, medications, prescriptions, orders, results, legacyReports, imaging, documents, carePlans, tasks, appointments, assessments, financialRecords, financialPayments, audit] = await Promise.all([
         database.from('emr_patients').select('*').eq('id', patientId).single(),
         database.from('emr_encounters').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
         database.from('emr_clinical_notes').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
@@ -157,12 +158,13 @@ export async function GET(request: NextRequest) {
         database.from('appointments').select('*').eq('patient_id', patientId).order('preferred_date', { ascending: false }),
         database.from('emr_health_assessments').select('*').eq('patient_id', patientId).order('submitted_at', { ascending: false }),
         database.from('emr_financial_records').select('*').eq('patient_id', patientId).order('service_date', { ascending: false }).order('created_at', { ascending: false }),
+        database.from('emr_financial_payments').select('*').eq('patient_id', patientId).order('payment_date', { ascending: false }).order('created_at', { ascending: false }),
         database.from('emr_audit_logs').select('id,action,entity_type,entity_id,user_email,created_at').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(100),
       ])
-      const error = patient.error || encounters.error || notes.error || vitals.error || diagnoses.error || allergies.error || medications.error || prescriptions.error || orders.error || results.error || legacyReports.error || imaging.error || documents.error || carePlans.error || tasks.error || appointments.error || assessments.error || financialRecords.error || audit.error
+      const error = patient.error || encounters.error || notes.error || vitals.error || diagnoses.error || allergies.error || medications.error || prescriptions.error || orders.error || results.error || legacyReports.error || imaging.error || documents.error || carePlans.error || tasks.error || appointments.error || assessments.error || financialRecords.error || financialPayments.error || audit.error
       if (error) throw error
       await writeEmrAudit(database, user, { action: 'view_patient_chart', entityType: 'emr_patient', entityId: patientId, patientId })
-      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], legacyReports: legacyReports.data || [], imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], assessments: assessments.data || [], financialRecords: financialRecords.data || [], audit: audit.data || [] })
+      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], legacyReports: legacyReports.data || [], imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], assessments: assessments.data || [], financialRecords: financialRecords.data || [], financialPayments: financialPayments.data || [], audit: audit.data || [] })
     }
 
     if (resource === 'appointments') {
@@ -241,6 +243,14 @@ export async function POST(request: NextRequest) {
     if (resource === 'notes' && body.status === 'final' && !await getEmrContext(request, 'finalize_notes')) return NextResponse.json({ error: 'Note finalization access required.' }, { status: 403 })
     const patientId = body.patient_id
     if (resources[resource as ResourceName].patientField && !await patientExists(database, patientId)) return NextResponse.json({ error: 'A valid patient is required.' }, { status: 400 })
+    if (resource === 'financial_payments') {
+      if (!isUuid(body.financial_record_id)) return NextResponse.json({ error: 'A valid bill is required.' }, { status: 400 })
+      const { data: bill, error: billError } = await database.from('emr_financial_records').select('id,patient_id,amount_due,amount_paid').eq('id', body.financial_record_id).maybeSingle()
+      if (billError || !bill || bill.patient_id !== patientId) return NextResponse.json({ error: 'The selected bill does not belong to this patient.' }, { status: 400 })
+      const amount = cleanNumber(body.amount)
+      if (!amount || amount <= 0) return NextResponse.json({ error: 'Payment amount must be greater than zero.' }, { status: 400 })
+      if (amount > Number(bill.amount_due) - Number(bill.amount_paid)) return NextResponse.json({ error: 'Payment amount cannot exceed the outstanding balance.' }, { status: 400 })
+    }
     const record = buildRecord(resource as ResourceName, body, user.id)
     if (!record) return NextResponse.json({ error: 'This clinical resource cannot be created directly.' }, { status: 400 })
     const validationError = validateRecord(resource as ResourceName, record)
@@ -352,8 +362,43 @@ export async function PATCH(request: NextRequest) {
     }
     const { data, error } = await database.from(config.table).update(updates).eq('id', id).select('*').single()
     if (error) throw error
+    if (resource === 'financial_records') {
+      const { error: reconcileError } = await database.rpc('reconcile_emr_financial_record', { record_id: id })
+      if (reconcileError) throw reconcileError
+    }
     await writeEmrAudit(database, user, { action: `update_${resource}`, entityType: config.table, entityId: id, patientId: data.patient_id || null, metadata: { status: data.status } })
     return NextResponse.json({ record: data })
+  } catch (error) {
+    return responseError(error)
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const context = await getEmrContext(request, 'manage_financial_records')
+  if (!context) return NextResponse.json({ error: 'Clinical access required.' }, { status: 403 })
+  const { database, user } = context
+  const params = new URL(request.url).searchParams
+  const resource = params.get('resource')
+  const id = params.get('id')
+  if (!['financial_payments','financial_records'].includes(resource || '') || !isUuid(id)) return NextResponse.json({ error: 'A valid financial record is required.' }, { status: 400 })
+
+  try {
+    if (resource === 'financial_records') {
+      const { data: bill, error: findError } = await database.from('emr_financial_records').select('id,patient_id,description,amount_due,amount_paid,currency').eq('id', id).maybeSingle()
+      if (findError || !bill) return NextResponse.json({ error: 'Bill not found.' }, { status: 404 })
+      // Payment installments are removed by the bill foreign key's CASCADE.
+      const { error } = await database.from('emr_financial_records').delete().eq('id', id)
+      if (error) throw error
+      await writeEmrAudit(database, user, { action: 'delete_financial_bill', entityType: 'emr_financial_records', entityId: id, patientId: bill.patient_id, metadata: { description: bill.description, amountDue: bill.amount_due, amountPaid: bill.amount_paid, currency: bill.currency } })
+      return NextResponse.json({ success: true })
+    }
+
+    const { data: payment, error: findError } = await database.from('emr_financial_payments').select('id,patient_id,financial_record_id,amount,payment_date').eq('id', id).maybeSingle()
+    if (findError || !payment) return NextResponse.json({ error: 'Payment not found.' }, { status: 404 })
+    const { error } = await database.from('emr_financial_payments').delete().eq('id', id)
+    if (error) throw error
+    await writeEmrAudit(database, user, { action: 'delete_financial_payment', entityType: 'emr_financial_payments', entityId: id, patientId: payment.patient_id, metadata: { financialRecordId: payment.financial_record_id, amount: payment.amount, paymentDate: payment.payment_date } })
+    return NextResponse.json({ success: true })
   } catch (error) {
     return responseError(error)
   }
@@ -384,7 +429,8 @@ function buildRecord(resource: ResourceName, body: Record<string, any>, userId: 
     case 'care_plans': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, title: cleanText(body.title, 240), description: cleanText(body.description, 8000), goals: cleanText(body.goals, 8000), status: enumValue(body.status, 'care_plan_status', 'active'), start_date: cleanDate(body.start_date), target_date: cleanDate(body.target_date), owner_id: userId, ...(dated ? { created_at: dated } : {}) }
     case 'care_plan_items': return { care_plan_id: body.care_plan_id, title: cleanText(body.title, 240), instructions: cleanText(body.instructions, 2000), due_date: cleanDate(body.due_date), status: enumValue(body.status, 'care_item_status', 'pending'), position: cleanNumber(body.position) || 0 }
     case 'tasks': return { patient_id: isUuid(body.patient_id) ? body.patient_id : null, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, title: cleanText(body.title, 240), task_type: cleanText(body.task_type, 80) || 'follow_up', priority: enumValue(body.priority, 'investigation_priority', 'routine'), status: enumValue(body.status, 'task_status', 'pending'), assigned_to: isUuid(body.assigned_to) ? body.assigned_to : userId, due_at: body.due_at || null, created_by: userId }
-    case 'financial_records': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, description: cleanText(body.description, 500), amount_due: cleanNumber(body.amount_due), amount_paid: cleanNumber(body.amount_paid) || 0, currency: enumValue(body.currency, 'financial_currency', 'NGN'), status: enumValue(body.status, 'financial_status', 'pending'), payment_method: body.payment_method ? enumValue(body.payment_method, 'payment_method', 'other') : null, payment_reference: cleanText(body.payment_reference, 240), service_date: cleanDate(body.service_date) || new Date().toISOString().slice(0, 10), due_date: cleanDate(body.due_date), paid_at: body.paid_at || (Number(body.amount_paid) > 0 ? now : null), notes: cleanText(body.notes, 4000), created_by: userId }
+    case 'financial_records': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, description: cleanText(body.description, 500), amount_due: cleanNumber(body.amount_due), amount_paid: 0, currency: enumValue(body.currency, 'financial_currency', 'NGN'), status: 'pending', payment_method: null, payment_reference: null, service_date: new Date().toISOString().slice(0, 10), due_date: null, paid_at: null, notes: cleanText(body.notes, 4000), created_by: userId }
+    case 'financial_payments': return { financial_record_id: body.financial_record_id, patient_id: body.patient_id, amount: cleanNumber(body.amount), payment_date: cleanDate(body.payment_date), payment_method: body.payment_method ? enumValue(body.payment_method, 'payment_method', 'other') : null, payment_reference: cleanText(body.payment_reference, 240), notes: cleanText(body.notes, 2000), created_by: userId }
   }
 }
 
@@ -393,13 +439,14 @@ function validateRecord(resource: ResourceName, record: Record<string, any>) {
     encounters: ['patient_id','chief_complaint'], notes: ['patient_id','content','note_type'], diagnoses: ['patient_id','diagnosis_name'],
     allergies: ['patient_id','allergen'], medications: ['patient_id','medication_name','strength','dose','route','frequency','duration','quantity'],
     investigations: ['patient_id','test_name','clinical_indication'], results: ['patient_id','order_id','test_name','result'], imaging: ['patient_id','modality','indication'],
-    care_plans: ['patient_id','title','goals'], care_plan_items: ['care_plan_id','title'], tasks: ['title'], financial_records: ['patient_id','description'],
+    care_plans: ['patient_id','title','goals'], care_plan_items: ['care_plan_id','title'], tasks: ['title'], financial_records: ['patient_id','description'], financial_payments: ['financial_record_id','patient_id','amount','payment_date'],
   }
   const missing = required[resource]?.find(field => !record[field])
   if (missing) return `${missing.replace(/_/g, ' ')} is required.`
   if (resource === 'results' && !isUuid(record.order_id)) return 'A valid investigation order is required.'
-  if (resource === 'financial_records' && (record.amount_due === null || record.amount_due < 0 || record.amount_paid < 0)) return 'Valid non-negative billed and paid amounts are required.'
+  if (resource === 'financial_records' && (record.amount_due === null || record.amount_due <= 0 || record.amount_paid < 0)) return 'Amount billed must be greater than zero.'
   if (resource === 'financial_records' && record.amount_paid > record.amount_due) return 'Amount paid cannot exceed the amount billed.'
+  if (resource === 'financial_payments' && (!record.amount || record.amount <= 0)) return 'Payment amount must be greater than zero.'
   return null
 }
 
@@ -411,7 +458,8 @@ function buildUpdate(resource: ResourceName, body: Record<string, any>, userId: 
     results: ['notes','abnormal_flag'], care_plans: ['status','description','goals','target_date','completed_at'],
     care_plan_items: ['status','title','instructions','due_date','position','completed_at'], tasks: ['status','priority','due_at','assigned_to'],
     imaging: ['modality','body_region','indication','performed_at','report'], assessments: ['status','reviewed_at','reviewed_by'],
-    financial_records: ['description','amount_due','amount_paid','currency','status','payment_method','payment_reference','service_date','due_date','paid_at','notes'],
+    financial_records: ['description','amount_due','currency','notes'],
+    financial_payments: ['amount','payment_date','payment_method','payment_reference','notes'],
   }
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   for (const field of fields[resource]) if (field in body) updates[field] = typeof body[field] === 'string' ? cleanText(body[field], 12000) : body[field]
@@ -448,6 +496,12 @@ function buildUpdate(resource: ResourceName, body: Record<string, any>, userId: 
     if (body.payment_method) updates.payment_method = enumValue(body.payment_method, 'payment_method', 'other')
     if ('service_date' in body) updates.service_date = cleanDate(body.service_date)
     if ('due_date' in body) updates.due_date = cleanDate(body.due_date)
+    if ('paid_at' in body) updates.paid_at = cleanDate(body.paid_at)
+  }
+  if (resource === 'financial_payments') {
+    if ('amount' in body) updates.amount = cleanNumber(body.amount)
+    if ('payment_date' in body) updates.payment_date = cleanDate(body.payment_date)
+    if (body.payment_method) updates.payment_method = enumValue(body.payment_method, 'payment_method', 'other')
   }
   if (resource === 'notes' && body.status) updates.status = enumValue(body.status, 'note_status', 'draft')
   if (resource === 'encounters' && body.status) updates.status = enumValue(body.status, 'encounter_status', 'in_progress')

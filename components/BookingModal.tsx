@@ -13,11 +13,14 @@ interface BookingData {
   lastName: string
   email: string
   phone: string
+  dateOfBirth: string
+  sex: string
   homeAddress: string
   preferredDate: string
   preferredTime: string
   symptoms: string
   consultationType: 'telemedicine' | 'home-visit'
+  consentConfirmed: boolean
 }
 
 export default function BookingModal({ isOpen, onClose, consultationType }: BookingModalProps) {
@@ -28,11 +31,14 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
     lastName: '',
     email: '',
     phone: '',
+    dateOfBirth: '',
+    sex: '',
     homeAddress: '',
     preferredDate: '',
     preferredTime: '',
     symptoms: '',
-    consultationType
+    consultationType,
+    consentConfirmed: false,
   })
 
   if (!isOpen) return null
@@ -67,11 +73,14 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
           lastName: bookingData.lastName,
           email: bookingData.email,
           phone: bookingData.phone,
+          dateOfBirth: bookingData.dateOfBirth,
+          sex: bookingData.sex,
           homeAddress: bookingData.homeAddress,
           consultationType: bookingData.consultationType,
           preferredDate: bookingData.preferredDate,
           preferredTime: bookingData.preferredTime,
           symptoms: bookingData.symptoms,
+          consentConfirmed: bookingData.consentConfirmed,
           status: 'pending',
           paymentStatus: 'pending'
         }),
@@ -98,11 +107,14 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
         lastName: '',
         email: '',
         phone: '',
+        dateOfBirth: '',
+        sex: '',
         homeAddress: '',
         preferredDate: '',
         preferredTime: '',
         symptoms: '',
-        consultationType
+        consultationType,
+        consentConfirmed: false,
       })
     } catch (error) {
       console.error('Error saving appointment:', error)
@@ -113,7 +125,7 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
     }
   }
 
-  const updateBookingData = (field: keyof BookingData, value: string) => {
+  const updateBookingData = (field: keyof BookingData, value: string | boolean) => {
     setBookingData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -126,7 +138,7 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
   const isStepValid = () => {
     switch (currentStep) {
       case 1:
-        return bookingData.firstName && bookingData.lastName && bookingData.email && bookingData.phone && bookingData.homeAddress
+        return bookingData.firstName && bookingData.lastName && bookingData.email && bookingData.phone && bookingData.dateOfBirth && bookingData.sex && bookingData.homeAddress && bookingData.consentConfirmed
       case 2:
         return bookingData.preferredDate && bookingData.preferredTime
       case 3:
@@ -170,6 +182,7 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
                   }`}></div>
                 )}
               </div>
+
             ))}
           </div>
           
@@ -216,6 +229,33 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
+                  <input
+                    type="date"
+                    value={bookingData.dateOfBirth}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => updateBookingData('dateOfBirth', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Sex *</label>
+                  <select
+                    value={bookingData.sex}
+                    onChange={(e) => updateBookingData('sex', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent"
+                  >
+                    <option value="">Select…</option>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                    <option value="intersex">Intersex</option>
+                    <option value="unknown">Prefer not to say</option>
+                  </select>
+                </div>
+              </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -255,6 +295,16 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
                   placeholder="Enter your complete home address including street, city, and state"
                 />
               </div>
+
+              <label className="flex items-start gap-3 rounded-xl border border-green-deep/10 bg-[#FCFFF0] p-4 text-sm leading-6 text-text-mid">
+                <input
+                  type="checkbox"
+                  checked={bookingData.consentConfirmed}
+                  onChange={(e) => updateBookingData('consentConfirmed', e.target.checked)}
+                  className="mt-1 h-4 w-4 accent-green-deep"
+                />
+                <span>I consent to FXMed securely reviewing these details to create or match my patient record. Booking does not itself confirm EMR registration.</span>
+              </label>
             </div>
           )}
 
