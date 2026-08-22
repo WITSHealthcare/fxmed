@@ -28,6 +28,18 @@ type InvestigationPatient = {
   gender: string
 }
 
+type EmrPatientOption = {
+  id: string
+  mrn: string
+  first_name: string
+  middle_name?: string | null
+  last_name: string
+  date_of_birth: string
+  sex: string
+  email?: string | null
+  phone?: string | null
+}
+
 type InvestigationHistoryItem = {
   id: string
   originalName: string
@@ -67,6 +79,7 @@ const MEAL_PLAN_HISTORY_STORE_NAME = 'meal-plan-documents'
 const PARTNER_LABORATORIES = ['Mecure', 'Synlab'] as const
 const INVESTIGATION_FORMS_API = '/api/admin/tools/investigation-forms'
 const INVESTIGATION_RESULTS_API = '/api/admin/tools/investigation-results'
+const EMR_PATIENTS_API = '/api/admin/emr'
 const initialResultMeta = { reportTitle: 'Laboratory Investigation Report', specimen: '', collectedAt: '', reportedAt: '', clinician: '', notes: '' }
 
 function makeInvestigationDownloadName(fullName: string) {
@@ -82,6 +95,28 @@ function makeDownloadName(filename: string, outputFormat: OutputFormat) {
 function formatFileSize(size: number) {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function emrPatientName(patient: EmrPatientOption) {
+  return [patient.first_name, patient.middle_name, patient.last_name].filter(Boolean).join(' ')
+}
+
+function formatPatientAge(dob: string, today = new Date()) {
+  const birth = new Date(`${dob}T00:00:00`)
+  if (Number.isNaN(birth.getTime()) || birth > today) return ''
+
+  let years = today.getFullYear() - birth.getFullYear()
+  if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) years--
+  if (years >= 1) return `${years} ${years === 1 ? 'year' : 'years'}`
+
+  let months = (today.getFullYear() - birth.getFullYear()) * 12 + today.getMonth() - birth.getMonth()
+  if (today.getDate() < birth.getDate()) months--
+  if (months >= 1) return `${months} ${months === 1 ? 'month' : 'months'}`
+
+  const birthUtc = Date.UTC(birth.getFullYear(), birth.getMonth(), birth.getDate())
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+  const days = Math.floor((todayUtc - birthUtc) / 86_400_000)
+  return `${days} ${days === 1 ? 'day' : 'days'}`
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -141,6 +176,34 @@ function normalizeInvestigationTests(value: unknown): InvestigationTest[] {
       }
     })
     .filter((test) => test.name)
+}
+
+function splitInvestigationList(value: string) {
+  const cleanItem = (item: string) => item
+    .replace(/^\s*(?:[-•–—*]|☐|☑|✓|\d+[.)])\s*/, '')
+    .trim()
+
+  const lines = value.split(/\r?\n/).map(cleanItem).filter(Boolean)
+  if (lines.length > 1) return lines
+
+  const source = lines[0] || ''
+  if (source.includes(';')) return source.split(';').map(cleanItem).filter(Boolean)
+
+  const items: string[] = []
+  let current = ''
+  let parentheses = 0
+  for (const character of source) {
+    if (character === '(') parentheses++
+    if (character === ')') parentheses = Math.max(0, parentheses - 1)
+    if (character === ',' && parentheses === 0) {
+      if (cleanItem(current)) items.push(cleanItem(current))
+      current = ''
+    } else {
+      current += character
+    }
+  }
+  if (cleanItem(current)) items.push(cleanItem(current))
+  return items
 }
 
 function openHistoryDb() {
@@ -246,6 +309,9 @@ export default function AdminTools() {
     age: '',
     gender: '',
   })
+  const [investPatientMatches, setInvestPatientMatches] = useState<EmrPatientOption[]>([])
+  const [selectedEmrPatientId, setSelectedEmrPatientId] = useState<string | null>(null)
+  const [investPatientSearchLoading, setInvestPatientSearchLoading] = useState(false)
   const [investPanelTitle, setInvestPanelTitle] = useState('Core Functional Medicine Panel')
   // Partner verification stamp. Off by default: it should only appear on forms
   // actually being taken to the partner laboratory.
@@ -253,8 +319,9 @@ export default function AdminTools() {
   const [investStampPartner, setInvestStampPartner] = useState('Mecure')
   const [investStampDate, setInvestStampDate] = useState('')
   const [investTests, setInvestTests] = useState<InvestigationTest[]>(() =>
-    CORE_PANEL_TESTS.map((test) => ({ ...test }))
+    CORE_PANEL_TESTS.map((test) => ({ name: test.name, description: '' }))
   )
+  const [investBulkList, setInvestBulkList] = useState('')
   const [investStatus, setInvestStatus] = useState<FormatterStatus>('idle')
   const [investMessage, setInvestMessage] = useState('')
   const [investHistory, setInvestHistory] = useState<InvestigationHistoryItem[]>([])
@@ -333,6 +400,58 @@ export default function AdminTools() {
     refreshInvestigationHistory()
     refreshResultHistory()
   }, [])
+
+  useEffect(() => {
+    const search = investPatient.fullName.trim()
+    if (activeTool !== 'investigation' || selectedEmrPatientId || search.length < 2) {
+      setInvestPatientMatches([])
+      setInvestPatientSearchLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setInvestPatientSearchLoading(true)
+      try {
+        const lookupTerm = search.split(/\s+/)[0]
+        const params = new URLSearchParams({ resource: 'patients', search: lookupTerm, status: 'active', pageSize: '100' })
+        const response = await fetch(`${EMR_PATIENTS_API}?${params}`, { signal: controller.signal })
+        if (!response.ok) {
+          setInvestPatientMatches([])
+          return
+        }
+        const data = await response.json()
+        const searchTerms = search.toLowerCase().split(/\s+/).filter(Boolean)
+        const patients = Array.isArray(data.patients) ? data.patients as EmrPatientOption[] : []
+        setInvestPatientMatches(patients.filter((patient) => {
+          const searchable = `${emrPatientName(patient)} ${patient.mrn} ${patient.phone || ''} ${patient.email || ''}`.toLowerCase()
+          return searchTerms.every((term) => searchable.includes(term))
+        }))
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) setInvestPatientMatches([])
+      } finally {
+        if (!controller.signal.aborted) setInvestPatientSearchLoading(false)
+      }
+    }, 250)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [activeTool, investPatient.fullName, selectedEmrPatientId])
+
+  const selectEmrPatient = (patient: EmrPatientOption) => {
+    setSelectedEmrPatientId(patient.id)
+    setInvestPatient({
+      fullName: emrPatientName(patient),
+      email: patient.email || '',
+      phone: patient.phone || '',
+      age: formatPatientAge(patient.date_of_birth),
+      gender: patient.sex ? patient.sex.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : '',
+    })
+    setInvestPatientMatches([])
+    setInvestMessage(`Loaded patient details from EMR (${patient.mrn}).`)
+  }
 
   const formatDocument = async () => {
     if (!selectedFile) return
@@ -465,7 +584,7 @@ export default function AdminTools() {
   }
 
   const loadCorePanel = () => {
-    setInvestTests(CORE_PANEL_TESTS.map((test) => ({ ...test })))
+    setInvestTests(CORE_PANEL_TESTS.map((test) => ({ name: test.name, description: '' })))
     setInvestPanelTitle('Core Functional Medicine Panel')
     setInvestStatus('idle')
     setInvestMessage('')
@@ -477,9 +596,22 @@ export default function AdminTools() {
     setInvestMessage('')
   }
 
+  const populateInvestigationList = () => {
+    const names = splitInvestigationList(investBulkList)
+    if (names.length === 0) {
+      setInvestStatus('error')
+      setInvestMessage('Paste at least one investigation name to populate the form.')
+      return
+    }
+
+    setInvestTests(names.map((name) => ({ name, description: '' })))
+    setInvestStatus('idle')
+    setInvestMessage(`${names.length} investigation${names.length === 1 ? '' : 's'} populated. Review the list, then generate the form.`)
+  }
+
   const generateInvestigationForm = async () => {
     const tests = investTests
-      .map((test) => ({ name: test.name.trim(), description: test.description.trim() }))
+      .map((test) => ({ name: test.name.trim(), description: '' }))
       .filter((test) => test.name)
 
     if (tests.length === 0) {
@@ -552,6 +684,8 @@ export default function AdminTools() {
     setInvestTests(tests.map((test) => ({ ...test })))
     setInvestPanelTitle(item.panelTitle || 'Core Functional Medicine Panel')
     setInvestPatient({ fullName: '', email: '', phone: '', age: '', gender: '' })
+    setSelectedEmrPatientId(null)
+    setInvestPatientMatches([])
     setInvestStatus('idle')
     setInvestMessage(`Loaded the tests from "${item.originalName}". Enter the new patient's details, then generate.`)
     investFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -1058,15 +1192,44 @@ export default function AdminTools() {
         <div className="mt-6 rounded-xl border border-green-deep/10 bg-cream/40 p-4">
           <h4 className="text-sm font-dm-sans font-semibold text-green-deep mb-4">Patient Information</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+            <div className="relative">
               <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Full Name</label>
               <input
                 type="text"
                 value={investPatient.fullName}
-                onChange={(event) => setInvestPatient((current) => ({ ...current, fullName: event.target.value }))}
-                placeholder="e.g. Amara Okafor"
+                onChange={(event) => {
+                  setSelectedEmrPatientId(null)
+                  setInvestPatient((current) => ({ ...current, fullName: event.target.value }))
+                }}
+                placeholder="Type name"
+                autoComplete="off"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={investPatientMatches.length > 0}
+                aria-controls="investigation-emr-patient-options"
                 className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none"
               />
+              {investPatientSearchLoading && <p className="mt-1 text-xs font-dm-sans text-text-mid">Searching EMR…</p>}
+              {investPatientMatches.length > 0 && (
+                <div id="investigation-emr-patient-options" role="listbox" className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-green-deep/15 bg-white p-1 shadow-xl">
+                  {investPatientMatches.map((patient) => (
+                    <button
+                      key={patient.id}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      onMouseDown={(event) => {
+                        event.preventDefault()
+                        selectEmrPatient(patient)
+                      }}
+                      className="block w-full rounded-md px-3 py-2 text-left hover:bg-cream"
+                    >
+                      <span className="block text-sm font-dm-sans font-semibold text-green-deep">{emrPatientName(patient)}</span>
+                      <span className="mt-0.5 block text-xs font-dm-sans text-text-mid">{patient.mrn} · {patient.phone || patient.email || 'No contact recorded'}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Email Address</label>
@@ -1173,7 +1336,7 @@ export default function AdminTools() {
             <div>
               <h4 className="text-sm font-dm-sans font-semibold text-green-deep">Requested Tests</h4>
               <p className="mt-1 text-xs font-dm-sans text-text-mid">
-                Add the investigations to include. Descriptions are optional.
+                Add the investigations to include on the form.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -1190,6 +1353,27 @@ export default function AdminTools() {
                 className="border border-green-deep/20 text-green-deep hover:bg-green-deep/5 px-3 py-2 rounded-lg font-dm-sans font-semibold text-xs transition-colors"
               >
                 Clear
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-4 rounded-lg border border-green-deep/15 bg-white p-3">
+            <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Paste Investigation List</label>
+            <textarea
+              value={investBulkList}
+              onChange={(event) => setInvestBulkList(event.target.value)}
+              placeholder={'Enter one investigation per line, or separate names with commas or semicolons'}
+              rows={5}
+              className="w-full resize-y rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none"
+            />
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs font-dm-sans text-text-mid">Bullets and numbered lists are supported. Populating replaces the current test rows.</p>
+              <button
+                type="button"
+                onClick={populateInvestigationList}
+                className="shrink-0 rounded-lg bg-green-deep px-4 py-2 text-xs font-dm-sans font-semibold text-cream transition-colors hover:bg-green-deep/90"
+              >
+                Populate Tests
               </button>
             </div>
           </div>
@@ -1214,13 +1398,6 @@ export default function AdminTools() {
                   onChange={(event) => updateInvestTest(index, 'name', event.target.value)}
                   placeholder="Test name (e.g. Complete Blood Count (CBC))"
                   className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans font-semibold text-green-deep focus:border-green-deep focus:outline-none"
-                />
-                <textarea
-                  value={test.description}
-                  onChange={(event) => updateInvestTest(index, 'description', event.target.value)}
-                  placeholder="Short description (optional)"
-                  rows={2}
-                  className="mt-2 w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-text-mid focus:border-green-deep focus:outline-none resize-y"
                 />
               </div>
             ))}

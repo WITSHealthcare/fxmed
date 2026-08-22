@@ -301,232 +301,29 @@ export default function InvestigationsClient() {
             </p>
           <button
             onClick={async () => {
-              // Create two separate containers for proper page breaks
-              const container1 = document.createElement('div');
-              container1.style.position = 'absolute';
-              container1.style.left = '-9999px';
-              container1.style.top = '0';
-              container1.style.width = '800px';
-              container1.style.backgroundColor = 'white';
-              container1.style.padding = '48px';
-              container1.style.fontFamily = "'DM Sans', sans-serif";
-              
-              container1.innerHTML = `
-                <div style="text-align: center; margin-bottom: 40px; padding-bottom: 30px; border-bottom: 2px solid #CADE68;">
-                  <div style="font-size: 12px; font-weight: 600; color: #6B8E23; text-transform: uppercase; letter-spacing: 0.14em; background: rgba(107, 142, 35, 0.1); display: inline-flex; align-items: center; justify-content: center; padding: 2px 16px 14px 16px; border-radius: 20px; margin-bottom: 16px; line-height: 1;">
-                    Functional Health Analysis
-                  </div>
-                  <div style="margin-bottom: 8px; text-align: center; display: flex; justify-content: center; align-items: center;">
-                    <img src="${window.location.origin}/FXMed_Logo_Black.png" alt="FXMed" style="height: 60px; width: auto; margin: 0 auto;" />
-                  </div>
-                  <h1 style="font-size: 32px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
-                    Investigation Request Form
-                  </h1>
-                  <p style="font-size: 14px; color: #666; font-weight: 500;">
-                    Core Functional Medicine Panel
-                  </p>
-                </div>
-                
-                <div style="margin-bottom: 32px;">
-                  <h2 style="font-size: 18px; font-weight: 700; color: #0F2419; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">
-                    Patient Information
-                  </h2>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                    <div style="margin-bottom: 12px;">
-                      <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
-                        Full Name
-                      </div>
-                      <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
-                        ${formData?.personalInfo.firstName || ''} ${formData?.personalInfo.lastName || ''}
-                      </div>
-                    </div>
-                    <div style="margin-bottom: 12px;">
-                      <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
-                        Email Address
-                      </div>
-                      <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
-                        ${formData?.personalInfo.email || ''}
-                      </div>
-                    </div>
-                    <div style="margin-bottom: 12px;">
-                      <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
-                        Phone Number
-                      </div>
-                      <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
-                        ${formData?.personalInfo.phone || ''}
-                      </div>
-                    </div>
-                    <div style="margin-bottom: 12px;">
-                      <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
-                        Age / Gender
-                      </div>
-                      <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
-                        ${formData?.personalInfo.age || ''} years / ${formData?.personalInfo.gender || ''}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div style="margin-bottom: 32px;">
-                  <div style="display: inline-flex; align-items: center; justify-content: center; background: #FEE2E2; color: #DC2626; font-size: 11px; font-weight: 700; padding: 0px 10px 8px 10px; border-radius: 20px; margin-bottom: 12px; text-transform: uppercase; line-height: 1;">
-                    Required Tests
-                  </div>
-                  <h2 style="font-size: 18px; font-weight: 700; color: #0F2419; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">
-                    Core Functional Medicine Panel
-                  </h2>
-                  <div style="list-style: none;">
-                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
-                        1. Complete Blood Count (CBC)
-                      </div>
-                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
-                        Comprehensive blood analysis to assess overall health, detect infections, anemia, and immune system status
-                      </div>
-                    </div>
-                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
-                        2. Comprehensive Metabolic Panel (CMP)
-                      </div>
-                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
-                        Evaluates kidney function, liver function, blood sugar levels, and electrolyte balance for metabolic health assessment
-                      </div>
-                    </div>
-                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
-                        3. Lipid Profile (Total Cholesterol, LDL, HDL, Triglycerides)
-                      </div>
-                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
-                        Complete cholesterol analysis including HDL, LDL, and triglycerides to assess cardiovascular risk and metabolic function
-                      </div>
-                    </div>
-                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
-                        4. Thyroid (TSH, free T3, free T4)
-                      </div>
-                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
-                        Comprehensive thyroid evaluation to assess metabolic rate, energy production, and hormonal balance
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              `;
-              
-              // Create second container for page 2
-              const container2 = document.createElement('div');
-              container2.style.position = 'absolute';
-              container2.style.left = '-9999px';
-              container2.style.top = '0';
-              container2.style.width = '800px';
-              container2.style.backgroundColor = 'white';
-              container2.style.padding = '48px';
-              container2.style.fontFamily = "'DM Sans', sans-serif";
-              
-              container2.innerHTML = `
-                <div style="margin-bottom: 32px;">
-                  <h2 style="font-size: 18px; font-weight: 700; color: #0F2419; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">
-                    Core Functional Medicine Panel
-                  </h2>
-                  <div style="list-style: none;">
-                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
-                        5. HbA1c (Glycated Hemoglobin)
-                      </div>
-                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
-                        Measures average blood sugar levels over 2-3 months to assess glucose control and metabolic health
-                      </div>
-                    </div>
-                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
-                        6. High Sensitivity CRP
-                      </div>
-                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
-                        Detects low levels of inflammation that may indicate chronic disease risk and cardiovascular issues
-                      </div>
-                    </div>
-                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
-                        7. Vitamin D (25-OH Vitamin D)
-                      </div>
-                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
-                        Measures vitamin D status critical for immune function, bone health, hormone balance, and disease prevention
-                      </div>
-                    </div>
-                    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
-                        8. ESR (Erythrocyte Sedimentation Rate)
-                      </div>
-                      <div style="font-size: 14px; color: #4B5563; line-height: 1.5;">
-                        Measures the rate at which red blood cells settle in a test tube, indicating inflammation levels in the body
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center;">
-                  <div style="font-size: 14px; font-weight: 700; color: #0F2419; margin-bottom: 12px;">
-                    FXMed Functional Medicine
-                  </div>
-                  <div style="font-size: 13px; color: #6B7280; line-height: 1.6;">
-                    For questions about this investigation form, please contact us:<br>
-                    +234 907 703 1311 · +1 832 779 2347 | fxmed@wellnesswits.com<br>
-                    Treating the root cause — not just the symptoms
-                  </div>
-                  <div style="margin-top: 24px; font-size: 12px; color: #9CA3AF; font-style: italic;">
-                    Generated on: ${new Date().toLocaleDateString()} | Confidential Medical Document
-                  </div>
-                </div>
-              `;
-              
-              document.body.appendChild(container1);
-              document.body.appendChild(container2);
-              
+              // The clinic's own generator, so the form a patient downloads
+              // here is typeset exactly like the one issued from the admin
+              // workspace instead of drifting from its own copy of the markup.
               try {
-                // Import html2canvas and jsPDF
-                const html2canvas = (await import('html2canvas')).default;
-                const { default: jsPDF } = await import('jspdf');
-                
-                // Wait for images to load
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                // Capture first page
-                const canvas1 = await html2canvas(container1, {
-                  scale: 2,
-                  useCORS: true,
-                  allowTaint: true,
-                  backgroundColor: '#ffffff'
-                });
-                
-                // Capture second page
-                const canvas2 = await html2canvas(container2, {
-                  scale: 2,
-                  useCORS: true,
-                  allowTaint: true,
-                  backgroundColor: '#ffffff'
-                });
-                
-                // Create PDF
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const imgWidth = 210;
-                const pageHeight = 297;
-                
-                // Add first page
-                const imgHeight1 = (canvas1.height * imgWidth) / canvas1.width;
-                pdf.addImage(canvas1.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight1);
-                
-                // Add second page
-                pdf.addPage();
-                const imgHeight2 = (canvas2.height * imgWidth) / canvas2.width;
-                pdf.addImage(canvas2.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight2);
-                
-                // Save the PDF
-                pdf.save('FXMed_Investigation_Form.pdf');
+                const { generateInvestigationFormPdf, CORE_PANEL_TESTS } = await import('@/lib/investigationFormPdf')
+                const blob = await generateInvestigationFormPdf({
+                  fullName: [formData?.personalInfo.firstName, formData?.personalInfo.lastName].filter(Boolean).join(' '),
+                  email: formData?.personalInfo.email || '',
+                  phone: formData?.personalInfo.phone || '',
+                  age: formData?.personalInfo.age || '',
+                  gender: formData?.personalInfo.gender || '',
+                  panelTitle: 'Core Functional Medicine Panel',
+                  tests: CORE_PANEL_TESTS,
+                })
+                const url = URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = 'FXMed_Investigation_Form.pdf'
+                link.click()
+                URL.revokeObjectURL(url)
               } catch (error) {
-                console.error('Error generating PDF:', error);
-                alert('Error generating PDF. Please try again.');
-              } finally {
-                // Clean up
-                document.body.removeChild(container1);
-                document.body.removeChild(container2);
+                console.error('Error generating PDF:', error)
+                alert('Error generating PDF. Please try again.')
               }
             }}
             className="inline-flex items-center gap-2 font-dm-sans bg-green-deep text-white px-6 py-3 rounded-[50px] font-semibold text-sm hover:bg-green-700 transition-all"

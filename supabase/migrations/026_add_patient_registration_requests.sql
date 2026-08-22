@@ -30,6 +30,18 @@ CREATE TABLE IF NOT EXISTS public.emr_patient_registration_requests (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- CREATE TABLE IF NOT EXISTS does not add columns when an older version of
+-- this table is already present, so keep incremental upgrades idempotent.
+ALTER TABLE public.emr_patient_registration_requests
+  ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'public_form';
+
+DO $$ BEGIN
+  ALTER TABLE public.emr_patient_registration_requests
+    ADD CONSTRAINT emr_patient_registration_source_check
+    CHECK (source IN ('public_form','appointment_booking'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE INDEX IF NOT EXISTS emr_patient_registration_status_idx
   ON public.emr_patient_registration_requests(status, submitted_at DESC);
 CREATE INDEX IF NOT EXISTS emr_patient_registration_phone_idx

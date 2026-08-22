@@ -3,6 +3,9 @@
 // investigations page, but accepts a custom patient + test list so admins can
 // produce bespoke request forms with the same style and design.
 
+import { renderReportPdf } from './reportPdf'
+import { REPORT_LEADING, pdfType } from './reportTheme'
+
 export interface InvestigationTest {
   name: string
   description: string
@@ -71,16 +74,10 @@ export const CORE_PANEL_TESTS: InvestigationTest[] = [
   },
 ]
 
-const FIRST_PAGE_TESTS = 4
-const CONTINUATION_PAGE_TESTS = 6
-
-// Rasterisation quality knobs. RENDER_SCALE controls the capture resolution
-// (2 ≈ 192 DPI at A4, crisp for print). We embed each page as JPEG rather than
-// PNG: for full-page renders of text on coloured cards, JPEG at a high quality
-// factor is a fraction of the PNG size with no perceptible loss, and jsPDF
-// stores it directly (DCTDecode) instead of re-deflating raw pixels.
-const RENDER_SCALE = 2
-const JPEG_QUALITY = 0.95
+// Test rows now contain names only, so the first page can use the remaining
+// space below the patient block and continuation pages can carry a denser list.
+const FIRST_PAGE_TESTS = 11
+const CONTINUATION_PAGE_TESTS = 20
 
 function escapeHtml(value: string) {
   return value
@@ -100,16 +97,16 @@ function valueOrBlank(value: string) {
 function buildHeaderHtml(panelTitle: string, origin: string) {
   return `
     <div style="text-align: center; margin-bottom: 40px; padding-bottom: 30px; border-bottom: 2px solid #CADE68;">
-      <div style="font-size: 12px; font-weight: 600; color: #6B8E23; text-transform: uppercase; letter-spacing: 0.14em; background: rgba(107, 142, 35, 0.1); display: inline-flex; align-items: center; justify-content: center; padding: 2px 16px 14px 16px; border-radius: 20px; margin-bottom: 16px; line-height: 1;">
+      <div style="font-size: ${pdfType('badge')}; font-weight: 600; color: #6B8E23; text-transform: uppercase; letter-spacing: 0.14em; background: rgba(107, 142, 35, 0.1); display: inline-flex; align-items: center; justify-content: center; padding: 2px 16px 14px 16px; border-radius: 20px; margin-bottom: 16px; line-height: 1;">
         Functional Health Analysis
       </div>
       <div style="margin-bottom: 8px; text-align: center; display: flex; justify-content: center; align-items: center;">
         <img src="${origin}/FXMed_Logo_Black.png" alt="FXMed" style="height: 60px; width: auto; margin: 0 auto;" />
       </div>
-      <h1 style="font-size: 32px; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
+      <h1 style="font-size: ${pdfType('title')}; font-weight: 700; color: #0F2419; margin-bottom: 8px;">
         Investigation Request Form
       </h1>
-      <p style="font-size: 14px; color: #666; font-weight: 500;">
+      <p style="font-size: ${pdfType('subtitle')}; color: #666; font-weight: 500;">
         ${escapeHtml(panelTitle)}
       </p>
     </div>
@@ -119,39 +116,39 @@ function buildHeaderHtml(panelTitle: string, origin: string) {
 function buildPatientHtml(data: InvestigationFormData) {
   return `
     <div style="margin-bottom: 32px;">
-      <h2 style="font-size: 18px; font-weight: 700; color: #0F2419; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">
+      <h2 style="font-size: ${pdfType('section')}; font-weight: 700; color: #0F2419; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">
         Patient Information
       </h2>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="margin-bottom: 12px;">
-          <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+          <div style="font-size: ${pdfType('label')}; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
             Full Name
           </div>
-          <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
+          <div style="font-size: ${pdfType('value')}; font-weight: 600; color: #0F2419;">
             ${valueOrBlank(data.fullName)}
           </div>
         </div>
         <div style="margin-bottom: 12px;">
-          <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+          <div style="font-size: ${pdfType('label')}; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
             Email Address
           </div>
-          <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
+          <div style="font-size: ${pdfType('value')}; font-weight: 600; color: #0F2419;">
             ${valueOrBlank(data.email)}
           </div>
         </div>
         <div style="margin-bottom: 12px;">
-          <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+          <div style="font-size: ${pdfType('label')}; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
             Phone Number
           </div>
-          <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
+          <div style="font-size: ${pdfType('value')}; font-weight: 600; color: #0F2419;">
             ${valueOrBlank(data.phone)}
           </div>
         </div>
         <div style="margin-bottom: 12px;">
-          <div style="font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+          <div style="font-size: ${pdfType('label')}; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
             Age / Gender
           </div>
-          <div style="font-size: 16px; font-weight: 600; color: #0F2419;">
+          <div style="font-size: ${pdfType('value')}; font-weight: 600; color: #0F2419;">
             ${valueOrBlank([data.age.trim(), data.gender.trim()].filter(Boolean).join(' / '))}
           </div>
         </div>
@@ -161,32 +158,26 @@ function buildPatientHtml(data: InvestigationFormData) {
 }
 
 function buildTestCardHtml(index: number, test: InvestigationTest) {
-  const description = test.description.trim()
   return `
-    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-      <div style="font-size: 16px; font-weight: 700; color: #0F2419; margin-bottom: ${description ? '8px' : '0'};">
+    <div style="background: #FEF2F2; border-left: 3px solid #DC2626; border-radius: 6px; padding: 9px 12px; margin-bottom: 6px; break-inside: avoid; page-break-inside: avoid;">
+      <div style="font-size: ${pdfType('value')}; font-weight: 700; color: #0F2419; line-height: 1.25;">
         ${index}. ${escapeHtml(test.name)}
       </div>
-      ${
-        description
-          ? `<div style="font-size: 14px; color: #4B5563; line-height: 1.5;">${escapeHtml(description)}</div>`
-          : ''
-      }
     </div>
   `
 }
 
 function buildSectionHtml(panelTitle: string, cardsHtml: string, withBadge: boolean) {
   const badge = withBadge
-    ? `<div style="display: inline-flex; align-items: center; justify-content: center; background: #FEE2E2; color: #DC2626; font-size: 11px; font-weight: 700; padding: 0px 10px 8px 10px; border-radius: 20px; margin-bottom: 12px; text-transform: uppercase; line-height: 1;">
+    ? `<div style="display: inline-flex; align-items: center; justify-content: center; background: #FEE2E2; color: #DC2626; font-size: ${pdfType('badge')}; font-weight: 700; padding: 0px 10px 8px 10px; border-radius: 20px; margin-bottom: 12px; text-transform: uppercase; line-height: 1;">
          Required Tests
        </div>`
     : ''
 
   return `
-    <div style="margin-bottom: 32px;">
+    <div style="margin-bottom: 20px;">
       ${badge}
-      <h2 style="font-size: 18px; font-weight: 700; color: #0F2419; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">
+      <h2 style="font-size: ${pdfType('section')}; font-weight: 700; color: #0F2419; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #e5e7eb;">
         ${escapeHtml(panelTitle)}
       </h2>
       <div style="list-style: none;">
@@ -209,18 +200,18 @@ function buildStampHtml(stamp: InvestigationStamp, patientName: string) {
   return `
     <div style="margin-top: 34px; display: flex; justify-content: flex-end;">
       <div style="transform: rotate(-2.5deg); border: 3px double #0F2419; border-radius: 10px; padding: 14px 20px; background: rgba(202,222,104,.12); text-align: center; min-width: 300px;">
-        <div style="font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #6B8E23;">
+        <div style="font-size: ${pdfType('label')}; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #6B8E23;">
           FXMed Functional Medicine
         </div>
-        <div style="margin: 7px 0 4px; font-size: 19px; font-weight: 800; letter-spacing: .05em; color: #0F2419;">
+        <div style="margin: 7px 0 4px; font-size: ${pdfType('stamp')}; font-weight: 800; letter-spacing: .05em; color: #0F2419;">
           VERIFIED FOR ${partner}
         </div>
-        <div style="font-size: 12px; color: #0F2419; line-height: 1.55;">
+        <div style="font-size: ${pdfType('fine')}; color: #0F2419; line-height: ${REPORT_LEADING.tight};">
           ${escapeHtml(patientName || 'The named patient')} is authorised by FXMed<br>
           to undergo the investigations listed on this form<br>
           at ${escapeHtml(stamp.partner)}.
         </div>
-        <div style="margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(15,36,25,.25); font-size: 13px; font-weight: 800; color: #0F2419;">
+        <div style="margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(15,36,25,.25); font-size: ${pdfType('body')}; font-weight: 800; color: #0F2419;">
           VALID ON: ${escapeHtml(formatStampDate(stamp.validOn))}
         </div>
       </div>
@@ -231,15 +222,15 @@ function buildStampHtml(stamp: InvestigationStamp, patientName: string) {
 function buildFooterHtml() {
   return `
     <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center;">
-      <div style="font-size: 14px; font-weight: 700; color: #0F2419; margin-bottom: 12px;">
+      <div style="font-size: ${pdfType('body')}; font-weight: 700; color: #0F2419; margin-bottom: 12px;">
         FXMed Functional Medicine
       </div>
-      <div style="font-size: 13px; color: #6B7280; line-height: 1.6;">
+      <div style="font-size: ${pdfType('footer')}; color: #6B7280; line-height: ${REPORT_LEADING.footer};">
         For questions about this investigation form, please contact us:<br>
         +234 907 703 1311 · +1 832 779 2347 | fxmed@wellnesswits.com<br>
         Treating the root cause — not just the symptoms
       </div>
-      <div style="margin-top: 24px; font-size: 12px; color: #9CA3AF; font-style: italic;">
+      <div style="margin-top: 24px; font-size: ${pdfType('micro')}; color: #9CA3AF; font-style: italic;">
         Generated on: ${new Date().toLocaleDateString()} | Confidential Medical Document
       </div>
     </div>
@@ -254,34 +245,6 @@ function chunkTests(tests: InvestigationTest[]) {
     chunks.push(tests.slice(i, i + CONTINUATION_PAGE_TESTS))
   }
   return chunks
-}
-
-function waitForImages(el: HTMLElement) {
-  const images = Array.from(el.querySelectorAll('img'))
-  return Promise.all(
-    images.map(
-      (img) =>
-        img.complete
-          ? Promise.resolve()
-          : new Promise<void>((resolve) => {
-              img.onload = () => resolve()
-              img.onerror = () => resolve()
-            })
-    )
-  )
-}
-
-function createPageContainer(innerHtml: string) {
-  const container = document.createElement('div')
-  container.style.position = 'absolute'
-  container.style.left = '-9999px'
-  container.style.top = '0'
-  container.style.width = '800px'
-  container.style.backgroundColor = 'white'
-  container.style.padding = '48px'
-  container.style.fontFamily = "'DM Sans', sans-serif"
-  container.innerHTML = innerHtml
-  return container
 }
 
 export async function generateInvestigationFormPdf(data: InvestigationFormData): Promise<Blob> {
@@ -313,51 +276,5 @@ export async function generateInvestigationFormPdf(data: InvestigationFormData):
   if (data.stamp?.validOn) pageHtmls[pageHtmls.length - 1] += buildStampHtml(data.stamp, data.fullName)
   pageHtmls[pageHtmls.length - 1] += footerHtml
 
-  const html2canvas = (await import('html2canvas')).default
-  const { default: jsPDF } = await import('jspdf')
-
-  const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true })
-  const pageWidth = 210
-  const pageHeight = 297
-
-  for (let i = 0; i < pageHtmls.length; i += 1) {
-    const container = createPageContainer(pageHtmls[i])
-    document.body.appendChild(container)
-
-    try {
-      await waitForImages(container)
-
-      const canvas = await html2canvas(container, {
-        scale: RENDER_SCALE,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-      })
-
-      if (i > 0) pdf.addPage()
-
-      // Fit the captured page within A4, scaling down if it would overflow so
-      // no content is clipped regardless of how many tests are listed.
-      let renderWidth = pageWidth
-      let renderHeight = (canvas.height * renderWidth) / canvas.width
-      if (renderHeight > pageHeight) {
-        renderHeight = pageHeight
-        renderWidth = (canvas.width * renderHeight) / canvas.height
-      }
-      const offsetX = (pageWidth - renderWidth) / 2
-
-      pdf.addImage(
-        canvas.toDataURL('image/jpeg', JPEG_QUALITY),
-        'JPEG',
-        offsetX,
-        0,
-        renderWidth,
-        renderHeight
-      )
-    } finally {
-      document.body.removeChild(container)
-    }
-  }
-
-  return pdf.output('blob')
+  return renderReportPdf(pageHtmls)
 }

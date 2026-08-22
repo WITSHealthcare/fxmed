@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
     if (patientByPhone.error || patientByEmail.error) throw patientByPhone.error || patientByEmail.error
     const existingPatientId = patientByPhone.data?.id || patientByEmail.data?.id || null
     let registrationQueued = false
+    let registrationRequestId: string | null = null
 
     if (!existingPatientId && hasRegistrationDetails) {
       const [pendingByPhone, pendingByEmail] = await Promise.all([
@@ -127,15 +128,19 @@ export async function POST(request: NextRequest) {
         supabase.from('emr_patient_registration_requests').select('id').eq('status', 'pending').eq('email', email).limit(1),
       ])
       if (pendingByPhone.error || pendingByEmail.error) throw pendingByPhone.error || pendingByEmail.error
-      if (pendingByPhone.data?.length || pendingByEmail.data?.length) registrationQueued = true
+      if (pendingByPhone.data?.length || pendingByEmail.data?.length) {
+        registrationQueued = true
+        registrationRequestId = pendingByPhone.data?.[0]?.id || pendingByEmail.data?.[0]?.id || null
+      }
       else {
-        const { error: registrationError } = await supabase.from('emr_patient_registration_requests').insert({
+        const { data: registration, error: registrationError } = await supabase.from('emr_patient_registration_requests').insert({
           first_name: firstName, last_name: lastName, date_of_birth: dateOfBirth,
           sex, phone, email, address: cleanPublicString(body.homeAddress, 500),
           country: 'Nigeria', consent_confirmed: true, source: 'appointment_booking', status: 'pending',
-        })
+        }).select('id').single()
         if (registrationError) throw registrationError
         registrationQueued = true
+        registrationRequestId = registration.id
       }
     }
 
@@ -161,6 +166,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) throw error
+
+    if (registrationRequestId && !existingPatientId) {
+      const { error: linkError } = await supabase.from('emr_patient_registration_requests')
+        .update({ appointment_id: data.id, updated_at: new Date().toISOString() })
+        .eq('id', registrationRequestId)
+        .is('appointment_id', null)
+      if (linkError) throw linkError
+    }
 
     return NextResponse.json({ appointment: data, registrationQueued }, { status: 201 })
   } catch (error: any) {
