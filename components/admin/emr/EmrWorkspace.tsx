@@ -9,6 +9,7 @@ import {
   UsersThreeIcon, WarningCircleIcon, XIcon,
 } from '@phosphor-icons/react'
 import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysis'
+import { REPORT_ACCENT, REPORT_INK, REPORT_LEADING, printType, reportPrintCss } from '@/lib/reportTheme'
 
 type EmrView = 'dashboard' | 'health_analysis' | 'patients' | 'appointments' | 'encounters' | 'records' | 'investigations' | 'medications' | 'care_plans' | 'documents'
 type Patient = Record<string, any>
@@ -116,7 +117,7 @@ function PatientRegistry({ onPatient, onChanged }: { onPatient: (id: string) => 
   {section === 'requests' ? <RegistrationRequests onPatient={onPatient} onChanged={() => { load(); onChanged() }} /> : <Panel title="Patient registry" subtitle="Search and manage canonical clinical patient records." action={<button onClick={() => setShowForm(true)} className="primary"><PlusIcon size={18} weight="bold" />Register patient</button>}>
     <div className="mt-6 flex flex-wrap gap-3"><div className="relative min-w-64 flex-1"><MagnifyingGlassIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-green-mid" /><input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search MRN, name, email or phone…" className="input pl-11" /></div><select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }} className="input w-auto"><option value="active">Active</option><option value="inactive">Inactive</option><option value="deceased">Deceased</option></select><select value={sort} onChange={e => setSort(e.target.value)} className="input w-auto"><option value="updated_at">Recently updated</option><option value="created_at">Recently registered</option><option value="last_name">Last name</option><option value="mrn">MRN</option><option value="date_of_birth">Date of birth</option></select><button onClick={() => setDirection(value => value === 'asc' ? 'desc' : 'asc')} className="secondary">{direction === 'asc' ? 'Ascending' : 'Descending'}</button></div>
     {error && <Alert tone="error">{error}</Alert>}
-    {loading ? <Loading /> : <div className="mt-6 overflow-x-auto rounded-[16px] border border-green-deep/10"><table className="w-full min-w-[940px] text-left text-sm"><thead><tr className="bg-[#FCFFF0] text-[11px] uppercase tracking-wide text-green-deep/55"><th className="p-4">MRN</th><th className="p-4">Patient</th><th className="p-4">Date of birth</th><th className="p-4">Sex</th><th className="p-4">Contact</th><th className="p-4">Last encounter</th><th className="p-4">Status</th><th className="p-4"></th></tr></thead><tbody>{patients.map(patient => <tr key={patient.id} onClick={() => onPatient(patient.id)} className="cursor-pointer border-t border-green-deep/[0.07] hover:bg-green-50/30"><td className="p-4 font-bold text-green-mid">{patient.mrn}</td><td className="p-4 font-bold">{fullName(patient)}</td><td className="p-4 text-text-mid">{date.format(new Date(`${patient.date_of_birth}T00:00:00`))}<span className="ml-1 text-xs">({age(patient.date_of_birth)} yrs)</span></td><td className="p-4 text-text-mid">{label(patient.sex)}</td><td className="p-4"><p>{patient.phone || '—'}</p><p className="text-xs text-text-mid">{patient.email || '—'}</p></td><td className="p-4 text-text-mid">{patient.encounters?.length ? date.format(new Date([...patient.encounters].sort((a:any,b:any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at)) : '—'}</td><td className="p-4"><Status value={patient.status} /></td><td className="p-4 text-right"><button onClick={e => { e.stopPropagation(); onPatient(patient.id) }} className="secondary">Open chart</button></td></tr>)}</tbody></table>{!patients.length && <Empty text="No patients match your search." />}</div>}
+    {loading ? <Loading /> : <div className="mt-6 overflow-x-auto rounded-[16px] border border-green-deep/10"><table className="w-full min-w-[940px] text-left text-sm"><thead><tr className="bg-[#FCFFF0] text-[11px] uppercase tracking-wide text-green-deep/55"><th className="p-4">MRN</th><th className="p-4">Patient</th><th className="p-4">Date of birth</th><th className="p-4">Sex</th><th className="p-4">Contact</th><th className="p-4">Last encounter</th><th className="p-4">Status</th><th className="p-4"></th></tr></thead><tbody>{patients.map(patient => <tr key={patient.id} onClick={() => onPatient(patient.id)} className="cursor-pointer border-t border-green-deep/[0.07] hover:bg-green-50/30"><td className="p-4 font-bold text-green-mid">{patient.mrn}</td><td className="p-4 font-bold">{fullName(patient)}</td><td className="p-4 text-text-mid">{date.format(new Date(`${patient.date_of_birth}T00:00:00`))}<span className="ml-1 text-xs">({formatPatientAge(patient.date_of_birth)})</span></td><td className="p-4 text-text-mid">{label(patient.sex)}</td><td className="p-4"><p>{patient.phone || '—'}</p><p className="text-xs text-text-mid">{patient.email || '—'}</p></td><td className="p-4 text-text-mid">{patient.encounters?.length ? date.format(new Date([...patient.encounters].sort((a:any,b:any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at)) : '—'}</td><td className="p-4"><Status value={patient.status} /></td><td className="p-4 text-right"><button onClick={e => { e.stopPropagation(); onPatient(patient.id) }} className="secondary">Open chart</button></td></tr>)}</tbody></table>{!patients.length && <Empty text="No patients match your search." />}</div>}
     <div className="mt-5 flex items-center justify-between text-sm text-text-mid"><span>{total} patient{total === 1 ? '' : 's'}</span><div className="flex gap-2"><button className="icon-button" disabled={page === 1} onClick={() => setPage(p => p - 1)}><CaretLeftIcon /></button><span className="flex items-center px-3 font-bold">Page {page}</span><button className="icon-button" disabled={page * 20 >= total} onClick={() => setPage(p => p + 1)}><CaretRightIcon /></button></div></div>
     {showForm && <ClinicalModal type="patient" patients={[]} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); onChanged() }} />}
   </Panel>}</div>
@@ -127,6 +128,7 @@ function RegistrationRequests({ onPatient, onChanged }: { onPatient: (id: string
   const [registrations, setRegistrations] = useState<any[]>([])
   const [links, setLinks] = useState<Record<string,string>>({})
   const [notes, setNotes] = useState<Record<string,string>>({})
+  const [demographics, setDemographics] = useState<Record<string,{ date_of_birth: string; sex: string }>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -145,14 +147,28 @@ function RegistrationRequests({ onPatient, onChanged }: { onPatient: (id: string
     setSaving(null)
   }
 
+  async function completeDemographics(registration: any) {
+    const values = demographics[registration.id] || { date_of_birth: registration.date_of_birth || '', sex: registration.sex || '' }
+    if (!values.date_of_birth || !values.sex) { setError('Enter the patient’s date of birth and sex before saving.'); return }
+    setSaving(registration.id); setError('')
+    const response = await fetch(`${api}/registration-requests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: registration.id, action: 'update_demographics', ...values }) })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) setError(result.error || 'Unable to update demographics.')
+    else await load()
+    setSaving(null)
+  }
+
   return <Panel title="Patient registration requests" subtitle="Review public submissions before creating or linking an official EMR patient record." action={<select className="input w-auto" value={status} onChange={event => setStatus(event.target.value)}><option value="pending">Pending</option><option value="approved">Approved</option><option value="linked">Linked</option><option value="correction_requested">Correction requested</option><option value="rejected">Rejected</option></select>}>
     {error && <Alert tone="error">{error}</Alert>}
     {loading ? <Loading /> : <div className="mt-6 space-y-4">{registrations.map(registration => {
       const active = ['pending','correction_requested'].includes(registration.status)
-      return <article key={registration.id} className="rounded-[18px] border border-green-deep/10 bg-[#FCFFF0] p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-green-mid">{registration.source === 'appointment_booking' ? 'Appointment booking' : 'Registration form'} · Submitted {dateTime.format(new Date(registration.submitted_at))}</p><h4 className="mt-2 text-xl font-bold">{registration.first_name} {registration.middle_name || ''} {registration.last_name}</h4><p className="mt-1 text-sm text-text-mid">{date.format(new Date(`${registration.date_of_birth}T00:00:00`))} · {label(registration.sex)} · {registration.phone}{registration.email ? ` · ${registration.email}` : ''}</p></div><Status value={registration.status} /></div><dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Detail label="Address" value={[registration.address,registration.city,registration.state,registration.country].filter(Boolean).join(', ')} /><Detail label="Occupation" value={registration.occupation} /><Detail label="Marital status" value={registration.marital_status && label(registration.marital_status)} /><Detail label="Emergency contact" value={[registration.emergency_contact_name,registration.emergency_contact_phone,registration.emergency_contact_relationship].filter(Boolean).join(' · ')} /></dl>
+      const incomplete = !registration.date_of_birth || !registration.sex
+      const demographicValues = demographics[registration.id] || { date_of_birth: registration.date_of_birth || '', sex: registration.sex || '' }
+      return <article key={registration.id} className="rounded-[18px] border border-green-deep/10 bg-[#FCFFF0] p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-green-mid">{registration.source === 'appointment_booking' ? 'Appointment booking' : 'Registration form'} · Submitted {dateTime.format(new Date(registration.submitted_at))}</p><h4 className="mt-2 text-xl font-bold">{registration.first_name} {registration.middle_name || ''} {registration.last_name}</h4><p className="mt-1 text-sm text-text-mid">{registration.date_of_birth ? date.format(new Date(`${registration.date_of_birth}T00:00:00`)) : 'Date of birth missing'} · {registration.sex ? label(registration.sex) : 'Sex missing'} · {registration.phone}{registration.email ? ` · ${registration.email}` : ''}</p></div><Status value={registration.status} /></div><dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Detail label="Address" value={[registration.address,registration.city,registration.state,registration.country].filter(Boolean).join(', ')} /><Detail label="Occupation" value={registration.occupation} /><Detail label="Marital status" value={registration.marital_status && label(registration.marital_status)} /><Detail label="Emergency contact" value={[registration.emergency_contact_name,registration.emergency_contact_phone,registration.emergency_contact_relationship].filter(Boolean).join(' · ')} /></dl>
+        {active && incomplete && <div className="mt-5 rounded-[14px] border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-bold text-amber-800">Complete missing demographics</p><p className="mt-1 text-xs text-amber-700">This historical booking cannot be approved into the EMR until these required details are confirmed.</p><div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"><input className="input" type="date" aria-label="Date of birth" max={toDateInput(new Date())} value={demographicValues.date_of_birth} onChange={event => setDemographics(current => ({ ...current, [registration.id]: { ...demographicValues, date_of_birth: event.target.value } }))} /><select className="input" aria-label="Sex" value={demographicValues.sex} onChange={event => setDemographics(current => ({ ...current, [registration.id]: { ...demographicValues, sex: event.target.value } }))}><option value="">Select sex…</option><option value="female">Female</option><option value="male">Male</option><option value="intersex">Intersex</option><option value="unknown">Unknown</option></select><button type="button" disabled={saving === registration.id} onClick={() => completeDemographics(registration)} className="secondary">Save details</button></div></div>}
         {registration.duplicateCandidates?.length ? <div className="mt-5 rounded-[14px] border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-bold text-amber-800">Possible existing patient found</p><div className="mt-3 flex flex-wrap gap-2">{registration.duplicateCandidates.map((patient: any) => <button key={patient.id} onClick={() => onPatient(patient.id)} className="secondary">{patient.mrn} · {patient.first_name} {patient.last_name}</button>)}</div>{active && <div className="mt-3 flex gap-2"><select className="input max-w-md" value={links[registration.id] || ''} onChange={event => setLinks(current => ({ ...current, [registration.id]: event.target.value }))}><option value="">Select matching patient…</option>{registration.duplicateCandidates.map((patient: any) => <option key={patient.id} value={patient.id}>{patient.mrn} · {patient.first_name} {patient.last_name}</option>)}</select><button disabled={saving === registration.id} onClick={() => review(registration, 'link')} className="secondary">Link existing patient</button></div>}</div> : null}
         {registration.review_notes && <div className="mt-4 rounded-[14px] bg-white p-4 text-sm text-text-mid"><span className="font-bold text-green-deep">Review note:</span> {registration.review_notes}</div>}
-        {active && <><textarea className="input mt-5 min-h-20" value={notes[registration.id] || ''} onChange={event => setNotes(current => ({ ...current, [registration.id]: event.target.value }))} placeholder="Review note (required for rejection or correction request)" /><div className="mt-4 flex flex-wrap gap-2"><button disabled={saving === registration.id} onClick={() => review(registration, 'approve')} className="primary">{saving === registration.id ? 'Saving…' : 'Approve and create EMR patient'}</button><button disabled={saving === registration.id} onClick={() => review(registration, 'request_correction')} className="secondary">Request correction</button><button disabled={saving === registration.id} onClick={() => review(registration, 'reject')} className="secondary text-red-700">Reject</button></div></>}
+        {active && <><textarea className="input mt-5 min-h-20" value={notes[registration.id] || ''} onChange={event => setNotes(current => ({ ...current, [registration.id]: event.target.value }))} placeholder="Review note (required for rejection or correction request)" /><div className="mt-4 flex flex-wrap gap-2"><button disabled={saving === registration.id || incomplete} title={incomplete ? 'Complete missing demographics first' : undefined} onClick={() => review(registration, 'approve')} className="primary disabled:opacity-40">{saving === registration.id ? 'Saving…' : 'Approve and create EMR patient'}</button><button disabled={saving === registration.id} onClick={() => review(registration, 'request_correction')} className="secondary">Request correction</button><button disabled={saving === registration.id} onClick={() => review(registration, 'reject')} className="secondary text-red-700">Reject</button></div></>}
       </article>
     })}{!registrations.length && <Empty text={`No ${label(status).toLowerCase()} registration requests.`} />}</div>}
   </Panel>
@@ -174,7 +190,7 @@ function PatientChart({ patientId, onBack, onChanged }: { patientId: string; onB
   return <div className="space-y-6">
     <button onClick={onBack} className="inline-flex items-center gap-2 text-sm font-bold text-green-mid hover:text-green-deep"><ArrowLeftIcon size={18} />Back to patient registry</button>
     <section className="overflow-hidden rounded-[26px] border border-green-deep/10 bg-white shadow-[0_10px_40px_rgba(26,61,46,0.07)]">
-      <div className="bg-green-deep p-6 text-white sm:p-8"><div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-gold">{patient.mrn}</p><h2 className="mt-2 text-3xl font-bold">{fullName(patient)}</h2><p className="mt-2 text-sm text-white/65">{age(patient.date_of_birth)} years · {label(patient.sex)} · {patient.phone || 'No phone'}</p></div><div className="flex flex-col items-end gap-3"><Status value={patient.status} /><div className="flex flex-wrap justify-end gap-2"><button onClick={() => setModal('financial_report')} className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"><FileTextIcon size={18} weight="duotone" />Financial report</button><button onClick={() => setModal('report')} className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-green-deep transition-colors hover:bg-gold-light"><FileTextIcon size={18} weight="duotone" />Generate patient report</button></div></div></div></div>
+      <div className="bg-green-deep p-6 text-white sm:p-8"><div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-gold">{patient.mrn}</p><h2 className="mt-2 text-3xl font-bold">{fullName(patient)}</h2><p className="mt-2 text-sm text-white/65">{formatPatientAge(patient.date_of_birth)} · {label(patient.sex)} · {patient.phone || 'No phone'}</p></div><div className="flex flex-col items-end gap-3"><Status value={patient.status} /><div className="flex flex-wrap justify-end gap-2"><button onClick={() => setModal('financial_report')} className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"><FileTextIcon size={18} weight="duotone" />Financial report</button><button onClick={() => setModal('report')} className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-green-deep transition-colors hover:bg-gold-light"><FileTextIcon size={18} weight="duotone" />Generate patient report</button></div></div></div></div>
       <div className="grid gap-4 p-5 md:grid-cols-3 sm:p-7"><SummaryAlert title="Allergies" warning items={chart.allergies.filter((x: any) => x.status === 'active').map((x: any) => `${x.allergen}${x.reaction ? ` — ${x.reaction}` : ''}`)} empty="No known allergies" /><SummaryAlert title="Active conditions" items={chart.diagnoses.filter((x: any) => x.status === 'active').map((x: any) => x.diagnosis_name)} empty="No active diagnoses" /><SummaryAlert title="Current medications" items={chart.medications.filter((x: any) => x.status === 'active').map((x: any) => `${x.medication_name} ${x.strength || ''}`.trim())} empty="No active medications" /></div>
     </section>
     <section className="flex gap-2 overflow-x-auto rounded-[18px] border border-green-deep/10 bg-white p-2">{tabs.map(item => <button key={item} onClick={() => setTab(item)} className={`shrink-0 rounded-[12px] px-4 py-2.5 text-sm font-bold ${tab === item ? 'bg-green-deep text-white' : 'text-text-mid hover:bg-green-deep/5'}`}>{label(item)}</button>)}</section>
@@ -198,7 +214,7 @@ function PatientChart({ patientId, onBack, onChanged }: { patientId: string; onB
 function PatientOverview({ chart }: { chart: Chart }) {
   const p = chart.patient, latestVitals = chart.vitals[0]
   return <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
-    <Panel title="Demographics" subtitle="Core patient and emergency-contact details."><dl className="mt-5 grid gap-4 sm:grid-cols-2"><Detail label="MRN" value={p.mrn} /><Detail label="Date of birth" value={`${date.format(new Date(`${p.date_of_birth}T00:00:00`))} (${age(p.date_of_birth)} yrs)`} /><Detail label="Sex" value={label(p.sex)} /><Detail label="Marital status" value={p.marital_status && label(p.marital_status)} /><Detail label="Blood group" value={p.blood_group} /><Detail label="Genotype" value={p.genotype} /><Detail label="Occupation" value={p.occupation} /><Detail label="Record status" value={label(p.status)} /><Detail label="Phone" value={p.phone} /><Detail label="Email" value={p.email} /><Detail label="Address" value={[p.address,p.city,p.state,p.country].filter(Boolean).join(', ')} /><Detail label="Emergency contact" value={[p.emergency_contact_name,p.emergency_contact_phone,p.emergency_contact_relationship && `(${label(p.emergency_contact_relationship)})`].filter(Boolean).join(' · ')} /><Detail label="Registered" value={p.created_at && date.format(new Date(p.created_at))} /><Detail label="Last updated" value={p.updated_at && date.format(new Date(p.updated_at))} /></dl></Panel>
+    <Panel title="Demographics" subtitle="Core patient and emergency-contact details."><dl className="mt-5 grid gap-4 sm:grid-cols-2"><Detail label="MRN" value={p.mrn} /><Detail label="Date of birth" value={`${date.format(new Date(`${p.date_of_birth}T00:00:00`))} (${formatPatientAge(p.date_of_birth)})`} /><Detail label="Sex" value={label(p.sex)} /><Detail label="Marital status" value={p.marital_status && label(p.marital_status)} /><Detail label="Blood group" value={p.blood_group} /><Detail label="Genotype" value={p.genotype} /><Detail label="Occupation" value={p.occupation} /><Detail label="Record status" value={label(p.status)} /><Detail label="Phone" value={p.phone} /><Detail label="Email" value={p.email} /><Detail label="Address" value={[p.address,p.city,p.state,p.country].filter(Boolean).join(', ')} /><Detail label="Emergency contact" value={[p.emergency_contact_name,p.emergency_contact_phone,p.emergency_contact_relationship && `(${label(p.emergency_contact_relationship)})`].filter(Boolean).join(' · ')} /><Detail label="Registered" value={p.created_at && date.format(new Date(p.created_at))} /><Detail label="Last updated" value={p.updated_at && date.format(new Date(p.updated_at))} /></dl></Panel>
     <Panel title="Recent clinical activity" subtitle="Latest observations and longitudinal records."><div className="mt-5 grid gap-4 sm:grid-cols-3"><MiniStat label="Last BP" value={latestVitals?.systolic_bp ? `${latestVitals.systolic_bp}/${latestVitals.diastolic_bp}` : '—'} /><MiniStat label="Weight" value={latestVitals?.weight_kg ? `${latestVitals.weight_kg} kg` : '—'} /><MiniStat label="BMI" value={latestVitals?.bmi || '—'} /></div><div className="mt-5 grid gap-3 md:grid-cols-2"><OverviewRow title="Recent encounter" value={chart.encounters[0] ? `${label(chart.encounters[0].encounter_type)} · ${date.format(new Date(chart.encounters[0].created_at))}` : 'No encounters'} /><OverviewRow title="Latest investigation" value={chart.investigations[0]?.test_name || 'No investigations'} /><OverviewRow title="Upcoming appointment" value={chart.appointments.find((x: any) => x.preferred_date >= new Date().toISOString().slice(0,10)) ? date.format(new Date(chart.appointments.find((x: any) => x.preferred_date >= new Date().toISOString().slice(0,10)).preferred_date)) : 'No upcoming appointment'} /><OverviewRow title="Active care plan" value={chart.carePlans.find((x: any) => x.status === 'active')?.title || 'No active care plan'} /></div></Panel>
   </div>
 }
@@ -542,10 +558,10 @@ function PatientReportModal({ patient, mode, onClose }: { patient: Patient; mode
   </div>
 }
 
-// Renders the report as an official FXMed clinical document, matching the
-// letterhead, palette and footer used by the investigation result PDFs.
-const REPORT_INK = '#0f2419'
-const REPORT_ACCENT = '#cade68'
+// Renders the report as an official FXMed clinical document. Letterhead,
+// palette and type all come from lib/reportTheme, so this prints at the same
+// size as the investigation PDFs even though it goes out through the browser's
+// print dialog rather than being rasterised.
 
 // Emoji and decorative symbols are stripped defensively: the prompt forbids
 // them, but a model can still slip one in and they look wrong in a formal
@@ -586,20 +602,20 @@ function reportBodyHtml(markdown: string) {
       i += 2
       while (i < lines.length && /^\s*\|/.test(lines[i])) { rows.push(splitRow(lines[i])); i++ }
       i--
-      out.push(`<table style="width:100%;border-collapse:collapse;font-size:12px;margin:14px 0"><thead><tr style="background:${REPORT_INK};color:#fff;text-align:left">${headers.map(h => `<th style="padding:9px 8px;font-weight:700">${inline(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row, index) => `<tr style="background:${index % 2 ? '#fafafa' : '#fff'}">${row.map(cell => `<td style="padding:9px 8px;border-bottom:1px solid #eef0ec;vertical-align:top">${inline(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`)
+      out.push(`<table style="width:100%;border-collapse:collapse;font-size:${printType('fine')};margin:14px 0"><thead><tr style="background:${REPORT_INK};color:#fff;text-align:left">${headers.map(h => `<th style="padding:9px 8px;font-weight:700">${inline(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row, index) => `<tr style="background:${index % 2 ? '#fafafa' : '#fff'}">${row.map(cell => `<td style="padding:9px 8px;border-bottom:1px solid #eef0ec;vertical-align:top">${inline(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`)
       continue
     }
 
     const bullet = /^\s*[-*]\s+(.*)$/.exec(line)
     if (bullet) {
       if (list !== 'ul') { closeList(); out.push('<ul style="margin:8px 0 8px 20px;padding:0">'); list = 'ul' }
-      out.push(`<li style="margin:4px 0;line-height:1.6">${inline(bullet[1])}</li>`)
+      out.push(`<li style="margin:4px 0;line-height:${REPORT_LEADING.footer}">${inline(bullet[1])}</li>`)
       continue
     }
     const numbered = /^\s*\d+[.)]\s+(.*)$/.exec(line)
     if (numbered) {
       if (list !== 'ol') { closeList(); out.push('<ol style="margin:8px 0 8px 20px;padding:0">'); list = 'ol' }
-      out.push(`<li style="margin:4px 0;line-height:1.6">${inline(numbered[1])}</li>`)
+      out.push(`<li style="margin:4px 0;line-height:${REPORT_LEADING.footer}">${inline(numbered[1])}</li>`)
       continue
     }
 
@@ -607,18 +623,18 @@ function reportBodyHtml(markdown: string) {
     const heading = /^(#{1,6})\s+(.*)$/.exec(line)
     if (heading) {
       const depth = heading[1].length
-      if (depth <= 2) out.push(`<h2 style="font-size:17px;color:${REPORT_INK};border-bottom:2px solid #e5e7eb;padding-bottom:7px;margin:26px 0 12px">${inline(heading[2])}</h2>`)
-      else out.push(`<h3 style="font-size:14px;color:${REPORT_INK};margin:18px 0 6px">${inline(heading[2])}</h3>`)
+      if (depth <= 2) out.push(`<h2 style="font-size:${printType('section')};color:${REPORT_INK};border-bottom:2px solid #e5e7eb;padding-bottom:7px;margin:26px 0 12px">${inline(heading[2])}</h2>`)
+      else out.push(`<h3 style="font-size:${printType('subsection')};color:${REPORT_INK};margin:18px 0 6px">${inline(heading[2])}</h3>`)
       continue
     }
-    if (line.trim()) out.push(`<p style="margin:9px 0;font-size:13px;line-height:1.7;color:#374151">${inline(line)}</p>`)
+    if (line.trim()) out.push(`<p style="margin:9px 0;font-size:${printType('body')};line-height:${REPORT_LEADING.body};color:#374151">${inline(line)}</p>`)
   }
   closeList()
   return out.join('')
 }
 
 function reportField(label: string, value: string) {
-  return `<div><div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">${escapeHtml(label)}</div><div style="font-size:15px;font-weight:600;color:${REPORT_INK}">${escapeHtml(value || '—')}</div></div>`
+  return `<div><div style="font-size:${printType('label')};font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">${escapeHtml(label)}</div><div style="font-size:${printType('value')};font-weight:600;color:${REPORT_INK}">${escapeHtml(value || '—')}</div></div>`
 }
 
 function printPatientReport(patient: Patient, markdown: string, from: string, to: string, mode: 'clinical' | 'financial' = 'clinical') {
@@ -626,29 +642,28 @@ function printPatientReport(patient: Patient, markdown: string, from: string, to
   const reportTitle = mode === 'financial' ? 'Patient Financial Statement' : 'Comprehensive Care Summary'
   const documentType = mode === 'financial' ? 'Confidential Financial Document' : 'Confidential Medical Document'
   const content = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(fullName(patient))} — ${reportTitle}</title><style>
-    @page{size:A4;margin:16mm}
-    body{font-family:Arial,Helvetica,sans-serif;color:${REPORT_INK};margin:0 auto;max-width:820px;padding:24px}
+    ${reportPrintCss()}
     table{page-break-inside:auto}tr{page-break-inside:avoid}h2,h3{page-break-after:avoid}
   </style></head><body>
     <div style="text-align:center;margin-bottom:28px;padding-bottom:24px;border-bottom:2px solid ${REPORT_ACCENT}">
-      <div style="display:inline-block;background:rgba(107,142,35,.1);color:#6b8e23;border-radius:20px;padding:7px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.14em">${documentType}</div>
+      <div style="display:inline-block;background:rgba(107,142,35,.1);color:#6b8e23;border-radius:20px;padding:7px 16px;font-size:${printType('badge')};font-weight:700;text-transform:uppercase;letter-spacing:.14em">${documentType}</div>
       <div style="margin:14px 0 6px"><img src="${origin}/FXMed_Logo_Black.png" style="height:52px;width:auto" /></div>
-      <h1 style="font-size:29px;color:${REPORT_INK};margin:0 0 6px">${reportTitle}</h1>
-      <div style="font-size:14px;color:#666;font-weight:600">${escapeHtml(fullName(patient))}</div>
+      <h1 style="font-size:${printType('title')};color:${REPORT_INK};margin:0 0 6px">${reportTitle}</h1>
+      <div style="font-size:${printType('subtitle')};color:#666;font-weight:600">${escapeHtml(fullName(patient))}</div>
     </div>
     <section style="margin-bottom:25px">
-      <h2 style="font-size:17px;color:${REPORT_INK};border-bottom:2px solid #e5e7eb;padding-bottom:7px;margin:0 0 14px">Patient Information</h2>
+      <h2 style="font-size:${printType('section')};color:${REPORT_INK};border-bottom:2px solid #e5e7eb;padding-bottom:7px;margin:0 0 14px">Patient Information</h2>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px 24px">
         ${reportField('Full Name', fullName(patient))}
         ${reportField('MRN', patient.mrn)}
-        ${reportField('Age / Sex', `${age(patient.date_of_birth)} / ${label(patient.sex)}`)}
+        ${reportField('Age / Sex', `${formatPatientAge(patient.date_of_birth)} / ${label(patient.sex)}`)}
         ${reportField('Reporting Period', `${date.format(new Date(from))} — ${date.format(new Date(to))}`)}
         ${reportField('Date Issued', date.format(new Date()))}
         ${reportField('Phone', patient.phone || '')}
       </div>
     </section>
     ${reportBodyHtml(markdown)}
-    <footer style="margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:11px;line-height:1.6;color:#6b7280">
+    <footer style="margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:${printType('footer')};line-height:${REPORT_LEADING.footer};color:#6b7280">
       FXMed Functional Medicine · +234 907 703 1311 · +1 832 779 2347 · fxmed@wellnesswits.com<br>
       Treating the root cause — not just the symptoms<br>
       ${mode === 'financial' ? 'This statement reflects financial records held for the period shown. Please report any discrepancy to FXMed.' : 'This summary reflects the records held for the period shown and does not replace a consultation.'}
@@ -749,7 +764,25 @@ function GlobalList({ title, records, patients, onPatient, primary }: any) { ret
 function label(value?: string) { return (value || '—').replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase()) }
 function fullName(patient: Patient) { return [patient.first_name, patient.middle_name, patient.last_name].filter(Boolean).join(' ') }
 function patientName(patients: Patient[], id: string) { const p = patients.find(item => item.id === id); return p ? `${p.mrn} · ${fullName(p)}` : 'Patient record' }
-function age(dob: string) { const birth = new Date(`${dob}T00:00:00`), now = new Date(); let value = now.getFullYear() - birth.getFullYear(); if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) value--; return value }
+function formatPatientAge(dob: string, today = new Date()) {
+  const birth = new Date(`${dob}T00:00:00`)
+  if (Number.isNaN(birth.getTime()) || birth > today) return '—'
+
+  let years = today.getFullYear() - birth.getFullYear()
+  const birthdayPending = today.getMonth() < birth.getMonth()
+    || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())
+  if (birthdayPending) years--
+  if (years >= 1) return `${years} ${years === 1 ? 'year' : 'years'}`
+
+  let months = (today.getFullYear() - birth.getFullYear()) * 12 + today.getMonth() - birth.getMonth()
+  if (today.getDate() < birth.getDate()) months--
+  if (months >= 1) return `${months} ${months === 1 ? 'month' : 'months'}`
+
+  const birthUtc = Date.UTC(birth.getFullYear(), birth.getMonth(), birth.getDate())
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+  const days = Math.floor((todayUtc - birthUtc) / 86_400_000)
+  return `${days} ${days === 1 ? 'day' : 'days'}`
+}
 function formatTime(value?: string) { if (!value) return 'Time not set'; const [h,m] = value.split(':').map(Number); return new Intl.DateTimeFormat('en-NG',{hour:'numeric',minute:'2-digit'}).format(new Date(2000,0,1,h,m)) }
 function formatMoney(value: unknown, currency = 'NGN') { return new Intl.NumberFormat('en-NG', { style: 'currency', currency }).format(Number(value || 0)) }
 // Local-time YYYY-MM-DD, avoiding the UTC shift toISOString would introduce.
@@ -773,7 +806,7 @@ function recordDetail(record: any, kind: string) { if (kind === 'encounter') ret
 
 function escapeHtml(value: unknown) { return String(value || '').replace(/[&<>'"]/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[character] || character)) }
 function printPrescription(patient: Patient, medication: any, prescription?: any) {
-  const content = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(prescription?.prescription_number || 'FXMed prescription')}</title><style>body{font-family:Arial,sans-serif;color:#1a3d2e;padding:48px;line-height:1.5}.head{border-bottom:3px solid #c9e265;padding-bottom:20px;margin-bottom:30px}h1{margin:0;font-size:30px}.meta{color:#52665b;font-size:13px}.rx{font-size:44px;margin:28px 0 10px}.medicine{border:1px solid #d8e0db;border-radius:14px;padding:22px}.foot{margin-top:48px;border-top:1px solid #d8e0db;padding-top:18px;font-size:12px;color:#52665b}@media print{body{padding:20px}}</style></head><body><div class="head"><h1>FXMed Elite</h1><div class="meta">Confidential clinical prescription</div></div><p><strong>Patient:</strong> ${escapeHtml(fullName(patient))}<br><strong>MRN:</strong> ${escapeHtml(patient.mrn)}<br><strong>Date:</strong> ${escapeHtml(date.format(new Date(prescription?.signed_at || medication.created_at)))}</p><div class="rx">℞</div><div class="medicine"><h2>${escapeHtml(medication.medication_name)} ${escapeHtml(medication.strength)}</h2><p><strong>Dose:</strong> ${escapeHtml(medication.dose)} &nbsp; <strong>Route:</strong> ${escapeHtml(label(medication.route))}<br><strong>Frequency:</strong> ${escapeHtml(medication.frequency)} &nbsp; <strong>Duration:</strong> ${escapeHtml(medication.duration)}<br><strong>Quantity:</strong> ${escapeHtml(medication.quantity)}</p><p>${escapeHtml(medication.instructions)}</p></div><div class="foot">Prescription ${escapeHtml(prescription?.prescription_number || '')} · Electronically signed in the FXMed clinical workspace.</div><script>window.onload=()=>window.print()</script></body></html>`
+  const content = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(prescription?.prescription_number || 'FXMed prescription')}</title><style>${reportPrintCss()}body{color:#1a3d2e}.head{border-bottom:3px solid #c9e265;padding-bottom:20px;margin-bottom:30px}h1{margin:0;font-size:${printType('title')}}h2{font-size:${printType('section')}}.meta{color:#52665b;font-size:${printType('subtitle')}}.rx{font-size:${printType('glyph')};margin:28px 0 10px}.medicine{border:1px solid #d8e0db;border-radius:14px;padding:22px}.foot{margin-top:48px;border-top:1px solid #d8e0db;padding-top:18px;font-size:${printType('footer')};color:#52665b}</style></head><body><div class="head"><h1>FXMed Elite</h1><div class="meta">Confidential clinical prescription</div></div><p><strong>Patient:</strong> ${escapeHtml(fullName(patient))}<br><strong>MRN:</strong> ${escapeHtml(patient.mrn)}<br><strong>Date:</strong> ${escapeHtml(date.format(new Date(prescription?.signed_at || medication.created_at)))}</p><div class="rx">℞</div><div class="medicine"><h2>${escapeHtml(medication.medication_name)} ${escapeHtml(medication.strength)}</h2><p><strong>Dose:</strong> ${escapeHtml(medication.dose)} &nbsp; <strong>Route:</strong> ${escapeHtml(label(medication.route))}<br><strong>Frequency:</strong> ${escapeHtml(medication.frequency)} &nbsp; <strong>Duration:</strong> ${escapeHtml(medication.duration)}<br><strong>Quantity:</strong> ${escapeHtml(medication.quantity)}</p><p>${escapeHtml(medication.instructions)}</p></div><div class="foot">Prescription ${escapeHtml(prescription?.prescription_number || '')} · Electronically signed in the FXMed clinical workspace.</div><script>window.onload=()=>window.print()</script></body></html>`
   const url = URL.createObjectURL(new Blob([content], { type: 'text/html' }))
   window.open(url, '_blank', 'noopener,noreferrer')
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
