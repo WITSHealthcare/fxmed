@@ -67,7 +67,12 @@ function isBlank(canvas: HTMLCanvasElement) {
  * sheet flows onto the next one rather than being scaled or squashed to fit,
  * so a crowded page prints at the same type size as a short one.
  */
-export async function renderReportPdf(pageHtmls: string[]): Promise<Blob> {
+type ReportPdfOptions = {
+  continuationTopMarginPx?: number
+  continuationBottomMarginPx?: number
+}
+
+export async function renderReportPdf(pageHtmls: string[], options: ReportPdfOptions = {}): Promise<Blob> {
   const html2canvas = (await import('html2canvas')).default
   const { default: jsPDF } = await import('jspdf')
 
@@ -91,9 +96,33 @@ export async function renderReportPdf(pageHtmls: string[]): Promise<Blob> {
       const mmPerCapturedPx = REPORT_PAGE.a4WidthMm / canvas.width
       const sheetHeightPx = Math.floor(REPORT_PAGE.a4HeightMm / mmPerCapturedPx)
 
-      for (let top = 0; top < canvas.height; top += sheetHeightPx) {
-        const height = Math.min(sheetHeightPx, canvas.height - top)
+      // html2canvas produces one tall bitmap, so CSS page-break rules alone
+      // cannot stop a fixed A4 crop from cutting through a row. Capture the
+      // vertical bounds of explicitly protected blocks and move a crop above
+      // a block whenever the natural sheet boundary would bisect it.
+      const containerRect = container.getBoundingClientRect()
+      const captureScale = canvas.height / container.scrollHeight
+      const protectedRanges = Array.from(container.querySelectorAll<HTMLElement>('[data-pdf-keep-together]'))
+        .map((element) => {
+          const rect = element.getBoundingClientRect()
+          return {
+            start: Math.max(0, Math.floor((rect.top - containerRect.top) * captureScale)),
+            end: Math.min(canvas.height, Math.ceil((rect.bottom - containerRect.top) * captureScale)),
+          }
+        })
+        .sort((a, b) => a.start - b.start)
+
+      for (let top = 0; top < canvas.height;) {
+        const isContinuation = top > 0
+        const topMarginPx = isContinuation ? Math.round((options.continuationTopMarginPx || 0) * captureScale) : 0
+        const bottomMarginPx = isContinuation ? Math.round((options.continuationBottomMarginPx || 0) * captureScale) : 0
+        const availableHeight = Math.max(1, sheetHeightPx - topMarginPx - bottomMarginPx)
+        const naturalBottom = Math.min(top + availableHeight, canvas.height)
+        const crossingBlock = protectedRanges.find((range) => range.start > top + 1 && range.start < naturalBottom && range.end > naturalBottom)
+        const bottom = crossingBlock ? crossingBlock.start : naturalBottom
+        const height = Math.max(1, bottom - top)
         const slice = sliceCanvas(canvas, top, height)
+        top = bottom
         if (top > 0 && isBlank(slice)) continue
 
         if (pageAdded) pdf.addPage()
@@ -102,7 +131,7 @@ export async function renderReportPdf(pageHtmls: string[]): Promise<Blob> {
           slice.toDataURL('image/jpeg', REPORT_PAGE.jpegQuality),
           'JPEG',
           0,
-          0,
+          topMarginPx * mmPerCapturedPx,
           REPORT_PAGE.a4WidthMm,
           height * mmPerCapturedPx
         )
