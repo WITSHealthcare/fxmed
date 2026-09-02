@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CORE_PANEL_TESTS,
+  INVESTIGATION_CATALOG,
   generateInvestigationFormPdf,
   type InvestigationTest,
 } from '@/lib/investigationFormPdf'
@@ -10,6 +11,7 @@ import { generateInvestigationResultPdf, type InvestigationResult, type Investig
 
 type FormatterStatus = 'idle' | 'working' | 'success' | 'error'
 type ActiveTool = 'letterhead' | 'meal-plan' | 'investigation' | 'investigation-results'
+type AdminToolsScope = 'operations' | 'investigations'
 
 type ToolHistoryItem = {
   id: string
@@ -26,6 +28,7 @@ type InvestigationPatient = {
   phone: string
   age: string
   gender: string
+  emrPatientId?: string
 }
 
 type EmrPatientOption = {
@@ -40,6 +43,8 @@ type EmrPatientOption = {
   phone?: string | null
 }
 
+type InvestigationPatientContext = EmrPatientOption
+
 type InvestigationHistoryItem = {
   id: string
   originalName: string
@@ -48,6 +53,7 @@ type InvestigationHistoryItem = {
   uploadedAt: string
   documentBase64: string
   patient: InvestigationPatient
+  clinicalDetails?: string
   panelTitle: string
   tests: InvestigationTest[]
   createdByEmail?: string
@@ -283,12 +289,12 @@ async function deleteHistoryItem(storeName: string, id: string) {
   })
 }
 
-export default function AdminTools() {
+export default function AdminTools({ scope = 'operations', patientContext }: { scope?: AdminToolsScope; patientContext?: InvestigationPatientContext }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const mealPlanInputRef = useRef<HTMLInputElement | null>(null)
   const investFormRef = useRef<HTMLDivElement | null>(null)
   const resultPdfInputRef = useRef<HTMLInputElement | null>(null)
-  const [activeTool, setActiveTool] = useState<ActiveTool>('letterhead')
+  const [activeTool, setActiveTool] = useState<ActiveTool>(scope === 'investigations' ? 'investigation-results' : 'letterhead')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [status, setStatus] = useState<FormatterStatus>('idle')
   const [message, setMessage] = useState('')
@@ -313,6 +319,7 @@ export default function AdminTools() {
   const [selectedEmrPatientId, setSelectedEmrPatientId] = useState<string | null>(null)
   const [investPatientSearchLoading, setInvestPatientSearchLoading] = useState(false)
   const [investPanelTitle, setInvestPanelTitle] = useState('Core Functional Medicine Panel')
+  const [investClinicalDetails, setInvestClinicalDetails] = useState('')
   // Partner verification stamp. Off by default: it should only appear on forms
   // actually being taken to the partner laboratory.
   const [investStampOn, setInvestStampOn] = useState(false)
@@ -322,6 +329,7 @@ export default function AdminTools() {
     CORE_PANEL_TESTS.map((test) => ({ name: test.name, description: '' }))
   )
   const [investBulkList, setInvestBulkList] = useState('')
+  const [investTestSearch, setInvestTestSearch] = useState('')
   const [investStatus, setInvestStatus] = useState<FormatterStatus>('idle')
   const [investMessage, setInvestMessage] = useState('')
   const [investHistory, setInvestHistory] = useState<InvestigationHistoryItem[]>([])
@@ -400,6 +408,27 @@ export default function AdminTools() {
     refreshInvestigationHistory()
     refreshResultHistory()
   }, [])
+
+  useEffect(() => {
+    if (!patientContext) return
+    setSelectedEmrPatientId(patientContext.id)
+    setInvestPatient({
+      fullName: emrPatientName(patientContext),
+      email: patientContext.email || '',
+      phone: patientContext.phone || '',
+      age: formatPatientAge(patientContext.date_of_birth),
+      gender: patientContext.sex ? patientContext.sex.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : '',
+      emrPatientId: patientContext.id,
+    })
+    setResultPatient({
+      fullName: emrPatientName(patientContext),
+      email: patientContext.email || '',
+      phone: patientContext.phone || '',
+      age: formatPatientAge(patientContext.date_of_birth),
+      gender: patientContext.sex ? patientContext.sex.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : '',
+      emrPatientId: patientContext.id,
+    })
+  }, [patientContext])
 
   useEffect(() => {
     const search = investPatient.fullName.trim()
@@ -604,9 +633,33 @@ export default function AdminTools() {
       return
     }
 
-    setInvestTests(names.map((name) => ({ name, description: '' })))
+    setInvestTests((current) => {
+      const existing = new Set(current.map((test) => test.name))
+      return [...current.filter((test) => test.name.trim()), ...names.filter((name) => !existing.has(name)).map((name) => ({ name, description: '' }))]
+    })
+    setInvestBulkList('')
     setInvestStatus('idle')
     setInvestMessage(`${names.length} investigation${names.length === 1 ? '' : 's'} populated. Review the list, then generate the form.`)
+  }
+
+  const selectedInvestigationNames = useMemo(() => new Set(investTests.map((test) => test.name)), [investTests])
+  const filteredInvestigationCatalog = useMemo(() => {
+    const query = investTestSearch.trim().toLowerCase()
+    if (!query) return INVESTIGATION_CATALOG
+    return INVESTIGATION_CATALOG.map((group) => ({ ...group, tests: group.tests.filter((test) => test.toLowerCase().includes(query)) })).filter((group) => group.tests.length)
+  }, [investTestSearch])
+
+  const toggleInvestigation = (name: string) => {
+    setInvestTests((current) => current.some((test) => test.name === name)
+      ? current.filter((test) => test.name !== name)
+      : [...current.filter((test) => test.name.trim()), { name, description: '' }])
+  }
+
+  const toggleInvestigationGroup = (tests: readonly string[]) => {
+    const allSelected = tests.every((name) => selectedInvestigationNames.has(name))
+    setInvestTests((current) => allSelected
+      ? current.filter((test) => !tests.includes(test.name))
+      : [...current.filter((test) => !tests.includes(test.name)), ...tests.map((name) => ({ name, description: '' }))])
   }
 
   const generateInvestigationForm = async () => {
@@ -635,6 +688,7 @@ export default function AdminTools() {
     try {
       const blob = await generateInvestigationFormPdf({
         ...investPatient,
+        clinicalDetails: investClinicalDetails,
         panelTitle: investPanelTitle,
         tests,
         stamp,
@@ -652,7 +706,7 @@ export default function AdminTools() {
           downloadName,
           size: blob.size,
           documentBase64,
-          patient: investPatient,
+          patient: { ...investPatient, emrPatientId: selectedEmrPatientId || patientContext?.id, clinicalDetails: investClinicalDetails },
           panelTitle: investPanelTitle,
           tests,
         }),
@@ -683,8 +737,16 @@ export default function AdminTools() {
     }
     setInvestTests(tests.map((test) => ({ ...test })))
     setInvestPanelTitle(item.panelTitle || 'Core Functional Medicine Panel')
-    setInvestPatient({ fullName: '', email: '', phone: '', age: '', gender: '' })
-    setSelectedEmrPatientId(null)
+    setInvestClinicalDetails(item.clinicalDetails || '')
+    setInvestPatient(patientContext ? {
+      fullName: emrPatientName(patientContext),
+      email: patientContext.email || '',
+      phone: patientContext.phone || '',
+      age: formatPatientAge(patientContext.date_of_birth),
+      gender: patientContext.sex || '',
+      emrPatientId: patientContext.id,
+    } : { fullName: '', email: '', phone: '', age: '', gender: '' })
+    setSelectedEmrPatientId(patientContext?.id || null)
     setInvestPatientMatches([])
     setInvestStatus('idle')
     setInvestMessage(`Loaded the tests from "${item.originalName}". Enter the new patient's details, then generate.`)
@@ -746,7 +808,7 @@ export default function AdminTools() {
       const base = resultPatient.fullName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'patient'
       const downloadName = `${base}-fxmed-investigation-results.pdf`
       const documentBase64 = await blobToBase64(blob)
-      const response = await fetch(INVESTIGATION_RESULTS_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ originalName: `${resultPatient.fullName} — Investigation Results`, downloadName, size: blob.size, documentBase64, patient: resultPatient, reportMeta: resultMeta, results }) })
+      const response = await fetch(INVESTIGATION_RESULTS_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ originalName: `${resultPatient.fullName} — Investigation Results`, downloadName, size: blob.size, documentBase64, patient: { ...resultPatient, emrPatientId: patientContext?.id || resultPatient.emrPatientId }, reportMeta: resultMeta, results }) })
       const data = await response.json().catch(() => null)
       if (!response.ok) throw new Error(data?.error || 'Unable to save investigation results')
       setResultHistory(current => [data.report, ...current]); downloadBlob(blob, downloadName)
@@ -787,16 +849,26 @@ export default function AdminTools() {
     formatMealPlan()
   }
 
+  const visibleInvestHistory = patientContext ? investHistory.filter((item) => {
+    if (item.patient.emrPatientId) return item.patient.emrPatientId === patientContext.id
+    return item.patient.fullName.trim().toLowerCase() === emrPatientName(patientContext).trim().toLowerCase()
+  }) : investHistory
+  const visibleResultHistory = patientContext ? resultHistory.filter((item) => {
+    if (item.patient.emrPatientId) return item.patient.emrPatientId === patientContext.id
+    return item.patient.fullName.trim().toLowerCase() === emrPatientName(patientContext).trim().toLowerCase()
+  }) : resultHistory
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-[20px] p-2 shadow-lg border border-green-deep/10">
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-          {([
+        <div className={`grid gap-2 md:grid-cols-2 ${scope === 'operations' ? 'xl:grid-cols-2' : ''}`}>
+          {(scope === 'investigations' ? ([
+            { id: 'investigation-results', label: 'Investigation Results', description: 'Generate branded patient investigation result PDFs.' },
+            { id: 'investigation', label: 'Investigation Form', description: 'Generate branded investigation request forms with custom tests.' },
+          ] as const) : ([
             { id: 'letterhead', label: 'Letterhead Formatter', description: 'Apply FXMed letterhead to DOCX and PDF documents.' },
             { id: 'meal-plan', label: 'Meal Plan Designer', description: 'Turn DOCX meal plans into branded PDFs with food visuals.' },
-            { id: 'investigation', label: 'Investigation Form', description: 'Generate branded investigation request forms with custom tests.' },
-            { id: 'investigation-results', label: 'Investigation Results', description: 'Generate branded patient investigation result PDFs.' },
-          ] as const).map((tool) => (
+          ] as const)).map((tool) => (
             <button
               key={tool.id}
               type="button"
@@ -1177,21 +1249,26 @@ export default function AdminTools() {
       <div ref={investFormRef} className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 bg-green-deep/10 text-green-deep px-3 py-1 rounded-full text-xs font-dm-sans font-semibold mb-4">
-              Admin Tool
-            </div>
             <h3 className="text-xl font-dm-sans font-semibold text-green-deep">
               Investigation Form Generator
             </h3>
             <p className="mt-2 max-w-2xl text-text-mid font-dm-sans leading-relaxed">
-              Build a branded FXMed investigation request form with custom patient details and tests, matching the design used on the Functional Health Analysis site. Leave patient fields blank to print a form patients can fill in by hand.
+              {patientContext ? 'Patient demographics are taken automatically from the linked EMR record and included in the downloaded PDF.' : 'Select an EMR patient and the investigations they require.'}
             </p>
           </div>
         </div>
 
         <div className="mt-6 rounded-xl border border-green-deep/10 bg-cream/40 p-4">
           <h4 className="text-sm font-dm-sans font-semibold text-green-deep mb-4">Patient Information</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {patientContext ? (
+            <div className="rounded-xl border border-green-deep/15 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div><p className="font-dm-sans font-semibold text-green-deep">{emrPatientName(patientContext)}</p><p className="mt-1 text-xs font-dm-sans text-text-mid">{patientContext.mrn} · {formatPatientAge(patientContext.date_of_birth)} · {patientContext.sex ? patientContext.sex.replace(/_/g, ' ') : 'Sex not recorded'}</p></div>
+                <span className="rounded-full bg-green-deep/10 px-3 py-1.5 text-xs font-dm-sans font-semibold text-green-deep">Linked EMR patient</span>
+              </div>
+              <p className="mt-3 text-xs font-dm-sans text-text-mid">Name, date of birth/age, sex, phone and email will be populated automatically in the final PDF.</p>
+            </div>
+          ) : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
               <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Full Name</label>
               <input
@@ -1273,7 +1350,7 @@ export default function AdminTools() {
                 />
               </div>
             </div>
-          </div>
+          </div>}
 
           <div className="mt-4">
             <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Panel Title</label>
@@ -1286,49 +1363,18 @@ export default function AdminTools() {
             />
           </div>
 
-          <div className="mt-4 rounded-lg border border-green-deep/15 bg-white p-3">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={investStampOn}
-                onChange={(event) => setInvestStampOn(event.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-green-deep"
-              />
-              <span>
-                <span className="block text-sm font-dm-sans font-semibold text-green-deep">Include partner verification stamp</span>
-                <span className="mt-0.5 block text-xs font-dm-sans text-text-mid">
-                  Stamps the form so the partner laboratory can confirm FXMed authorised this patient for these tests on a given date.
-                </span>
-              </span>
-            </label>
-
-            {investStampOn && (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Partner Laboratory</label>
-                  <select
-                    value={investStampPartner}
-                    onChange={(event) => setInvestStampPartner(event.target.value)}
-                    className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none"
-                  >
-                    {PARTNER_LABORATORIES.map((partner) => (
-                      <option key={partner} value={partner}>{partner}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Valid On</label>
-                  <input
-                    type="date"
-                    value={investStampDate}
-                    onChange={(event) => setInvestStampDate(event.target.value)}
-                    className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none"
-                  />
-                  <p className="mt-1 text-xs font-dm-sans text-text-mid">The date the patient will attend for the tests.</p>
-                </div>
-              </div>
-            )}
+          <div className="mt-4">
+            <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Clinical Details</label>
+            <textarea
+              value={investClinicalDetails}
+              onChange={(event) => setInvestClinicalDetails(event.target.value)}
+              placeholder="Enter relevant symptoms, diagnosis, clinical history, reason for testing, or special instructions"
+              rows={4}
+              className="w-full resize-y rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none"
+            />
+            <p className="mt-1 text-xs font-dm-sans text-text-mid">These details will appear on the generated investigation request PDF.</p>
           </div>
+
         </div>
 
         <div className="mt-4 rounded-xl border border-green-deep/10 bg-cream/40 p-4">
@@ -1336,7 +1382,7 @@ export default function AdminTools() {
             <div>
               <h4 className="text-sm font-dm-sans font-semibold text-green-deep">Requested Tests</h4>
               <p className="mt-1 text-xs font-dm-sans text-text-mid">
-                Add the investigations to include on the form.
+                Tick the investigations required for this patient. Only selected items appear on the PDF.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -1357,59 +1403,50 @@ export default function AdminTools() {
             </div>
           </div>
 
-          <div className="mb-4 rounded-lg border border-green-deep/15 bg-white p-3">
-            <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Paste Investigation List</label>
-            <textarea
-              value={investBulkList}
-              onChange={(event) => setInvestBulkList(event.target.value)}
-              placeholder={'Enter one investigation per line, or separate names with commas or semicolons'}
-              rows={5}
-              className="w-full resize-y rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none"
-            />
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs font-dm-sans text-text-mid">Bullets and numbered lists are supported. Populating replaces the current test rows.</p>
-              <button
-                type="button"
-                onClick={populateInvestigationList}
-                className="shrink-0 rounded-lg bg-green-deep px-4 py-2 text-xs font-dm-sans font-semibold text-cream transition-colors hover:bg-green-deep/90"
-              >
-                Populate Tests
-              </button>
+          <div className="mb-4 flex flex-col gap-3 rounded-lg border border-green-deep/15 bg-white p-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Search investigations</label>
+              <input value={investTestSearch} onChange={(event) => setInvestTestSearch(event.target.value)} placeholder="Search by test name…" className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none" />
             </div>
+            <div className="rounded-lg bg-green-deep px-4 py-2.5 text-sm font-dm-sans font-semibold text-cream">{investTests.filter((test) => test.name.trim()).length} selected</div>
           </div>
 
-          <div className="space-y-3">
-            {investTests.map((test, index) => (
-              <div key={index} className="rounded-lg border border-green-deep/10 bg-white p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-dm-sans font-semibold text-text-mid">Test {index + 1}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeInvestTest(index)}
-                    disabled={investTests.length === 1}
-                    className="text-red-600 hover:bg-red-50 disabled:text-gray-300 disabled:hover:bg-transparent px-2 py-1 rounded font-dm-sans font-semibold text-xs transition-colors"
-                  >
-                    Remove
-                  </button>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {filteredInvestigationCatalog.map((group) => {
+              const groupSelected = group.tests.filter((name) => selectedInvestigationNames.has(name)).length
+              return <section key={group.category} className="overflow-hidden rounded-xl border border-green-deep/10 bg-white">
+                <div className="flex items-center justify-between gap-3 border-b border-green-deep/10 bg-green-deep/[0.04] px-4 py-3">
+                  <div><h5 className="text-sm font-dm-sans font-semibold text-green-deep">{group.category}</h5><p className="text-xs text-text-mid">{groupSelected} of {group.tests.length} selected</p></div>
+                  <button type="button" onClick={() => toggleInvestigationGroup(group.tests)} className="text-xs font-dm-sans font-semibold text-green-mid hover:text-green-deep">{groupSelected === group.tests.length ? 'Clear group' : 'Select group'}</button>
                 </div>
-                <input
-                  type="text"
-                  value={test.name}
-                  onChange={(event) => updateInvestTest(index, 'name', event.target.value)}
-                  placeholder="Test name (e.g. Complete Blood Count (CBC))"
-                  className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans font-semibold text-green-deep focus:border-green-deep focus:outline-none"
-                />
-              </div>
-            ))}
+                <div className="divide-y divide-green-deep/[0.07]">
+                  {group.tests.map((name) => <label key={name} className="flex cursor-pointer items-start gap-3 px-4 py-3 transition hover:bg-cream/40">
+                    <input type="checkbox" checked={selectedInvestigationNames.has(name)} onChange={() => toggleInvestigation(name)} className="mt-0.5 h-4 w-4 shrink-0 accent-green-deep" />
+                    <span className="text-sm font-dm-sans text-green-deep">{name}</span>
+                  </label>)}
+                </div>
+              </section>
+            })}
           </div>
 
-          <button
-            type="button"
-            onClick={addInvestTest}
-            className="mt-3 border border-dashed border-green-deep/30 text-green-deep hover:bg-green-deep/5 w-full px-4 py-2 rounded-lg font-dm-sans font-semibold text-sm transition-colors"
-          >
-            + Add Test
-          </button>
+          {!filteredInvestigationCatalog.length && <p className="rounded-lg border border-green-deep/10 bg-white p-4 text-sm text-text-mid">No investigations match your search.</p>}
+
+          <div className="mt-4 rounded-lg border border-dashed border-green-deep/25 bg-white p-3">
+            <label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Add custom investigations</label>
+            <div className="flex flex-col gap-2 sm:flex-row"><input value={investBulkList} onChange={(event) => setInvestBulkList(event.target.value)} placeholder="Enter one or more tests, separated by commas" className="flex-1 rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none" /><button type="button" onClick={populateInvestigationList} className="rounded-lg bg-green-deep px-4 py-2 text-xs font-dm-sans font-semibold text-cream">Add to selection</button></div>
+            {investTests.filter((test) => test.name && !INVESTIGATION_CATALOG.some((group) => group.tests.some((name) => name === test.name))).length > 0 && <div className="mt-3 flex flex-wrap gap-2">{investTests.filter((test) => test.name && !INVESTIGATION_CATALOG.some((group) => group.tests.some((name) => name === test.name))).map((test) => <button key={test.name} type="button" onClick={() => toggleInvestigation(test.name)} className="rounded-full bg-cream px-3 py-1.5 text-xs font-semibold text-green-deep">{test.name} ×</button>)}</div>}
+          </div>
+
+          <div className="mt-5 rounded-lg border border-green-deep/15 bg-white p-4">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input type="checkbox" checked={investStampOn} onChange={(event) => setInvestStampOn(event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-green-deep" />
+              <span><span className="block text-sm font-dm-sans font-semibold text-green-deep">Include partner verification stamp</span><span className="mt-0.5 block text-xs font-dm-sans text-text-mid">Confirms that FXMed authorised this patient for the selected tests at a partner laboratory.</span></span>
+            </label>
+            {investStampOn && <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div><label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Partner Laboratory</label><select value={investStampPartner} onChange={(event) => setInvestStampPartner(event.target.value)} className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none">{PARTNER_LABORATORIES.map((partner) => <option key={partner} value={partner}>{partner}</option>)}</select></div>
+              <div><label className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Valid On</label><input type="date" value={investStampDate} onChange={(event) => setInvestStampDate(event.target.value)} className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none" /><p className="mt-1 text-xs font-dm-sans text-text-mid">The date the patient will attend for the tests.</p></div>
+            </div>}
+          </div>
 
           <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             {investMessage ? (
@@ -1438,7 +1475,7 @@ export default function AdminTools() {
               Investigation Form History
             </h3>
             <p className="mt-1 text-sm text-text-mid font-dm-sans">
-              Shared investigation request forms saved in the database for all Tools users.
+              {patientContext ? `Previous investigation request forms for ${emrPatientName(patientContext)}.` : 'Shared investigation request forms saved in the database.'}
             </p>
           </div>
           <button
@@ -1454,9 +1491,9 @@ export default function AdminTools() {
           <div className="rounded-xl border border-green-deep/10 bg-cream/40 p-4 text-sm font-dm-sans text-text-mid">
             Loading investigation-form history...
           </div>
-        ) : investHistory.length === 0 ? (
+        ) : visibleInvestHistory.length === 0 ? (
           <div className="rounded-xl border border-green-deep/10 bg-cream/40 p-4 text-sm font-dm-sans text-text-mid">
-            No investigation forms have been generated yet.
+            {patientContext ? 'No previous investigation forms have been generated for this patient.' : 'No investigation forms have been generated yet.'}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -1470,7 +1507,7 @@ export default function AdminTools() {
                 </tr>
               </thead>
               <tbody>
-                {investHistory.map((item) => (
+                {visibleInvestHistory.map((item) => (
                   <tr key={item.id} className="border-b border-green-deep/10 last:border-b-0">
                     <td className="py-4 pr-4">
                       <p className="font-dm-sans font-semibold text-green-deep">{item.originalName}</p>
@@ -1560,7 +1597,7 @@ export default function AdminTools() {
           </div>
         </div>
 
-        <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10"><div className="flex justify-between gap-3 mb-5"><div><h3 className="text-xl font-dm-sans font-semibold text-green-deep">Results History</h3><p className="mt-1 text-sm text-text-mid font-dm-sans">Shared investigation result PDFs saved in the database for all Tools users.</p></div><button type="button" onClick={refreshResultHistory} className="border border-green-deep/20 text-green-deep px-4 py-2 rounded-lg text-sm font-semibold">Refresh</button></div>{resultHistoryLoading ? <p className="text-sm text-text-mid">Loading results history...</p> : resultHistory.length === 0 ? <p className="rounded-xl bg-cream/40 p-4 text-sm text-text-mid">No result reports have been generated yet.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[640px]"><thead><tr className="border-b text-left text-xs uppercase text-text-mid"><th className="py-3">Report</th><th>Generated</th><th>Size</th><th className="text-right">Actions</th></tr></thead><tbody>{resultHistory.map(item => <tr key={item.id} className="border-b"><td className="py-4"><p className="font-semibold text-green-deep">{item.originalName}</p><p className="text-xs text-text-mid">{item.downloadName}</p></td><td className="text-sm text-text-mid">{new Date(item.uploadedAt).toLocaleString()}</td><td className="text-sm text-text-mid">{formatFileSize(item.size)}</td><td><div className="flex justify-end gap-2"><button onClick={() => downloadBlob(base64ToBlob(item.documentBase64),item.downloadName)} className="bg-green-deep text-cream px-3 py-2 rounded-lg text-xs font-semibold">Download</button><button onClick={() => removeResultHistoryItem(item.id)} className="border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-semibold">Delete</button></div></td></tr>)}</tbody></table></div>}</div>
+        <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10"><div className="flex justify-between gap-3 mb-5"><div><h3 className="text-xl font-dm-sans font-semibold text-green-deep">Results History</h3><p className="mt-1 text-sm text-text-mid font-dm-sans">{patientContext ? `Previous investigation results for ${emrPatientName(patientContext)}.` : 'Shared investigation result PDFs saved in the database.'}</p></div><button type="button" onClick={refreshResultHistory} className="border border-green-deep/20 text-green-deep px-4 py-2 rounded-lg text-sm font-semibold">Refresh</button></div>{resultHistoryLoading ? <p className="text-sm text-text-mid">Loading results history...</p> : visibleResultHistory.length === 0 ? <p className="rounded-xl bg-cream/40 p-4 text-sm text-text-mid">{patientContext ? 'No previous investigation results have been generated for this patient.' : 'No result reports have been generated yet.'}</p> : <div className="overflow-x-auto"><table className="w-full min-w-[640px]"><thead><tr className="border-b text-left text-xs uppercase text-text-mid"><th className="py-3">Report</th><th>Generated</th><th>Size</th><th className="text-right">Actions</th></tr></thead><tbody>{visibleResultHistory.map(item => <tr key={item.id} className="border-b"><td className="py-4"><p className="font-semibold text-green-deep">{item.originalName}</p><p className="text-xs text-text-mid">{item.downloadName}</p></td><td className="text-sm text-text-mid">{new Date(item.uploadedAt).toLocaleString()}</td><td className="text-sm text-text-mid">{formatFileSize(item.size)}</td><td><div className="flex justify-end gap-2"><button onClick={() => downloadBlob(base64ToBlob(item.documentBase64),item.downloadName)} className="bg-green-deep text-cream px-3 py-2 rounded-lg text-xs font-semibold">Download</button><button onClick={() => removeResultHistoryItem(item.id)} className="border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-semibold">Delete</button></div></td></tr>)}</tbody></table></div>}</div>
       </>
       )}
     </div>

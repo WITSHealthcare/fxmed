@@ -14,7 +14,7 @@ async function getToolsUser(request: NextRequest) {
 
 function normalizePatient(value: unknown) {
   const item = object(value)
-  return { fullName: text(item.fullName), email: text(item.email), phone: text(item.phone), age: text(item.age), gender: text(item.gender) }
+  return { fullName: text(item.fullName), email: text(item.email), phone: text(item.phone), age: text(item.age), gender: text(item.gender), emrPatientId: text(item.emrPatientId) }
 }
 
 function normalizeMeta(value: unknown) {

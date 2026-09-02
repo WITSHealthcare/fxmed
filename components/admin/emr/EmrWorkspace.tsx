@@ -9,6 +9,7 @@ import {
   UsersThreeIcon, WarningCircleIcon, XIcon,
 } from '@phosphor-icons/react'
 import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysis'
+import AdminTools from '@/components/admin/AdminTools'
 import { REPORT_ACCENT, REPORT_INK, REPORT_LEADING, printType, reportPrintCss } from '@/lib/reportTheme'
 
 type EmrView = 'dashboard' | 'health_analysis' | 'patients' | 'appointments' | 'encounters' | 'records' | 'investigations' | 'medications' | 'care_plans' | 'documents'
@@ -68,7 +69,7 @@ export default function EmrWorkspace() {
       {view === 'appointments' && <Appointments patients={patients} onPatient={openPatient} onError={setError} />}
       {view === 'encounters' && <ResourceWorkspace title="Encounters" description="Active and completed clinical consultations." resource="encounters" patients={patients} createType="encounter" onPatient={openPatient} />}
       {view === 'records' && <ClinicalRecords patients={patients} onPatient={openPatient} />}
-      {view === 'investigations' && <div className="grid gap-6 xl:grid-cols-2"><ResourceWorkspace title="Investigation orders" description="Laboratory and diagnostic orders, collection progress and results." resource="investigations" patients={patients} createType="investigation" onPatient={openPatient} /><ResourceWorkspace title="Imaging records" description="Imaging requests, performed studies and clinical reports." resource="imaging" patients={patients} createType="imaging" onPatient={openPatient} /><div className="xl:col-span-2"><LegacyReports patients={patients} onPatient={openPatient} /></div></div>}
+      {view === 'investigations' && <div className="space-y-6"><AdminTools scope="investigations" /><div className="grid gap-6 xl:grid-cols-2"><ResourceWorkspace title="Investigation orders" description="Laboratory and diagnostic orders, collection progress and results." resource="investigations" patients={patients} createType="investigation" onPatient={openPatient} /><ResourceWorkspace title="Imaging records" description="Imaging requests, performed studies and clinical reports." resource="imaging" patients={patients} createType="imaging" onPatient={openPatient} /><div className="xl:col-span-2"><LegacyReports patients={patients} onPatient={openPatient} /></div></div></div>}
       {view === 'medications' && <ResourceWorkspace title="Medications & prescriptions" description="Current and historical medication records." resource="medications" patients={patients} createType="medication" onPatient={openPatient} />}
       {view === 'care_plans' && <ResourceWorkspace title="Care plans" description="Goals and coordinated follow-up plans." resource="care_plans" patients={patients} createType="care_plan" onPatient={openPatient} />}
       {view === 'documents' && <DocumentsWorkspace patients={patients} onPatient={openPatient} />}
@@ -201,7 +202,7 @@ function PatientChart({ patientId, onBack, onChanged }: { patientId: string; onB
     {tab === 'notes' && <div className="space-y-6"><RecordList records={chart.encounters} kind="encounter" patient={patient} chart={chart} onUpdate={load} /><RecordList records={chart.notes} kind="note" patient={patient} chart={chart} onUpdate={load} /></div>}
     {tab === 'diagnoses' && <div className="grid gap-6 xl:grid-cols-2"><RecordList records={chart.diagnoses} kind="diagnosis" onUpdate={load} /><RecordList records={chart.allergies} kind="allergy" onUpdate={load} /></div>}
     {tab === 'medications' && <RecordList records={chart.medications} kind="medication" patient={patient} chart={chart} prescriptions={chart.prescriptions} onUpdate={load} />}
-    {tab === 'investigations' && <div className="grid gap-6 xl:grid-cols-2"><RecordList records={chart.investigations} kind="investigation" onUpdate={load} onCreateResult={record => setModal(`result:${record.id}`)} /><RecordList records={chart.results} kind="result" onUpdate={load} /><RecordList records={chart.imaging} kind="imaging" onUpdate={load} /><div className="xl:col-span-2"><InvestigationAttachments chart={chart} /></div></div>}
+    {tab === 'investigations' && <div className="space-y-6"><AdminTools scope="investigations" patientContext={patient} /><div className="grid gap-6 xl:grid-cols-2"><RecordList records={chart.investigations} kind="investigation" onUpdate={load} onCreateResult={record => setModal(`result:${record.id}`)} /><RecordList records={chart.results} kind="result" onUpdate={load} /><RecordList records={chart.imaging} kind="imaging" onUpdate={load} /><div className="xl:col-span-2"><InvestigationAttachments chart={chart} /></div></div></div>}
     {tab === 'financial' && <FinancialRecords chart={chart} onUpdate={load} onAdd={() => setModal('financial_record')} />}
     {tab === 'documents' && <PatientDocuments chart={chart} onChanged={load} />}
     {tab === 'care_plans' && <div className="grid gap-6 xl:grid-cols-2"><CarePlanList chart={chart} patient={patient} onUpdate={load} /><RecordList records={chart.tasks} kind="task" onUpdate={load} /></div>}

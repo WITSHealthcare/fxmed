@@ -17,6 +17,7 @@ export interface InvestigationFormData {
   phone: string
   age: string
   gender: string
+  clinicalDetails?: string
   panelTitle: string
   tests: InvestigationTest[]
   // Optional partner verification stamp. Present only when the form is being
@@ -74,10 +75,18 @@ export const CORE_PANEL_TESTS: InvestigationTest[] = [
   },
 ]
 
-// Test rows now contain names only, so the first page can use the remaining
-// space below the patient block and continuation pages can carry a denser list.
-const FIRST_PAGE_TESTS = 11
-const CONTINUATION_PAGE_TESTS = 20
+export const INVESTIGATION_CATALOG = [
+  { category: 'Haematology', tests: ['Complete Blood Count (CBC)', 'Peripheral Blood Film', 'Erythrocyte Sedimentation Rate (ESR)', 'Reticulocyte Count', 'Prothrombin Time / INR', 'Activated Partial Thromboplastin Time (aPTT)', 'Haemoglobin Electrophoresis', 'Haemoglobin Variant Analysis'] },
+  { category: 'Blood Sugar & Metabolic', tests: ['Fasting Blood Glucose', 'Random Blood Glucose', 'HbA1c (Glycated Hemoglobin)', 'Fasting Insulin', 'Oral Glucose Tolerance Test', 'Uric Acid'] },
+  { category: 'Kidney & Electrolytes', tests: ['Urea', 'Creatinine', 'Estimated GFR (eGFR)', 'Urine Albumin–Creatinine Ratio', 'Sodium', 'Potassium', 'Chloride', 'Bicarbonate', 'Calcium', 'Magnesium', 'Phosphate'] },
+  { category: 'Liver & Proteins', tests: ['Liver Function Test', 'ALT', 'AST', 'ALP', 'GGT', 'Bilirubin (Total and Direct)', 'Total Protein and Albumin'] },
+  { category: 'Lipids & Cardiovascular', tests: ['Total Cholesterol', 'LDL Cholesterol', 'HDL Cholesterol', 'Triglycerides', 'VLDL Cholesterol', 'Non-HDL Cholesterol', 'High-Sensitivity CRP', 'Apolipoprotein B', 'Lipoprotein(a)', 'Homocysteine', 'Troponin'] },
+  { category: 'Thyroid & Hormones', tests: ['Thyroid Function Test (TSH, Free T3, Free T4)', 'TSH', 'Free T3', 'Free T4', 'Thyroid Peroxidase Antibody', 'Thyroglobulin Antibody', 'Cortisol', 'DHEA-S', 'Prolactin', 'FSH', 'LH', 'Estradiol', 'Progesterone', 'Testosterone', 'SHBG'] },
+  { category: 'Vitamins & Nutritional', tests: ['Vitamin D (25-OH Vitamin D)', 'Vitamin B12', 'Folate', 'Ferritin', 'Serum Iron', 'Iron Studies', 'Zinc', 'Copper', 'Ceruloplasmin'] },
+  { category: 'Infection & Immunology', tests: ['HIV Screening', 'Hepatitis B Surface Antigen', 'Hepatitis C Antibody', 'Syphilis Screening', 'C-Reactive Protein (CRP)', 'Antinuclear Antibody (ANA)', 'Rheumatoid Factor'] },
+  { category: 'Urine, Stool & Microbiology', tests: ['Urinalysis', 'Urine Microscopy, Culture and Sensitivity', 'Stool Microscopy', 'Stool Culture', 'Stool Occult Blood', 'Helicobacter pylori Test', 'High Vaginal Swab M/C/S', 'Endocervical Swab M/C/S'] },
+  { category: 'Cancer Markers', tests: ['PSA', 'CA-125', 'CA 15-3', 'CA 19-9', 'CEA', 'Alpha-Fetoprotein (AFP)'] },
+] as const
 
 function escapeHtml(value: string) {
   return value
@@ -157,14 +166,70 @@ function buildPatientHtml(data: InvestigationFormData) {
   `
 }
 
-function buildTestCardHtml(index: number, test: InvestigationTest) {
+function buildClinicalDetailsHtml(clinicalDetails = '') {
+  if (!clinicalDetails.trim()) return ''
+
   return `
-    <div style="background: #FEF2F2; border-left: 3px solid #DC2626; border-radius: 6px; padding: 9px 12px; margin-bottom: 6px; break-inside: avoid; page-break-inside: avoid;">
-      <div style="font-size: ${pdfType('value')}; font-weight: 700; color: #0F2419; line-height: 1.25;">
-        ${index}. ${escapeHtml(test.name)}
+    <div data-pdf-keep-together style="margin-bottom: 28px; break-inside: avoid; page-break-inside: avoid;">
+      <h2 style="font-size: ${pdfType('section')}; font-weight: 700; color: #0F2419; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">
+        Clinical Details
+      </h2>
+      <div style="border-left: 3px solid #6B8E23; border-radius: 6px; background: #F7FAEC; padding: 14px 16px; font-size: ${pdfType('body')}; color: #0F2419; line-height: ${REPORT_LEADING.body}; white-space: pre-wrap;">
+        ${escapeHtml(clinicalDetails.trim())}
       </div>
     </div>
   `
+}
+
+function buildTestCardHtml(test: InvestigationTest) {
+  return `
+    <div data-pdf-keep-together style="background: #FEF2F2; border-left: 3px solid #DC2626; border-radius: 6px; padding: 9px 12px; margin-bottom: 6px; break-inside: avoid; page-break-inside: avoid;">
+      <div style="font-size: ${pdfType('value')}; font-weight: 700; color: #0F2419; line-height: 1.25;">
+        ${escapeHtml(test.name)}
+      </div>
+    </div>
+  `
+}
+
+function investigationCategory(testName: string) {
+  return INVESTIGATION_CATALOG.find((group) => group.tests.some((name) => name === testName))?.category || 'Other Investigations'
+}
+
+function orderTestsByCategory(tests: InvestigationTest[]) {
+  const categoryOrder = new Map<string, number>(INVESTIGATION_CATALOG.map((group, index) => [group.category, index]))
+  return [...tests].sort((a, b) => {
+    const aCategory = investigationCategory(a.name)
+    const bCategory = investigationCategory(b.name)
+    const categoryDifference = (categoryOrder.get(aCategory) ?? INVESTIGATION_CATALOG.length) - (categoryOrder.get(bCategory) ?? INVESTIGATION_CATALOG.length)
+    if (categoryDifference) return categoryDifference
+    return a.name.localeCompare(b.name)
+  })
+}
+
+function buildGroupedTestsHtml(tests: InvestigationTest[]) {
+  const groups = new Map<string, InvestigationTest[]>()
+  tests.forEach((test) => {
+    const category = investigationCategory(test.name)
+    groups.set(category, [...(groups.get(category) || []), test])
+  })
+
+  return Array.from(groups.entries()).map(([category, categoryTests]) => {
+    const firstRow = categoryTests.slice(0, 2)
+    const remainingTests = categoryTests.slice(2)
+    return `
+      <div style="margin-top: 14px;">
+        <div data-pdf-keep-together>
+          <h3 style="font-size: ${pdfType('subsection')}; font-weight: 700; color: #0F2419; margin: 0 0 7px; text-transform: uppercase; letter-spacing: .04em;">
+            ${escapeHtml(category)}
+          </h3>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 14px; align-items: start;">
+            ${firstRow.map((test) => buildTestCardHtml(test)).join('')}
+          </div>
+        </div>
+        ${remainingTests.length ? `<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 14px; align-items: start;">${remainingTests.map((test) => buildTestCardHtml(test)).join('')}</div>` : ''}
+      </div>
+    `
+  }).join('')
 }
 
 function buildSectionHtml(panelTitle: string, cardsHtml: string, withBadge: boolean) {
@@ -199,7 +264,7 @@ function buildStampHtml(stamp: InvestigationStamp, patientName: string) {
   const partner = escapeHtml(stamp.partner.toUpperCase())
   return `
     <div style="margin-top: 34px; display: flex; justify-content: flex-end;">
-      <div style="transform: rotate(-2.5deg); border: 3px double #0F2419; border-radius: 10px; padding: 14px 20px; background: rgba(202,222,104,.12); text-align: center; min-width: 300px;">
+      <div data-pdf-keep-together style="transform: rotate(-2.5deg); border: 3px double #0F2419; border-radius: 10px; padding: 14px 20px; background: rgba(202,222,104,.12); text-align: center; min-width: 300px;">
         <div style="font-size: ${pdfType('label')}; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #6B8E23;">
           FXMed Functional Medicine
         </div>
@@ -221,7 +286,7 @@ function buildStampHtml(stamp: InvestigationStamp, patientName: string) {
 
 function buildFooterHtml() {
   return `
-    <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center;">
+    <div data-pdf-keep-together style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center;">
       <div style="font-size: ${pdfType('body')}; font-weight: 700; color: #0F2419; margin-bottom: 12px;">
         FXMed Functional Medicine
       </div>
@@ -237,44 +302,22 @@ function buildFooterHtml() {
   `
 }
 
-// Split the tests across pages: the first page also carries the header and
-// patient block, so it fits fewer cards than continuation pages.
-function chunkTests(tests: InvestigationTest[]) {
-  const chunks: InvestigationTest[][] = [tests.slice(0, FIRST_PAGE_TESTS)]
-  for (let i = FIRST_PAGE_TESTS; i < tests.length; i += CONTINUATION_PAGE_TESTS) {
-    chunks.push(tests.slice(i, i + CONTINUATION_PAGE_TESTS))
-  }
-  return chunks
-}
-
 export async function generateInvestigationFormPdf(data: InvestigationFormData): Promise<Blob> {
   const origin = window.location.origin
   const panelTitle = data.panelTitle.trim() || 'Core Functional Medicine Panel'
 
   const headerHtml = buildHeaderHtml(panelTitle, origin)
   const patientHtml = buildPatientHtml(data)
+  const clinicalDetailsHtml = buildClinicalDetailsHtml(data.clinicalDetails)
   const footerHtml = buildFooterHtml()
 
-  const chunks = chunkTests(data.tests)
-
-  let testNumber = 0
-  const pageHtmls = chunks.map((chunk, pageIndex) => {
-    const isFirstPage = pageIndex === 0
-    const cardsHtml = chunk
-      .map((test) => {
-        testNumber += 1
-        return buildTestCardHtml(testNumber, test)
-      })
-      .join('')
-
-    const sectionHtml = buildSectionHtml(panelTitle, cardsHtml, isFirstPage)
-    return isFirstPage ? headerHtml + patientHtml + sectionHtml : sectionHtml
-  })
+  const cardsHtml = buildGroupedTestsHtml(orderTestsByCategory(data.tests))
+  const pageHtmls = [headerHtml + patientHtml + clinicalDetailsHtml + buildSectionHtml(panelTitle, cardsHtml, true)]
 
   // Stamp then footer, both on the final page so the verification mark sits
   // directly beneath the tests it authorises.
   if (data.stamp?.validOn) pageHtmls[pageHtmls.length - 1] += buildStampHtml(data.stamp, data.fullName)
   pageHtmls[pageHtmls.length - 1] += footerHtml
 
-  return renderReportPdf(pageHtmls)
+  return renderReportPdf(pageHtmls, { continuationTopMarginPx: 34, continuationBottomMarginPx: 24 })
 }
