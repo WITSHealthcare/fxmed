@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ClipboardTextIcon, EyeIcon, PhoneCallIcon, PlusCircleIcon, XIcon } from '@phosphor-icons/react'
 
 interface HealthAnalysisSubmission {
@@ -63,6 +63,226 @@ function DetailSection({ title, fields }: { title: string; fields: Array<[string
   )
 }
 
+type EmrPatient = { id: string; mrn: string; first_name: string; last_name: string; email?: string | null; phone?: string | null; date_of_birth?: string | null }
+
+// The form offers male/female/other/prefer-not-to-say; the chart records a
+// clinical sex. Anything not clearly male or female becomes 'unknown' for a
+// clinician to correct, rather than being guessed at.
+const sexFromGender = (gender: string) => {
+  const value = gender.trim().toLowerCase()
+  if (value === 'male' || value === 'female') return value
+  if (value === 'intersex') return 'intersex'
+  return 'unknown'
+}
+
+// Digits only, so "+234 803 123 4567" and "08031234567" compare equal.
+const phoneKey = (value?: string | null) => (value || '').replace(/\D/g, '').slice(-10)
+
+function LinkPatientModal({ submission, onClose, onLinked }: {
+  submission: HealthAnalysisSubmission
+  onClose: () => void
+  onLinked: (patient: EmrPatient) => void
+}) {
+  const [mode, setMode] = useState<'existing' | 'new'>('existing')
+  const [search, setSearch] = useState('')
+  const [results, setResults] = useState<EmrPatient[]>([])
+  const [matches, setMatches] = useState<EmrPatient[]>([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [form, setForm] = useState({
+    first_name: submission.patientName.split(' ')[0] || '',
+    last_name: submission.patientName.split(' ').slice(1).join(' ') || '',
+    email: submission.email,
+    phone: submission.phone,
+    date_of_birth: '',
+    sex: sexFromGender(submission.gender),
+  })
+
+  const lookup = useCallback(async (term: string) => {
+    if (!term.trim()) return [] as EmrPatient[]
+    const response = await fetch(`/api/admin/emr?resource=patients&pageSize=20&search=${encodeURIComponent(term.trim())}`)
+    if (!response.ok) return [] as EmrPatient[]
+    const result = await response.json()
+    return (result.patients || []) as EmrPatient[]
+  }, [])
+
+  // Surface likely existing records up front, so the same person is not
+  // registered twice by someone who did not think to search first.
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([lookup(submission.email), lookup(submission.phone)]).then(([byEmail, byPhone]) => {
+      if (cancelled) return
+      const wanted = phoneKey(submission.phone)
+      const likely = [...byEmail, ...byPhone].filter(patient =>
+        (submission.email && patient.email?.toLowerCase() === submission.email.toLowerCase()) ||
+        (wanted.length >= 7 && phoneKey(patient.phone) === wanted))
+      setMatches(Array.from(new Map(likely.map(patient => [patient.id, patient])).values()))
+    })
+    return () => { cancelled = true }
+  }, [lookup, submission.email, submission.phone])
+
+  useEffect(() => {
+    let cancelled = false
+    const timer = setTimeout(() => { lookup(search).then(found => { if (!cancelled) setResults(found) }) }, 250)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [search, lookup])
+
+  const link = async (patient: EmrPatient) => {
+    setBusy(true); setError('')
+    const response = await fetch('/api/admin/emr', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'assessments', id: submission.id, patient_id: patient.id }),
+    })
+    setBusy(false)
+    if (!response.ok) return setError('Could not link this submission to the patient.')
+    onLinked(patient)
+  }
+
+  const createAndLink = async () => {
+    if (!form.first_name.trim() || !form.last_name.trim()) return setError('First and last name are required.')
+    if (!form.date_of_birth) return setError('Date of birth is required to add someone to the patient registry.')
+
+    setBusy(true); setError('')
+    // The route reads `resource` from the body, not the query string.
+    const response = await fetch('/api/admin/emr', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'patients', ...form }),
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) { setBusy(false); return setError(result.error || 'Could not create the patient.') }
+    setBusy(false)
+    await link(result.record as EmrPatient)
+  }
+
+  const inputClass = 'mt-1 w-full rounded-lg border border-green-deep/20 px-3 py-2 text-sm focus:border-green-deep focus:outline-none'
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+      <div role="dialog" aria-modal="true" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[20px] bg-white shadow-2xl">
+        <div className="sticky top-0 flex items-start justify-between border-b border-green-deep/10 bg-white px-6 py-5">
+          <div>
+            <h3 className="font-dm-sans text-xl font-bold text-green-deep">Link to a patient</h3>
+            <p className="mt-1 font-dm-sans text-sm text-text-mid">
+              {submission.patientName} · {submission.email || 'no email'} · {submission.phone || 'no phone'}
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-600"><XIcon size={22} /></button>
+        </div>
+
+        <div className="p-6">
+          {matches.length > 0 && mode === 'existing' && (
+            <div className="mb-5 rounded-lg border border-gold/40 bg-gold/10 p-4">
+              <p className="font-dm-sans text-xs font-bold uppercase tracking-wide text-green-deep">
+                Already in the registry
+              </p>
+              <p className="mt-1 font-dm-sans text-xs text-text-mid">
+                Matched on the email or phone number given on this submission.
+              </p>
+              <div className="mt-3 space-y-2">
+                {matches.map(patient => (
+                  <div key={patient.id} className="flex items-center justify-between gap-3 rounded-lg bg-white p-3">
+                    <div className="min-w-0">
+                      <p className="font-dm-sans text-sm font-semibold text-green-deep">{patient.first_name} {patient.last_name}</p>
+                      <p className="font-dm-sans text-xs text-text-mid">{patient.mrn} · {patient.email || patient.phone || 'no contact'}</p>
+                    </div>
+                    <button disabled={busy} onClick={() => void link(patient)} className="rounded-lg bg-green-deep px-3 py-2 font-dm-sans text-xs font-semibold text-white disabled:opacity-50">
+                      Link
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mb-5 flex gap-2">
+            <button onClick={() => { setMode('existing'); setError('') }} className={`rounded-full px-4 py-2 font-dm-sans text-sm font-medium ${mode === 'existing' ? 'bg-green-deep text-white' : 'bg-gray-100 text-gray-700'}`}>
+              Existing patient
+            </button>
+            <button onClick={() => { setMode('new'); setError('') }} className={`rounded-full px-4 py-2 font-dm-sans text-sm font-medium ${mode === 'new' ? 'bg-green-deep text-white' : 'bg-gray-100 text-gray-700'}`}>
+              Add to patient registry
+            </button>
+          </div>
+
+          {mode === 'existing' ? (
+            <div>
+              <label className="block font-dm-sans text-sm font-semibold text-green-deep">
+                Search the registry
+                <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Name, MRN, email or phone" className={inputClass} />
+              </label>
+              <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
+                {results.map(patient => (
+                  <div key={patient.id} className="flex items-center justify-between gap-3 rounded-lg border border-green-deep/10 p-3">
+                    <div className="min-w-0">
+                      <p className="font-dm-sans text-sm font-semibold text-green-deep">{patient.first_name} {patient.last_name}</p>
+                      <p className="font-dm-sans text-xs text-text-mid">{patient.mrn} · {patient.email || patient.phone || 'no contact'}</p>
+                    </div>
+                    <button disabled={busy} onClick={() => void link(patient)} className="rounded-lg bg-green-deep px-3 py-2 font-dm-sans text-xs font-semibold text-white disabled:opacity-50">
+                      Link
+                    </button>
+                  </div>
+                ))}
+                {search.trim() && !results.length && (
+                  <p className="py-3 font-dm-sans text-sm text-text-mid">
+                    No patient matches that. Use &ldquo;Add to patient registry&rdquo; to create one from this submission.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="mb-4 font-dm-sans text-sm text-text-mid">
+                Prefilled from the submission. Date of birth is not collected by the public form, so it must be confirmed
+                with the patient before they are added to the registry.
+              </p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <label className="block font-dm-sans text-sm font-semibold text-green-deep">First name
+                  <input value={form.first_name} onChange={event => setForm({ ...form, first_name: event.target.value })} className={inputClass} />
+                </label>
+                <label className="block font-dm-sans text-sm font-semibold text-green-deep">Last name
+                  <input value={form.last_name} onChange={event => setForm({ ...form, last_name: event.target.value })} className={inputClass} />
+                </label>
+                <label className="block font-dm-sans text-sm font-semibold text-green-deep">Email
+                  <input type="email" value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} className={inputClass} />
+                </label>
+                <label className="block font-dm-sans text-sm font-semibold text-green-deep">Phone
+                  <input value={form.phone} onChange={event => setForm({ ...form, phone: event.target.value })} className={inputClass} />
+                </label>
+                <label className="block font-dm-sans text-sm font-semibold text-green-deep">
+                  Date of birth <span className="text-red-600">*</span>
+                  <input type="date" max={new Date().toISOString().slice(0, 10)} value={form.date_of_birth} onChange={event => setForm({ ...form, date_of_birth: event.target.value })} className={inputClass} />
+                  {submission.age && (
+                    <span className="mt-1 block font-dm-sans text-xs font-normal text-text-mid">
+                      Gave their age as {submission.age} on the form.
+                    </span>
+                  )}
+                </label>
+                <label className="block font-dm-sans text-sm font-semibold text-green-deep">Sex
+                  <select value={form.sex} onChange={event => setForm({ ...form, sex: event.target.value })} className={inputClass}>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                    <option value="intersex">Intersex</option>
+                    <option value="unknown">Unknown</option>
+                  </select>
+                  {submission.gender && (
+                    <span className="mt-1 block font-dm-sans text-xs font-normal text-text-mid">
+                      Gave their gender as &ldquo;{submission.gender}&rdquo;.
+                    </span>
+                  )}
+                </label>
+              </div>
+              <button disabled={busy} onClick={() => void createAndLink()} className="mt-5 w-full rounded-lg bg-gold px-6 py-3 font-dm-sans font-bold text-green-deep disabled:opacity-50">
+                {busy ? 'Adding…' : 'Add patient and link submission'}
+              </button>
+            </div>
+          )}
+
+          {error && <p role="alert" className="mt-4 font-dm-sans text-sm text-red-600">{error}</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface FunctionalHealthAnalysisProps {
   submissions?: HealthAnalysisSubmission[]
 }
@@ -72,8 +292,10 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
   const [selectedSubmission, setSelectedSubmission] = useState<HealthAnalysisSubmission | null>(null)
   const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'reviewed' | 'contacted' | 'completed'>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [patients, setPatients] = useState<Array<{ id: string; mrn: string; first_name: string; last_name: string }>>([])
-  const [patientLinks, setPatientLinks] = useState<Record<string,string>>({})
+  // Which submission the link-patient modal is open for, and the patients that
+  // have been linked in this session, so the card can show it immediately.
+  const [linking, setLinking] = useState<HealthAnalysisSubmission | null>(null)
+  const [linked, setLinked] = useState<Record<string, EmrPatient>>({})
 
   useEffect(() => {
     fetch('/api/admin/emr?resource=assessments').then(async response => {
@@ -109,8 +331,6 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
       }))
     }).catch(error => console.error('Unable to load health analysis submissions:', error))
   }, [])
-
-  useEffect(() => { fetch('/api/admin/emr?resource=patients&pageSize=100').then(response => response.json()).then(result => setPatients(result.patients || [])).catch(() => {}) }, [])
 
   // Filter submissions based on status and search term
   const filteredSubmissions = submissionsList.filter(submission => {
@@ -152,11 +372,6 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
     if (response.ok) setSubmissionsList(prev => prev.map(sub => sub.id === id ? { ...sub, status: newStatus } : sub))
   }
 
-  const linkPatient = async (id: string) => {
-    const patientId = patientLinks[id]
-    if (!patientId) return
-    await fetch('/api/admin/emr', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: 'assessments', id, patient_id: patientId }) })
-  }
 
   return (
     <div className="space-y-6">
@@ -323,7 +538,17 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                       <option value="contacted">Contacted</option>
                       <option value="completed">Completed</option>
                     </select>
-                    <div className="mt-2 flex gap-1"><select value={patientLinks[submission.id] || ''} onChange={(e) => setPatientLinks(current => ({ ...current, [submission.id]: e.target.value }))} className="max-w-44 rounded border border-gray-300 px-2 py-1 text-xs"><option value="">Link patient…</option>{patients.map(patient => <option key={patient.id} value={patient.id}>{patient.mrn} · {patient.first_name} {patient.last_name}</option>)}</select><button onClick={() => linkPatient(submission.id)} className="rounded bg-green-deep px-2 py-1 text-xs text-white">Link</button></div>
+                    <div className="mt-2">
+                      {linked[submission.id] ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-deep/10 px-3 py-1 text-xs font-semibold text-green-deep">
+                          Linked to {linked[submission.id].first_name} {linked[submission.id].last_name} · {linked[submission.id].mrn}
+                        </span>
+                      ) : (
+                        <button onClick={() => setLinking(submission)} className="rounded bg-green-deep px-3 py-1.5 text-xs font-semibold text-white">
+                          Link patient…
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -333,6 +558,17 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
       </div>
 
       {/* Detail Modal */}
+      {linking && (
+        <LinkPatientModal
+          submission={linking}
+          onClose={() => setLinking(null)}
+          onLinked={patient => {
+            setLinked(current => ({ ...current, [linking.id]: patient }))
+            setLinking(null)
+          }}
+        />
+      )}
+
       {selectedSubmission && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-[24px] max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
