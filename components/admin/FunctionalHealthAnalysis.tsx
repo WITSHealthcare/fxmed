@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { displayAge } from '@/lib/age'
 import { ClipboardTextIcon, EyeIcon, PhoneCallIcon, PlusCircleIcon, XIcon } from '@phosphor-icons/react'
 
 interface HealthAnalysisSubmission {
@@ -8,6 +9,7 @@ interface HealthAnalysisSubmission {
   patientName: string
   email: string
   phone: string
+  dateOfBirth: string
   age: string
   gender: string
   primaryConcern: string
@@ -94,7 +96,7 @@ function LinkPatientModal({ submission, onClose, onLinked }: {
     last_name: submission.patientName.split(' ').slice(1).join(' ') || '',
     email: submission.email,
     phone: submission.phone,
-    date_of_birth: '',
+    date_of_birth: submission.dateOfBirth || '',
     sex: sexFromGender(submission.gender),
   })
 
@@ -250,11 +252,13 @@ function LinkPatientModal({ submission, onClose, onLinked }: {
                 <label className="block font-dm-sans text-sm font-semibold text-green-deep">
                   Date of birth <span className="text-red-600">*</span>
                   <input type="date" max={new Date().toISOString().slice(0, 10)} value={form.date_of_birth} onChange={event => setForm({ ...form, date_of_birth: event.target.value })} className={inputClass} />
-                  {submission.age && (
-                    <span className="mt-1 block font-dm-sans text-xs font-normal text-text-mid">
-                      Gave their age as {submission.age} on the form.
-                    </span>
-                  )}
+                  <span className="mt-1 block font-dm-sans text-xs font-normal text-text-mid">
+                    {submission.dateOfBirth
+                      ? 'Given on the form. Confirm it with the patient before adding them.'
+                      : submission.age
+                        ? `This submission predates the date of birth field; they gave their age as ${submission.age}. Confirm the date with the patient.`
+                        : 'Not collected on this submission. Confirm it with the patient.'}
+                  </span>
                 </label>
                 <label className="block font-dm-sans text-sm font-semibold text-green-deep">Sex
                   <select value={form.sex} onChange={event => setForm({ ...form, sex: event.target.value })} className={inputClass}>
@@ -311,7 +315,8 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
         return {
           id: record.id,
           patientName: [personal.firstName, personal.lastName].filter(Boolean).join(' ') || 'Unknown patient',
-          email: personal.email || '', phone: personal.phone || '', age: personal.age || '', gender: personal.gender || '',
+          email: personal.email || '', phone: personal.phone || '',
+          dateOfBirth: personal.dateOfBirth || '', age: personal.age || '', gender: personal.gender || '',
           primaryConcern: concerns.primaryConcern || 'Not provided', symptoms: concerns.symptoms || [], duration: concerns.duration || '', severity: concerns.severity || '',
           lifestyle: {
             diet: lifestyle.diet || '', exercise: lifestyle.exercise || '',
@@ -497,7 +502,7 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                         {submission.patientName}
                       </div>
                       <div className="text-sm text-gray-500 font-dm-sans">
-                        {submission.age} • {submission.gender}
+                        {displayAge(submission) || '—'} • {submission.gender}
                       </div>
                     </div>
                   </td>
@@ -602,7 +607,7 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                   </div>
                   <div>
                     <p className="text-sm text-text-mid font-dm-sans">Age/Gender</p>
-                    <p className="font-medium text-gray-900 font-dm-sans">{selectedSubmission.age} • {selectedSubmission.gender}</p>
+                    <p className="font-medium text-gray-900 font-dm-sans">{displayAge(selectedSubmission) || '—'} • {selectedSubmission.gender}</p>
                   </div>
                   <div>
                     <p className="text-sm text-text-mid font-dm-sans">Email</p>

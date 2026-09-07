@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { displayAge } from '@/lib/age'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 
@@ -11,7 +12,8 @@ interface FormData {
     lastName: string
     email: string
     phone: string
-    age: string
+    dateOfBirth?: string
+    age?: string
     gender: string
   }
   healthConcerns: {
@@ -273,7 +275,7 @@ export default function InvestigationsClient() {
               </div>
               <div>
                 <span className="text-gray-600">Age:</span>
-                <span className="ml-2 font-medium">{formData.personalInfo.age} years</span>
+                <span className="ml-2 font-medium">{displayAge(formData.personalInfo) || '—'} years</span>
               </div>
             </div>
           </div>
@@ -326,7 +328,7 @@ export default function InvestigationsClient() {
                   fullName: [formData?.personalInfo.firstName, formData?.personalInfo.lastName].filter(Boolean).join(' '),
                   email: formData?.personalInfo.email || '',
                   phone: formData?.personalInfo.phone || '',
-                  age: formData?.personalInfo.age || '',
+                  age: displayAge(formData?.personalInfo || {}),
                   gender: formData?.personalInfo.gender || '',
                   panelTitle: 'Core Functional Medicine Panel',
                   tests: CORE_PANEL_TESTS,

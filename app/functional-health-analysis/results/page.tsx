@@ -5,6 +5,7 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
+import { displayAge } from '@/lib/age'
 
 interface FormData {
   personalInfo: {
@@ -12,7 +13,8 @@ interface FormData {
     lastName: string
     email: string
     phone: string
-    age: string
+    dateOfBirth?: string
+    age?: string
     gender: string
   }
   healthConcerns: {
@@ -313,7 +315,7 @@ export default function FunctionalHealthResults() {
     addRect(margin, tableY + 12, pageWidth - 2 * margin, 13, cream)
     addText(formData.personalInfo.lastName, margin + 5, tableY + 20, 10, 'normal', textDark)
     addText(formData.personalInfo.firstName, margin + colWidths[0] * (pageWidth - 2 * margin) / 100 + 5, tableY + 20, 10, 'normal', textDark)
-    addText(formData.personalInfo.age, margin + (colWidths[0] + colWidths[1]) * (pageWidth - 2 * margin) / 100 + 5, tableY + 20, 10, 'normal', textDark)
+    addText(displayAge(formData.personalInfo), margin + (colWidths[0] + colWidths[1]) * (pageWidth - 2 * margin) / 100 + 5, tableY + 20, 10, 'normal', textDark)
     addText(formData.personalInfo.gender.charAt(0).toUpperCase(), margin + (colWidths[0] + colWidths[1] + colWidths[2]) * (pageWidth - 2 * margin) / 100 + 5, tableY + 20, 10, 'normal', textDark)
     addText(formData.personalInfo.phone, margin + (colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3]) * (pageWidth - 2 * margin) / 100 + 5, tableY + 20, 10, 'normal', textDark)
     
@@ -327,7 +329,7 @@ export default function FunctionalHealthResults() {
     addRect(margin, yPosition + 12, pageWidth - 2 * margin, clinicalHeight - 12, cream)
     
     // Wrap clinical details text
-    const clinicalText = `${formData.personalInfo.firstName} ${formData.personalInfo.lastName} (${formData.personalInfo.age} years old, ${formData.personalInfo.gender}) presenting with: ${formData.healthConcerns.primaryConcern}. Symptoms include: ${formData.healthConcerns.symptoms.join(', ')}. Duration: ${formData.healthConcerns.duration}, Severity: ${formData.healthConcerns.severity}.`
+    const clinicalText = `${formData.personalInfo.firstName} ${formData.personalInfo.lastName} (${displayAge(formData.personalInfo)} years old, ${formData.personalInfo.gender}) presenting with: ${formData.healthConcerns.primaryConcern}. Symptoms include: ${formData.healthConcerns.symptoms.join(', ')}. Duration: ${formData.healthConcerns.duration}, Severity: ${formData.healthConcerns.severity}.`
     const clinicalLines = pdf.splitTextToSize(clinicalText, pageWidth - 2 * margin - 10)
     clinicalLines.forEach((line: string, index: number) => {
       addText(line, margin + 5, yPosition + 20 + (index * 6), 10, 'normal', textDark)

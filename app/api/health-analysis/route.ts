@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cleanText, getEmrDatabase } from '@/lib/emr'
 import { checkRateLimit } from '@/lib/request-security'
+import { displayAge, isPlausibleDateOfBirth } from '@/lib/age'
 
 export const runtime = 'nodejs'
 
@@ -25,7 +26,8 @@ async function recordContactMessage(database: SupabaseClient, assessment: {
     `Symptoms: ${concerns.symptoms.filter(Boolean).join(', ') || 'None listed'}`,
     `Duration: ${concerns.duration || 'Not provided'}`,
     `Severity: ${concerns.severity || 'Not provided'}`,
-    `Age / gender: ${[personal.age, personal.gender].filter(Boolean).join(' · ') || 'Not provided'}`,
+    `Date of birth: ${personal.dateOfBirth || 'Not provided'}`,
+    `Age / gender: ${[displayAge(personal), personal.gender].filter(Boolean).join(' · ') || 'Not provided'}`,
     '',
     'Lifestyle, medical history and goals are on the full submission under Healthcare / EMR → Health Analysis.',
   ].join('\n')
@@ -74,7 +76,8 @@ export async function POST(request: NextRequest) {
     const assessmentData = {
       personalInfo: {
         firstName: cleanText(personal.firstName, 100), lastName: cleanText(personal.lastName, 100), email,
-        phone: cleanText(personal.phone, 40), age: cleanText(personal.age, 3), gender: cleanText(personal.gender, 50),
+        phone: cleanText(personal.phone, 40), gender: cleanText(personal.gender, 50),
+        dateOfBirth: isPlausibleDateOfBirth(personal?.dateOfBirth) ? personal.dateOfBirth : null,
       },
       healthConcerns: {
         primaryConcern: cleanText(concerns.primaryConcern, 2000),
