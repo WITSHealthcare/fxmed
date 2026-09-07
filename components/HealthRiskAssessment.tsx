@@ -351,9 +351,12 @@ export default function HealthRiskAssessment({ headingLevel = 'h2' }: { headingL
     }
   }
 
-  const calculateRiskScore = (answers: Answer[], category: string): { score: number; riskLevel: 'low' | 'moderate' | 'high'; insights: string[] } => {
+  const calculateRiskScore = (answers: Answer[], category: string): { score: number; riskLevel: 'low' | 'moderate' | 'high'; insights: AssessmentResult['insights'] } => {
     let score = 0
-    const insights: string[] = []
+    // Each insight carries its own wording. Deriving the body from the heading
+    // reads as "identified multiple high-risk factors identified", because the
+    // heading is already a full sentence rather than a noun phrase.
+    const insights: AssessmentResult['insights'] = []
     
     answers.forEach((answer, index) => {
       if (category === 'children') {
@@ -427,14 +430,32 @@ export default function HealthRiskAssessment({ headingLevel = 'h2' }: { headingL
     
     // Generate insights based on score
     if (score >= 8) {
-      insights.push('Multiple high-risk factors identified')
-      insights.push('Immediate medical evaluation recommended')
+      insights.push({
+        title: 'Multiple high-risk factors identified',
+        text: 'Your answers point to several concerns that often occur together. Looking at them as a whole, rather than one at a time, gives the clearest picture of what is driving them.',
+      })
+      insights.push({
+        title: 'Immediate medical evaluation recommended',
+        text: 'Given how much your answers cover, we would encourage you to speak with a clinician soon rather than waiting for a routine check-up.',
+      })
     } else if (score >= 5) {
-      insights.push('Several risk factors present')
-      insights.push('Preventive measures advised')
+      insights.push({
+        title: 'Several risk factors present',
+        text: 'Your answers flag more than one area worth examining. Concerns at this stage are usually easier to address now than once they have had time to settle in.',
+      })
+      insights.push({
+        title: 'Preventive measures advised',
+        text: 'Targeted testing and some adjustments to your daily routine can often keep these concerns from progressing.',
+      })
     } else {
-      insights.push('Low to moderate risk profile')
-      insights.push('Continue regular monitoring')
+      insights.push({
+        title: 'Low to moderate risk profile',
+        text: 'Your answers do not point to a pressing concern. That is worth knowing, and worth keeping an eye on.',
+      })
+      insights.push({
+        title: 'Continue regular monitoring',
+        text: 'Periodic check-ups remain the best way to catch changes early, while they are still straightforward to manage.',
+      })
     }
     
     const riskLevel = score >= 8 ? 'high' : score >= 5 ? 'moderate' : 'low'
@@ -452,10 +473,7 @@ export default function HealthRiskAssessment({ headingLevel = 'h2' }: { headingL
       riskLevel,
       title: `${ASSESSMENTS[category].name} Assessment Complete`,
       summary: `Based on your responses to the ${ASSESSMENTS[category].name} questionnaire, your risk level is ${riskLevel}. ${riskLevel === 'high' ? 'We recommend scheduling a consultation as soon as possible.' : riskLevel === 'moderate' ? 'A consultation would help address your concerns proactively.' : 'Continue monitoring and consider periodic check-ups.'}`,
-      insights: insights.map((insight, index) => ({
-        title: insight,
-        text: `This assessment identified ${insight.toLowerCase()} based on your responses. A comprehensive evaluation can provide personalized recommendations.`
-      })),
+      insights,
       recommendations: `Schedule a consultation with our functional medicine experts to discuss your ${ASSESSMENTS[category].name} concerns and develop a personalized health plan.`
     }
     
