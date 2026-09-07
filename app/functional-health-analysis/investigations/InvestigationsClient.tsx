@@ -61,6 +61,22 @@ export default function InvestigationsClient() {
         try { setFormData(JSON.parse(saved)) } catch (error) { console.error('Error restoring assessment data:', error) }
       }
     }
+
+    // The form redirects here with ?assessment=<id>. Record that the visitor
+    // reached this step, and keep the id for the results page, which is not
+    // navigated to with the query string.
+    const assessmentId = searchParams.get('assessment')
+    if (assessmentId) {
+      sessionStorage.setItem('fxmed-health-analysis-id', assessmentId)
+      fetch('/api/health-analysis/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: assessmentId, step: 'investigations_viewed_at' }),
+      }).catch(() => {
+        // Progress tracking must never interrupt the visitor's journey.
+      })
+    }
+
     setIsLoading(false)
   }, [searchParams])
 

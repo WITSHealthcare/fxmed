@@ -15,6 +15,14 @@ interface HealthAnalysisSubmission {
   duration: string
   severity: string
   submittedAt: string
+  // Sections 3 to 5 of the public form. Every field is optional because the
+  // form only enforces personal details and health concerns.
+  lifestyle: { diet: string; exercise: string; sleep: string; stress: string }
+  medicalHistory: { medications: string; supplements: string; conditions: string; surgeries: string }
+  goals: { primaryGoal: string; timeline: string; expectations: string }
+  // How far the visitor got after submitting. Absent on rows written before
+  // progress tracking existed.
+  progress: Record<string, string> | null
   testRecommendations: {
     category: string
     tests: {
@@ -26,106 +34,34 @@ interface HealthAnalysisSubmission {
   status: 'new' | 'reviewed' | 'contacted' | 'completed'
 }
 
-const mockSubmissions: HealthAnalysisSubmission[] = [
-  {
-    id: "FHA001",
-    patientName: "Amara Okafor",
-    email: "amara@sample.com",
-    phone: "+234 801 234 5678",
-    age: "32",
-    gender: "Female",
-    primaryConcern: "Chronic fatigue and digestive issues",
-    symptoms: ["Fatigue", "Bloating", "Irregular periods", "Hair loss"],
-    duration: "6 months",
-    severity: "Moderate",
-    submittedAt: "2024-03-15T10:30:00Z",
-    testRecommendations: [
-      {
-        category: "Core Panel",
-        tests: [
-          {
-            name: "Complete Blood Count",
-            description: "Measures red cells, white cells, and platelets",
-            whyImportant: "Identifies anemia, infection, and inflammation"
-          },
-          {
-            name: "Comprehensive Metabolic Panel",
-            description: "Assesses kidney function, liver function, and electrolytes",
-            whyImportant: "Evaluates overall metabolic health"
-          }
-        ]
-      },
-      {
-        category: "Hormone Panel",
-        tests: [
-          {
-            name: "Thyroid Panel",
-            description: "TSH, Free T3, Free T4",
-            whyImportant: "Assesses thyroid function affecting energy and metabolism"
-          }
-        ]
-      }
-    ],
-    status: "new"
-  },
-  {
-    id: "FHA002",
-    patientName: "Chinedu Adeyemi",
-    email: "chinedu@sample.com",
-    phone: "+234 802 345 6789",
-    age: "45",
-    gender: "Male",
-    primaryConcern: "Weight gain and low energy",
-    symptoms: ["Weight gain", "Low energy", "Brain fog", "Sleep issues"],
-    duration: "1 year",
-    severity: "Mild",
-    submittedAt: "2024-03-14T14:20:00Z",
-    testRecommendations: [
-      {
-        category: "Metabolic Panel",
-        tests: [
-          {
-            name: "Lipid Profile",
-            description: "Cholesterol, triglycerides, HDL, LDL",
-            whyImportant: "Assesses cardiovascular risk"
-          },
-          {
-            name: "HbA1c",
-            description: "3-month average blood sugar",
-            whyImportant: "Screens for diabetes and insulin resistance"
-          }
-        ]
-      }
-    ],
-    status: "reviewed"
-  },
-  {
-    id: "FHA003",
-    patientName: "Nneka Johnson",
-    email: "nneka@sample.com",
-    phone: "+234 803 456 7890",
-    age: "28",
-    gender: "Female",
-    primaryConcern: "Hormonal imbalances",
-    symptoms: ["Irregular cycles", "Acne", "Mood swings", "Cravings"],
-    duration: "8 months",
-    severity: "Moderate",
-    submittedAt: "2024-03-13T09:15:00Z",
-    testRecommendations: [
-      {
-        category: "Hormone Panel",
-        tests: [
-          {
-            name: "Female Hormone Panel",
-            description: "Estrogen, progesterone, FSH, LH",
-            whyImportant: "Evaluates reproductive hormone balance"
-          }
-        ]
-      }
-    ],
-    status: "contacted"
-  }
+// The steps a visitor moves through after submitting the form, in order.
+const FUNNEL_STEPS: Array<{ key: string; label: string }> = [
+  { key: 'form_submitted_at', label: 'Completed the form' },
+  { key: 'investigations_viewed_at', label: 'Viewed recommended investigations' },
+  { key: 'request_downloaded_at', label: 'Downloaded the investigation request' },
+  { key: 'payment_started_at', label: 'Opened the payment page' },
 ]
+
+
+// The public form leaves any of these blank, and a blank answer is itself worth
+// seeing, so empty fields are shown as "Not provided" rather than hidden.
+function DetailSection({ title, fields }: { title: string; fields: Array<[string, string]> }) {
+  return (
+    <div className="mb-8">
+      <h3 className="font-dm-sans font-bold text-green-deep text-lg mb-4">{title}</h3>
+      <div className="bg-cream rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        {fields.map(([label, value]) => (
+          <div key={label}>
+            <p className="text-sm text-text-mid font-dm-sans">{label}</p>
+            <p className={`font-dm-sans whitespace-pre-wrap ${value ? 'font-medium text-gray-900' : 'text-gray-400 italic'}`}>
+              {value || 'Not provided'}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 interface FunctionalHealthAnalysisProps {
   submissions?: HealthAnalysisSubmission[]
@@ -147,11 +83,27 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
         const details = record.assessment_data || {}
         const personal = details.personalInfo || {}
         const concerns = details.healthConcerns || {}
+        const lifestyle = details.lifestyle || {}
+        const history = details.medicalHistory || {}
+        const goals = details.goals || {}
         return {
           id: record.id,
           patientName: [personal.firstName, personal.lastName].filter(Boolean).join(' ') || 'Unknown patient',
           email: personal.email || '', phone: personal.phone || '', age: personal.age || '', gender: personal.gender || '',
           primaryConcern: concerns.primaryConcern || 'Not provided', symptoms: concerns.symptoms || [], duration: concerns.duration || '', severity: concerns.severity || '',
+          lifestyle: {
+            diet: lifestyle.diet || '', exercise: lifestyle.exercise || '',
+            sleep: lifestyle.sleep || '', stress: lifestyle.stress || '',
+          },
+          medicalHistory: {
+            medications: history.medications || '', supplements: history.supplements || '',
+            conditions: history.conditions || '', surgeries: history.surgeries || '',
+          },
+          goals: {
+            primaryGoal: goals.primaryGoal || '', timeline: goals.timeline || '', expectations: goals.expectations || '',
+          },
+          // The form submission itself is the first step, so it is always set.
+          progress: { form_submitted_at: record.submitted_at, ...(record.progress || {}) },
           submittedAt: record.submitted_at, testRecommendations: record.recommendations || [], status: record.status,
         }
       }))
@@ -456,6 +408,67 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Lifestyle */}
+              <DetailSection
+                title="Lifestyle"
+                fields={[
+                  ['Diet', selectedSubmission.lifestyle.diet],
+                  ['Exercise', selectedSubmission.lifestyle.exercise],
+                  ['Sleep', selectedSubmission.lifestyle.sleep],
+                  ['Stress', selectedSubmission.lifestyle.stress],
+                ]}
+              />
+
+              {/* Medical History */}
+              <DetailSection
+                title="Medical History"
+                fields={[
+                  ['Current medications', selectedSubmission.medicalHistory.medications],
+                  ['Supplements', selectedSubmission.medicalHistory.supplements],
+                  ['Existing conditions', selectedSubmission.medicalHistory.conditions],
+                  ['Past surgeries', selectedSubmission.medicalHistory.surgeries],
+                ]}
+              />
+
+              {/* Health Goals */}
+              <DetailSection
+                title="Health Goals"
+                fields={[
+                  ['Primary goal', selectedSubmission.goals.primaryGoal],
+                  ['Timeline', selectedSubmission.goals.timeline],
+                  ['Expectations', selectedSubmission.goals.expectations],
+                ]}
+              />
+
+              {/* Progress through the funnel */}
+              <div className="mb-8">
+                <h3 className="font-dm-sans font-bold text-green-deep text-lg mb-4">Progress</h3>
+                <div className="space-y-2">
+                  {FUNNEL_STEPS.map(step => {
+                    const at = selectedSubmission.progress?.[step.key]
+                    return (
+                      <div
+                        key={step.key}
+                        className={`flex items-center justify-between rounded-lg border p-3 ${
+                          at ? 'border-green-deep/20 bg-cream' : 'border-dashed border-gray-200 bg-white'
+                        }`}
+                      >
+                        <span className={`font-dm-sans text-sm ${at ? 'font-semibold text-green-deep' : 'text-gray-400'}`}>
+                          {at ? '✓' : '○'} {step.label}
+                        </span>
+                        <span className="font-dm-sans text-xs text-text-mid">
+                          {at ? formatDate(at) : 'Not reached'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="mt-3 font-dm-sans text-xs leading-5 text-text-mid">
+                  Payment is taken on an external Paystack page, so opening it is the last step that can be recorded here.
+                  It does not confirm that payment was made.
+                </p>
               </div>
 
               {/* Test Recommendations */}

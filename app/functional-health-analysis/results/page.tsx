@@ -53,6 +53,20 @@ export default function FunctionalHealthResults() {
   const [formData, setFormData] = useState<FormData | null>(null)
   const [recommendations, setRecommendations] = useState<TestRecommendation[]>([])
 
+  // The investigations page stores the assessment id on its way through, since
+  // this page is not navigated to with the query string.
+  const recordProgress = (step: 'request_downloaded_at' | 'payment_started_at') => {
+    const id = typeof window === 'undefined' ? null : sessionStorage.getItem('fxmed-health-analysis-id')
+    if (!id) return
+    fetch('/api/health-analysis/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, step }),
+    }).catch(() => {
+      // Never block the download or the payment redirect on tracking.
+    })
+  }
+
   useEffect(() => {
     // In a real app, this would come from URL params, localStorage, or API
     const storedData = localStorage.getItem('healthAnalysisData')
@@ -365,9 +379,11 @@ export default function FunctionalHealthResults() {
 
     // Save the PDF
     pdf.save(`FXMed_Investigation_Request_${formData.personalInfo.firstName}_${formData.personalInfo.lastName}.pdf`)
+    recordProgress('request_downloaded_at')
   }
 
   const handlePayNow = () => {
+    recordProgress('payment_started_at')
     // Redirect to PayStack shop in a new tab
     window.open('https://paystack.shop/pay/fxmed', '_blank')
   }
