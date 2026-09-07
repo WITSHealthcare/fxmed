@@ -7,7 +7,8 @@ import {
   generateInvestigationFormPdf,
   type InvestigationTest,
 } from '@/lib/investigationFormPdf'
-import { generateInvestigationResultPdf, type InvestigationResult, type InvestigationResultFlag } from '@/lib/investigationResultPdf'
+import { generateInvestigationResultPdf, type InvestigationResult } from '@/lib/investigationResultPdf'
+import InvestigationResultsEditor from './InvestigationResultsEditor'
 
 type FormatterStatus = 'idle' | 'working' | 'success' | 'error'
 type ActiveTool = 'letterhead' | 'meal-plan' | 'investigation' | 'investigation-results'
@@ -336,7 +337,7 @@ export default function AdminTools({ scope = 'operations', patientContext }: { s
   const [investHistoryLoading, setInvestHistoryLoading] = useState(true)
   const [resultPatient, setResultPatient] = useState<InvestigationPatient>({ fullName: '', email: '', phone: '', age: '', gender: '' })
   const [resultMeta, setResultMeta] = useState(initialResultMeta)
-  const [resultRows, setResultRows] = useState<InvestigationResult[]>([{ section: '', test: '', result: '', unit: '', referenceRange: '', flag: '', remark: '' }])
+  const [resultRows, setResultRows] = useState<InvestigationResult[]>([])
   const [resultStatus, setResultStatus] = useState<FormatterStatus>('idle')
   const [resultMessage, setResultMessage] = useState('')
   const [resultHistory, setResultHistory] = useState<InvestigationResultHistoryItem[]>([])
@@ -769,10 +770,6 @@ export default function AdminTools({ scope = 'operations', patientContext }: { s
     }
   }
 
-  const updateResultRow = (index: number, field: keyof InvestigationResult, value: string) => {
-    setResultRows((current) => current.map((row, i) => i === index ? { ...row, [field]: value } : row))
-  }
-
   const extractResultsFromPdf = async () => {
     if (!resultPdfFile || !resultExtractionPrompt.trim()) {
       setResultExtractionStatus('error')
@@ -799,9 +796,11 @@ export default function AdminTools({ scope = 'operations', patientContext }: { s
   }
 
   const generateResultReport = async () => {
-    const results = resultRows.map(row => ({ ...row, test: row.test.trim(), result: row.result.trim() })).filter(row => row.test && row.result)
+    const results = resultRows.map(row => ({ ...row, test: row.test.trim(), result: row.result.trim(), unit: row.unit.trim() }))
     if (!resultPatient.fullName.trim()) { setResultStatus('error'); setResultMessage('Enter the patient’s full name.'); return }
-    if (!results.length) { setResultStatus('error'); setResultMessage('Add at least one investigation with a test name and result.'); return }
+    if (!results.length) { setResultStatus('error'); setResultMessage('Select at least one investigation and enter its result.'); return }
+    const incomplete = results.find(row => !row.test || !row.result)
+    if (incomplete) { setResultStatus('error'); setResultMessage(incomplete.test ? `Enter a result for ${incomplete.test}, or remove it from the selected tests.` : 'Enter a name and result for every custom test.'); return }
     setResultStatus('working'); setResultMessage('')
     try {
       const blob = await generateInvestigationResultPdf({ ...resultPatient, ...resultMeta, results })
@@ -1589,9 +1588,7 @@ export default function AdminTools({ scope = 'operations', patientContext }: { s
           </div>
 
           <div className="mt-4 rounded-xl border border-green-deep/10 bg-cream/40 p-4">
-            <div className="flex items-center justify-between gap-3 mb-4"><div><h4 className="text-sm font-dm-sans font-semibold text-green-deep">Investigation Results</h4><p className="mt-1 text-xs font-dm-sans text-text-mid">A test name and result are required. Use the same optional section heading on related tests to group them in the PDF.</p></div><button type="button" onClick={() => setResultRows([{ section: '', test: '', result: '', unit: '', referenceRange: '', flag: '', remark: '' }])} className="border border-green-deep/20 text-green-deep px-3 py-2 rounded-lg font-dm-sans font-semibold text-xs">Clear</button></div>
-            <div className="space-y-3">{resultRows.map((row,index) => <div key={index} className="rounded-lg border border-green-deep/10 bg-white p-3"><div className="flex justify-between mb-2"><span className="text-xs font-dm-sans font-semibold text-text-mid">Result {index + 1}</span><button type="button" disabled={resultRows.length === 1} onClick={() => setResultRows(current => current.filter((_,i) => i !== index))} className="text-red-600 disabled:text-gray-300 text-xs font-semibold">Remove</button></div><input value={row.section} onChange={e => updateResultRow(index,'section',e.target.value)} placeholder="Optional section heading (e.g. Full Blood Count)" className="mb-2 w-full rounded-lg border border-green-deep/15 bg-cream/30 px-3 py-2 text-sm font-semibold text-green-deep"/><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2"><input value={row.test} onChange={e => updateResultRow(index,'test',e.target.value)} placeholder="Test name *" className="rounded-lg border border-green-deep/15 px-3 py-2 text-sm"/><input value={row.result} onChange={e => updateResultRow(index,'result',e.target.value)} placeholder="Result *" className="rounded-lg border border-green-deep/15 px-3 py-2 text-sm"/><input value={row.unit} onChange={e => updateResultRow(index,'unit',e.target.value)} placeholder="Unit" className="rounded-lg border border-green-deep/15 px-3 py-2 text-sm"/><input value={row.referenceRange} onChange={e => updateResultRow(index,'referenceRange',e.target.value)} placeholder="Reference range" className="rounded-lg border border-green-deep/15 px-3 py-2 text-sm"/><select value={row.flag} onChange={e => updateResultRow(index,'flag',e.target.value as InvestigationResultFlag)} className="rounded-lg border border-green-deep/15 px-3 py-2 text-sm bg-white"><option value="">No flag</option><option>Normal</option><option>High</option><option>Low</option><option>Abnormal</option></select></div><input value={row.remark} onChange={e => updateResultRow(index,'remark',e.target.value)} placeholder="Optional remark" className="mt-2 w-full rounded-lg border border-green-deep/15 px-3 py-2 text-sm"/></div>)}</div>
-            <button type="button" onClick={() => setResultRows(current => [...current,{ section: current.at(-1)?.section || '', test: '', result: '', unit: '', referenceRange: '', flag: '', remark: '' }])} className="mt-3 border border-dashed border-green-deep/30 text-green-deep hover:bg-green-deep/5 w-full px-4 py-2 rounded-lg font-dm-sans font-semibold text-sm">+ Add Result</button>
+            <InvestigationResultsEditor rows={resultRows} onChange={setResultRows} />
             <label className="block mt-4 text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Clinical Notes</label><textarea value={resultMeta.notes} onChange={e => setResultMeta(current => ({ ...current, notes: e.target.value }))} rows={3} placeholder="Optional interpretation or follow-up note" className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm resize-y" />
             <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">{resultMessage ? <p className={`text-sm font-dm-sans ${resultStatus === 'error' ? 'text-red-600' : 'text-green-deep'}`}>{resultMessage}</p> : <span/>}<button type="button" onClick={generateResultReport} disabled={resultStatus === 'working'} className="bg-green-deep hover:bg-green-deep/90 disabled:bg-gray-300 text-cream px-5 py-3 rounded-lg font-dm-sans font-semibold text-sm">{resultStatus === 'working' ? 'Generating...' : 'Generate Results PDF'}</button></div>
           </div>
