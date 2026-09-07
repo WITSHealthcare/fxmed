@@ -11,7 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 // Which public form produced a message. Kept closed so the public POST cannot
 // write arbitrary labels into the admin inbox.
-const MESSAGE_SOURCES = ['contact_form', 'health_assessment'] as const
+const MESSAGE_SOURCES = ['contact_form', 'health_assessment', 'functional_health_analysis'] as const
 type MessageSource = (typeof MESSAGE_SOURCES)[number]
 
 const isMessageSource = (value: unknown): value is MessageSource =>

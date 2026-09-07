@@ -13,9 +13,12 @@ ALTER TABLE public.messages
 ALTER TABLE public.messages
   DROP CONSTRAINT IF EXISTS messages_source_check;
 
+-- 'health_assessment' is the short risk quiz on the homepage.
+-- 'functional_health_analysis' is the five-section form at
+-- /functional-health-analysis/form, which also creates a clinical record.
 ALTER TABLE public.messages
   ADD CONSTRAINT messages_source_check
-  CHECK (source IN ('contact_form', 'health_assessment'));
+  CHECK (source IN ('contact_form', 'health_assessment', 'functional_health_analysis'));
 
 -- The admin inbox filters by source, and the notification bell counts unread
 -- rows per source.

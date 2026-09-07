@@ -36,7 +36,7 @@ const kindLabels: Record<NotificationKind, string> = {
   appointment: 'Booking',
   registration: 'Registration',
   contact: 'Enquiry',
-  assessment: 'Health analysis',
+  assessment: 'Functional health analysis',
 }
 
 export default function Notifications() {

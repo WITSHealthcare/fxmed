@@ -43,6 +43,9 @@ const sources: Array<{
   link: string
   dismissable: boolean
   describe: (row: any) => { title: string; detail: string }
+  // Rows this source should not raise a notification for, because another
+  // source already covers the same event.
+  skip?: (row: any) => boolean
 }> = [
   {
     kind: 'message',
@@ -64,6 +67,11 @@ const sources: Array<{
         detail: String(row.subject || row.message || '').trim(),
       }
     },
+    // A functional health analysis writes both a clinical record and a contact
+    // message. The assessment source below already announces it, and links to
+    // the full submission, so counting the message too would notify twice for
+    // one event. The message itself still appears in the inbox.
+    skip: row => /^functional health analysis:/i.test(String(row.subject || '')),
   },
   {
     kind: 'appointment',
@@ -122,7 +130,9 @@ const sources: Array<{
       const person = row.assessment_data?.personalInfo || {}
       const concerns = row.assessment_data?.healthConcerns || {}
       return {
-        title: `Health analysis submitted by ${[person.firstName, person.lastName].filter(Boolean).join(' ') || 'a visitor'}`,
+        // Named in full to distinguish it from the homepage risk quiz, which
+        // arrives as a message titled "Health assessment completed by ...".
+        title: `Functional health analysis from ${[person.firstName, person.lastName].filter(Boolean).join(' ') || 'a visitor'}`,
         detail: String(concerns.primaryConcern || '').trim(),
       }
     },
@@ -153,7 +163,7 @@ export async function GET(request: NextRequest) {
       return { kind: source.kind, failed: true, items: [] as Notification[] }
     }
 
-    const items = (data || []).map((row: any) => {
+    const items = (data || []).filter((row: any) => !source.skip?.(row)).map((row: any) => {
       const { title, detail } = source.describe(row)
       return {
         id: `${source.kind}:${row.id}`,

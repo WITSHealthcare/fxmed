@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { EnvelopeSimpleIcon } from '@phosphor-icons/react'
 
-type MessageSource = 'contact_form' | 'health_assessment'
+type MessageSource = 'contact_form' | 'health_assessment' | 'functional_health_analysis'
 
 type Message = {
   id: string
@@ -22,12 +22,18 @@ type Message = {
 const sourceLabels: Record<MessageSource, string> = {
   contact_form: 'Contact form',
   health_assessment: 'Health assessment',
+  functional_health_analysis: 'Functional health analysis',
 }
 
-// Rows predating the source column are recognised by the subject the
-// assessment writes, so the inbox labels them correctly before the migration.
-const messageSource = (message: Message): MessageSource =>
-  message.source || (/^health assessment:/i.test(message.subject || '') ? 'health_assessment' : 'contact_form')
+// Rows predating the source column are recognised by the subject each form
+// writes, so the inbox labels them correctly before the migration is applied.
+const messageSource = (message: Message): MessageSource => {
+  if (message.source) return message.source
+  const subject = message.subject || ''
+  if (/^functional health analysis:/i.test(subject)) return 'functional_health_analysis'
+  if (/^health assessment:/i.test(subject)) return 'health_assessment'
+  return 'contact_form'
+}
 
 export default function Messages() {
   const [messages, setMessages] = useState<Message[]>([])
@@ -146,6 +152,7 @@ export default function Messages() {
           ['all', 'All sources'],
           ['contact_form', sourceLabels.contact_form],
           ['health_assessment', sourceLabels.health_assessment],
+          ['functional_health_analysis', sourceLabels.functional_health_analysis],
         ] as const).map(([value, label]) => (
           <button
             key={value}
@@ -195,7 +202,9 @@ export default function Messages() {
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <span className={`mb-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                      messageSource(message) === 'health_assessment'
+                      messageSource(message) === 'functional_health_analysis'
+                        ? 'bg-gold/25 text-green-deep'
+                        : messageSource(message) === 'health_assessment'
                         ? 'bg-green-mid/15 text-green-mid'
                         : 'bg-gray-100 text-gray-600'
                     }`}>
