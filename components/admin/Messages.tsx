@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { EnvelopeSimpleIcon } from '@phosphor-icons/react'
 
+type MessageSource = 'contact_form' | 'health_assessment' | 'functional_health_analysis'
+
 type Message = {
   id: string
   name: string
@@ -11,8 +13,26 @@ type Message = {
   subject?: string
   message: string
   status: 'unread' | 'read' | 'archived'
+  // Absent until migration 029 is applied, and on rows written before it.
+  source?: MessageSource
   created_at: string
   updated_at: string
+}
+
+const sourceLabels: Record<MessageSource, string> = {
+  contact_form: 'Contact form',
+  health_assessment: 'Health assessment',
+  functional_health_analysis: 'Functional health analysis',
+}
+
+// Rows predating the source column are recognised by the subject each form
+// writes, so the inbox labels them correctly before the migration is applied.
+const messageSource = (message: Message): MessageSource => {
+  if (message.source) return message.source
+  const subject = message.subject || ''
+  if (/^functional health analysis:/i.test(subject)) return 'functional_health_analysis'
+  if (/^health assessment:/i.test(subject)) return 'health_assessment'
+  return 'contact_form'
 }
 
 export default function Messages() {
@@ -20,12 +40,16 @@ export default function Messages() {
   const [loading, setLoading] = useState(true)
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
   const [filter, setFilter] = useState<'all' | 'unread' | 'read' | 'archived'>('all')
+  const [sourceFilter, setSourceFilter] = useState<'all' | MessageSource>('all')
 
   const fetchMessages = useCallback(async () => {
     setLoading(true)
     try {
-      const url = filter === 'all' ? '/api/messages' : `/api/messages?status=${filter}`
-      const response = await fetch(url)
+      const params = new URLSearchParams()
+      if (filter !== 'all') params.set('status', filter)
+      if (sourceFilter !== 'all') params.set('source', sourceFilter)
+      const query = params.toString()
+      const response = await fetch(query ? `/api/messages?${query}` : '/api/messages')
       if (!response.ok) throw new Error('Failed to fetch messages')
 
       const { messages: data } = await response.json()
@@ -35,7 +59,7 @@ export default function Messages() {
     } finally {
       setLoading(false)
     }
-  }, [filter])
+  }, [filter, sourceFilter])
 
   const updateMessageStatus = async (id: string, status: string) => {
     try {
@@ -122,6 +146,28 @@ export default function Messages() {
         ))}
       </div>
 
+      {/* Source Tabs */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {([
+          ['all', 'All sources'],
+          ['contact_form', sourceLabels.contact_form],
+          ['health_assessment', sourceLabels.health_assessment],
+          ['functional_health_analysis', sourceLabels.functional_health_analysis],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => setSourceFilter(value)}
+            className={`px-4 py-2 rounded-full font-dm-sans text-sm font-medium transition-all ${
+              sourceFilter === value
+                ? 'bg-green-mid text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-deep mx-auto mb-4"></div>
@@ -155,6 +201,15 @@ export default function Messages() {
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
+                    <span className={`mb-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      messageSource(message) === 'functional_health_analysis'
+                        ? 'bg-gold/25 text-green-deep'
+                        : messageSource(message) === 'health_assessment'
+                        ? 'bg-green-mid/15 text-green-mid'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {sourceLabels[messageSource(message)]}
+                    </span>
                     <h4 className="font-dm-sans font-semibold text-green-deep mb-1">
                       {message.name}
                     </h4>

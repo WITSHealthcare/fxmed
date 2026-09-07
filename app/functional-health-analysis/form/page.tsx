@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { ageFromDateOfBirth, isPlausibleDateOfBirth } from '@/lib/age'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 
@@ -10,7 +11,7 @@ interface FormData {
     lastName: string
     email: string
     phone: string
-    age: string
+    dateOfBirth: string
     gender: string
   }
   healthConcerns: {
@@ -48,7 +49,7 @@ export default function FunctionalHealthAnalysisForm() {
       lastName: '',
       email: '',
       phone: '',
-      age: '',
+      dateOfBirth: '',
       gender: ''
     },
     healthConcerns: {
@@ -75,6 +76,8 @@ export default function FunctionalHealthAnalysisForm() {
       expectations: ''
     }
   })
+
+  const age = ageFromDateOfBirth(formData.personalInfo.dateOfBirth)
 
   const sections = [
     { id: 'personal', title: 'Personal Information', description: 'Tell us about yourself' },
@@ -145,7 +148,7 @@ export default function FunctionalHealthAnalysisForm() {
                formData.personalInfo.lastName && 
                formData.personalInfo.email && 
                formData.personalInfo.phone &&
-               formData.personalInfo.age &&
+               isPlausibleDateOfBirth(formData.personalInfo.dateOfBirth) &&
                formData.personalInfo.gender
       case 'concerns':
         return formData.healthConcerns.primaryConcern && 
@@ -223,16 +226,18 @@ export default function FunctionalHealthAnalysisForm() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block font-dm-sans font-medium text-green-deep mb-2">Age *</label>
+                <label className="block font-dm-sans font-medium text-green-deep mb-2">Date of birth *</label>
                 <input
-                  type="number"
-                  value={formData.personalInfo.age}
-                  onChange={(e) => handleInputChange('personalInfo', 'age', e.target.value)}
+                  type="date"
+                  value={formData.personalInfo.dateOfBirth}
+                  onChange={(e) => handleInputChange('personalInfo', 'dateOfBirth', e.target.value)}
                   className="w-full px-4 py-3 rounded-lg border border-green-deep/20 focus:outline-none focus:border-gold"
-                  placeholder="25"
-                  min="18"
-                  max="100"
+                  max={new Date().toISOString().slice(0, 10)}
+                  autoComplete="bday"
                 />
+                {age !== null && (
+                  <p className="mt-1 font-dm-sans text-sm text-text-mid">{age} years old</p>
+                )}
               </div>
               <div>
                 <label className="block font-dm-sans font-medium text-green-deep mb-2">Gender *</label>

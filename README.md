@@ -26,8 +26,6 @@ fxmed-website/
 │   ├── Hero.tsx            # Hero section with background
 │   ├── WhyFXMed.tsx        # Why FXMed section with benefits
 │   ├── MobileCare.tsx       # Mobile care banner
-│   ├── QuizSection.tsx      # Health quiz wrapper
-│   ├── HealthQuiz.tsx       # Interactive quiz component
 │   ├── Programs.tsx         # Programs and services sections
 │   └── AIChat.tsx          # AI chat widget
 ├── public/                 # Static assets

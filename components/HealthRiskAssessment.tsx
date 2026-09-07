@@ -244,7 +244,12 @@ export default function HealthRiskAssessment({ headingLevel = 'h2' }: { headingL
   // Rendered as a section on the homepage (which owns its own h1) and as the
   // primary content of /health-assessment, where this heading is the page h1.
   const Heading = headingLevel
-  const [screen, setScreen] = useState<'welcome' | 'assessment' | 'results'>('welcome')
+  const [screen, setScreen] = useState<'welcome' | 'assessment' | 'details' | 'results'>('welcome')
+  // Held so the results screen can be reached only after contact details are
+  // given, and so the submitted lead carries the full set of answers.
+  const [pendingAnswers, setPendingAnswers] = useState<Answer[]>([])
+  const [details, setDetails] = useState({ name: '', email: '', phone: '' })
+  const [detailsError, setDetailsError] = useState('')
   const [category, setCategory] = useState<string>('')
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState<Answer[]>([])
@@ -326,7 +331,10 @@ export default function HealthRiskAssessment({ headingLevel = 'h2' }: { headingL
     if (currentQuestion < assessment.questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1)
     } else {
-      completeAssessment(newAnswers)
+      // Contact details are collected before the result is revealed.
+      setPendingAnswers(newAnswers)
+      setDetailsError('')
+      setScreen('details')
     }
   }
 
@@ -351,9 +359,12 @@ export default function HealthRiskAssessment({ headingLevel = 'h2' }: { headingL
     }
   }
 
-  const calculateRiskScore = (answers: Answer[], category: string): { score: number; riskLevel: 'low' | 'moderate' | 'high'; insights: string[] } => {
+  const calculateRiskScore = (answers: Answer[], category: string): { score: number; riskLevel: 'low' | 'moderate' | 'high'; insights: AssessmentResult['insights'] } => {
     let score = 0
-    const insights: string[] = []
+    // Each insight carries its own wording. Deriving the body from the heading
+    // reads as "identified multiple high-risk factors identified", because the
+    // heading is already a full sentence rather than a noun phrase.
+    const insights: AssessmentResult['insights'] = []
     
     answers.forEach((answer, index) => {
       if (category === 'children') {
@@ -427,35 +438,95 @@ export default function HealthRiskAssessment({ headingLevel = 'h2' }: { headingL
     
     // Generate insights based on score
     if (score >= 8) {
-      insights.push('Multiple high-risk factors identified')
-      insights.push('Immediate medical evaluation recommended')
+      insights.push({
+        title: 'Multiple high-risk factors identified',
+        text: 'Your answers point to several concerns that often occur together. Looking at them as a whole, rather than one at a time, gives the clearest picture of what is driving them.',
+      })
+      insights.push({
+        title: 'Immediate medical evaluation recommended',
+        text: 'Given how much your answers cover, we would encourage you to speak with a clinician soon rather than waiting for a routine check-up.',
+      })
     } else if (score >= 5) {
-      insights.push('Several risk factors present')
-      insights.push('Preventive measures advised')
+      insights.push({
+        title: 'Several risk factors present',
+        text: 'Your answers flag more than one area worth examining. Concerns at this stage are usually easier to address now than once they have had time to settle in.',
+      })
+      insights.push({
+        title: 'Preventive measures advised',
+        text: 'Targeted testing and some adjustments to your daily routine can often keep these concerns from progressing.',
+      })
     } else {
-      insights.push('Low to moderate risk profile')
-      insights.push('Continue regular monitoring')
+      insights.push({
+        title: 'Low to moderate risk profile',
+        text: 'Your answers do not point to a pressing concern. That is worth knowing, and worth keeping an eye on.',
+      })
+      insights.push({
+        title: 'Continue regular monitoring',
+        text: 'Periodic check-ups remain the best way to catch changes early, while they are still straightforward to manage.',
+      })
     }
     
     const riskLevel = score >= 8 ? 'high' : score >= 5 ? 'moderate' : 'low'
     return { score, riskLevel, insights }
   }
 
-  const completeAssessment = async (finalAnswers: Answer[]) => {
+  const answerText = (answer: Answer['answer']): string => {
+    if (Array.isArray(answer)) return answer.length ? answer.join(', ') : 'None selected'
+    if (answer && typeof answer === 'object' && 'label' in answer) return `${answer.label} (${answer.value} of 5)`
+    return answer || 'No answer'
+  }
+
+  // Written as plain text because the admin inbox renders the message body as
+  // it was received, with no formatting of its own.
+  const buildTranscript = (finalAnswers: Answer[], riskLevel: string) => [
+    `Health assessment: ${ASSESSMENTS[category].name}`,
+    `Risk level: ${riskLevel.toUpperCase()}`,
+    '',
+    ...finalAnswers.flatMap(answer => [`Q: ${answer.question}`, `A: ${answerText(answer.answer)}`, '']),
+  ].join('\n').trim()
+
+  const submitDetails = async () => {
+    const name = details.name.trim()
+    const email = details.email.trim()
+    const phone = details.phone.trim()
+
+    if (!name) return setDetailsError('Please enter your full name.')
+    if (!/^\S+@\S+\.\S+$/.test(email)) return setDetailsError('Please enter a valid email address.')
+    if (!phone) return setDetailsError('Please enter your phone number.')
+
+    setDetailsError('')
+    setScreen('assessment')
     setIsLoading(true)
-    
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    const { riskLevel, insights } = calculateRiskScore(finalAnswers, category)
-    
+
+    const { riskLevel, insights } = calculateRiskScore(pendingAnswers, category)
+
+    try {
+      await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          source: 'health_assessment',
+          subject: `Health assessment: ${ASSESSMENTS[category].name} — ${riskLevel} risk`,
+          message: buildTranscript(pendingAnswers, riskLevel),
+        }),
+      })
+    } catch {
+      // The visitor answered every question and gave their details, so they get
+      // their result either way. A failed save must not take that away.
+    }
+
+    showResult(riskLevel, insights)
+  }
+
+  const showResult = (riskLevel: AssessmentResult['riskLevel'], insights: AssessmentResult['insights']) => {
     const result: AssessmentResult = {
       riskLevel,
       title: `${ASSESSMENTS[category].name} Assessment Complete`,
       summary: `Based on your responses to the ${ASSESSMENTS[category].name} questionnaire, your risk level is ${riskLevel}. ${riskLevel === 'high' ? 'We recommend scheduling a consultation as soon as possible.' : riskLevel === 'moderate' ? 'A consultation would help address your concerns proactively.' : 'Continue monitoring and consider periodic check-ups.'}`,
-      insights: insights.map((insight, index) => ({
-        title: insight,
-        text: `This assessment identified ${insight.toLowerCase()} based on your responses. A comprehensive evaluation can provide personalized recommendations.`
-      })),
+      insights,
       recommendations: `Schedule a consultation with our functional medicine experts to discuss your ${ASSESSMENTS[category].name} concerns and develop a personalized health plan.`
     }
     
@@ -471,6 +542,9 @@ export default function HealthRiskAssessment({ headingLevel = 'h2' }: { headingL
     setAnswers([])
     setSelectedAnswers([])
     setResult(null)
+    setPendingAnswers([])
+    setDetails({ name: '', email: '', phone: '' })
+    setDetailsError('')
   }
 
   const bookConsultation = (type: 'telemedicine' | 'home-visit') => {
@@ -662,6 +736,79 @@ export default function HealthRiskAssessment({ headingLevel = 'h2' }: { headingL
                   {currentQuestion === ASSESSMENTS[category].questions.length - 1 ? 'Get Results' : 'Next'}
                 </button>
               </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {screen === 'details' && (
+        <section id="quiz" className="bg-white py-[90px] px-[5%]">
+          <div className="max-w-7xl mx-auto">
+            <div className="max-w-2xl mx-auto bg-[#FCFFF0] rounded-[24px] p-8 md:p-12">
+              <div className="text-center mb-8">
+                <div className="inline-block text-green-mid bg-green-mid/10 px-4 py-1.5 rounded-[20px] text-[0.75rem] font-semibold tracking-[0.14em] uppercase mb-4">
+                  Last step
+                </div>
+                <h2 className="font-dm-sans font-bold text-green-deep text-[clamp(1.6rem,3vw,2.2rem)] leading-[1.2] mb-3">
+                  Where should we send your results?
+                </h2>
+                <p className="font-dm-sans text-text-mid text-[1rem] leading-[1.6]">
+                  Your {ASSESSMENTS[category].name} results are ready. Add your details to view them and so our team can
+                  follow up if you would like to talk them through.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="font-dm-sans font-semibold text-green-deep text-sm">Full name</span>
+                  <input
+                    type="text"
+                    value={details.name}
+                    onChange={event => setDetails(current => ({ ...current, name: event.target.value }))}
+                    autoComplete="name"
+                    placeholder="Your full name"
+                    className="mt-1 w-full rounded-[12px] border-2 border-green-deep/15 bg-white px-4 py-3 font-dm-sans text-[1rem] text-green-deep focus:border-green-mid focus:outline-none"
+                  />
+                </label>
+                <label className="block">
+                  <span className="font-dm-sans font-semibold text-green-deep text-sm">Email address</span>
+                  <input
+                    type="email"
+                    value={details.email}
+                    onChange={event => setDetails(current => ({ ...current, email: event.target.value }))}
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    className="mt-1 w-full rounded-[12px] border-2 border-green-deep/15 bg-white px-4 py-3 font-dm-sans text-[1rem] text-green-deep focus:border-green-mid focus:outline-none"
+                  />
+                </label>
+                <label className="block">
+                  <span className="font-dm-sans font-semibold text-green-deep text-sm">Phone number</span>
+                  <input
+                    type="tel"
+                    value={details.phone}
+                    onChange={event => setDetails(current => ({ ...current, phone: event.target.value }))}
+                    autoComplete="tel"
+                    placeholder="080 0000 0000"
+                    className="mt-1 w-full rounded-[12px] border-2 border-green-deep/15 bg-white px-4 py-3 font-dm-sans text-[1rem] text-green-deep focus:border-green-mid focus:outline-none"
+                  />
+                </label>
+              </div>
+
+              {detailsError && (
+                <p role="alert" className="mt-4 font-dm-sans text-sm text-red-600">{detailsError}</p>
+              )}
+
+              <button
+                onClick={() => void submitDetails()}
+                className="mt-6 w-full rounded-[12px] bg-gold px-8 py-4 font-dm-sans font-bold text-green-deep transition-all hover:bg-gold-light"
+              >
+                View my results
+              </button>
+
+              <p className="mt-4 text-center font-dm-sans text-xs leading-[1.6] text-text-mid">
+                We use your details only to share these results and to contact you about your care. This assessment is
+                for guidance and is not a diagnosis.
+              </p>
             </div>
           </div>
         </section>
