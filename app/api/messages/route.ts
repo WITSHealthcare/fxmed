@@ -9,23 +9,53 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-// GET - Fetch all messages or filter by status
+// Which public form produced a message. Kept closed so the public POST cannot
+// write arbitrary labels into the admin inbox.
+const MESSAGE_SOURCES = ['contact_form', 'health_assessment'] as const
+type MessageSource = (typeof MESSAGE_SOURCES)[number]
+
+const isMessageSource = (value: unknown): value is MessageSource =>
+  typeof value === 'string' && (MESSAGE_SOURCES as readonly string[]).includes(value)
+
+// Migration 029 adds messages.source. Until it is applied the column is absent,
+// and the two operations report that differently: an insert fails PostgREST's
+// schema cache check (PGRST204) while a filtered select reaches Postgres and
+// fails as undefined_column (42703). Detecting both lets reads and writes
+// degrade to the pre-migration shape rather than fail.
+const isMissingSourceColumn = (error: { code?: string; message?: string } | null) =>
+  !!error && (
+    error.code === '42703' ||
+    error.code === 'PGRST204' ||
+    /source.*(does not exist|schema cache)/i.test(error.message || '')
+  )
+
+// GET - Fetch all messages, optionally filtered by status and/or source
 export async function GET(request: NextRequest) {
   try {
     if (!await getAuthorizedAdminRole(request, 'messages')) return NextResponse.json({ error: 'Messages access required' }, { status: 403 })
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
+    const source = searchParams.get('source')
 
-    let query = supabase
-      .from('messages')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const build = (withSource: boolean) => {
+      let query = supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-    if (status) {
-      query = query.eq('status', status)
+      if (status) {
+        query = query.eq('status', status)
+      }
+      if (withSource && source && isMessageSource(source)) {
+        query = query.eq('source', source)
+      }
+      return query
     }
 
-    const { data, error } = await query
+    let { data, error } = await build(true)
+    if (isMissingSourceColumn(error)) {
+      ({ data, error } = await build(false))
+    }
 
     if (error) throw error
 
@@ -54,20 +84,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name, a valid email address, and message are required.' }, { status: 400 })
     }
 
-    const { data, error } = await supabase
+    const record = {
+      name,
+      email,
+      phone: cleanPublicString(body.phone, 40),
+      subject: cleanPublicString(body.subject, 200),
+      message,
+      status: 'unread',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+    // Anything not on the allowlist is recorded as an ordinary contact
+    // enquiry, so a crafted body cannot invent its own inbox label.
+    const source: MessageSource = isMessageSource(body.source) ? body.source : 'contact_form'
+
+    let { data, error } = await supabase
       .from('messages')
-      .insert([{
-        name,
-        email,
-        phone: cleanPublicString(body.phone, 40),
-        subject: cleanPublicString(body.subject, 200),
-        message,
-        status: 'unread',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }])
+      .insert([{ ...record, source }])
       .select()
       .single()
+
+    // Before migration 029 the column does not exist. Capturing the lead
+    // matters more than labelling it, so fall back to an unlabelled insert.
+    if (isMissingSourceColumn(error)) {
+      ({ data, error } = await supabase.from('messages').insert([record]).select().single())
+    }
 
     if (error) throw error
 

@@ -50,13 +50,20 @@ const sources: Array<{
     table: 'messages',
     status: 'unread',
     timeField: 'created_at',
-    select: 'id, name, email, message, created_at',
+    // `subject` rather than `source`, so this keeps working before migration
+    // 029 adds the column.
+    select: 'id, name, email, subject, message, created_at',
     link: '/admin?tab=messages',
     dismissable: true,
-    describe: row => ({
-      title: `New message from ${row.name || 'a visitor'}`,
-      detail: String(row.message || '').trim(),
-    }),
+    describe: row => {
+      const fromAssessment = /^health assessment:/i.test(String(row.subject || ''))
+      return {
+        title: fromAssessment
+          ? `Health assessment completed by ${row.name || 'a visitor'}`
+          : `New message from ${row.name || 'a visitor'}`,
+        detail: String(row.subject || row.message || '').trim(),
+      }
+    },
   },
   {
     kind: 'appointment',
