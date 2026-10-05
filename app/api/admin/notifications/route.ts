@@ -46,6 +46,9 @@ const sources: Array<{
   // Rows this source should not raise a notification for, because another
   // source already covers the same event.
   skip?: (row: any) => boolean
+  // The same exclusion applied in the query, for a source where the excluded
+  // rows could otherwise fill the per-source limit and hide the rest.
+  narrow?: (query: any) => any
 }> = [
   {
     kind: 'message',
@@ -116,6 +119,20 @@ const sources: Array<{
       title: `New enquiry from ${row.full_name || 'a contact'}`,
       detail: [row.health_concern, row.outreach_event, row.phone].filter(Boolean).join(' · '),
     }),
+    // Migrations 031 and 032 copy every booking, message, registration,
+    // health analysis, ambassador submission and CRM or EMR patient into
+    // contacts. Each of those is worked from its own tab, and most are
+    // announced by a source above, so only people entered directly through
+    // the outreach form notify here.
+    narrow: query => query
+      .is('patient_registration_id', null)
+      .is('appointment_id', null)
+      .is('message_id', null)
+      .is('health_assessment_id', null)
+      .is('ambassador_application_id', null)
+      .is('ambassador_referral_id', null)
+      .is('crm_patient_id', null)
+      .is('emr_patient_id', null),
   },
   {
     kind: 'assessment',
@@ -150,13 +167,24 @@ export async function GET(request: NextRequest) {
   // A missing table or a single failed query must not blank the whole bell, so
   // each source is settled independently and its failure reported separately.
   const settled = await Promise.all(visible.map(async source => {
-    const { data, error } = await supabase
-      .from(source.table)
-      .select(source.select)
-      .eq('status', source.status)
-      .gte(source.timeField, since)
-      .order(source.timeField, { ascending: false })
-      .limit(PER_SOURCE_LIMIT)
+    const build = (narrowed: boolean) => {
+      const query = supabase
+        .from(source.table)
+        .select(source.select)
+        .eq('status', source.status)
+        .gte(source.timeField, since)
+      return (narrowed && source.narrow ? source.narrow(query) : query)
+        .order(source.timeField, { ascending: false })
+        .limit(PER_SOURCE_LIMIT)
+    }
+
+    let { data, error } = await build(true)
+    // The columns a source narrows on may come from a migration that has not
+    // been applied yet (undefined_column). Nothing can be excluded by them
+    // then, so the plain query is the right answer rather than a failure.
+    if (error?.code === '42703' && source.narrow) {
+      ({ data, error } = await build(false))
+    }
 
     if (error) {
       console.error(`Notifications: ${source.table} query failed:`, error.message)
