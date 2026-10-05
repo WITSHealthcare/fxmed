@@ -8,7 +8,7 @@ type ContactStatus = 'new' | 'contacted' | 'enrolled' | 'archived'
 type Contact = {
   id: string
   full_name: string
-  phone: string
+  phone?: string | null
   email?: string | null
   gender?: string | null
   date_of_birth?: string | null
@@ -22,6 +22,8 @@ type Contact = {
   blood_pressure?: string | null
   blood_sugar?: string | null
   outreach_event?: string | null
+  // Set when the contact is a copy of an existing EMR patient.
+  emr_patient_id?: string | null
   status: ContactStatus
   notes?: string | null
   created_at: string
@@ -222,7 +224,7 @@ export default function Contacts() {
             onChange={(e) => setEventFilter(e.target.value)}
             className="ml-auto px-3 py-2 rounded-lg border border-gray-300 font-dm-sans text-sm focus:outline-none focus:ring-2 focus:ring-green-deep"
           >
-            <option value="all">All outreaches</option>
+            <option value="all">All sources / outreaches</option>
             {events.map((ev) => <option key={ev} value={ev}>{ev}</option>)}
           </select>
         )}
@@ -238,7 +240,7 @@ export default function Contacts() {
           <AddressBookIcon size={58} weight="duotone" className="mx-auto mb-4 text-green-mid" />
           <h3 className="text-xl font-dm-sans font-bold text-green-deep mb-2">No contacts</h3>
           <p className="font-dm-sans text-text-mid">
-            Registrations from the <span className="font-semibold">/register</span> page will appear here.
+            Anyone who shares their details through a form, booking, enquiry or outreach will appear here.
           </p>
         </div>
       ) : (
@@ -261,7 +263,7 @@ export default function Contacts() {
                     {c.status}
                   </span>
                 </div>
-                <p className="font-dm-sans text-text-mid text-sm">{c.phone}{c.email ? ` · ${c.email}` : ''}</p>
+                <p className="font-dm-sans text-text-mid text-sm">{[c.phone, c.email].filter(Boolean).join(' · ')}</p>
                 {c.outreach_event && (
                   <p className="mt-1 flex items-center gap-1 font-dm-sans text-xs text-text-mid"><MapPinIcon size={14} weight="fill" />{c.outreach_event}</p>
                 )}
@@ -323,12 +325,16 @@ export default function Contacts() {
                   <DetailRow label="Blood sugar" value={selected.blood_sugar} />
                 </DetailSection>
 
-                <DetailSection title="Outreach">
-                  <DetailRow label="Event" value={selected.outreach_event} />
+                <DetailSection title="Source / outreach">
+                  <DetailRow label="Source / event" value={selected.outreach_event} />
                   <DetailRow label="Registered" value={formatDate(selected.created_at)} />
                 </DetailSection>
 
-                <button onClick={() => createClinicalPatient(selected)} disabled={clinicalSaving} className="primary w-full disabled:opacity-50">{clinicalSaving ? 'Creating record…' : 'Create clinical patient'}</button>
+                {selected.emr_patient_id ? (
+                  <p className="rounded-lg bg-white p-3 text-sm text-text-mid">Already a clinical patient. Their record is under Healthcare / EMR.</p>
+                ) : (
+                  <button onClick={() => createClinicalPatient(selected)} disabled={clinicalSaving} className="primary w-full disabled:opacity-50">{clinicalSaving ? 'Creating record…' : 'Create clinical patient'}</button>
+                )}
                 {clinicalMessage && <p className="mt-2 rounded-lg bg-white p-3 text-sm text-text-mid">{clinicalMessage}</p>}
 
                 <div className="mt-4">

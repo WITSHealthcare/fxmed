@@ -68,7 +68,7 @@ const adminNavItems: Array<{ id: AdminTab; label: string; Icon: typeof ArticleIc
   { id: 'tools', label: 'Tools', Icon: ToolboxIcon, title: 'Tools', description: 'Quick access to admin workflows and operational utilities' },
   { id: 'users', label: 'Users & Roles', Icon: ShieldCheckIcon, title: 'Users & Roles', description: 'Create dashboard users and assign role-based access' },
   { id: 'zara', label: 'Zara', Icon: RobotIcon, title: 'Zara Conversations', description: 'View all interactions people have had with Zara, the AI assistant' },
-  { id: 'contacts', label: 'Contacts', Icon: AddressBookIcon, title: 'Outreach Contacts', description: 'Details and biodata collected from people at outreaches' },
+  { id: 'contacts', label: 'Contacts', Icon: AddressBookIcon, title: 'Contacts', description: 'Contact details from every form, booking, enquiry and outreach' },
   { id: 'healthcare', label: 'Healthcare / EMR', Icon: HospitalIcon, title: 'Healthcare / EMR', description: 'Manage clinical patients, encounters, records, investigations, medications and care plans' },
 ]
 

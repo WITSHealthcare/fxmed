@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -24,28 +24,69 @@ export default function PatientRegistrationPage() {
   const [form, setForm] = useState<RegistrationForm>(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [submitted, setSubmitted] = useState(false)
+  const [submitted, setSubmitted] = useState<string | null>(null)
+  const errorRef = useRef<HTMLDivElement>(null)
+  const submittingRef = useRef(false)
   const set = (field: keyof RegistrationForm, value: string | boolean) => setForm(current => ({ ...current, [field]: value }))
+
+  useEffect(() => {
+    if (error) {
+      errorRef.current?.focus()
+      errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [error])
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
+    if (submittingRef.current) return
+    submittingRef.current = true
     setLoading(true); setError('')
-    const response = await fetch('/api/patient-registration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
-    const result = await response.json().catch(() => ({}))
-    if (response.ok) { setSubmitted(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-    else setError(result.error || 'Registration could not be submitted.')
-    setLoading(false)
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 30000)
+    try {
+      const response = await fetch('/api/patient-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(form),
+        signal: controller.signal,
+      })
+      const result = await response.json().catch(() => null)
+      if (controller.signal.aborted) throw new Error('Request timed out')
+      if (!response.ok) {
+        const fallback = response.status === 429
+          ? 'Too many registration attempts. Please wait up to an hour before trying again, or contact FXMed for help.'
+          : response.status >= 500
+            ? 'The registration service encountered a problem. We could not confirm whether your details were saved. Please contact FXMed before submitting again.'
+            : 'Your submission was not accepted. Please check your details and try again. If this continues, contact FXMed for help.'
+        setError(typeof result?.error === 'string' && result.error.trim() ? result.error : fallback)
+        return
+      }
+      if (typeof result?.registration?.id !== 'string' || !result.registration.id.trim()) {
+        setError('The server returned an unexpected response, so we could not confirm whether your registration was saved. Please contact FXMed before submitting again.')
+        return
+      }
+      setSubmitted(result.registration.id)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch {
+      setError(controller.signal.aborted
+        ? 'The request took too long to confirm. Your registration may have been saved, but we did not receive confirmation. Please contact FXMed before submitting again.'
+        : 'The connection was interrupted, so we could not confirm whether your registration was saved. Check your internet connection and contact FXMed before submitting again.')
+    } finally {
+      window.clearTimeout(timeout)
+      submittingRef.current = false
+      setLoading(false)
+    }
   }
 
-  if (submitted) return <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12"><section className="w-full max-w-lg rounded-[28px] border border-green-deep/10 bg-white p-8 text-center shadow-custom sm:p-12"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gold text-3xl text-green-deep">✓</div><h1 className="mt-6 font-dm-sans text-3xl font-bold text-green-deep">Registration received</h1><p className="mt-4 font-dm-sans leading-7 text-text-mid">The FXMed clinical team will review the details before creating a patient record. Submission does not yet create an MRN or confirm an appointment.</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link href="/" className="rounded-full bg-green-deep px-6 py-3 font-dm-sans font-bold text-white no-underline">Return home</Link><button onClick={() => { setForm(emptyForm); setSubmitted(false) }} className="rounded-full border border-green-deep/20 px-6 py-3 font-dm-sans font-bold text-green-deep">Register another patient</button></div></section></main>
+  if (submitted) return <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12"><section className="w-full max-w-lg rounded-[28px] border border-green-deep/10 bg-white p-8 text-center shadow-custom sm:p-12"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gold text-3xl text-green-deep">✓</div><h1 className="mt-6 font-dm-sans text-3xl font-bold text-green-deep">Registration received</h1><p className="mt-4 font-dm-sans leading-7 text-text-mid">Your details have been saved successfully. The FXMed clinical team will review them before creating a patient record. Submission does not yet create an MRN or confirm an appointment.</p><p className="mt-4 break-all font-dm-sans text-sm text-text-mid">Submission reference: <span className="font-bold text-green-deep">{submitted}</span></p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link href="/" className="rounded-full bg-green-deep px-6 py-3 font-dm-sans font-bold text-white no-underline">Return home</Link><button onClick={() => { setForm(emptyForm); setSubmitted(null) }} className="rounded-full border border-green-deep/20 px-6 py-3 font-dm-sans font-bold text-green-deep">Register another patient</button></div></section></main>
 
   return <main className="min-h-screen bg-cream px-4 py-10 sm:py-14">
     <div className="mx-auto max-w-3xl">
       <header className="text-center"><Link href="/"><Image src="/FXMed_Logo_Black.png" alt="FXMed" width={240} height={67} priority className="mx-auto h-[67px] w-auto" /></Link><p className="mt-5 inline-flex rounded-full bg-gold px-4 py-1.5 font-dm-sans text-[11px] font-bold uppercase tracking-[0.14em] text-green-deep">New patients</p><h1 className="mt-4 font-dm-sans text-3xl font-bold text-green-deep sm:text-4xl">Patient registration request</h1><p className="mx-auto mt-3 max-w-2xl font-dm-sans leading-7 text-text-mid">Complete this form to register with FXMed. A member of the clinical team will review the information and create your record.</p></header>
 
       <section className="mt-8 rounded-[28px] border border-green-deep/10 bg-white p-6 shadow-custom sm:p-9">
-        {error && <div className="mb-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 font-dm-sans text-sm text-red-700">{error}</div>}
-        <form onSubmit={submit} className="space-y-8">
+        {error && <div ref={errorRef} role="alert" tabIndex={-1} className="mb-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 font-dm-sans text-sm text-red-700"><p>{error}</p><p className="mt-2">Your entries are still in this form. <a href="mailto:fxmed@wellnesswits.com" className="font-bold underline">Email FXMed for help</a>.</p></div>}
+        <form onSubmit={submit} aria-busy={loading} className="space-y-8">
           <fieldset><legend className="mb-5 font-dm-sans text-xl font-bold text-green-deep">Personal details</legend><div className="grid gap-5 sm:grid-cols-2"><Field label="First name" required><input className={inputClass} value={form.first_name} onChange={e => set('first_name', e.target.value)} required autoComplete="given-name" /></Field><Field label="Middle name"><input className={inputClass} value={form.middle_name} onChange={e => set('middle_name', e.target.value)} autoComplete="additional-name" /></Field><Field label="Last name" required><input className={inputClass} value={form.last_name} onChange={e => set('last_name', e.target.value)} required autoComplete="family-name" /></Field><Field label="Date of birth" required><input type="date" className={inputClass} value={form.date_of_birth} max={new Date().toISOString().slice(0, 10)} onChange={e => set('date_of_birth', e.target.value)} required /></Field><Field label="Sex" required><select className={inputClass} value={form.sex} onChange={e => set('sex', e.target.value)} required><option value="">Select…</option><option value="female">Female</option><option value="male">Male</option><option value="intersex">Intersex</option><option value="unknown">Prefer not to say</option></select></Field><Field label="Marital status"><select className={inputClass} value={form.marital_status} onChange={e => set('marital_status', e.target.value)}><option value="">Select…</option><option value="single">Single</option><option value="married">Married</option><option value="divorced">Divorced</option><option value="widowed">Widowed</option></select></Field><Field label="Occupation" wide><input className={inputClass} value={form.occupation} onChange={e => set('occupation', e.target.value)} autoComplete="organization-title" /></Field></div></fieldset>
 
           <fieldset className="border-t border-green-deep/10 pt-8"><legend className="mb-5 font-dm-sans text-xl font-bold text-green-deep">Contact information</legend><div className="grid gap-5 sm:grid-cols-2"><Field label="Phone number" required><input type="tel" className={inputClass} value={form.phone} onChange={e => set('phone', e.target.value)} required autoComplete="tel" /></Field><Field label="Email address"><input type="email" className={inputClass} value={form.email} onChange={e => set('email', e.target.value)} autoComplete="email" /></Field><Field label="Home address" wide><input className={inputClass} value={form.address} onChange={e => set('address', e.target.value)} autoComplete="street-address" /></Field><Field label="City / area"><input className={inputClass} value={form.city} onChange={e => set('city', e.target.value)} autoComplete="address-level2" /></Field><Field label="State"><input className={inputClass} value={form.state} onChange={e => set('state', e.target.value)} autoComplete="address-level1" /></Field><Field label="Country" wide><input className={inputClass} value={form.country} onChange={e => set('country', e.target.value)} autoComplete="country-name" /></Field></div></fieldset>
