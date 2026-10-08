@@ -1,5 +1,6 @@
 import Navigation from '@/components/Navigation'
 import Hero from '@/components/Hero'
+import Partners from '@/components/Partners'
 import About from '@/components/About'
 import MobileCare from '@/components/MobileCare'
 import HealthRiskAssessment from '@/components/HealthRiskAssessment'
@@ -37,6 +38,7 @@ export default function Home() {
     <main className="min-h-screen">
       <Navigation />
       <Hero />
+      <Partners />
       <About />
       <MobileCare />
       <HealthRiskAssessment />
