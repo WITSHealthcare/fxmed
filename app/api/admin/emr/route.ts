@@ -10,6 +10,7 @@ import {
   type EmrPermission,
   writeEmrAudit,
 } from '@/lib/emr'
+import { lagosDate, parseFollowUpDue } from '@/lib/follow-ups'
 
 export const runtime = 'nodejs'
 
@@ -26,6 +27,7 @@ const resources = {
   care_plans: { table: 'emr_care_plans', permission: 'manage_care_plans', patientField: 'patient_id', orderField: 'created_at' },
   care_plan_items: { table: 'emr_care_plan_items', permission: 'manage_care_plans', patientField: null, orderField: 'created_at' },
   tasks: { table: 'emr_clinical_tasks', permission: 'edit_encounters', patientField: 'patient_id', orderField: 'created_at' },
+  task_contacts: { table: 'emr_task_contacts', permission: 'edit_encounters', patientField: 'patient_id', orderField: 'contacted_at' },
   assessments: { table: 'emr_health_assessments', permission: 'view_clinical_records', patientField: 'patient_id', orderField: 'submitted_at' },
   financial_records: { table: 'emr_financial_records', permission: 'manage_financial_records', patientField: 'patient_id', orderField: 'service_date' },
   financial_payments: { table: 'emr_financial_payments', permission: 'manage_financial_records', patientField: 'patient_id', orderField: 'payment_date' },
@@ -58,6 +60,9 @@ const enumValues: Record<string, string[]> = {
   care_plan_status: ['draft','active','completed','cancelled'],
   care_item_status: ['pending','in_progress','completed','cancelled'],
   task_status: ['pending','in_progress','completed','cancelled'],
+  task_type: ['follow_up','investigation','call','review','care_plan'],
+  contact_channel: ['call','whatsapp','sms','email','in_person','other'],
+  contact_outcome: ['reached','no_answer','left_message','wrong_number','other'],
   assessment_status: ['new','reviewed','contacted','completed'],
   financial_status: ['pending','partial','paid','overdue','waived','refunded'],
   financial_currency: ['NGN','USD'],
@@ -71,6 +76,13 @@ function enumValue(value: unknown, group: string, fallback: string) {
 function responseError(error: unknown, fallbackStatus = 500) {
   console.error('EMR API error:', error)
   return NextResponse.json({ error: emrErrorMessage(error) }, { status: fallbackStatus })
+}
+
+// Names for the people follow-ups are assigned to and contacts are logged by.
+async function staffNames(database: any): Promise<Record<string, string>> {
+  const { data, error } = await database.auth.admin.listUsers({ perPage: 1000 })
+  if (error) { console.error('EMR: could not list staff:', error.message); return {} }
+  return Object.fromEntries((data?.users || []).map((member: any) => [member.id, member.user_metadata?.full_name || member.email || 'Staff member']))
 }
 
 async function patientExists(database: any, patientId: unknown) {
@@ -116,7 +128,7 @@ export async function GET(request: NextRequest) {
           pendingResults: orders.data?.length || 0,
           resultsToReview: results.data?.length || 0,
           incompleteNotes: notes.data?.length || 0,
-          followUpsDue: (tasks.data || []).filter((item: any) => item.due_at && item.due_at.slice(0, 10) <= today).length,
+          followUpsDue: (tasks.data || []).filter((item: any) => item.due_at && lagosDate(item.due_at) <= lagosDate()).length,
           pendingTasks: tasks.data?.length || 0,
         },
       })
@@ -165,6 +177,19 @@ export async function GET(request: NextRequest) {
       if (error) throw error
       await writeEmrAudit(database, user, { action: 'view_patient_chart', entityType: 'emr_patient', entityId: patientId, patientId })
       return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], legacyReports: legacyReports.data || [], imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], assessments: assessments.data || [], financialRecords: financialRecords.data || [], financialPayments: financialPayments.data || [], audit: audit.data || [] })
+    }
+
+    if (resource === 'follow_ups') {
+      const completed = params.get('scope') === 'completed'
+      let query = database.from('emr_clinical_tasks')
+        .select('*,patient:emr_patients(id,mrn,first_name,last_name,phone,email),note:emr_clinical_notes(id,note_type,content,created_at),contacts:emr_task_contacts(*)')
+      query = completed
+        ? query.in('status', ['completed','cancelled']).gte('updated_at', new Date(Date.now() - 30 * 86400000).toISOString()).order('updated_at', { ascending: false })
+        : query.in('status', ['pending','in_progress']).order('due_at', { ascending: true, nullsFirst: false })
+      if (isUuid(patientId)) query = query.eq('patient_id', patientId)
+      const [{ data, error }, staff] = await Promise.all([query.limit(500), staffNames(database)])
+      if (error) throw error
+      return NextResponse.json({ followUps: data || [], staff, currentUserId: user.id })
     }
 
     if (resource === 'appointments') {
@@ -238,6 +263,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ record: data }, { status: 201 })
     }
 
+    if (resource === 'task_contacts') return logContact(database, user, body)
     if (!(resource in resources)) return NextResponse.json({ error: 'Unknown clinical resource.' }, { status: 400 })
     if (resource === 'assessments') return NextResponse.json({ error: 'Assessments are submitted through the health analysis workflow.' }, { status: 400 })
     if (resource === 'notes' && body.status === 'final' && !await getEmrContext(request, 'finalize_notes')) return NextResponse.json({ error: 'Note finalization access required.' }, { status: 403 })
@@ -263,13 +289,26 @@ export async function POST(request: NextRequest) {
     if (error) throw error
 
     if (resource === 'encounters' && body.appointment_id && isUuid(body.appointment_id)) await database.from('appointments').update({ patient_id: patientId, encounter_id: data.id, status: 'confirmed' }).eq('id', body.appointment_id)
+    // A note can name a date to follow up by, which raises the follow-up with it.
+    // The note is already saved, so a failure here is reported rather than thrown,
+    // or a retry would save the note twice.
+    let warning: string | undefined
+    if (resource === 'notes' && parseFollowUpDue(body.follow_up_date)) {
+      const { error: followUpError } = await database.from('emr_clinical_tasks').insert({
+        patient_id: patientId, encounter_id: data.encounter_id, note_id: data.id,
+        title: cleanText(body.follow_up_reason, 240) || `Follow up on ${String(data.note_type).replace(/_/g, ' ')} note`,
+        task_type: enumValue(body.follow_up_type, 'task_type', 'follow_up'), priority: 'routine', status: 'pending',
+        assigned_to: user.id, due_at: parseFollowUpDue(body.follow_up_date), created_by: user.id,
+      })
+      if (followUpError) { console.error('EMR: note follow-up not created:', followUpError); warning = 'The note was saved, but its follow-up could not be created. Use "Set follow-up" on the note to add it.' }
+    }
     if (resource === 'results' && body.order_id) await database.from('emr_investigation_orders').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', body.order_id)
     if (resource === 'medications' && body.sign_prescription !== false) {
       const { error: prescriptionError } = await database.from('emr_prescriptions').insert({ patient_id: patientId, encounter_id: record.encounter_id, medication_id: data.id, prescriber_id: user.id, status: 'signed', signed_at: new Date().toISOString() })
       if (prescriptionError) throw prescriptionError
     }
     await writeEmrAudit(database, user, { action: `create_${resource}`, entityType: config.table, entityId: data.id, patientId: patientId || null })
-    return NextResponse.json({ record: data }, { status: 201 })
+    return NextResponse.json({ record: data, warning }, { status: 201 })
   } catch (error) {
     return responseError(error)
   }
@@ -428,7 +467,7 @@ function buildRecord(resource: ResourceName, body: Record<string, any>, userId: 
     case 'imaging': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, ordering_provider_id: userId, modality: cleanText(body.modality, 120), body_region: cleanText(body.body_region, 160), indication: cleanText(body.indication, 2000), performed_at: body.performed_at || dated || null, report: cleanText(body.report, 12000), ...(dated ? { created_at: dated } : {}) }
     case 'care_plans': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, title: cleanText(body.title, 240), description: cleanText(body.description, 8000), goals: cleanText(body.goals, 8000), status: enumValue(body.status, 'care_plan_status', 'active'), start_date: cleanDate(body.start_date), target_date: cleanDate(body.target_date), owner_id: userId, ...(dated ? { created_at: dated } : {}) }
     case 'care_plan_items': return { care_plan_id: body.care_plan_id, title: cleanText(body.title, 240), instructions: cleanText(body.instructions, 2000), due_date: cleanDate(body.due_date), status: enumValue(body.status, 'care_item_status', 'pending'), position: cleanNumber(body.position) || 0 }
-    case 'tasks': return { patient_id: isUuid(body.patient_id) ? body.patient_id : null, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, title: cleanText(body.title, 240), task_type: cleanText(body.task_type, 80) || 'follow_up', priority: enumValue(body.priority, 'investigation_priority', 'routine'), status: enumValue(body.status, 'task_status', 'pending'), assigned_to: isUuid(body.assigned_to) ? body.assigned_to : userId, due_at: body.due_at || null, created_by: userId }
+    case 'tasks': return { patient_id: isUuid(body.patient_id) ? body.patient_id : null, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, note_id: isUuid(body.note_id) ? body.note_id : null, title: cleanText(body.title, 240), task_type: enumValue(body.task_type, 'task_type', 'follow_up'), priority: enumValue(body.priority, 'investigation_priority', 'routine'), status: enumValue(body.status, 'task_status', 'pending'), assigned_to: isUuid(body.assigned_to) ? body.assigned_to : userId, due_at: parseFollowUpDue(body.due_at), created_by: userId }
     case 'financial_records': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, description: cleanText(body.description, 500), amount_due: cleanNumber(body.amount_due), amount_paid: 0, currency: enumValue(body.currency, 'financial_currency', 'NGN'), status: 'pending', payment_method: null, payment_reference: null, service_date: new Date().toISOString().slice(0, 10), due_date: null, paid_at: null, notes: cleanText(body.notes, 4000), created_by: userId }
     case 'financial_payments': return { financial_record_id: body.financial_record_id, patient_id: body.patient_id, amount: cleanNumber(body.amount), payment_date: cleanDate(body.payment_date), payment_method: body.payment_method ? enumValue(body.payment_method, 'payment_method', 'other') : null, payment_reference: cleanText(body.payment_reference, 240), notes: cleanText(body.notes, 2000), created_by: userId }
   }
@@ -456,7 +495,7 @@ function buildUpdate(resource: ResourceName, body: Record<string, any>, userId: 
     notes: ['content','status'], vitals: ['systolic_bp','diastolic_bp','heart_rate','respiratory_rate','temperature_c','spo2','weight_kg','height_cm','blood_glucose','pain_score','notes'], diagnoses: ['status','notes','resolved_at'], allergies: ['status','notes','reaction','severity'],
     medications: ['status','end_date','discontinued_reason','instructions'], investigations: ['status','priority','clinical_indication','completed_at'],
     results: ['notes','abnormal_flag'], care_plans: ['status','description','goals','target_date','completed_at'],
-    care_plan_items: ['status','title','instructions','due_date','position','completed_at'], tasks: ['status','priority','due_at','assigned_to'],
+    care_plan_items: ['status','title','instructions','due_date','position','completed_at'], tasks: ['status','priority','title'], task_contacts: [],
     imaging: ['modality','body_region','indication','performed_at','report'], assessments: ['status','reviewed_at','reviewed_by'],
     financial_records: ['description','amount_due','currency','notes'],
     financial_payments: ['amount','payment_date','payment_method','payment_reference','notes'],
@@ -483,7 +522,15 @@ function buildUpdate(resource: ResourceName, body: Record<string, any>, userId: 
   if (resource === 'investigations' && body.status) updates.status = enumValue(body.status, 'investigation_status', 'ordered')
   if (resource === 'care_plans' && body.status) updates.status = enumValue(body.status, 'care_plan_status', 'active')
   if (resource === 'care_plan_items' && body.status) updates.status = enumValue(body.status, 'care_item_status', 'pending')
-  if (resource === 'tasks' && body.status) updates.status = enumValue(body.status, 'task_status', 'pending')
+  if (resource === 'tasks') {
+    if ('due_at' in body) updates.due_at = parseFollowUpDue(body.due_at)
+    if ('assigned_to' in body) updates.assigned_to = isUuid(body.assigned_to) ? body.assigned_to : null
+    if ('outcome' in body) updates.outcome = cleanText(body.outcome, 2000)
+    if (body.status) {
+      updates.status = enumValue(body.status, 'task_status', 'pending')
+      updates.completed_at = ['completed','cancelled'].includes(String(updates.status)) ? new Date().toISOString() : null
+    }
+  }
   if (resource === 'assessments' && body.status) {
     updates.status = enumValue(body.status, 'assessment_status', 'new')
     if (body.status === 'reviewed') { updates.reviewed_by = userId; updates.reviewed_at = new Date().toISOString() }
@@ -532,4 +579,30 @@ async function uploadDocument(request: NextRequest) {
   } catch (error) {
     return responseError(error)
   }
+}
+
+// Logs an attempt to reach the patient about a follow-up. Contacting someone
+// moves the follow-up into progress, and can move it to a new date.
+async function logContact(database: any, user: any, body: Record<string, any>) {
+  if (!isUuid(body.task_id)) return NextResponse.json({ error: 'A valid follow-up is required.' }, { status: 400 })
+  const channel = enumValue(body.channel, 'contact_channel', '')
+  const outcome = enumValue(body.outcome, 'contact_outcome', '')
+  if (!channel || !outcome) return NextResponse.json({ error: 'Choose how you contacted the patient and what happened.' }, { status: 400 })
+  const { data: task, error: taskError } = await database.from('emr_clinical_tasks').select('id,patient_id,status').eq('id', body.task_id).maybeSingle()
+  if (taskError) throw taskError
+  if (!task) return NextResponse.json({ error: 'Follow-up not found.' }, { status: 404 })
+  const rescheduledTo = parseFollowUpDue(body.rescheduled_to)
+  const { data, error } = await database.from('emr_task_contacts').insert({
+    task_id: task.id, patient_id: task.patient_id, channel, outcome,
+    notes: cleanText(body.notes, 2000), rescheduled_to: rescheduledTo, contacted_by: user.id,
+  }).select('*').single()
+  if (error) throw error
+  const { error: updateError } = await database.from('emr_clinical_tasks').update({
+    status: task.status === 'pending' ? 'in_progress' : task.status,
+    ...(rescheduledTo ? { due_at: rescheduledTo } : {}),
+    updated_at: new Date().toISOString(),
+  }).eq('id', task.id)
+  if (updateError) throw updateError
+  await writeEmrAudit(database, user, { action: 'log_follow_up_contact', entityType: 'emr_task_contacts', entityId: data.id, patientId: task.patient_id, metadata: { channel, outcome, rescheduled: Boolean(rescheduledTo) } })
+  return NextResponse.json({ record: data }, { status: 201 })
 }
