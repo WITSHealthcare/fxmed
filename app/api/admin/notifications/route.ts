@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getRequestAdminUser } from '@/lib/admin-api-auth'
 import { canAccessTab, getUserAdminRole, type AdminTab } from '@/lib/admin-auth'
+import { dueLabel, lagosDate } from '@/lib/follow-ups'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -17,7 +18,7 @@ const MAX_AGE_DAYS = 60
 // Per source, so one busy stream cannot bury the others.
 const PER_SOURCE_LIMIT = 20
 
-export type NotificationKind = 'message' | 'appointment' | 'festive' | 'registration' | 'contact' | 'assessment'
+export type NotificationKind = 'message' | 'appointment' | 'festive' | 'registration' | 'contact' | 'assessment' | 'follow_up'
 
 type Notification = {
   id: string
@@ -37,7 +38,8 @@ const sources: Array<{
   kind: NotificationKind
   tab: AdminTab
   table: string
-  status: string
+  // One status, or any of several.
+  status: string | string[]
   timeField: string
   select: string
   link: string
@@ -46,6 +48,8 @@ const sources: Array<{
   // Rows this source should not raise a notification for, because another
   // source already covers the same event.
   skip?: (row: any) => boolean
+  // Further conditions that define which rows belong to this source.
+  filter?: (query: any) => any
   // The same exclusion applied in the query, for a source where the excluded
   // rows could otherwise fill the per-source limit and hide the rest.
   narrow?: (query: any) => any
@@ -151,6 +155,22 @@ const sources: Array<{
       .is('festive_booking_id', null),
   },
   {
+    kind: 'follow_up',
+    tab: 'healthcare',
+    table: 'emr_clinical_tasks',
+    status: ['pending', 'in_progress'],
+    // Only follow-ups that are due: today or overdue, up to MAX_AGE_DAYS back.
+    timeField: 'due_at',
+    filter: query => query.lte('due_at', `${lagosDate()}T23:59:59.999+01:00`),
+    select: 'id, title, due_at, patient:emr_patients(first_name, last_name)',
+    link: '/admin?tab=healthcare&view=follow_ups',
+    dismissable: false,
+    describe: row => ({
+      title: `Follow up with ${[row.patient?.first_name, row.patient?.last_name].filter(Boolean).join(' ') || 'a patient'}`,
+      detail: [row.title, dueLabel(row.due_at)].filter(Boolean).join(' · '),
+    }),
+  },
+  {
     kind: 'assessment',
     tab: 'healthcare',
     table: 'emr_health_assessments',
@@ -184,11 +204,12 @@ export async function GET(request: NextRequest) {
   // each source is settled independently and its failure reported separately.
   const settled = await Promise.all(visible.map(async source => {
     const build = (narrowed: boolean) => {
-      const query = supabase
+      let query = supabase
         .from(source.table)
         .select(source.select)
-        .eq('status', source.status)
         .gte(source.timeField, since)
+      query = Array.isArray(source.status) ? query.in('status', source.status) : query.eq('status', source.status)
+      if (source.filter) query = source.filter(query)
       return (narrowed && source.narrow ? source.narrow(query) : query)
         .order(source.timeField, { ascending: false })
         .limit(PER_SOURCE_LIMIT)
