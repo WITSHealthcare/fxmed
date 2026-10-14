@@ -297,8 +297,10 @@ export default function AdminPanel() {
         const defaultTab = permissions.tabs[0]
         const defaultCrmView = permissions.crmViews[0]
 
+        // Notification links name the tab to open, as /admin?tab=requests.
+        const requestedTab = new URLSearchParams(window.location.search).get('tab') as AdminTab | null
         setCurrentRole(role)
-        setActiveTab(defaultTab)
+        setActiveTab(requestedTab && permissions.tabs.includes(requestedTab) ? requestedTab : defaultTab)
         if (defaultCrmView) setCrmView(defaultCrmView)
       } catch (error) {
         console.error('Admin auth check failed:', error)
