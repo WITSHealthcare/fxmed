@@ -5,13 +5,12 @@ import Image from 'next/image'
 const partners: Array<{ name: string; logo?: string }> = [
   { name: 'Mecure', logo: '/partners/mecure.svg' },
   { name: 'Healthtracka', logo: '/partners/healthtracka.svg' },
-  { name: 'Grandville Medical Center', logo: '/partners/grandville.png' },
 ]
 
 // The track slides left by half its width and restarts, so each half must be
 // identical and at least as wide as the screen for the loop to be seamless.
-// Six copies of three logos per half covers screens up to 4K wide.
-const COPIES = 12
+// Nine copies of two logos per half covers screens up to 4K wide.
+const COPIES = 18
 
 export default function Partners() {
   return (
