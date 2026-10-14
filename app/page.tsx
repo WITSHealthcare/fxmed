@@ -1,6 +1,7 @@
 import Navigation from '@/components/Navigation'
 import Hero from '@/components/Hero'
 import Partners from '@/components/Partners'
+import FestivePackages from '@/components/FestivePackages'
 import About from '@/components/About'
 import MobileCare from '@/components/MobileCare'
 import HealthRiskAssessment from '@/components/HealthRiskAssessment'
@@ -18,6 +19,10 @@ import FXMedElite from '@/components/FXMedElite'
 import Footer from '@/components/Footer'
 import ChatAssistant from '@/components/AIChat'
 import { createMetadata } from '@/lib/seo'
+
+// The page is prerendered, so rebuild it every few minutes to show or hide the
+// festive section on its start and end dates.
+export const revalidate = 300
 
 export const metadata = createMetadata({
   title: 'FXMed | Functional Medicine Clinic That Comes to You',
@@ -39,6 +44,7 @@ export default function Home() {
       <Navigation />
       <Hero />
       <Partners />
+      <FestivePackages />
       <About />
       <MobileCare />
       <HealthRiskAssessment />

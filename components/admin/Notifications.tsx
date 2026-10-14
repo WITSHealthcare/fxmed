@@ -4,6 +4,7 @@ import { useCallback, useState, useEffect } from 'react'
 import {
   BellIcon,
   CalendarCheckIcon,
+  GiftIcon,
   ChatCircleDotsIcon,
   ClipboardTextIcon,
   HeartbeatIcon,
@@ -11,7 +12,7 @@ import {
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 
-type NotificationKind = 'message' | 'appointment' | 'registration' | 'contact' | 'assessment'
+type NotificationKind = 'message' | 'appointment' | 'festive' | 'registration' | 'contact' | 'assessment'
 
 type Notification = {
   id: string
@@ -26,6 +27,7 @@ type Notification = {
 const kindIcons: Record<NotificationKind, typeof BellIcon> = {
   message: ChatCircleDotsIcon,
   appointment: CalendarCheckIcon,
+  festive: GiftIcon,
   registration: UserPlusIcon,
   contact: ClipboardTextIcon,
   assessment: HeartbeatIcon,
@@ -34,6 +36,7 @@ const kindIcons: Record<NotificationKind, typeof BellIcon> = {
 const kindLabels: Record<NotificationKind, string> = {
   message: 'Message',
   appointment: 'Booking',
+  festive: 'Festive booking',
   registration: 'Registration',
   contact: 'Enquiry',
   assessment: 'Functional health analysis',

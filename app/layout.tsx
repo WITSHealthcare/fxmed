@@ -1,6 +1,8 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import FestiveBooking from '@/components/FestiveBooking'
+import FestiveOfferPopup from '@/components/FestiveOfferPopup'
 import { absoluteUrl, clinicId, contact, createMetadata, legalName, locations, organizationId, priceRange, serviceCatalog, serviceOfferJsonLd, siteName, siteUrl } from '@/lib/seo'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -108,6 +110,8 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         {children}
+        <FestiveOfferPopup />
+        <FestiveBooking />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
