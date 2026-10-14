@@ -23,6 +23,7 @@ import CrmDashboard from '@/components/admin/CrmDashboard'
 import SeoAnalytics from '@/components/admin/SeoAnalytics'
 import Messages from '@/components/admin/Messages'
 import AppointmentCalendar from '@/components/admin/AppointmentCalendar'
+import FestiveBookings from '@/components/admin/FestiveBookings'
 import Notifications from '@/components/admin/Notifications'
 import UserManagement from '@/components/admin/UserManagement'
 import ZaraDashboard from '@/components/admin/ZaraDashboard'
@@ -699,7 +700,12 @@ export default function AdminPanel() {
 
             {activeTab === 'messages' && canAccessTab(currentRole, 'messages') && <Messages />}
 
-            {activeTab === 'requests' && canAccessTab(currentRole, 'requests') && <AppointmentCalendar />}
+            {activeTab === 'requests' && canAccessTab(currentRole, 'requests') && (
+              <>
+                <FestiveBookings />
+                <AppointmentCalendar />
+              </>
+            )}
 
             {activeTab === 'ambassador' && canAccessTab(currentRole, 'ambassador') && (
               <AmbassadorProgram />

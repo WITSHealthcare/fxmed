@@ -17,7 +17,7 @@ const MAX_AGE_DAYS = 60
 // Per source, so one busy stream cannot bury the others.
 const PER_SOURCE_LIMIT = 20
 
-export type NotificationKind = 'message' | 'appointment' | 'registration' | 'contact' | 'assessment'
+export type NotificationKind = 'message' | 'appointment' | 'festive' | 'registration' | 'contact' | 'assessment'
 
 type Notification = {
   id: string
@@ -92,6 +92,21 @@ const sources: Array<{
     }),
   },
   {
+    kind: 'festive',
+    tab: 'requests',
+    table: 'festive_bookings',
+    status: 'pending',
+    timeField: 'created_at',
+    select: 'id, package_name, booked_for, buyer_first_name, buyer_last_name, recipient_name, preferred_date, created_at',
+    link: '/admin?tab=requests',
+    dismissable: false,
+    describe: row => ({
+      title: `Festive package booked by ${[row.buyer_first_name, row.buyer_last_name].filter(Boolean).join(' ') || 'a visitor'}`,
+      detail: [row.package_name, row.booked_for === 'gift' && `gift for ${row.recipient_name}`, row.preferred_date ? `requested for ${row.preferred_date}` : 'date to arrange']
+        .filter(Boolean).join(' · '),
+    }),
+  },
+  {
     kind: 'registration',
     tab: 'requests',
     table: 'emr_patient_registration_requests',
@@ -119,9 +134,9 @@ const sources: Array<{
       title: `New enquiry from ${row.full_name || 'a contact'}`,
       detail: [row.health_concern, row.outreach_event, row.phone].filter(Boolean).join(' · '),
     }),
-    // Migrations 031 and 032 copy every booking, message, registration,
-    // health analysis, ambassador submission and CRM or EMR patient into
-    // contacts. Each of those is worked from its own tab, and most are
+    // Migrations 031, 032 and 033 copy every booking, message, registration,
+    // health analysis, ambassador submission, festive booking and CRM or EMR
+    // patient into contacts. Each of those is worked from its own tab, and most are
     // announced by a source above, so only people entered directly through
     // the outreach form notify here.
     narrow: query => query
@@ -132,7 +147,8 @@ const sources: Array<{
       .is('ambassador_application_id', null)
       .is('ambassador_referral_id', null)
       .is('crm_patient_id', null)
-      .is('emr_patient_id', null),
+      .is('emr_patient_id', null)
+      .is('festive_booking_id', null),
   },
   {
     kind: 'assessment',
