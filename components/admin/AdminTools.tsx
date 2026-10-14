@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   CORE_PANEL_TESTS,
   INVESTIGATION_CATALOG,
@@ -290,7 +290,8 @@ async function deleteHistoryItem(storeName: string, id: string) {
   })
 }
 
-export default function AdminTools({ scope = 'operations', patientContext }: { scope?: AdminToolsScope; patientContext?: InvestigationPatientContext }) {
+// resultsFooter is shown under Results History, for the patient record's own panels.
+export default function AdminTools({ scope = 'operations', patientContext, resultsFooter }: { scope?: AdminToolsScope; patientContext?: InvestigationPatientContext; resultsFooter?: ReactNode }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const mealPlanInputRef = useRef<HTMLInputElement | null>(null)
   const investFormRef = useRef<HTMLDivElement | null>(null)
@@ -862,8 +863,8 @@ export default function AdminTools({ scope = 'operations', patientContext }: { s
       <div className="bg-white rounded-[20px] p-2 shadow-lg border border-green-deep/10">
         <div className={`grid gap-2 md:grid-cols-2 ${scope === 'operations' ? 'xl:grid-cols-2' : ''}`}>
           {(scope === 'investigations' ? ([
-            { id: 'investigation-results', label: 'Investigation Results', description: 'Generate branded patient investigation result PDFs.' },
-            { id: 'investigation', label: 'Investigation Form', description: 'Generate branded investigation request forms with custom tests.' },
+            { id: 'investigation-results', label: 'Investigation Results', description: 'Investigation result PDFs generated so far.' },
+            { id: 'investigation', label: 'Order Investigations', description: 'Generate investigation request forms and result PDFs.' },
           ] as const) : ([
             { id: 'letterhead', label: 'Letterhead Formatter', description: 'Apply FXMed letterhead to DOCX and PDF documents.' },
             { id: 'meal-plan', label: 'Meal Plan Designer', description: 'Turn DOCX meal plans into branded PDFs with food visuals.' },
@@ -1551,11 +1552,7 @@ export default function AdminTools({ scope = 'operations', patientContext }: { s
           </div>
         )}
       </div>
-      </>
-      )}
 
-      {activeTool === 'investigation-results' && (
-      <>
         <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
           <div className="inline-flex items-center bg-green-deep/10 text-green-deep px-3 py-1 rounded-full text-xs font-dm-sans font-semibold mb-4">Admin Tool</div>
           <h3 className="text-xl font-dm-sans font-semibold text-green-deep">Investigation Results Generator</h3>
@@ -1593,8 +1590,13 @@ export default function AdminTools({ scope = 'operations', patientContext }: { s
             <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">{resultMessage ? <p className={`text-sm font-dm-sans ${resultStatus === 'error' ? 'text-red-600' : 'text-green-deep'}`}>{resultMessage}</p> : <span/>}<button type="button" onClick={generateResultReport} disabled={resultStatus === 'working'} className="bg-green-deep hover:bg-green-deep/90 disabled:bg-gray-300 text-cream px-5 py-3 rounded-lg font-dm-sans font-semibold text-sm">{resultStatus === 'working' ? 'Generating...' : 'Generate Results PDF'}</button></div>
           </div>
         </div>
+      </>
+      )}
 
+      {activeTool === 'investigation-results' && (
+      <>
         <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10"><div className="flex justify-between gap-3 mb-5"><div><h3 className="text-xl font-dm-sans font-semibold text-green-deep">Results History</h3><p className="mt-1 text-sm text-text-mid font-dm-sans">{patientContext ? `Previous investigation results for ${emrPatientName(patientContext)}.` : 'Shared investigation result PDFs saved in the database.'}</p></div><button type="button" onClick={refreshResultHistory} className="border border-green-deep/20 text-green-deep px-4 py-2 rounded-lg text-sm font-semibold">Refresh</button></div>{resultHistoryLoading ? <p className="text-sm text-text-mid">Loading results history...</p> : visibleResultHistory.length === 0 ? <p className="rounded-xl bg-cream/40 p-4 text-sm text-text-mid">{patientContext ? 'No previous investigation results have been generated for this patient.' : 'No result reports have been generated yet.'}</p> : <div className="overflow-x-auto"><table className="w-full min-w-[640px]"><thead><tr className="border-b text-left text-xs uppercase text-text-mid"><th className="py-3">Report</th><th>Generated</th><th>Size</th><th className="text-right">Actions</th></tr></thead><tbody>{visibleResultHistory.map(item => <tr key={item.id} className="border-b"><td className="py-4"><p className="font-semibold text-green-deep">{item.originalName}</p><p className="text-xs text-text-mid">{item.downloadName}</p></td><td className="text-sm text-text-mid">{new Date(item.uploadedAt).toLocaleString()}</td><td className="text-sm text-text-mid">{formatFileSize(item.size)}</td><td><div className="flex justify-end gap-2"><button onClick={() => downloadBlob(base64ToBlob(item.documentBase64),item.downloadName)} className="bg-green-deep text-cream px-3 py-2 rounded-lg text-xs font-semibold">Download</button><button onClick={() => removeResultHistoryItem(item.id)} className="border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs font-semibold">Delete</button></div></td></tr>)}</tbody></table></div>}</div>
+        {resultsFooter}
       </>
       )}
     </div>

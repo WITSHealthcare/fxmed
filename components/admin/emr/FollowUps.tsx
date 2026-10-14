@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { PhoneCallIcon, WhatsappLogoIcon, XIcon } from '@phosphor-icons/react'
+import { PhoneCallIcon, PlusIcon, WhatsappLogoIcon, XIcon } from '@phosphor-icons/react'
 import { contactChannels, contactOutcomes, daysUntilDue, dueLabel, lagosDate, reminderMessage, whatsappNumber } from '@/lib/follow-ups'
 import { Alert, Empty, Field, Loading, Panel, fullName, label } from '@/components/admin/emr/ui'
 
@@ -101,11 +101,11 @@ export default function FollowUps({ onPatient }: { onPatient: (id: string) => vo
 }
 
 // One patient's follow-ups, for the patient record.
-export function FollowUpList({ patientId, onChanged }: { patientId: string; onChanged: () => void }) {
+export function FollowUpList({ patientId, onChanged, onCreate }: { patientId: string; onChanged: () => void; onCreate: () => void }) {
   const open = useFollowUps('open', patientId)
   const closed = useFollowUps('completed', patientId)
   const refresh = () => { open.reload(); closed.reload(); onChanged() }
-  return <Panel title="Follow-ups" subtitle="What the team needs to chase this patient about.">
+  return <Panel title="Follow-ups" subtitle="What the team needs to chase this patient about." action={<button onClick={onCreate} className="primary"><PlusIcon size={18} weight="bold" />Add follow-up</button>}>
     {(open.error || closed.error) && <Alert tone="error">{open.error || closed.error}</Alert>}
     {!open.data || !closed.data ? <Loading /> : <>
       <div className="mt-5 space-y-3">{open.data.followUps.map(item => <FollowUpCard key={item.id} item={item} data={open.data!} onChanged={refresh} />)}{!open.data.followUps.length && <Empty text="No open follow-ups for this patient." />}</div>
