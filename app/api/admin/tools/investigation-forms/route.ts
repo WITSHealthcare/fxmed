@@ -18,6 +18,7 @@ type InvestigationPatient = {
   age: string
   gender: string
   clinicalDetails: string
+  requestingClinician: string
   emrPatientId: string
 }
 
@@ -33,6 +34,7 @@ const emptyPatient: InvestigationPatient = {
   age: '',
   gender: '',
   clinicalDetails: '',
+  requestingClinician: '',
   emrPatientId: '',
 }
 
@@ -60,6 +62,7 @@ function normalizePatient(value: unknown): InvestigationPatient {
     age: cleanString(patient.age),
     gender: cleanString(patient.gender),
     clinicalDetails: cleanString(patient.clinicalDetails),
+    requestingClinician: cleanString(patient.requestingClinician),
     emrPatientId: cleanString(patient.emrPatientId),
   }
 }
@@ -93,6 +96,7 @@ function mapForm(row: any) {
     documentBase64: row.document_base64,
     patient: { ...emptyPatient, ...normalizePatient(row.patient) },
     clinicalDetails: normalizePatient(row.patient).clinicalDetails,
+    requestingClinician: normalizePatient(row.patient).requestingClinician,
     panelTitle: cleanString(row.panel_title, 'Core Functional Medicine Panel'),
     tests: normalizeTests(row.tests),
     createdByEmail: row.created_by_email,
