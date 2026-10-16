@@ -55,6 +55,7 @@ type InvestigationHistoryItem = {
   documentBase64: string
   patient: InvestigationPatient
   clinicalDetails?: string
+  requestingClinician?: string
   panelTitle: string
   tests: InvestigationTest[]
   createdByEmail?: string
@@ -322,6 +323,7 @@ export default function AdminTools({ scope = 'operations', patientContext, resul
   const [investPatientSearchLoading, setInvestPatientSearchLoading] = useState(false)
   const [investPanelTitle, setInvestPanelTitle] = useState('Core Functional Medicine Panel')
   const [investClinicalDetails, setInvestClinicalDetails] = useState('')
+  const [investRequestingClinician, setInvestRequestingClinician] = useState('')
   // Partner verification stamp. Off by default: it should only appear on forms
   // actually being taken to the partner laboratory.
   const [investStampOn, setInvestStampOn] = useState(false)
@@ -691,6 +693,7 @@ export default function AdminTools({ scope = 'operations', patientContext, resul
       const blob = await generateInvestigationFormPdf({
         ...investPatient,
         clinicalDetails: investClinicalDetails,
+        requestingClinician: investRequestingClinician,
         panelTitle: investPanelTitle,
         tests,
         stamp,
@@ -708,7 +711,7 @@ export default function AdminTools({ scope = 'operations', patientContext, resul
           downloadName,
           size: blob.size,
           documentBase64,
-          patient: { ...investPatient, emrPatientId: selectedEmrPatientId || patientContext?.id, clinicalDetails: investClinicalDetails },
+          patient: { ...investPatient, emrPatientId: selectedEmrPatientId || patientContext?.id, clinicalDetails: investClinicalDetails, requestingClinician: investRequestingClinician },
           panelTitle: investPanelTitle,
           tests,
         }),
@@ -740,6 +743,7 @@ export default function AdminTools({ scope = 'operations', patientContext, resul
     setInvestTests(tests.map((test) => ({ ...test })))
     setInvestPanelTitle(item.panelTitle || 'Core Functional Medicine Panel')
     setInvestClinicalDetails(item.clinicalDetails || '')
+    setInvestRequestingClinician(item.requestingClinician || '')
     setInvestPatient(patientContext ? {
       fullName: emrPatientName(patientContext),
       email: patientContext.email || '',
@@ -1359,6 +1363,18 @@ export default function AdminTools({ scope = 'operations', patientContext, resul
               value={investPanelTitle}
               onChange={(event) => setInvestPanelTitle(event.target.value)}
               placeholder="Core Functional Medicine Panel"
+              className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none"
+            />
+          </div>
+
+          <div className="mt-4">
+            <label htmlFor="investigation-requesting-clinician" className="block text-xs font-dm-sans font-semibold uppercase tracking-wide text-text-mid mb-1">Requesting Clinician (optional)</label>
+            <input
+              id="investigation-requesting-clinician"
+              type="text"
+              value={investRequestingClinician}
+              onChange={(event) => setInvestRequestingClinician(event.target.value)}
+              placeholder="Enter requesting clinician's name"
               className="w-full rounded-lg border border-green-deep/15 bg-white px-3 py-2 text-sm font-dm-sans text-green-deep focus:border-green-deep focus:outline-none"
             />
           </div>

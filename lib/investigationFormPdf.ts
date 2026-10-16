@@ -18,6 +18,7 @@ export interface InvestigationFormData {
   age: string
   gender: string
   clinicalDetails?: string
+  requestingClinician?: string
   panelTitle: string
   tests: InvestigationTest[]
   // Optional partner verification stamp. Present only when the form is being
@@ -166,6 +167,21 @@ function buildPatientHtml(data: InvestigationFormData) {
   `
 }
 
+function buildRequestingClinicianHtml(requestingClinician = '') {
+  if (!requestingClinician.trim()) return ''
+
+  return `
+    <div data-pdf-keep-together style="margin-bottom: 28px; break-inside: avoid; page-break-inside: avoid;">
+      <div style="font-size: ${pdfType('label')}; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+        Requesting Clinician
+      </div>
+      <div style="font-size: ${pdfType('value')}; font-weight: 600; color: #0F2419; overflow-wrap: anywhere;">
+        ${escapeHtml(requestingClinician.trim())}
+      </div>
+    </div>
+  `
+}
+
 function buildClinicalDetailsHtml(clinicalDetails = '') {
   if (!clinicalDetails.trim()) return ''
 
@@ -308,11 +324,12 @@ export async function generateInvestigationFormPdf(data: InvestigationFormData):
 
   const headerHtml = buildHeaderHtml(panelTitle, origin)
   const patientHtml = buildPatientHtml(data)
+  const requestingClinicianHtml = buildRequestingClinicianHtml(data.requestingClinician)
   const clinicalDetailsHtml = buildClinicalDetailsHtml(data.clinicalDetails)
   const footerHtml = buildFooterHtml()
 
   const cardsHtml = buildGroupedTestsHtml(orderTestsByCategory(data.tests))
-  const pageHtmls = [headerHtml + patientHtml + clinicalDetailsHtml + buildSectionHtml(panelTitle, cardsHtml, true)]
+  const pageHtmls = [headerHtml + patientHtml + requestingClinicianHtml + clinicalDetailsHtml + buildSectionHtml(panelTitle, cardsHtml, true)]
 
   // Stamp then footer, both on the final page so the verification mark sits
   // directly beneath the tests it authorises.
