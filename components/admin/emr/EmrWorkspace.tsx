@@ -13,6 +13,7 @@ import { Alert, Empty, Field, Loading, Panel, Status, fullName, label } from '@/
 import { daysUntilDue, followUpTypes } from '@/lib/follow-ups'
 import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysis'
 import { InvestigationWorklist, PatientInvestigations } from '@/components/admin/emr/Investigations'
+import PatientAssistant from '@/components/admin/emr/PatientAssistant'
 import { REPORT_ACCENT, REPORT_INK, REPORT_LEADING, printType, reportPrintCss } from '@/lib/reportTheme'
 
 type EmrView = 'dashboard' | 'follow_ups' | 'health_analysis' | 'patients' | 'appointments' | 'encounters' | 'records' | 'investigations' | 'medications' | 'care_plans' | 'documents'
@@ -218,6 +219,7 @@ function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }:
     {tab === 'care_plans' && <CarePlanList chart={chart} patient={patient} onUpdate={load} onCreate={() => setModal('care_plan')} />}
     {modal === 'report' && <PatientReportModal patient={patient} mode="clinical" onClose={() => setModal(null)} />}
     {modal === 'financial_report' && <PatientReportModal patient={patient} mode="financial" onClose={() => setModal(null)} />}
+    <PatientAssistant key={patientId} patientId={patientId} patientName={fullName(patient)} />
     {modal && !['report','financial_report'].includes(modal) && <ClinicalModal type={modal.split(':')[0]} patient={patient} chart={chart} fixed={modal.startsWith('result:') ? { order_id: modal.split(':')[1] } : modal.includes(':') ? { encounter_id: modal.split(':')[1] } : {}} patients={[patient]} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); onChanged() }} />}
   </div>
 }
