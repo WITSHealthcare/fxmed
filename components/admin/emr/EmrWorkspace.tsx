@@ -12,7 +12,7 @@ import FollowUps, { FollowUpDateInput, FollowUpList, NoteFollowUp } from '@/comp
 import { Alert, Empty, Field, Loading, Panel, Status, fullName, label } from '@/components/admin/emr/ui'
 import { daysUntilDue, followUpTypes } from '@/lib/follow-ups'
 import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysis'
-import AdminTools from '@/components/admin/AdminTools'
+import { InvestigationWorklist, PatientInvestigations } from '@/components/admin/emr/Investigations'
 import { REPORT_ACCENT, REPORT_INK, REPORT_LEADING, printType, reportPrintCss } from '@/lib/reportTheme'
 
 type EmrView = 'dashboard' | 'follow_ups' | 'health_analysis' | 'patients' | 'appointments' | 'encounters' | 'records' | 'investigations' | 'medications' | 'care_plans' | 'documents'
@@ -44,6 +44,8 @@ export default function EmrWorkspace() {
     return nav.some(item => item.id === requested) ? requested as EmrView : 'dashboard'
   })
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
+  // The patient-record tab to open on, when a link goes straight to one.
+  const [patientTab, setPatientTab] = useState('overview')
   const [patients, setPatients] = useState<Patient[]>([])
   const [error, setError] = useState('')
 
@@ -54,7 +56,7 @@ export default function EmrWorkspace() {
 
   useEffect(() => { loadPatientOptions() }, [loadPatientOptions])
 
-  function openPatient(id: string) { setSelectedPatientId(id); setView('patients') }
+  function openPatient(id: string, tab = 'overview') { setSelectedPatientId(id); setPatientTab(tab); setView('patients') }
 
   return (
     <div className="space-y-6">
@@ -74,11 +76,11 @@ export default function EmrWorkspace() {
       {view === 'dashboard' && <Dashboard onNavigate={setView} onPatient={openPatient} />}
       {view === 'follow_ups' && <FollowUps onPatient={openPatient} />}
       {view === 'health_analysis' && <FunctionalHealthAnalysis />}
-      {view === 'patients' && (selectedPatientId ? <PatientChart patientId={selectedPatientId} onBack={() => setSelectedPatientId(null)} onChanged={loadPatientOptions} /> : <PatientRegistry onPatient={openPatient} onChanged={loadPatientOptions} />)}
+      {view === 'patients' && (selectedPatientId ? <PatientChart key={`${selectedPatientId}:${patientTab}`} patientId={selectedPatientId} initialTab={patientTab} onBack={() => setSelectedPatientId(null)} onChanged={loadPatientOptions} /> : <PatientRegistry onPatient={openPatient} onChanged={loadPatientOptions} />)}
       {view === 'appointments' && <Appointments patients={patients} onPatient={openPatient} onError={setError} />}
       {view === 'encounters' && <ResourceWorkspace title="Encounters" description="Active and completed clinical consultations." resource="encounters" patients={patients} createType="encounter" onPatient={openPatient} />}
       {view === 'records' && <ClinicalRecords patients={patients} onPatient={openPatient} />}
-      {view === 'investigations' && <div className="space-y-6"><AdminTools scope="investigations" /><div className="grid gap-6 xl:grid-cols-2"><ResourceWorkspace title="Investigation orders" description="Laboratory and diagnostic orders, collection progress and results." resource="investigations" patients={patients} createType="investigation" onPatient={openPatient} /><ResourceWorkspace title="Imaging records" description="Imaging requests, performed studies and clinical reports." resource="imaging" patients={patients} createType="imaging" onPatient={openPatient} /><div className="xl:col-span-2"><LegacyReports patients={patients} onPatient={openPatient} /></div></div></div>}
+      {view === 'investigations' && <div className="space-y-6"><InvestigationWorklist onPatient={id => openPatient(id, 'investigations')} /><div className="grid gap-6 xl:grid-cols-2"><ResourceWorkspace title="Imaging records" description="Imaging requests, performed studies and clinical reports." resource="imaging" patients={patients} createType="imaging" onPatient={openPatient} /><LegacyReports patients={patients} onPatient={id => openPatient(id, 'investigations')} /></div></div>}
       {view === 'medications' && <ResourceWorkspace title="Medications & prescriptions" description="Current and historical medication records." resource="medications" patients={patients} createType="medication" onPatient={openPatient} />}
       {view === 'care_plans' && <ResourceWorkspace title="Care plans" description="Goals and coordinated follow-up plans." resource="care_plans" patients={patients} createType="care_plan" onPatient={openPatient} />}
       {view === 'documents' && <DocumentsWorkspace patients={patients} onPatient={openPatient} />}
@@ -184,8 +186,8 @@ function RegistrationRequests({ onPatient, onChanged }: { onPatient: (id: string
   </Panel>
 }
 
-function PatientChart({ patientId, onBack, onChanged }: { patientId: string; onBack: () => void; onChanged: () => void }) {
-  const [chart, setChart] = useState<Chart | null>(null), [tab, setTab] = useState('overview'), [modal, setModal] = useState<string | null>(null), [error, setError] = useState('')
+function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }: { patientId: string; initialTab?: string; onBack: () => void; onChanged: () => void }) {
+  const [chart, setChart] = useState<Chart | null>(null), [tab, setTab] = useState(initialTab), [modal, setModal] = useState<string | null>(null), [error, setError] = useState('')
   const load = useCallback(async () => { const response = await fetch(`${api}?resource=patient&patientId=${patientId}`); const result = await response.json(); if (response.ok) setChart(result); else setError(result.error) }, [patientId])
   useEffect(() => { load() }, [load])
   if (error) return <Alert tone="error">{error}</Alert>
@@ -210,7 +212,7 @@ function PatientChart({ patientId, onBack, onChanged }: { patientId: string; onB
     {tab === 'diagnoses' && <RecordList records={chart.diagnoses} kind="diagnosis" onUpdate={load} />}
     {tab === 'allergies' && <RecordList records={chart.allergies} kind="allergy" onUpdate={load} action={<button onClick={() => setModal('allergy')} className="primary"><WarningCircleIcon size={18} weight="duotone" />Add allergy</button>} />}
     {tab === 'medications' && <RecordList records={chart.medications} kind="medication" patient={patient} chart={chart} prescriptions={chart.prescriptions} onUpdate={load} action={<button onClick={() => setModal('medication')} className="primary"><PillIcon size={18} weight="duotone" />Create prescription</button>} />}
-    {tab === 'investigations' && <AdminTools scope="investigations" patientContext={patient} resultsFooter={<InvestigationAttachments chart={chart} onAdd={() => setModal('investigation_document')} />} />}
+    {tab === 'investigations' && <PatientInvestigations patient={patient} chart={chart} onChanged={load} attachments={<InvestigationAttachments chart={chart} onAdd={() => setModal('investigation_document')} />} />}
     {tab === 'financial' && <FinancialRecords chart={chart} onUpdate={load} onAdd={() => setModal('financial_record')} />}
     {tab === 'documents' && <Panel title="Documents" subtitle={`${chart.documents.length} document${chart.documents.length === 1 ? '' : 's'}`} action={<button onClick={() => setModal('document')} className="primary"><FileArrowUpIcon size={18} weight="duotone" />Upload document</button>}><PatientDocuments chart={chart} onChanged={load} /></Panel>}
     {tab === 'care_plans' && <CarePlanList chart={chart} patient={patient} onUpdate={load} onCreate={() => setModal('care_plan')} />}
@@ -224,7 +226,7 @@ function PatientOverview({ chart, onEdit }: { chart: Chart; onEdit: () => void }
   const p = chart.patient, latestVitals = chart.vitals[0]
   return <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
     <Panel title="Demographics" subtitle="Core patient and emergency-contact details." action={<button onClick={onEdit} className="secondary"><PencilSimpleIcon size={18} weight="duotone" />Edit demographics</button>}><dl className="mt-5 grid gap-4 sm:grid-cols-2"><Detail label="MRN" value={p.mrn} /><Detail label="Date of birth" value={`${date.format(new Date(`${p.date_of_birth}T00:00:00`))} (${formatPatientAge(p.date_of_birth)})`} /><Detail label="Sex" value={label(p.sex)} /><Detail label="Marital status" value={p.marital_status && label(p.marital_status)} /><Detail label="Blood group" value={p.blood_group} /><Detail label="Genotype" value={p.genotype} /><Detail label="Occupation" value={p.occupation} /><Detail label="Record status" value={label(p.status)} /><Detail label="Phone" value={p.phone} /><Detail label="Email" value={p.email} /><Detail label="Address" value={[p.address,p.city,p.state,p.country].filter(Boolean).join(', ')} /><Detail label="Emergency contact" value={[p.emergency_contact_name,p.emergency_contact_phone,p.emergency_contact_relationship && `(${label(p.emergency_contact_relationship)})`].filter(Boolean).join(' · ')} /><Detail label="Registered" value={p.created_at && date.format(new Date(p.created_at))} /><Detail label="Last updated" value={p.updated_at && date.format(new Date(p.updated_at))} /></dl></Panel>
-    <Panel title="Recent clinical activity" subtitle="Latest observations and longitudinal records."><div className="mt-5 grid gap-4 sm:grid-cols-3"><MiniStat label="Last BP" value={latestVitals?.systolic_bp ? `${latestVitals.systolic_bp}/${latestVitals.diastolic_bp}` : '—'} /><MiniStat label="Weight" value={latestVitals?.weight_kg ? `${latestVitals.weight_kg} kg` : '—'} /><MiniStat label="BMI" value={latestVitals?.bmi || '—'} /></div><div className="mt-5 grid gap-3 md:grid-cols-2"><OverviewRow title="Recent encounter" value={chart.encounters[0] ? `${label(chart.encounters[0].encounter_type)} · ${date.format(new Date(chart.encounters[0].created_at))}` : 'No encounters'} /><OverviewRow title="Latest investigation" value={chart.investigations[0]?.test_name || 'No investigations'} /><OverviewRow title="Upcoming appointment" value={chart.appointments.find((x: any) => x.preferred_date >= new Date().toISOString().slice(0,10)) ? date.format(new Date(chart.appointments.find((x: any) => x.preferred_date >= new Date().toISOString().slice(0,10)).preferred_date)) : 'No upcoming appointment'} /><OverviewRow title="Active care plan" value={chart.carePlans.find((x: any) => x.status === 'active')?.title || 'No active care plan'} /></div></Panel>
+    <Panel title="Recent clinical activity" subtitle="Latest observations and longitudinal records."><div className="mt-5 grid gap-4 sm:grid-cols-3"><MiniStat label="Last BP" value={latestVitals?.systolic_bp ? `${latestVitals.systolic_bp}/${latestVitals.diastolic_bp}` : '—'} /><MiniStat label="Weight" value={latestVitals?.weight_kg ? `${latestVitals.weight_kg} kg` : '—'} /><MiniStat label="BMI" value={latestVitals?.bmi || '—'} /></div><div className="mt-5 grid gap-3 md:grid-cols-2"><OverviewRow title="Recent encounter" value={chart.encounters[0] ? `${label(chart.encounters[0].encounter_type)} · ${date.format(new Date(chart.encounters[0].created_at))}` : 'No encounters'} /><OverviewRow title="Latest investigation" value={latestInvestigation(chart)} /><OverviewRow title="Upcoming appointment" value={chart.appointments.find((x: any) => x.preferred_date >= new Date().toISOString().slice(0,10)) ? date.format(new Date(chart.appointments.find((x: any) => x.preferred_date >= new Date().toISOString().slice(0,10)).preferred_date)) : 'No upcoming appointment'} /><OverviewRow title="Active care plan" value={chart.carePlans.find((x: any) => x.status === 'active')?.title || 'No active care plan'} /></div></Panel>
   </div>
 }
 
@@ -237,7 +239,8 @@ function Timeline({ chart }: { chart: Chart }) {
     ...chart.medications.map((x: any) => ({ at: x.created_at, type: 'Medication', title: `${x.medication_name} ${x.strength || ''}`, detail: [x.dose,x.route,x.frequency].filter(Boolean).join(' · ') })),
     ...chart.investigations.map((x: any) => ({ at: x.ordered_at, type: 'Investigation', title: `${x.test_name} ordered`, detail: label(x.status) })),
     ...chart.results.map((x: any) => ({ at: x.result_date, type: 'Result', title: `${x.test_name}: ${x.result}${x.unit ? ` ${x.unit}` : ''}`, detail: x.abnormal_flag ? label(x.abnormal_flag) : '' })),
-    ...chart.legacyReports.map((x: any) => ({ at: x.created_at, type: 'Investigation report', title: x.report_meta?.reportTitle || x.original_name, detail: `${x.results?.length || 0} reported result${x.results?.length === 1 ? '' : 's'}` })),
+    ...(chart.investigationOrders || []).map((x: any) => ({ at: x.createdAt, type: 'Investigation order', title: `${x.panelTitle} ordered`, detail: `${x.tests.length} test${x.tests.length === 1 ? '' : 's'}${x.status === 'awaiting_results' ? ' · awaiting results' : ''}` })),
+    ...(chart.investigationReports || []).map((x: any) => ({ at: x.createdAt, type: 'Investigation results', title: x.reportMeta.reportTitle, detail: `${x.results.length} reported result${x.results.length === 1 ? '' : 's'}` })),
     ...chart.imaging.map((x: any) => ({ at: x.performed_at || x.created_at, type: 'Imaging', title: `${x.modality}${x.body_region ? ` · ${x.body_region}` : ''}`, detail: x.report || x.indication })),
     ...chart.assessments.map((x: any) => ({ at: x.submitted_at, type: 'Health assessment', title: label(x.source), detail: label(x.status) })),
     ...chart.appointments.map((x: any) => ({ at: `${x.preferred_date}T${x.preferred_time || '00:00'}`, type: 'Appointment', title: label(x.consultation_type), detail: label(x.status) })),
@@ -282,7 +285,7 @@ function LegacyReports({ patients, onPatient }: { patients: Patient[]; onPatient
   const load = useCallback(async () => { const response = await fetch(`${api}?resource=legacy_reports`); const result = await response.json(); if (response.ok) setRecords(result.records || []); else setError(result.error) }, [])
   useEffect(() => { load() }, [load])
   async function linkReport(record: any) { const patientId = links[record.id]; if (!patientId) return; const response = await fetch(api, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: 'legacy_reports', id: record.id, patient_id: patientId }) }); if (response.ok) load(); else setError((await response.json()).error) }
-  return <Panel title="Existing investigation reports" subtitle="Explicitly attach reports created in Admin Tools to the correct clinical patient.">{error && <Alert tone="error">{error}</Alert>}<div className="mt-5 space-y-3">{records.map(record => <div key={record.id} className="flex flex-wrap items-center gap-4 rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4"><FlaskIcon size={22} weight="duotone" className="text-green-mid" /><div className="min-w-52 flex-1"><p className="font-bold">{record.report_meta?.reportTitle || record.original_name}</p><p className="mt-1 text-xs text-text-mid">{record.patient?.fullName || 'Unidentified patient'} · {date.format(new Date(record.created_at))}</p></div>{record.emr_patient_id ? <button onClick={() => onPatient(record.emr_patient_id)} className="secondary">Open linked patient</button> : <div className="flex min-w-72 gap-2"><select className="input py-2" value={links[record.id] || ''} onChange={event => setLinks(current => ({ ...current, [record.id]: event.target.value }))}><option value="">Select patient…</option>{patients.map(patient => <option key={patient.id} value={patient.id}>{patient.mrn} · {fullName(patient)}</option>)}</select><button onClick={() => linkReport(record)} className="secondary">Link</button></div>}</div>)}{!records.length && <Empty text="No existing investigation reports." />}</div></Panel>
+  return <Panel title="Unlinked investigation reports" subtitle="Older results reports not yet attached to a patient record. Link each one to the right patient.">{error && <Alert tone="error">{error}</Alert>}<div className="mt-5 space-y-3">{records.map(record => <div key={record.id} className="flex flex-wrap items-center gap-4 rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4"><FlaskIcon size={22} weight="duotone" className="text-green-mid" /><div className="min-w-52 flex-1"><p className="font-bold">{record.report_meta?.reportTitle || record.original_name}</p><p className="mt-1 text-xs text-text-mid">{record.patient?.fullName || 'Unidentified patient'} · {date.format(new Date(record.created_at))}</p></div>{record.emr_patient_id ? <button onClick={() => onPatient(record.emr_patient_id)} className="secondary">Open linked patient</button> : <div className="flex min-w-72 gap-2"><select className="input py-2" value={links[record.id] || ''} onChange={event => setLinks(current => ({ ...current, [record.id]: event.target.value }))}><option value="">Select patient…</option>{patients.map(patient => <option key={patient.id} value={patient.id}>{patient.mrn} · {fullName(patient)}</option>)}</select><button onClick={() => linkReport(record)} className="secondary">Link</button></div>}</div>)}{!records.length && <Empty text="Every results report is linked to a patient." />}</div></Panel>
 }
 
 function PatientDocuments({ chart }: { chart: Chart; onChanged: () => void }) {
@@ -316,8 +319,9 @@ function RecordList({ records, kind, patient, chart, prescriptions = [], onUpdat
 // diagnostic ones, so those are what surface alongside orders and results.
 const investigationCategories = ['laboratory', 'imaging']
 
+// Lab reports uploaded for an order are shown on that order instead.
 function InvestigationAttachments({ chart, onAdd }: { chart: Chart; onAdd: () => void }) {
-  const files = (chart.documents || []).filter((item: any) => investigationCategories.includes(item.category))
+  const files = (chart.documents || []).filter((item: any) => investigationCategories.includes(item.category) && !item.investigation_form_id)
   return <Panel title="Investigation attachments" subtitle={`${files.length} laboratory or imaging document${files.length === 1 ? '' : 's'}`} action={<button onClick={onAdd} className="primary"><FileArrowUpIcon size={18} weight="duotone" />Add attachment</button>}>
     {files.length ? <Attachments files={files} showHeading={false} /> : <div className="mt-5"><Empty text="No laboratory or imaging documents uploaded." /></div>}
   </Panel>
@@ -801,6 +805,11 @@ function OverviewRow({ title, value }: { title: string; value: string }) { retur
 function SummaryAlert({ title, items, empty, warning }: { title: string; items: string[]; empty: string; warning?: boolean }) { return <div className={`rounded-[16px] border p-4 ${warning && items.length ? 'border-red-200 bg-red-50' : 'border-green-deep/10 bg-[#FCFFF0]'}`}><p className={`text-[10px] font-bold uppercase tracking-wide ${warning && items.length ? 'text-red-700' : 'text-green-mid'}`}>{title}</p><div className="mt-2 space-y-1">{items.length ? items.slice(0,3).map(item => <p key={item} className="text-sm font-bold">{item}</p>) : <p className="text-sm text-text-mid">{empty}</p>}</div></div> }
 function GlobalList({ title, records, patients, onPatient, primary }: any) { return <Panel title={title} subtitle={`${records.length} record${records.length === 1 ? '' : 's'}`}><div className="mt-5 space-y-3">{records.slice(0,20).map((record: any) => <button key={record.id} onClick={() => onPatient(record.patient_id)} className="w-full rounded-[14px] border border-green-deep/10 bg-[#FCFFF0] p-4 text-left"><p className="line-clamp-2 font-bold">{primary === 'recorded_at' ? `BP ${record.systolic_bp || '—'}/${record.diastolic_bp || '—'}` : record[primary]}</p><p className="mt-1 text-xs text-text-mid">{patientName(patients, record.patient_id)}</p></button>)}{!records.length && <Empty text="No records yet." />}</div></Panel> }
 
+function latestInvestigation(chart: Chart) {
+  const order = chart.investigationOrders?.[0], legacy = chart.investigations?.[0]
+  if (order && (!legacy || new Date(order.createdAt) >= new Date(legacy.ordered_at))) return `${order.panelTitle} · ${date.format(new Date(order.createdAt))}`
+  return legacy?.test_name || 'No investigations'
+}
 function patientName(patients: Patient[], id: string) { const p = patients.find(item => item.id === id); return p ? `${p.mrn} · ${fullName(p)}` : 'Patient record' }
 function formatPatientAge(dob: string, today = new Date()) {
   const birth = new Date(`${dob}T00:00:00`)

@@ -44,3 +44,44 @@ export const resultTestKey = (test: string) => test.trim().replace(/\s+/g, ' ').
 export function createResultRow(test = '', section = ''): InvestigationResult {
   return { section, test, result: '', unit: '', referenceRange: '', flag: '', remark: '' }
 }
+
+// What a lab reports back for each test that can be ordered, so entering the
+// results of an order starts from what was requested. Panels expand into the
+// measurements they report; the core-panel names, which are worded differently
+// from the catalogue, are mapped onto it here too.
+const orderedPanels: Record<string, { section: string; tests: string[] }> = {
+  'Complete Blood Count (CBC)': { section: 'Full Blood Count', tests: RESULT_TEST_CATALOG[0].tests },
+  'Comprehensive Metabolic Panel (CMP)': { section: 'Comprehensive Metabolic Panel', tests: ['Glucose', 'Sodium', 'Potassium', 'Chloride', 'Bicarbonate', 'Urea', 'Creatinine', 'Calcium', 'Total Protein', 'Albumin', 'Total Bilirubin', 'ALP', 'ALT', 'AST'] },
+  'Lipid Profile (Total Cholesterol, LDL, HDL, Triglycerides)': { section: 'Lipid Profile', tests: ['Total Cholesterol', 'LDL Cholesterol', 'HDL Cholesterol', 'Triglycerides'] },
+  'Thyroid (TSH, free T3, free T4)': { section: 'Thyroid Function', tests: ['TSH', 'Free T3', 'Free T4'] },
+  'Thyroid Function Test (TSH, Free T3, Free T4)': { section: 'Thyroid Function', tests: panelMeasurements['Thyroid Function Test (TSH, Free T3, Free T4)'] },
+  'Liver Function Test': { section: 'Liver Function Test', tests: panelMeasurements['Liver Function Test'] },
+  'Iron Studies': { section: 'Iron Studies', tests: panelMeasurements['Iron Studies'] },
+}
+const renamedTests: Record<string, string> = {
+  'High Sensitivity CRP': 'High-Sensitivity CRP',
+  'ESR (Erythrocyte Sedimentation Rate)': 'Erythrocyte Sedimentation Rate (ESR)',
+}
+
+function orderedTestCategory(test: string) {
+  return INVESTIGATION_CATALOG.find(group => group.tests.some(name => name === test))?.category || 'Other Investigations'
+}
+
+/** Blank result rows for the tests on an order, one per reported measurement. */
+export function resultRowsForOrder(orderedTests: string[]): InvestigationResult[] {
+  const rows: InvestigationResult[] = []
+  const seen = new Set<string>()
+  const add = (test: string, section: string) => {
+    const key = resultTestKey(test)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    rows.push(createResultRow(test, section))
+  }
+  for (const ordered of orderedTests) {
+    const name = renamedTests[ordered] || ordered
+    const panel = orderedPanels[name]
+    if (panel) panel.tests.forEach(test => add(test, panel.section))
+    else (panelMeasurements[name] || [name]).forEach(test => add(test, orderedTestCategory(name)))
+  }
+  return rows
+}
