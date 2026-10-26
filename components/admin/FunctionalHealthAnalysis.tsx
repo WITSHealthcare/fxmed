@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { displayAge } from '@/lib/age'
-import { ClipboardTextIcon, EyeIcon, PhoneCallIcon, PlusCircleIcon, XIcon } from '@phosphor-icons/react'
+import { ClipboardTextIcon, EyeIcon, FlaskIcon, PhoneCallIcon, PlusCircleIcon, UserPlusIcon, XIcon } from '@phosphor-icons/react'
 
 interface HealthAnalysisSubmission {
   id: string
@@ -25,6 +25,11 @@ interface HealthAnalysisSubmission {
   // How far the visitor got after submitting. Absent on rows written before
   // progress tracking existed.
   progress: Record<string, string> | null
+  // 'clinic' when the team added a registered patient, rather than the
+  // patient filling in the online form.
+  source: string
+  addedBy: string
+  patientId: string | null
   testRecommendations: {
     category: string
     tests: {
@@ -33,7 +38,18 @@ interface HealthAnalysisSubmission {
       whyImportant: string
     }[]
   }[]
-  status: 'new' | 'reviewed' | 'contacted' | 'completed'
+  status: SubmissionStatus
+}
+
+// In the order a submission moves through them.
+const STATUSES = ['new', 'reviewed', 'contacted', 'investigations_done', 'completed'] as const
+type SubmissionStatus = typeof STATUSES[number]
+const STATUS_LABELS: Record<SubmissionStatus, string> = {
+  new: 'New',
+  reviewed: 'Reviewed',
+  contacted: 'Contacted',
+  investigations_done: 'Investigations done',
+  completed: 'Completed',
 }
 
 // The steps a visitor moves through after submitting the form, in order.
@@ -65,7 +81,45 @@ function DetailSection({ title, fields }: { title: string; fields: Array<[string
   )
 }
 
-type EmrPatient = { id: string; mrn: string; first_name: string; last_name: string; email?: string | null; phone?: string | null; date_of_birth?: string | null }
+type EmrPatient = { id: string; mrn: string; first_name: string; middle_name?: string | null; last_name: string; email?: string | null; phone?: string | null; date_of_birth?: string | null; sex?: string | null }
+
+const patientLabel = (patient: EmrPatient) => [patient.first_name, patient.middle_name, patient.last_name].filter(Boolean).join(' ')
+
+// A health analysis as the API returns it, shaped for this tab. Patients the
+// team added carry no answers, and their contact details come from the patient
+// record they are linked to.
+function toSubmission(record: any): HealthAnalysisSubmission {
+  const details = record.assessment_data || {}
+  const personal = details.personalInfo || {}
+  const concerns = details.healthConcerns || {}
+  const lifestyle = details.lifestyle || {}
+  const history = details.medicalHistory || {}
+  const goals = details.goals || {}
+  const patient: EmrPatient | null = record.patient || null
+  const clinic = record.source === 'clinic'
+  return {
+    id: record.id,
+    patientName: [personal.firstName, personal.lastName].filter(Boolean).join(' ') || (patient ? patientLabel(patient) : '') || 'Unknown patient',
+    email: personal.email || patient?.email || '', phone: personal.phone || patient?.phone || '',
+    dateOfBirth: personal.dateOfBirth || patient?.date_of_birth || '', age: personal.age || '', gender: personal.gender || patient?.sex || '',
+    primaryConcern: concerns.primaryConcern || (clinic ? 'Added by the team' : 'Not provided'), symptoms: concerns.symptoms || [], duration: concerns.duration || '', severity: concerns.severity || '',
+    lifestyle: {
+      diet: lifestyle.diet || '', exercise: lifestyle.exercise || '',
+      sleep: lifestyle.sleep || '', stress: lifestyle.stress || '',
+    },
+    medicalHistory: {
+      medications: history.medications || '', supplements: history.supplements || '',
+      conditions: history.conditions || '', surgeries: history.surgeries || '',
+    },
+    goals: {
+      primaryGoal: goals.primaryGoal || '', timeline: goals.timeline || '', expectations: goals.expectations || '',
+    },
+    // The form submission itself is the first step, so it is always set.
+    progress: clinic ? null : { form_submitted_at: record.submitted_at, ...(record.progress || {}) },
+    submittedAt: record.submitted_at, testRecommendations: record.recommendations || [], status: record.status,
+    source: record.source || 'functional_health_analysis', addedBy: details.addedBy || '', patientId: record.patient_id || null,
+  }
+}
 
 // The form offers male/female/other/prefer-not-to-say; the chart records a
 // clinical sex. Anything not clearly male or female becomes 'unknown' for a
@@ -287,6 +341,173 @@ function LinkPatientModal({ submission, onClose, onLinked }: {
   )
 }
 
+const PAGE_SIZE = 50
+
+// Every active registered patient, to put any of them on the Health Analysis
+// list, plus a form to register someone new and add them in one step.
+function AddPatientsModal({ onList, onClose, onAdded }: {
+  /** Patients already on the list and not yet completed. */
+  onList: Set<string>
+  onClose: () => void
+  onAdded: (record: any) => void
+}) {
+  const [mode, setMode] = useState<'registry' | 'new'>('registry')
+  const [search, setSearch] = useState('')
+  const [patients, setPatients] = useState<EmrPatient[]>([])
+  const [total, setTotal] = useState(0)
+  // Patients fetched so far, before narrowing by the later search words.
+  const [fetched, setFetched] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [added, setAdded] = useState<Set<string>>(new Set())
+  const [notice, setNotice] = useState('')
+  const [error, setError] = useState('')
+  const blankForm = { first_name: '', last_name: '', date_of_birth: '', sex: 'female', phone: '', email: '' }
+  const [form, setForm] = useState(blankForm)
+
+  // The registry search matches one word at a time, so the first word is sent
+  // and the rest narrow the results here: "Ada Obi" finds Ada Obi.
+  useEffect(() => {
+    let cancelled = false
+    const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean)
+    const timer = setTimeout(async () => {
+      setLoading(true)
+      const params = new URLSearchParams({ resource: 'patients', status: 'active', sort: 'last_name', direction: 'asc', pageSize: String(PAGE_SIZE), page: String(page) })
+      if (terms[0]) params.set('search', terms[0])
+      const response = await fetch(`/api/admin/emr?${params}`).catch(() => null)
+      const result = response?.ok ? await response.json() : null
+      if (cancelled) return
+      setLoading(false)
+      if (!result) { setError('The patient list could not be loaded.'); return }
+      const found = (result.patients || [] as EmrPatient[]).filter((patient: EmrPatient) => {
+        const searchable = `${patientLabel(patient)} ${patient.mrn} ${patient.phone || ''} ${patient.email || ''}`.toLowerCase()
+        return terms.every(term => searchable.includes(term))
+      })
+      setPatients(current => page === 1 ? found : [...current, ...found])
+      setFetched(current => (page === 1 ? 0 : current) + (result.patients || []).length)
+      setTotal(result.total || 0)
+    }, page === 1 ? 250 : 0)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [search, page])
+
+  const add = async (patient: EmrPatient) => {
+    setBusy(patient.id); setError(''); setNotice('')
+    const response = await fetch('/api/admin/emr', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'assessments', patient_id: patient.id }),
+    })
+    const result = await response.json().catch(() => ({}))
+    setBusy(null)
+    if (!response.ok) {
+      if (response.status === 409) setAdded(current => new Set(current).add(patient.id))
+      setError(result.error || `${patientLabel(patient)} could not be added.`)
+      return false
+    }
+    setAdded(current => new Set(current).add(patient.id))
+    setNotice(`${patientLabel(patient)} added to the Health Analysis list.`)
+    onAdded(result.record)
+    return true
+  }
+
+  const registerAndAdd = async () => {
+    if (!form.first_name.trim() || !form.last_name.trim()) return setError('First and last name are required.')
+    if (!form.date_of_birth) return setError('Date of birth is required to register a patient.')
+    setBusy('new'); setError(''); setNotice('')
+    const response = await fetch('/api/admin/emr', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'patients', ...form }),
+    })
+    const result = await response.json().catch(() => ({}))
+    setBusy(null)
+    if (!response.ok) return setError(result.error || 'The patient could not be registered.')
+    const patient = result.record as EmrPatient
+    if (await add(patient)) {
+      setNotice(`${patientLabel(patient)} registered as ${patient.mrn} and added to the Health Analysis list.`)
+      setForm(blankForm)
+      setMode('registry')
+      setSearch('')
+      setPage(1)
+    }
+  }
+
+  const inputClass = 'mt-1 w-full rounded-lg border border-green-deep/20 px-3 py-2 text-sm font-normal focus:border-green-deep focus:outline-none'
+  const tab = (value: 'registry' | 'new', text: string) => <button type="button" onClick={() => { setMode(value); setError('') }} className={`rounded-full px-4 py-2 font-dm-sans text-sm font-medium ${mode === value ? 'bg-green-deep text-white' : 'bg-gray-100 text-gray-700'}`}>{text}</button>
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+      <div role="dialog" aria-modal="true" aria-labelledby="add-patients-title" className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-[20px] bg-white shadow-2xl">
+        <div className="flex items-start justify-between border-b border-green-deep/10 px-6 py-5">
+          <div>
+            <h3 id="add-patients-title" className="font-dm-sans text-xl font-bold text-green-deep">Add patients to Health Analysis</h3>
+            <p className="mt-1 font-dm-sans text-sm text-text-mid">Each patient you add joins the list as New, ready to move through the statuses.</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-600"><XIcon size={22} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="mb-5 flex gap-2">{tab('registry', 'All patients')}{tab('new', 'Register a new patient')}</div>
+          {notice && <p role="status" className="mb-4 rounded-lg bg-green-deep/5 px-4 py-3 font-dm-sans text-sm font-semibold text-green-deep">{notice}</p>}
+          {error && <p role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 font-dm-sans text-sm text-red-700">{error}</p>}
+
+          {mode === 'registry' ? <div>
+            <input value={search} onChange={event => { setSearch(event.target.value); setPage(1) }} placeholder="Search by name, MRN, email or phone" aria-label="Search patients" className={inputClass} />
+            <p className="mt-2 font-dm-sans text-xs text-text-mid">{loading && page === 1 ? 'Loading patients…' : `${search.trim() ? `${patients.length} matching` : `${total} active`} patient${(search.trim() ? patients.length : total) === 1 ? '' : 's'}, A to Z by surname`}</p>
+            <div className="mt-3 divide-y divide-green-deep/10 rounded-lg border border-green-deep/10">
+              {patients.map(patient => {
+                const listed = onList.has(patient.id) || added.has(patient.id)
+                return <div key={patient.id} className="flex items-center justify-between gap-3 p-3">
+                  <div className="min-w-0">
+                    <p className="font-dm-sans text-sm font-semibold text-green-deep">{patientLabel(patient)}</p>
+                    <p className="font-dm-sans text-xs text-text-mid">{patient.mrn} · {displayAge({ dateOfBirth: patient.date_of_birth }) ? `${displayAge({ dateOfBirth: patient.date_of_birth })} years` : 'age not recorded'}{patient.sex ? ` · ${patient.sex.charAt(0).toUpperCase()}${patient.sex.slice(1)}` : ''} · {patient.phone || patient.email || 'no contact'}</p>
+                  </div>
+                  {listed
+                    ? <span className="shrink-0 rounded-full bg-green-deep/10 px-3 py-1.5 font-dm-sans text-xs font-semibold text-green-deep">On the list</span>
+                    : <button type="button" disabled={busy !== null} onClick={() => void add(patient)} className="shrink-0 rounded-lg bg-green-deep px-4 py-2 font-dm-sans text-xs font-semibold text-white disabled:opacity-50">{busy === patient.id ? 'Adding…' : 'Add'}</button>}
+                </div>
+              })}
+              {!loading && !patients.length && <p className="p-4 font-dm-sans text-sm text-text-mid">{search.trim() ? 'No patient matches that. Use "Register a new patient" to add them.' : 'No patients are registered yet.'}</p>}
+            </div>
+            {fetched < total && <button type="button" disabled={loading} onClick={() => setPage(current => current + 1)} className="mt-3 w-full rounded-lg border border-green-deep/20 py-2.5 font-dm-sans text-sm font-semibold text-green-deep hover:bg-green-deep/5 disabled:opacity-50">{loading ? 'Loading…' : search.trim() ? 'Look further' : `Load more (${total - fetched} left)`}</button>}
+          </div> : <div>
+            <p className="mb-4 font-dm-sans text-sm text-text-mid">Registers the patient in the EMR and adds them to the Health Analysis list. Search All patients first, so nobody is registered twice.</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label className="block font-dm-sans text-sm font-semibold text-green-deep">First name <span className="text-red-600">*</span>
+                <input value={form.first_name} onChange={event => setForm({ ...form, first_name: event.target.value })} className={inputClass} />
+              </label>
+              <label className="block font-dm-sans text-sm font-semibold text-green-deep">Last name <span className="text-red-600">*</span>
+                <input value={form.last_name} onChange={event => setForm({ ...form, last_name: event.target.value })} className={inputClass} />
+              </label>
+              <label className="block font-dm-sans text-sm font-semibold text-green-deep">Date of birth <span className="text-red-600">*</span>
+                <input type="date" max={new Date().toISOString().slice(0, 10)} value={form.date_of_birth} onChange={event => setForm({ ...form, date_of_birth: event.target.value })} className={inputClass} />
+              </label>
+              <label className="block font-dm-sans text-sm font-semibold text-green-deep">Sex
+                <select value={form.sex} onChange={event => setForm({ ...form, sex: event.target.value })} className={inputClass}>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                </select>
+              </label>
+              <label className="block font-dm-sans text-sm font-semibold text-green-deep">Phone
+                <input value={form.phone} onChange={event => setForm({ ...form, phone: event.target.value })} className={inputClass} />
+              </label>
+              <label className="block font-dm-sans text-sm font-semibold text-green-deep">Email
+                <input type="email" value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} className={inputClass} />
+              </label>
+            </div>
+            <button type="button" disabled={busy !== null} onClick={() => void registerAndAdd()} className="mt-5 w-full rounded-lg bg-gold px-6 py-3 font-dm-sans font-bold text-green-deep disabled:opacity-50">
+              {busy ? 'Adding…' : 'Register and add to Health Analysis'}
+            </button>
+          </div>}
+        </div>
+
+        <div className="flex justify-end border-t border-green-deep/10 px-6 py-4">
+          <button type="button" onClick={onClose} className="rounded-full border border-green-deep/30 px-6 py-2.5 font-dm-sans text-sm font-semibold text-green-deep hover:bg-green-deep/5">Done</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface FunctionalHealthAnalysisProps {
   submissions?: HealthAnalysisSubmission[]
 }
@@ -294,46 +515,21 @@ interface FunctionalHealthAnalysisProps {
 export default function FunctionalHealthAnalysis({ submissions = [] }: FunctionalHealthAnalysisProps) {
   const [submissionsList, setSubmissionsList] = useState<HealthAnalysisSubmission[]>(submissions)
   const [selectedSubmission, setSelectedSubmission] = useState<HealthAnalysisSubmission | null>(null)
-  const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'reviewed' | 'contacted' | 'completed'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | SubmissionStatus>('all')
   const [searchTerm, setSearchTerm] = useState('')
   // Which submission the link-patient modal is open for, and the patients that
   // have been linked in this session, so the card can show it immediately.
   const [linking, setLinking] = useState<HealthAnalysisSubmission | null>(null)
   const [linked, setLinked] = useState<Record<string, EmrPatient>>({})
+  const [adding, setAdding] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/emr?resource=assessments').then(async response => {
       const result = await response.json()
       if (!response.ok) throw new Error(result.error)
-      setSubmissionsList((result.records || []).map((record: any) => {
-        const details = record.assessment_data || {}
-        const personal = details.personalInfo || {}
-        const concerns = details.healthConcerns || {}
-        const lifestyle = details.lifestyle || {}
-        const history = details.medicalHistory || {}
-        const goals = details.goals || {}
-        return {
-          id: record.id,
-          patientName: [personal.firstName, personal.lastName].filter(Boolean).join(' ') || 'Unknown patient',
-          email: personal.email || '', phone: personal.phone || '',
-          dateOfBirth: personal.dateOfBirth || '', age: personal.age || '', gender: personal.gender || '',
-          primaryConcern: concerns.primaryConcern || 'Not provided', symptoms: concerns.symptoms || [], duration: concerns.duration || '', severity: concerns.severity || '',
-          lifestyle: {
-            diet: lifestyle.diet || '', exercise: lifestyle.exercise || '',
-            sleep: lifestyle.sleep || '', stress: lifestyle.stress || '',
-          },
-          medicalHistory: {
-            medications: history.medications || '', supplements: history.supplements || '',
-            conditions: history.conditions || '', surgeries: history.surgeries || '',
-          },
-          goals: {
-            primaryGoal: goals.primaryGoal || '', timeline: goals.timeline || '', expectations: goals.expectations || '',
-          },
-          // The form submission itself is the first step, so it is always set.
-          progress: { form_submitted_at: record.submitted_at, ...(record.progress || {}) },
-          submittedAt: record.submitted_at, testRecommendations: record.recommendations || [], status: record.status,
-        }
-      }))
+      const records = result.records || []
+      setSubmissionsList(records.map(toSubmission))
+      setLinked(Object.fromEntries(records.filter((record: any) => record.patient).map((record: any) => [record.id, record.patient])))
     }).catch(error => console.error('Unable to load health analysis submissions:', error))
   }, [])
 
@@ -355,6 +551,8 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
         return 'bg-blue-100 text-blue-800'
       case 'contacted':
         return 'bg-yellow-100 text-yellow-800'
+      case 'investigations_done':
+        return 'bg-purple-100 text-purple-800'
       case 'completed':
         return 'bg-gray-100 text-gray-800'
       default:
@@ -380,8 +578,15 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-green-deep/8 bg-white p-4">
+        <p className="font-dm-sans text-sm text-text-mid">Submissions from the online functional health analysis, and patients the team has added.</p>
+        <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-2 rounded-full bg-green-deep px-5 py-2.5 font-dm-sans text-sm font-bold text-white transition hover:bg-green-mid">
+          <UserPlusIcon size={18} weight="bold" />Add patient
+        </button>
+      </div>
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="bg-white rounded-lg p-4 border border-green-deep/8">
           <div className="flex items-center justify-between">
             <div>
@@ -435,6 +640,20 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
             </div>
           </div>
         </div>
+
+        <div className="bg-white rounded-lg p-4 border border-green-deep/8">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-text-mid font-dm-sans">Investigations done</p>
+              <p className="text-2xl font-bold text-green-deep font-dm-sans">
+                {submissionsList.filter(s => s.status === 'investigations_done').length}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+              <FlaskIcon size={24} weight="duotone" className="text-purple-700" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filters and Search */}
@@ -449,8 +668,8 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
               className="w-full px-4 py-2 border border-green-deep/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-mid focus:border-transparent font-dm-sans"
             />
           </div>
-          <div className="flex gap-2">
-            {(['all', 'new', 'reviewed', 'contacted', 'completed'] as const).map(status => (
+          <div className="flex flex-wrap gap-2">
+            {(['all', ...STATUSES] as const).map(status => (
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
@@ -460,7 +679,7 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                     : 'bg-gray-100 text-text-mid hover:bg-gray-200'
                 }`}
               >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {status === 'all' ? 'All' : STATUS_LABELS[status]}
               </button>
             ))}
           </div>
@@ -515,7 +734,7 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                       {submission.primaryConcern}
                     </div>
                     <div className="text-xs text-gray-500 font-dm-sans">
-                      {submission.symptoms.length} symptoms
+                      {submission.source === 'clinic' ? 'Not from the online form' : `${submission.symptoms.length} symptom${submission.symptoms.length === 1 ? '' : 's'}`}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-dm-sans">
@@ -523,7 +742,7 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full font-dm-sans ${getStatusColor(submission.status)}`}>
-                      {submission.status}
+                      {STATUS_LABELS[submission.status] || submission.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -538,10 +757,7 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                       onChange={(e) => updateSubmissionStatus(submission.id, e.target.value as HealthAnalysisSubmission['status'])}
                       className="text-sm border border-gray-300 rounded px-2 py-1 font-dm-sans"
                     >
-                      <option value="new">New</option>
-                      <option value="reviewed">Reviewed</option>
-                      <option value="contacted">Contacted</option>
-                      <option value="completed">Completed</option>
+                      {STATUSES.map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
                     </select>
                     <div className="mt-2">
                       {linked[submission.id] ? (
@@ -561,6 +777,17 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
           </table>
         </div>
       </div>
+
+      {adding && (
+        <AddPatientsModal
+          onList={new Set(submissionsList.filter(item => item.patientId && item.status !== 'completed').map(item => item.patientId as string))}
+          onClose={() => setAdding(false)}
+          onAdded={record => {
+            setSubmissionsList(current => [toSubmission(record), ...current])
+            if (record.patient) setLinked(current => ({ ...current, [record.id]: record.patient }))
+          }}
+        />
+      )}
 
       {/* Detail Modal */}
       {linking && (
@@ -683,8 +910,15 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                 ]}
               />
 
-              {/* Progress through the funnel */}
-              <div className="mb-8">
+              {/* Progress through the funnel, for online submissions only */}
+              {selectedSubmission.source === 'clinic' && (
+                <div className="mb-8 rounded-lg border border-gold/40 bg-gold/10 p-4">
+                  <p className="font-dm-sans text-sm text-green-deep">
+                    Added to the Health Analysis list by {selectedSubmission.addedBy || 'the team'} on {formatDate(selectedSubmission.submittedAt)}. This patient did not fill in the online form, so the sections above are empty.
+                  </p>
+                </div>
+              )}
+              {selectedSubmission.progress && <div className="mb-8">
                 <h3 className="font-dm-sans font-bold text-green-deep text-lg mb-4">Progress</h3>
                 <div className="space-y-2">
                   {FUNNEL_STEPS.map(step => {
@@ -710,7 +944,7 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                   Payment is taken on an external Paystack page, so opening it is the last step that can be recorded here.
                   It does not confirm that payment was made.
                 </p>
-              </div>
+              </div>}
 
               {/* Test Recommendations */}
               <div className="mb-8">
