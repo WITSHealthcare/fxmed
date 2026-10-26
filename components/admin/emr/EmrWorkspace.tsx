@@ -76,7 +76,7 @@ export default function EmrWorkspace() {
       {error && <Alert tone="error">{error}</Alert>}
       {view === 'dashboard' && <Dashboard onNavigate={setView} onPatient={openPatient} />}
       {view === 'follow_ups' && <FollowUps onPatient={openPatient} />}
-      {view === 'health_analysis' && <FunctionalHealthAnalysis />}
+      {view === 'health_analysis' && <FunctionalHealthAnalysis onPatient={openPatient} />}
       {view === 'patients' && (selectedPatientId ? <PatientChart key={`${selectedPatientId}:${patientTab}`} patientId={selectedPatientId} initialTab={patientTab} onBack={() => setSelectedPatientId(null)} onChanged={loadPatientOptions} /> : <PatientRegistry onPatient={openPatient} onChanged={loadPatientOptions} />)}
       {view === 'appointments' && <Appointments patients={patients} onPatient={openPatient} onError={setError} />}
       {view === 'encounters' && <ResourceWorkspace title="Encounters" description="Active and completed clinical consultations." resource="encounters" patients={patients} createType="encounter" onPatient={openPatient} />}
