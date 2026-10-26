@@ -125,6 +125,7 @@ export async function PATCH(request: NextRequest) {
   if (!body || !isUuid(body.id)) return fail('A valid investigation record is required.')
   if (body.action === 'results') return saveResults(request, body, body.id)
   if (body.action === 'status') return setOrderStatus(request, body)
+  if (body.action === 'link') return linkToPatient(request, body)
   return fail('Unknown investigation action.')
 }
 
@@ -281,6 +282,32 @@ async function setOrderStatus(request: NextRequest, body: Record<string, any>) {
     if (!data) return fail('Order not found.', 404)
     await writeEmrAudit(database, user, { action: body.status === 'cancelled' ? 'cancel_investigation_order' : 'reopen_investigation_order', entityType: 'investigation_forms', entityId: data.id, patientId: data.emr_patient_id })
     return NextResponse.json({ order: mapOrderRow(data) })
+  } catch (error) {
+    return serverError(error)
+  }
+}
+
+// Attaches a form or report that was made without a patient record to one,
+// once a clinician has confirmed it is that patient's. Never re-links.
+async function linkToPatient(request: NextRequest, body: Record<string, any>) {
+  if (body.kind !== 'order' && body.kind !== 'report') return fail('Choose what to link.')
+  const context = await getEmrContext(request, body.kind === 'order' ? 'order_investigations' : 'record_results')
+  if (!context) return fail('Clinical access required.', 403)
+  const { database, user } = context
+
+  try {
+    if (!await patientExists(database, body.patientId)) return fail('A valid patient is required.')
+    const table = body.kind === 'order' ? 'investigation_forms' : 'investigation_results'
+    const { data, error } = await database.from(table)
+      .update({ emr_patient_id: body.patientId })
+      .eq('id', body.id)
+      .is('emr_patient_id', null)
+      .select('id')
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return fail('This record is already linked to a patient, or no longer exists.', 409)
+    await writeEmrAudit(database, user, { action: body.kind === 'order' ? 'link_investigation_order' : 'link_investigation_results', entityType: table, entityId: body.id, patientId: body.patientId })
+    return NextResponse.json({ success: true })
   } catch (error) {
     return serverError(error)
   }
