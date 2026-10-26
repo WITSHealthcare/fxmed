@@ -11,6 +11,7 @@ import {
   writeEmrAudit,
 } from '@/lib/emr'
 import { lagosDate, parseFollowUpDue } from '@/lib/follow-ups'
+import { ORDER_COLUMNS, REPORT_COLUMNS, mapOrderRow, mapReportRow } from '@/lib/investigations'
 
 export const runtime = 'nodejs'
 
@@ -85,6 +86,14 @@ async function staffNames(database: any): Promise<Record<string, string>> {
   return Object.fromEntries((data?.users || []).map((member: any) => [member.id, member.user_metadata?.full_name || member.email || 'Staff member']))
 }
 
+// Investigations failing to load should not take the rest of the chart with
+// them, for example before migration 035 has been applied.
+function investigationLoadError(error: any) {
+  if (!error) return null
+  console.error('EMR: investigations could not be loaded:', error)
+  return error.code === '42703' ? 'The investigation tracking migration (035) has not been applied yet.' : emrErrorMessage(error)
+}
+
 async function patientExists(database: any, patientId: unknown) {
   if (!isUuid(patientId)) return false
   const { data } = await database.from('emr_patients').select('id').eq('id', patientId).maybeSingle()
@@ -109,12 +118,13 @@ export async function GET(request: NextRequest) {
         database.from('emr_patients').select('id,mrn,first_name,last_name,created_at,updated_at,status').order('updated_at', { ascending: false }).limit(8),
         database.from('emr_patients').select('id,mrn,first_name,last_name,created_at').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(8),
         database.from('emr_encounters').select('id,patient_id,created_at,patient:emr_patients(id,mrn,first_name,last_name)').order('created_at', { ascending: false }).limit(8),
-        database.from('emr_investigation_orders').select('id,status').in('status', ['ordered','collected','in_progress']),
+        database.from('investigation_forms').select('id', { count: 'exact', head: true }).eq('status', 'awaiting_results'),
         database.from('emr_investigation_results').select('id,reviewed_at').is('reviewed_at', null),
         database.from('emr_clinical_notes').select('id,status').eq('status', 'draft'),
         database.from('emr_clinical_tasks').select('id,status,due_at').in('status', ['pending','in_progress']),
       ])
-      const error = appointments.error || encounters.error || patients.error || newPatients.error || recentlySeen.error || orders.error || results.error || notes.error || tasks.error
+      const error = appointments.error || encounters.error || patients.error || newPatients.error || recentlySeen.error || results.error || notes.error || tasks.error
+      if (orders.error) investigationLoadError(orders.error)
       if (error) throw error
       await writeEmrAudit(database, user, { action: 'view', entityType: 'emr_dashboard' })
       return NextResponse.json({
@@ -125,7 +135,7 @@ export async function GET(request: NextRequest) {
           activeEncounters: (encounters.data || []).filter((item: any) => item.status === 'in_progress').length,
           completedEncounters: (encounters.data || []).filter((item: any) => item.status === 'completed').length,
           waitingPatients: (encounters.data || []).filter((item: any) => item.status === 'waiting').length,
-          pendingResults: orders.data?.length || 0,
+          pendingResults: orders.count || 0,
           resultsToReview: results.data?.length || 0,
           incompleteNotes: notes.data?.length || 0,
           followUpsDue: (tasks.data || []).filter((item: any) => item.due_at && lagosDate(item.due_at) <= lagosDate()).length,
@@ -151,7 +161,7 @@ export async function GET(request: NextRequest) {
 
     if (resource === 'patient') {
       if (!isUuid(patientId)) return NextResponse.json({ error: 'A valid patient is required.' }, { status: 400 })
-      const [patient, encounters, notes, vitals, diagnoses, allergies, medications, prescriptions, orders, results, legacyReports, imaging, documents, carePlans, tasks, appointments, assessments, financialRecords, financialPayments, audit] = await Promise.all([
+      const [patient, encounters, notes, vitals, diagnoses, allergies, medications, prescriptions, orders, results, investigationOrders, investigationReports, imaging, documents, carePlans, tasks, appointments, assessments, financialRecords, financialPayments, audit] = await Promise.all([
         database.from('emr_patients').select('*').eq('id', patientId).single(),
         database.from('emr_encounters').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
         database.from('emr_clinical_notes').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
@@ -162,7 +172,8 @@ export async function GET(request: NextRequest) {
         database.from('emr_prescriptions').select('*,medication:emr_medications(*)').eq('patient_id', patientId).order('created_at', { ascending: false }),
         database.from('emr_investigation_orders').select('*').eq('patient_id', patientId).order('ordered_at', { ascending: false }),
         database.from('emr_investigation_results').select('*').eq('patient_id', patientId).order('result_date', { ascending: false }),
-        database.from('investigation_results').select('id,original_name,download_name,patient,report_meta,results,created_at,created_by_email').eq('emr_patient_id', patientId).order('created_at', { ascending: false }),
+        database.from('investigation_forms').select(ORDER_COLUMNS).eq('emr_patient_id', patientId).order('created_at', { ascending: false }),
+        database.from('investigation_results').select(REPORT_COLUMNS).eq('emr_patient_id', patientId).order('created_at', { ascending: false }),
         database.from('emr_imaging_records').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
         database.from('emr_documents').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
         database.from('emr_care_plans').select('*,items:emr_care_plan_items(*)').eq('patient_id', patientId).order('created_at', { ascending: false }),
@@ -173,10 +184,10 @@ export async function GET(request: NextRequest) {
         database.from('emr_financial_payments').select('*').eq('patient_id', patientId).order('payment_date', { ascending: false }).order('created_at', { ascending: false }),
         database.from('emr_audit_logs').select('id,action,entity_type,entity_id,user_email,created_at').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(100),
       ])
-      const error = patient.error || encounters.error || notes.error || vitals.error || diagnoses.error || allergies.error || medications.error || prescriptions.error || orders.error || results.error || legacyReports.error || imaging.error || documents.error || carePlans.error || tasks.error || appointments.error || assessments.error || financialRecords.error || financialPayments.error || audit.error
+      const error = patient.error || encounters.error || notes.error || vitals.error || diagnoses.error || allergies.error || medications.error || prescriptions.error || orders.error || results.error || imaging.error || documents.error || carePlans.error || tasks.error || appointments.error || assessments.error || financialRecords.error || financialPayments.error || audit.error
       if (error) throw error
       await writeEmrAudit(database, user, { action: 'view_patient_chart', entityType: 'emr_patient', entityId: patientId, patientId })
-      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], legacyReports: legacyReports.data || [], imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], assessments: assessments.data || [], financialRecords: financialRecords.data || [], financialPayments: financialPayments.data || [], audit: audit.data || [] })
+      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], investigationOrders: (investigationOrders.data || []).map(mapOrderRow), investigationReports: (investigationReports.data || []).map(mapReportRow), investigationError: investigationLoadError(investigationOrders.error || investigationReports.error), imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], assessments: assessments.data || [], financialRecords: financialRecords.data || [], financialPayments: financialPayments.data || [], audit: audit.data || [] })
     }
 
     if (resource === 'follow_ups') {
@@ -201,7 +212,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (resource === 'legacy_reports') {
-      const { data, error } = await database.from('investigation_results').select('id,original_name,download_name,patient,report_meta,results,emr_patient_id,emr_order_id,created_at').order('created_at', { ascending: false }).limit(250)
+      const { data, error } = await database.from('investigation_results').select('id,original_name,download_name,patient,report_meta,results,emr_patient_id,emr_order_id,created_at').is('emr_patient_id', null).order('created_at', { ascending: false }).limit(250)
       if (error) throw error
       return NextResponse.json({ records: data || [] })
     }

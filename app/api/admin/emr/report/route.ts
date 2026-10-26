@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getEmrContext, writeEmrAudit } from '@/lib/emr'
 import { extractDocumentText, generateClinicalReport, isReadable, isTextExtractable, type ReportAttachment } from '@/lib/ai/clinical-report'
+import { ORDER_COLUMNS, REPORT_COLUMNS, mapOrderRow, mapReportRow, type InvestigationOrder, type InvestigationReport } from '@/lib/investigations'
 
 // Guard rails on how much is sent to the model in one request.
 const MAX_DOCUMENTS = 12
@@ -142,11 +143,22 @@ function buildClinicalSummary(data: any, from: string, to: string) {
   lines.push(section('Medications', (data.medications || []).map((m: any) =>
     `${m.medication_name} ${m.strength || ''} — ${m.dose}, ${m.route}, ${m.frequency}, ${m.duration} (${m.status})${m.instructions ? `. ${m.instructions}` : ''}`)))
 
-  lines.push(section('Investigations ordered in period', (data.investigations || []).filter((i: any) => inRange(i.ordered_at || i.created_at)).map((i: any) =>
-    `${fmt(i.ordered_at || i.created_at)} — ${i.test_name} (${i.category || 'uncategorised'}, ${i.status}). Indication: ${i.clinical_indication || 'not stated'}`)))
+  const orderStatus = (status: InvestigationOrder['status']) => status === 'awaiting_results' ? 'awaiting results' : status || 'results not tracked'
+  lines.push(section('Investigations ordered in period', [
+    ...(data.investigations || []).filter((i: any) => inRange(i.ordered_at || i.created_at)).map((i: any) =>
+      `${fmt(i.ordered_at || i.created_at)} — ${i.test_name} (${i.category || 'uncategorised'}, ${i.status}). Indication: ${i.clinical_indication || 'not stated'}`),
+    ...(data.investigationOrders || []).filter((o: InvestigationOrder) => inRange(o.createdAt)).map((o: InvestigationOrder) =>
+      `${fmt(o.createdAt)} — ${o.panelTitle}: ${o.tests.join(', ')} (${orderStatus(o.status)})${o.clinicalDetails ? `. Clinical details: ${o.clinicalDetails}` : ''}`),
+  ]))
 
-  lines.push(section('Investigation results in period', (data.results || []).filter((r: any) => inRange(r.result_date)).map((r: any) =>
-    `${fmt(r.result_date)} — ${r.test_name}: ${r.result} ${r.unit || ''} (ref ${r.reference_range || 'n/a'})${r.abnormal_flag ? ` [${r.abnormal_flag}]` : ''}${r.notes ? `. ${r.notes}` : ''}`)))
+  lines.push(section('Investigation results in period', [
+    ...(data.results || []).filter((r: any) => inRange(r.result_date)).map((r: any) =>
+      `${fmt(r.result_date)} — ${r.test_name}: ${r.result} ${r.unit || ''} (ref ${r.reference_range || 'n/a'})${r.abnormal_flag ? ` [${r.abnormal_flag}]` : ''}${r.notes ? `. ${r.notes}` : ''}`),
+    ...(data.investigationReports || []).filter((report: InvestigationReport) => inRange(report.createdAt)).flatMap((report: InvestigationReport) => [
+      ...report.results.map(r => `${fmt(report.createdAt)} — ${r.section ? `${r.section}, ` : ''}${r.test}: ${r.result} ${r.unit} (ref ${r.referenceRange || 'n/a'})${r.flag ? ` [${r.flag}]` : ''}${r.remark ? `. ${r.remark}` : ''}`),
+      ...(report.reportMeta.notes ? [`${fmt(report.createdAt)} — clinical note on these results: ${report.reportMeta.notes}`] : []),
+    ]),
+  ]))
 
   lines.push(section('Imaging in period', (data.imaging || []).filter((i: any) => inRange(i.performed_at || i.created_at)).map((i: any) =>
     `${fmt(i.performed_at || i.created_at)} — ${i.modality}${i.body_region ? ` ${i.body_region}` : ''}. Indication: ${i.indication || 'not stated'}${i.report ? `. Report: ${i.report}` : ''}`)))
@@ -206,7 +218,7 @@ export async function POST(request: NextRequest) {
     const reportType = body?.reportType === 'financial' ? 'financial' : 'clinical'
     if (!patientId || !from || !to) return NextResponse.json({ error: 'A patient and date range are required.' }, { status: 400 })
 
-    const [patient, encounters, notes, vitals, diagnoses, allergies, medications, orders, results, imaging, documents, carePlans, financialRecords, financialPayments] = await Promise.all([
+    const [patient, encounters, notes, vitals, diagnoses, allergies, medications, orders, results, investigationOrders, investigationReports, imaging, documents, carePlans, financialRecords, financialPayments] = await Promise.all([
       database.from('emr_patients').select('*').eq('id', patientId).single(),
       database.from('emr_encounters').select('*').eq('patient_id', patientId).order('created_at'),
       database.from('emr_clinical_notes').select('*').eq('patient_id', patientId).order('created_at'),
@@ -216,6 +228,8 @@ export async function POST(request: NextRequest) {
       database.from('emr_medications').select('*').eq('patient_id', patientId).order('created_at'),
       database.from('emr_investigation_orders').select('*').eq('patient_id', patientId).order('ordered_at'),
       database.from('emr_investigation_results').select('*').eq('patient_id', patientId).order('result_date'),
+      database.from('investigation_forms').select(ORDER_COLUMNS).eq('emr_patient_id', patientId).order('created_at'),
+      database.from('investigation_results').select(REPORT_COLUMNS).eq('emr_patient_id', patientId).order('created_at'),
       database.from('emr_imaging_records').select('*').eq('patient_id', patientId).order('created_at'),
       database.from('emr_documents').select('*').eq('patient_id', patientId).order('created_at'),
       database.from('emr_care_plans').select('*').eq('patient_id', patientId),
@@ -238,6 +252,8 @@ export async function POST(request: NextRequest) {
       encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [],
       diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [],
       investigations: orders.data || [], results: results.data || [], imaging: imaging.data || [],
+      investigationOrders: (investigationOrders.data || []).map(mapOrderRow),
+      investigationReports: (investigationReports.data || []).map(mapReportRow),
       carePlans: carePlans.data || [],
       financialRecords: ledger,
     }
