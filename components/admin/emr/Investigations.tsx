@@ -398,7 +398,13 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
     {actions.error && <Alert tone="error">{actions.error}</Alert>}
 
     {tab === 'results' && <>
-      <Panel title="Awaiting results" subtitle={awaiting.length ? `${awaiting.length} order${awaiting.length === 1 ? ' is' : 's are'} waiting for results. Enter them by hand, or upload the lab's report to read them in.` : 'Orders appear here until their results are in.'} action={<button type="button" onClick={() => open(null, null)} className="secondary"><PlusIcon size={18} weight="bold" />Results without an order</button>}>
+      <Panel title="Results" subtitle={finished.length ? `${finished.length} results report${finished.length === 1 ? '' : 's'}. Each downloads as an FXMed-branded PDF.` : 'Results appear here once they are saved.'} action={<button type="button" onClick={() => open(null, null)} className="secondary"><PlusIcon size={18} weight="bold" />Results without an order</button>}>
+        <div className="mt-5 space-y-3">{finished.length ? finished.map(report => {
+          const order = orders.find(item => item.id === report.orderId)
+          return <ReportCard key={report.id} report={report} order={order} files={filesFor(report.orderId)} actions={actions} onView={() => setViewing({ report, order: order || null })} onEdit={() => open(order || null, report)} />
+        }) : <Empty text="No results have been recorded yet." />}</div>
+      </Panel>
+      <Panel title="Awaiting results" subtitle={awaiting.length ? `${awaiting.length} order${awaiting.length === 1 ? ' is' : 's are'} waiting for results. Enter them by hand, or upload the lab's report to read them in.` : 'Orders appear here until their results are in.'}>
         <div className="mt-5 space-y-3">{awaiting.length ? awaiting.map(order => <AwaitingOrderCard key={order.id} order={order} report={reportFor(order)} files={filesFor(order.id)} actions={actions}
           onView={() => { const report = reportFor(order); if (report) setViewing({ report, order }) }}
           onEnter={() => open(order, reportFor(order) || null)}
@@ -413,12 +419,6 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
       </Panel>}
       <NameMatches name={patientSnapshot(patient).fullName} orders={chart.unlinkedInvestigationOrders || []} reports={chart.unlinkedInvestigationReports || []} actions={actions}
         onLink={(kind, id) => actions.link(kind, id, patient.id)} />
-      <Panel title="Results" subtitle={finished.length ? `${finished.length} results report${finished.length === 1 ? '' : 's'}. Each downloads as an FXMed-branded PDF.` : 'Results appear here once they are saved.'}>
-        <div className="mt-5 space-y-3">{finished.length ? finished.map(report => {
-          const order = orders.find(item => item.id === report.orderId)
-          return <ReportCard key={report.id} report={report} order={order} files={filesFor(report.orderId)} actions={actions} onView={() => setViewing({ report, order: order || null })} onEdit={() => open(order || null, report)} />
-        }) : <Empty text="No results have been recorded yet." />}</div>
-      </Panel>
       {attachments}
     </>}
 
