@@ -250,7 +250,9 @@ export async function GET(request: NextRequest) {
 
     if (resource in resources) {
       const config = resources[resource as ResourceName]
-      let query = database.from(config.table).select('*').order(config.orderField, { ascending: false }).limit(250)
+      // Health analyses show the patient record each is linked to.
+      const columns = resource === 'assessments' ? '*,patient:emr_patients(id,mrn,first_name,middle_name,last_name,email,phone,date_of_birth,sex)' : '*'
+      let query = database.from(config.table).select(columns).order(config.orderField, { ascending: false }).limit(250)
       if (patientId && config.patientField) query = query.eq(config.patientField, patientId)
       const { data, error } = await query
       if (error) throw error
@@ -296,7 +298,7 @@ export async function POST(request: NextRequest) {
 
     if (resource === 'task_contacts') return logContact(database, user, body)
     if (!(resource in resources)) return NextResponse.json({ error: 'Unknown clinical resource.' }, { status: 400 })
-    if (resource === 'assessments') return NextResponse.json({ error: 'Assessments are submitted through the health analysis workflow.' }, { status: 400 })
+    if (resource === 'assessments') return addToHealthAnalysis(database, user, body)
     if (resource === 'notes' && body.status === 'final' && !await getEmrContext(request, 'finalize_notes')) return NextResponse.json({ error: 'Note finalization access required.' }, { status: 403 })
     const patientId = body.patient_id
     if (resources[resource as ResourceName].patientField && !await patientExists(database, patientId)) return NextResponse.json({ error: 'A valid patient is required.' }, { status: 400 })
@@ -610,6 +612,29 @@ async function uploadDocument(request: NextRequest) {
   } catch (error) {
     return responseError(error)
   }
+}
+
+// Puts a registered patient on the Health Analysis list, for someone who did
+// not fill in the online form. The patient's name, date of birth and sex are
+// copied in for the list. Their email and phone are deliberately left out:
+// the patient is already in Contacts, and a health analysis carrying contact
+// details would be copied there again (migration 032).
+async function addToHealthAnalysis(database: any, user: any, body: Record<string, any>) {
+  if (!await patientExists(database, body.patient_id)) return NextResponse.json({ error: 'Choose a registered patient to add.' }, { status: 400 })
+  const { data: open, error: openError } = await database.from('emr_health_assessments').select('id').eq('patient_id', body.patient_id).neq('status', 'completed').limit(1)
+  if (openError) throw openError
+  if (open?.length) return NextResponse.json({ error: 'This patient is already on the Health Analysis list.' }, { status: 409 })
+  const { data: patient, error: patientError } = await database.from('emr_patients').select('first_name,middle_name,last_name,date_of_birth,sex').eq('id', body.patient_id).single()
+  if (patientError) throw patientError
+  const { data, error } = await database.from('emr_health_assessments').insert({
+    patient_id: body.patient_id,
+    source: 'clinic',
+    status: 'new',
+    assessment_data: { personalInfo: { firstName: [patient.first_name, patient.middle_name].filter(Boolean).join(' '), lastName: patient.last_name, dateOfBirth: patient.date_of_birth, gender: patient.sex }, addedBy: user.email || null },
+  }).select('*,patient:emr_patients(id,mrn,first_name,middle_name,last_name,email,phone,date_of_birth,sex)').single()
+  if (error) throw error
+  await writeEmrAudit(database, user, { action: 'add_to_health_analysis', entityType: 'emr_health_assessment', entityId: data.id, patientId: body.patient_id })
+  return NextResponse.json({ record: data }, { status: 201 })
 }
 
 // Logs an attempt to reach the patient about a follow-up. Contacting someone

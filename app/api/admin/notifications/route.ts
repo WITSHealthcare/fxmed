@@ -175,6 +175,8 @@ const sources: Array<{
     tab: 'healthcare',
     table: 'emr_health_assessments',
     status: 'new',
+    // Patients the team added themselves need no alert.
+    filter: query => query.neq('source', 'clinic'),
     timeField: 'submitted_at',
     select: 'id, assessment_data, submitted_at',
     link: '/admin?tab=healthcare',
