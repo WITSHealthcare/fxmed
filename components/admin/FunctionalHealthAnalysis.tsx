@@ -8,6 +8,9 @@ import { ClipboardTextIcon, EyeIcon, FlaskIcon, PhoneCallIcon, PlusCircleIcon, U
 interface HealthAnalysisSubmission {
   id: string
   patientName: string
+  // As the form takes them in: two fields, both required.
+  firstName: string
+  lastName: string
   email: string
   phone: string
   dateOfBirth: string
@@ -104,6 +107,9 @@ function toSubmission(record: any): HealthAnalysisSubmission {
   return {
     id: record.id,
     patientName: (live ? patientLabel(patient) : '') || [personal.firstName, personal.lastName].filter(Boolean).join(' ') || (patient ? patientLabel(patient) : '') || 'Unknown patient',
+    // A middle name, which the form does not ask for, stays with the first name.
+    firstName: (live ? [patient.first_name, patient.middle_name].filter(Boolean).join(' ') : '') || personal.firstName || '',
+    lastName: (live ? patient.last_name : '') || personal.lastName || '',
     email: (live ? patient.email : '') || personal.email || patient?.email || '', phone: (live ? patient.phone : '') || personal.phone || patient?.phone || '',
     dateOfBirth: (live ? patient.date_of_birth : '') || personal.dateOfBirth || patient?.date_of_birth || '', age: personal.age || '', gender: (live ? patient.sex : '') || personal.gender || patient?.sex || '',
     primaryConcern: concerns.primaryConcern || (clinic ? 'Added by the team' : 'Not provided'), symptoms: concerns.symptoms || [], duration: concerns.duration || '', severity: concerns.severity || '',
@@ -699,7 +705,13 @@ export default function FunctionalHealthAnalysis({ submissions = [], onPatient }
             <thead className="bg-green-deep/5">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-green-deep uppercase tracking-wider font-dm-sans">
-                  Patient
+                  First Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-green-deep uppercase tracking-wider font-dm-sans">
+                  Last Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-green-deep uppercase tracking-wider font-dm-sans">
+                  Age / Gender
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-green-deep uppercase tracking-wider font-dm-sans">
                   Contact
@@ -721,15 +733,14 @@ export default function FunctionalHealthAnalysis({ submissions = [], onPatient }
             <tbody className="divide-y divide-gray-200">
               {filteredSubmissions.map((submission) => (
                 <tr key={submission.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 font-dm-sans">
-                        {submission.patientName}
-                      </div>
-                      <div className="text-sm text-gray-500 font-dm-sans">
-                        {displayAge(submission) || '—'} • {submission.gender}
-                      </div>
-                    </div>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-dm-sans">
+                    {submission.firstName || '—'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-dm-sans">
+                    {submission.lastName || '—'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-dm-sans">
+                    {displayAge(submission) || '—'} • {submission.gender ? `${submission.gender.charAt(0).toUpperCase()}${submission.gender.slice(1)}` : '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 font-dm-sans">{submission.email}</div>
