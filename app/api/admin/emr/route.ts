@@ -64,7 +64,7 @@ const enumValues: Record<string, string[]> = {
   task_type: ['follow_up','investigation','call','review','care_plan'],
   contact_channel: ['call','whatsapp','sms','email','in_person','other'],
   contact_outcome: ['reached','no_answer','left_message','wrong_number','other'],
-  assessment_status: ['new','reviewed','contacted','completed'],
+  assessment_status: ['new','reviewed','contacted','investigations_done','completed'],
   financial_status: ['pending','partial','paid','overdue','waived','refunded'],
   financial_currency: ['NGN','USD'],
   payment_method: ['cash','card','bank_transfer','paystack','insurance','other'],

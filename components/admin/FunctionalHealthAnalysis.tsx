@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { displayAge } from '@/lib/age'
-import { ClipboardTextIcon, EyeIcon, PhoneCallIcon, PlusCircleIcon, XIcon } from '@phosphor-icons/react'
+import { ClipboardTextIcon, EyeIcon, FlaskIcon, PhoneCallIcon, PlusCircleIcon, XIcon } from '@phosphor-icons/react'
 
 interface HealthAnalysisSubmission {
   id: string
@@ -33,7 +33,18 @@ interface HealthAnalysisSubmission {
       whyImportant: string
     }[]
   }[]
-  status: 'new' | 'reviewed' | 'contacted' | 'completed'
+  status: SubmissionStatus
+}
+
+// In the order a submission moves through them.
+const STATUSES = ['new', 'reviewed', 'contacted', 'investigations_done', 'completed'] as const
+type SubmissionStatus = typeof STATUSES[number]
+const STATUS_LABELS: Record<SubmissionStatus, string> = {
+  new: 'New',
+  reviewed: 'Reviewed',
+  contacted: 'Contacted',
+  investigations_done: 'Investigations done',
+  completed: 'Completed',
 }
 
 // The steps a visitor moves through after submitting the form, in order.
@@ -294,7 +305,7 @@ interface FunctionalHealthAnalysisProps {
 export default function FunctionalHealthAnalysis({ submissions = [] }: FunctionalHealthAnalysisProps) {
   const [submissionsList, setSubmissionsList] = useState<HealthAnalysisSubmission[]>(submissions)
   const [selectedSubmission, setSelectedSubmission] = useState<HealthAnalysisSubmission | null>(null)
-  const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'reviewed' | 'contacted' | 'completed'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | SubmissionStatus>('all')
   const [searchTerm, setSearchTerm] = useState('')
   // Which submission the link-patient modal is open for, and the patients that
   // have been linked in this session, so the card can show it immediately.
@@ -355,6 +366,8 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
         return 'bg-blue-100 text-blue-800'
       case 'contacted':
         return 'bg-yellow-100 text-yellow-800'
+      case 'investigations_done':
+        return 'bg-purple-100 text-purple-800'
       case 'completed':
         return 'bg-gray-100 text-gray-800'
       default:
@@ -381,7 +394,7 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="bg-white rounded-lg p-4 border border-green-deep/8">
           <div className="flex items-center justify-between">
             <div>
@@ -435,6 +448,20 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
             </div>
           </div>
         </div>
+
+        <div className="bg-white rounded-lg p-4 border border-green-deep/8">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-text-mid font-dm-sans">Investigations done</p>
+              <p className="text-2xl font-bold text-green-deep font-dm-sans">
+                {submissionsList.filter(s => s.status === 'investigations_done').length}
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+              <FlaskIcon size={24} weight="duotone" className="text-purple-700" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filters and Search */}
@@ -449,8 +476,8 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
               className="w-full px-4 py-2 border border-green-deep/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-mid focus:border-transparent font-dm-sans"
             />
           </div>
-          <div className="flex gap-2">
-            {(['all', 'new', 'reviewed', 'contacted', 'completed'] as const).map(status => (
+          <div className="flex flex-wrap gap-2">
+            {(['all', ...STATUSES] as const).map(status => (
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
@@ -460,7 +487,7 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                     : 'bg-gray-100 text-text-mid hover:bg-gray-200'
                 }`}
               >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {status === 'all' ? 'All' : STATUS_LABELS[status]}
               </button>
             ))}
           </div>
@@ -523,7 +550,7 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full font-dm-sans ${getStatusColor(submission.status)}`}>
-                      {submission.status}
+                      {STATUS_LABELS[submission.status] || submission.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -538,10 +565,7 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                       onChange={(e) => updateSubmissionStatus(submission.id, e.target.value as HealthAnalysisSubmission['status'])}
                       className="text-sm border border-gray-300 rounded px-2 py-1 font-dm-sans"
                     >
-                      <option value="new">New</option>
-                      <option value="reviewed">Reviewed</option>
-                      <option value="contacted">Contacted</option>
-                      <option value="completed">Completed</option>
+                      {STATUSES.map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
                     </select>
                     <div className="mt-2">
                       {linked[submission.id] ? (
