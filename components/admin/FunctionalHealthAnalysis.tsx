@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { displayAge } from '@/lib/age'
+import HealthAnalysisFromRecord from '@/components/admin/emr/HealthAnalysisFromRecord'
 import { ClipboardTextIcon, EyeIcon, FlaskIcon, PhoneCallIcon, PlusCircleIcon, UserPlusIcon, XIcon } from '@phosphor-icons/react'
 
 interface HealthAnalysisSubmission {
@@ -97,11 +98,14 @@ function toSubmission(record: any): HealthAnalysisSubmission {
   const goals = details.goals || {}
   const patient: EmrPatient | null = record.patient || null
   const clinic = record.source === 'clinic'
+  // Team-added entries show the patient record as it is now; online
+  // submissions show what the person typed into the form.
+  const live = clinic && patient
   return {
     id: record.id,
-    patientName: [personal.firstName, personal.lastName].filter(Boolean).join(' ') || (patient ? patientLabel(patient) : '') || 'Unknown patient',
-    email: personal.email || patient?.email || '', phone: personal.phone || patient?.phone || '',
-    dateOfBirth: personal.dateOfBirth || patient?.date_of_birth || '', age: personal.age || '', gender: personal.gender || patient?.sex || '',
+    patientName: (live ? patientLabel(patient) : '') || [personal.firstName, personal.lastName].filter(Boolean).join(' ') || (patient ? patientLabel(patient) : '') || 'Unknown patient',
+    email: (live ? patient.email : '') || personal.email || patient?.email || '', phone: (live ? patient.phone : '') || personal.phone || patient?.phone || '',
+    dateOfBirth: (live ? patient.date_of_birth : '') || personal.dateOfBirth || patient?.date_of_birth || '', age: personal.age || '', gender: (live ? patient.sex : '') || personal.gender || patient?.sex || '',
     primaryConcern: concerns.primaryConcern || (clinic ? 'Added by the team' : 'Not provided'), symptoms: concerns.symptoms || [], duration: concerns.duration || '', severity: concerns.severity || '',
     lifestyle: {
       diet: lifestyle.diet || '', exercise: lifestyle.exercise || '',
@@ -440,7 +444,7 @@ function AddPatientsModal({ onList, onClose, onAdded }: {
         <div className="flex items-start justify-between border-b border-green-deep/10 px-6 py-5">
           <div>
             <h3 id="add-patients-title" className="font-dm-sans text-xl font-bold text-green-deep">Add patients to Health Analysis</h3>
-            <p className="mt-1 font-dm-sans text-sm text-text-mid">Each patient you add joins the list as New, ready to move through the statuses.</p>
+            <p className="mt-1 font-dm-sans text-sm text-text-mid">Each patient you add joins the list as Investigations done. Their details come from their patient record.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-600"><XIcon size={22} /></button>
         </div>
@@ -510,9 +514,11 @@ function AddPatientsModal({ onList, onClose, onAdded }: {
 
 interface FunctionalHealthAnalysisProps {
   submissions?: HealthAnalysisSubmission[]
+  /** Opens a patient record in the EMR. */
+  onPatient?: (patientId: string) => void
 }
 
-export default function FunctionalHealthAnalysis({ submissions = [] }: FunctionalHealthAnalysisProps) {
+export default function FunctionalHealthAnalysis({ submissions = [], onPatient }: FunctionalHealthAnalysisProps) {
   const [submissionsList, setSubmissionsList] = useState<HealthAnalysisSubmission[]>(submissions)
   const [selectedSubmission, setSelectedSubmission] = useState<HealthAnalysisSubmission | null>(null)
   const [filterStatus, setFilterStatus] = useState<'all' | SubmissionStatus>('all')
@@ -815,15 +821,20 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-green-deep to-green-mid p-8 rounded-t-[24px]">
               <h2 className="font-dm-sans font-bold text-white text-2xl mb-2">
-                Functional Health Analysis Details
+                {selectedSubmission.source === 'clinic' ? selectedSubmission.patientName : 'Functional Health Analysis Details'}
               </h2>
               <p className="font-dm-sans text-cream/90">
-                Submission ID: {selectedSubmission.id}
+                {selectedSubmission.source === 'clinic'
+                  ? `Added to Health Analysis by ${selectedSubmission.addedBy || 'the team'} on ${formatDate(selectedSubmission.submittedAt)}`
+                  : `Submission ID: ${selectedSubmission.id}`}
               </p>
             </div>
 
             {/* Modal Content */}
             <div className="p-8">
+              {selectedSubmission.source === 'clinic' && selectedSubmission.patientId ? (
+                <HealthAnalysisFromRecord patientId={selectedSubmission.patientId} onOpenRecord={onPatient ? () => { const id = selectedSubmission.patientId as string; setSelectedSubmission(null); onPatient(id) } : undefined} />
+              ) : <>
               {/* Patient Information */}
               <div className="mb-8">
                 <h3 className="font-dm-sans font-bold text-green-deep text-lg mb-4">Patient Information</h3>
@@ -911,13 +922,6 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
               />
 
               {/* Progress through the funnel, for online submissions only */}
-              {selectedSubmission.source === 'clinic' && (
-                <div className="mb-8 rounded-lg border border-gold/40 bg-gold/10 p-4">
-                  <p className="font-dm-sans text-sm text-green-deep">
-                    Added to the Health Analysis list by {selectedSubmission.addedBy || 'the team'} on {formatDate(selectedSubmission.submittedAt)}. This patient did not fill in the online form, so the sections above are empty.
-                  </p>
-                </div>
-              )}
               {selectedSubmission.progress && <div className="mb-8">
                 <h3 className="font-dm-sans font-bold text-green-deep text-lg mb-4">Progress</h3>
                 <div className="space-y-2">
@@ -966,17 +970,18 @@ export default function FunctionalHealthAnalysis({ submissions = [] }: Functiona
                   ))}
                 </div>
               </div>
+              </>}
 
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
                   onClick={() => {
-                    updateSubmissionStatus(selectedSubmission.id, 'contacted')
+                    updateSubmissionStatus(selectedSubmission.id, selectedSubmission.status === 'investigations_done' ? 'completed' : 'contacted')
                     setSelectedSubmission(null)
                   }}
                   className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-[1rem] transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg inline-block text-center flex-1"
                 >
-                  Mark as Contacted
+                  {selectedSubmission.status === 'investigations_done' ? 'Mark as Completed' : 'Mark as Contacted'}
                 </button>
                 <button
                   onClick={() => setSelectedSubmission(null)}

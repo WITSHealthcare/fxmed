@@ -629,7 +629,8 @@ async function addToHealthAnalysis(database: any, user: any, body: Record<string
   const { data, error } = await database.from('emr_health_assessments').insert({
     patient_id: body.patient_id,
     source: 'clinic',
-    status: 'new',
+    // Patients are added once their investigations are done.
+    status: 'investigations_done',
     assessment_data: { personalInfo: { firstName: [patient.first_name, patient.middle_name].filter(Boolean).join(' '), lastName: patient.last_name, dateOfBirth: patient.date_of_birth, gender: patient.sex }, addedBy: user.email || null },
   }).select('*,patient:emr_patients(id,mrn,first_name,middle_name,last_name,email,phone,date_of_birth,sex)').single()
   if (error) throw error
