@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
-  ArrowCounterClockwiseIcon, CircleNotchIcon, ClockIcon, CopyIcon, DownloadSimpleIcon,
+  ArrowCounterClockwiseIcon, CircleNotchIcon, ClockIcon, CopyIcon, DownloadSimpleIcon, EyeIcon,
   FileTextIcon, FlaskIcon, ImageIcon, PencilSimpleIcon, PlusIcon, UploadSimpleIcon, XIcon,
 } from '@phosphor-icons/react'
 import InvestigationOrderForm, { INVESTIGATIONS_API, patientSnapshot, type OrderPatient, type OrderTemplate } from '@/components/admin/emr/InvestigationOrderForm'
@@ -149,13 +149,14 @@ function TestChips({ tests, limit = 8 }: { tests: string[]; limit?: number }) {
 
 // Earlier orders, made before results were tracked, use the same card: their
 // results may still be outstanding, but nothing says so.
-function AwaitingOrderCard({ order, report, files, showPatient, onEnter, onUpload, onOpenPatient, actions }: {
+function AwaitingOrderCard({ order, report, files, showPatient, onEnter, onUpload, onView, onOpenPatient, actions }: {
   order: InvestigationOrder
   report?: InvestigationReport
   files: LabReportFile[]
   showPatient?: boolean
   onEnter: () => void
   onUpload: (files: File[]) => void
+  onView: () => void
   onOpenPatient?: () => void
   actions: ReturnType<typeof useActions>
 }) {
@@ -179,13 +180,13 @@ function AwaitingOrderCard({ order, report, files, showPatient, onEnter, onUploa
       <button type="button" onClick={onEnter} disabled={!order.patientId} className="primary disabled:opacity-50"><PencilSimpleIcon size={18} weight="bold" />{report ? 'Add remaining results' : 'Enter results'}</button>
       <UploadButton onFiles={onUpload} disabled={!order.patientId} />
       <button type="button" onClick={() => actions.download('order', order.id)} className="secondary"><DownloadSimpleIcon size={18} weight="bold" />Request form</button>
-      {report && <button type="button" onClick={() => actions.download('report', report.id)} className="secondary"><DownloadSimpleIcon size={18} weight="bold" />Results so far</button>}
+      {report && <button type="button" onClick={onView} className="secondary"><EyeIcon size={18} weight="bold" />View results so far</button>}
       <button type="button" onClick={() => actions.cancelOrder(order)} className="px-2 text-sm font-semibold text-text-mid hover:text-red-700">{earlier ? 'Close without results' : 'Cancel order'}</button>
     </div>
   </article>
 }
 
-function ReportCard({ report, order, files, onEdit, actions }: { report: InvestigationReport; order?: InvestigationOrder; files: LabReportFile[]; onEdit: () => void; actions: ReturnType<typeof useActions> }) {
+function ReportCard({ report, order, files, onView, onEdit, actions }: { report: InvestigationReport; order?: InvestigationOrder; files: LabReportFile[]; onView: () => void; onEdit: () => void; actions: ReturnType<typeof useActions> }) {
   const flagged = report.results.filter(isFlagged)
   const meta = report.reportMeta
   return <article className="rounded-[18px] border border-green-deep/10 bg-[#FCFFF0] p-5">
@@ -199,11 +200,99 @@ function ReportCard({ report, order, files, onEdit, actions }: { report: Investi
     {flagged.length > 0 && <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Flagged results">{flagged.slice(0, 6).map((row, index) => <li key={`${row.test}-${index}`} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-red-700 ring-1 ring-red-200">{row.test}: {row.result}{row.unit ? ` ${row.unit}` : ''} ({row.flag})</li>)}{flagged.length > 6 && <li className="px-2 py-1 text-[11px] font-semibold text-text-mid">+{flagged.length - 6} more</li>}</ul>}
     <FileLinks files={files} onOpen={actions.openFile} />
     <div className="mt-4 flex flex-wrap items-center gap-2">
-      <button type="button" onClick={() => actions.download('report', report.id)} className="primary"><DownloadSimpleIcon size={18} weight="bold" />Download FXMed PDF</button>
+      <button type="button" onClick={onView} className="primary"><EyeIcon size={18} weight="bold" />View results</button>
+      <button type="button" onClick={() => actions.download('report', report.id)} className="secondary"><DownloadSimpleIcon size={18} weight="bold" />Download FXMed PDF</button>
       <button type="button" onClick={onEdit} disabled={!report.patientId} className="secondary disabled:opacity-50"><PencilSimpleIcon size={18} weight="bold" />Edit results</button>
       <button type="button" onClick={() => actions.deleteReport(report)} className="px-2 text-sm font-semibold text-text-mid hover:text-red-700">Delete</button>
     </div>
   </article>
+}
+
+function flagTone(flag: InvestigationResult['flag']) {
+  if (flag === 'High' || flag === 'Low' || flag === 'Abnormal') return 'bg-red-50 text-red-700 ring-red-200'
+  if (flag === 'Normal') return 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+  return ''
+}
+
+/** Every result saved for an order, read-only, grouped by section as on the PDF. */
+function ResultsViewer({ report, order, files, patientLabel, onClose, onEdit, actions }: {
+  report: InvestigationReport
+  order: InvestigationOrder | null
+  files: LabReportFile[]
+  patientLabel: string
+  onClose: () => void
+  onEdit?: () => void
+  actions: ReturnType<typeof useActions>
+}) {
+  const closeButton = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    closeButton.current?.focus()
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const meta = report.reportMeta
+  const flagged = report.results.filter(isFlagged).length
+  const sections: { name: string; rows: InvestigationResult[] }[] = []
+  for (const row of report.results) {
+    const name = row.section.trim() || 'Other investigations'
+    const group = sections.find(section => section.name.toLowerCase() === name.toLowerCase())
+    if (group) group.rows.push(row)
+    else sections.push({ name, rows: [row] })
+  }
+  const details = [['Report', meta.reportTitle], ['Specimen', meta.specimen], ['Requesting clinician', meta.clinician], ['Collected', meta.collectedAt], ['Reported', meta.reportedAt]]
+
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+    <div role="dialog" aria-modal="true" aria-labelledby="results-view-title" className="flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl">
+      <div className="flex items-start justify-between gap-4 border-b border-green-deep/10 px-6 py-5">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-green-mid">Investigation results</p>
+          <h3 id="results-view-title" className="mt-1 text-2xl font-bold">{order?.panelTitle || meta.reportTitle}</h3>
+          <p className="mt-1 text-sm text-text-mid">{patientLabel}{order ? ` · ordered ${formatDay(order.createdAt)}` : ' · results without an order'} · saved {formatDay(report.updatedAt || report.createdAt)}</p>
+        </div>
+        <button ref={closeButton} type="button" onClick={onClose} aria-label="Close" className="icon-button shrink-0"><XIcon /></button>
+      </div>
+
+      <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full bg-green-deep/5 px-3 py-1.5 text-xs font-bold text-green-deep">{report.results.length} result{report.results.length === 1 ? '' : 's'}</span>
+          <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${flagged ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{flagged ? `${flagged} flagged` : 'None flagged'}</span>
+          {order?.status === 'awaiting_results' && <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800">More results to come</span>}
+        </div>
+
+        <dl className="grid gap-x-6 gap-y-3 rounded-[16px] border border-green-deep/10 bg-cream/30 p-4 sm:grid-cols-2 lg:grid-cols-3">
+          {details.map(([label, value]) => <div key={label}><dt className="text-[10px] font-bold uppercase tracking-wide text-text-mid/70">{label}</dt><dd className="mt-0.5 text-sm font-semibold text-green-deep">{value || '—'}</dd></div>)}
+        </dl>
+
+        <div className="overflow-x-auto rounded-[16px] border border-green-deep/10">
+          <table className="w-full min-w-[560px] border-collapse text-sm">
+            <thead><tr className="bg-green-deep text-left text-[11px] uppercase tracking-wide text-white"><th scope="col" className="px-4 py-2.5 font-bold">Test</th><th scope="col" className="px-4 py-2.5 font-bold">Result</th><th scope="col" className="px-4 py-2.5 font-bold">Unit</th><th scope="col" className="px-4 py-2.5 font-bold">Reference range</th><th scope="col" className="px-4 py-2.5 font-bold">Flag</th></tr></thead>
+            {sections.map(section => <tbody key={section.name}>
+              <tr><th scope="colgroup" colSpan={5} className="bg-[#eef2d5] px-4 py-2 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-green-deep">{section.name}</th></tr>
+              {section.rows.map((row, index) => <tr key={`${row.test}-${index}`} className={`border-t border-green-deep/10 ${isFlagged(row) ? 'bg-red-50/40' : ''}`}>
+                <th scope="row" className="px-4 py-2.5 text-left font-semibold text-green-deep">{row.test}{row.remark && <span className="mt-0.5 block text-xs font-normal text-text-mid">{row.remark}</span>}</th>
+                <td className={`px-4 py-2.5 font-bold ${isFlagged(row) ? 'text-red-700' : 'text-green-deep'}`}>{row.result}</td>
+                <td className="px-4 py-2.5 text-text-mid">{row.unit || '—'}</td>
+                <td className="px-4 py-2.5 text-text-mid">{row.referenceRange || '—'}</td>
+                <td className="px-4 py-2.5">{row.flag ? <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${flagTone(row.flag)}`}>{row.flag}</span> : <span className="text-text-mid">—</span>}</td>
+              </tr>)}
+            </tbody>)}
+          </table>
+        </div>
+
+        {meta.notes && <div className="rounded-[16px] border-l-4 border-green-mid bg-[#f7f8ed] p-4"><p className="text-[10px] font-bold uppercase tracking-wide text-text-mid/70">Clinical notes</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-text-dark">{meta.notes}</p></div>}
+
+        {files.length > 0 && <div><p className="text-[10px] font-bold uppercase tracking-wide text-text-mid/70">Lab report</p><FileLinks files={files} onOpen={actions.openFile} /></div>}
+      </div>
+
+      <div className="flex flex-wrap justify-end gap-3 border-t border-green-deep/10 px-6 py-4">
+        <button type="button" onClick={onClose} className="secondary">Close</button>
+        {onEdit && <button type="button" onClick={onEdit} className="secondary"><PencilSimpleIcon size={18} weight="bold" />Edit results</button>}
+        <button type="button" onClick={() => actions.download('report', report.id)} className="primary"><DownloadSimpleIcon size={18} weight="bold" />Download FXMed PDF</button>
+      </div>
+    </div>
+  </div>
 }
 
 const statusChip: Record<string, { text: string; tone: string }> = {
@@ -284,6 +373,8 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
   const [tab, setTab] = useState<'results' | 'order'>('results')
   const [template, setTemplate] = useState<{ key: number; value: OrderTemplate } | null>(null)
   const [entry, setEntry] = useState<Entry | null>(null)
+  const [viewing, setViewing] = useState<{ report: InvestigationReport; order: InvestigationOrder | null } | null>(null)
+  const closeViewer = useCallback(() => setViewing(null), [])
   const actions = useActions(onChanged)
 
   const awaiting = orders.filter(order => order.status === 'awaiting_results')
@@ -309,12 +400,14 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
     {tab === 'results' && <>
       <Panel title="Awaiting results" subtitle={awaiting.length ? `${awaiting.length} order${awaiting.length === 1 ? ' is' : 's are'} waiting for results. Enter them by hand, or upload the lab's report to read them in.` : 'Orders appear here until their results are in.'} action={<button type="button" onClick={() => open(null, null)} className="secondary"><PlusIcon size={18} weight="bold" />Results without an order</button>}>
         <div className="mt-5 space-y-3">{awaiting.length ? awaiting.map(order => <AwaitingOrderCard key={order.id} order={order} report={reportFor(order)} files={filesFor(order.id)} actions={actions}
+          onView={() => { const report = reportFor(order); if (report) setViewing({ report, order }) }}
           onEnter={() => open(order, reportFor(order) || null)}
           onUpload={selected => open(order, reportFor(order) || null, selected)} />)
           : <Empty text="No orders are waiting for results." />}</div>
       </Panel>
       {earlier.length > 0 && <Panel title="Earlier orders" subtitle={`${earlier.length} order${earlier.length === 1 ? ' was' : 's were'} placed before results were tracked, so the system cannot tell whether their results came back. Enter or upload the results for any you have, and close the rest.`}>
         <div className="mt-5 space-y-3">{earlier.map(order => <AwaitingOrderCard key={order.id} order={order} report={reportFor(order)} files={filesFor(order.id)} actions={actions}
+          onView={() => { const report = reportFor(order); if (report) setViewing({ report, order }) }}
           onEnter={() => open(order, reportFor(order) || null)}
           onUpload={selected => open(order, reportFor(order) || null, selected)} />)}</div>
       </Panel>}
@@ -323,7 +416,7 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
       <Panel title="Results" subtitle={finished.length ? `${finished.length} results report${finished.length === 1 ? '' : 's'}. Each downloads as an FXMed-branded PDF.` : 'Results appear here once they are saved.'}>
         <div className="mt-5 space-y-3">{finished.length ? finished.map(report => {
           const order = orders.find(item => item.id === report.orderId)
-          return <ReportCard key={report.id} report={report} order={order} files={filesFor(report.orderId)} actions={actions} onEdit={() => open(order || null, report)} />
+          return <ReportCard key={report.id} report={report} order={order} files={filesFor(report.orderId)} actions={actions} onView={() => setViewing({ report, order: order || null })} onEdit={() => open(order || null, report)} />
         }) : <Empty text="No results have been recorded yet." />}</div>
       </Panel>
       {attachments}
@@ -335,6 +428,8 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
         onReuse={order => { setTemplate({ key: Date.now(), value: orderTemplate(order, true) }); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
     </>}
 
+    {viewing && <ResultsViewer report={viewing.report} order={viewing.order} files={filesFor(viewing.report.orderId)} patientLabel={`${patient.mrn} · ${patientSnapshot(patient).fullName}`} actions={actions} onClose={closeViewer}
+      onEdit={viewing.report.patientId ? () => { const { report, order } = viewing; setViewing(null); open(order, report) } : undefined} />}
     {entry && <ResultsEntry entry={entry} onClose={changed => { setEntry(null); if (changed) onChanged() }} onSaved={() => { setEntry(null); onChanged() }} />}
   </div>
 }
@@ -347,6 +442,8 @@ export function InvestigationWorklist({ onPatient }: { onPatient: (patientId: st
   const [loadError, setLoadError] = useState('')
   const [template, setTemplate] = useState<{ key: number; value: OrderTemplate } | null>(null)
   const [entry, setEntry] = useState<Entry | null>(null)
+  const [viewing, setViewing] = useState<{ report: InvestigationReport; order: InvestigationOrder } | null>(null)
+  const closeViewer = useCallback(() => setViewing(null), [])
 
   const loadAwaiting = useCallback(async () => {
     const response = await fetch(`${INVESTIGATIONS_API}?view=awaiting`)
@@ -388,6 +485,7 @@ export function InvestigationWorklist({ onPatient }: { onPatient: (patientId: st
         files={lists.files.filter(file => file.orderId === order.id)}
         onEnter={() => open(order)}
         onUpload={selected => open(order, selected)}
+        onView={() => { const report = lists.reports.find(item => item.orderId === order.id); if (report) setViewing({ report, order }) }}
         onOpenPatient={order.patientId ? () => onPatient(order.patientId!) : undefined} />)
         : <Empty text="No orders are waiting for results." />}</div>}
     </Panel>}
@@ -400,6 +498,8 @@ export function InvestigationWorklist({ onPatient }: { onPatient: (patientId: st
         onReuse={order => { setTemplate({ key: Date.now(), value: orderTemplate(order, false) }); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
     </>}
 
+    {viewing && <ResultsViewer report={viewing.report} order={viewing.order} files={(lists?.files || []).filter(file => file.orderId === viewing.order.id)} patientLabel={`${viewing.order.mrn ? `${viewing.order.mrn} · ` : ''}${viewing.order.patient.fullName}`} actions={actions} onClose={closeViewer}
+      onEdit={() => { const { order } = viewing; setViewing(null); open(order) }} />}
     {entry && <ResultsEntry entry={entry} onClose={changed => { setEntry(null); if (changed) refresh() }} onSaved={() => { setEntry(null); refresh() }} />}
   </div>
 }
