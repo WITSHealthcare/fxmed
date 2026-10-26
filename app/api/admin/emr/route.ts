@@ -94,6 +94,25 @@ function investigationLoadError(error: any) {
   return error.code === '42703' ? 'The investigation tracking migration (035) has not been applied yet.' : emrErrorMessage(error)
 }
 
+// Forms and reports made by typing a patient's name, rather than choosing the
+// patient record, have no patient id. They used to be matched to a record by
+// name alone. Two patients can share a name, so they are now offered for a
+// clinician to confirm and link instead.
+async function unlinkedInvestigationMatches(database: any, patient: any) {
+  const name = [patient.first_name, patient.middle_name, patient.last_name].filter(Boolean).join(' ').trim()
+  // Characters that would act as wildcards in the match are not risked.
+  if (!name || /[%_*\\]/.test(name)) return { orders: [], reports: [] }
+  const [orders, reports] = await Promise.all([
+    database.from('investigation_forms').select(ORDER_COLUMNS).is('emr_patient_id', null).ilike('patient->>fullName', name).order('created_at', { ascending: false }).limit(50),
+    database.from('investigation_results').select(REPORT_COLUMNS).is('emr_patient_id', null).ilike('patient->>fullName', name).order('created_at', { ascending: false }).limit(50),
+  ])
+  if (orders.error || reports.error) {
+    investigationLoadError(orders.error || reports.error)
+    return { orders: [], reports: [] }
+  }
+  return { orders: (orders.data || []).map(mapOrderRow), reports: (reports.data || []).map(mapReportRow) }
+}
+
 async function patientExists(database: any, patientId: unknown) {
   if (!isUuid(patientId)) return false
   const { data } = await database.from('emr_patients').select('id').eq('id', patientId).maybeSingle()
@@ -186,8 +205,9 @@ export async function GET(request: NextRequest) {
       ])
       const error = patient.error || encounters.error || notes.error || vitals.error || diagnoses.error || allergies.error || medications.error || prescriptions.error || orders.error || results.error || imaging.error || documents.error || carePlans.error || tasks.error || appointments.error || assessments.error || financialRecords.error || financialPayments.error || audit.error
       if (error) throw error
+      const unlinked = await unlinkedInvestigationMatches(database, patient.data)
       await writeEmrAudit(database, user, { action: 'view_patient_chart', entityType: 'emr_patient', entityId: patientId, patientId })
-      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], investigationOrders: (investigationOrders.data || []).map(mapOrderRow), investigationReports: (investigationReports.data || []).map(mapReportRow), investigationError: investigationLoadError(investigationOrders.error || investigationReports.error), imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], assessments: assessments.data || [], financialRecords: financialRecords.data || [], financialPayments: financialPayments.data || [], audit: audit.data || [] })
+      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], investigationOrders: (investigationOrders.data || []).map(mapOrderRow), investigationReports: (investigationReports.data || []).map(mapReportRow), investigationError: investigationLoadError(investigationOrders.error || investigationReports.error), unlinkedInvestigationOrders: unlinked.orders, unlinkedInvestigationReports: unlinked.reports, imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], assessments: assessments.data || [], financialRecords: financialRecords.data || [], financialPayments: financialPayments.data || [], audit: audit.data || [] })
     }
 
     if (resource === 'follow_ups') {

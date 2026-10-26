@@ -89,8 +89,12 @@ function useActions(onChanged: () => void) {
     download: (kind: 'order' | 'report', id: string) => run(() => downloadStoredPdf(kind, id), false),
     openFile: (id: string) => run(() => openLabReport(id), false),
     cancelOrder: (order: InvestigationOrder) => {
-      if (window.confirm(`Cancel the order for ${order.panelTitle}? It will stop waiting for results. You can reopen it from the order history.`)) run(() => send('PATCH', { action: 'status', id: order.id, status: 'cancelled' }))
+      const question = order.status
+        ? `Cancel the order for ${order.panelTitle}? It will stop waiting for results. You can reopen it from the order history.`
+        : `Close the earlier order for ${order.panelTitle} without recording results? It stays in the order history, where you can reopen it.`
+      if (window.confirm(question)) run(() => send('PATCH', { action: 'status', id: order.id, status: 'cancelled' }))
     },
+    link: (kind: 'order' | 'report', id: string, patientId: string) => run(() => send('PATCH', { action: 'link', kind, id, patientId })),
     reopenOrder: (order: InvestigationOrder) => run(() => send('PATCH', { action: 'status', id: order.id, status: 'awaiting_results' })),
     deleteOrder: (order: InvestigationOrder) => {
       if (window.confirm(`Delete the order for ${order.panelTitle} and its request form? Any results and lab reports saved for it stay on the patient record.`)) run(() => send('DELETE', undefined, `?kind=order&id=${order.id}`))
@@ -143,6 +147,8 @@ function TestChips({ tests, limit = 8 }: { tests: string[]; limit?: number }) {
   </div>
 }
 
+// Earlier orders, made before results were tracked, use the same card: their
+// results may still be outstanding, but nothing says so.
 function AwaitingOrderCard({ order, report, files, showPatient, onEnter, onUpload, onOpenPatient, actions }: {
   order: InvestigationOrder
   report?: InvestigationReport
@@ -154,14 +160,17 @@ function AwaitingOrderCard({ order, report, files, showPatient, onEnter, onUploa
   actions: ReturnType<typeof useActions>
 }) {
   const waited = daysSince(order.createdAt)
-  return <article className="rounded-[18px] border border-amber-200 bg-amber-50/40 p-5">
+  const earlier = !order.status
+  return <article className={`rounded-[18px] border p-5 ${earlier ? 'border-green-deep/10 bg-white' : 'border-amber-200 bg-amber-50/40'}`}>
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
         {showPatient && <button type="button" onClick={onOpenPatient} disabled={!onOpenPatient} className="mb-1 text-xs font-bold text-green-mid hover:text-green-deep hover:underline">{order.mrn ? `${order.mrn} · ` : ''}{order.patient.fullName || 'Patient'}</button>}
         <p className="font-bold text-green-deep">{order.panelTitle}</p>
         <p className="mt-1 text-xs text-text-mid">Ordered {formatDay(order.createdAt)} · {order.tests.length} test{order.tests.length === 1 ? '' : 's'}{order.requestingClinician ? ` · Requested by ${order.requestingClinician}` : ''}</p>
       </div>
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800"><ClockIcon size={14} weight="bold" />{waited === 0 ? 'Awaiting results · ordered today' : `Awaiting results · ${waited} day${waited === 1 ? '' : 's'}`}</span>
+      {earlier
+        ? <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-text-mid">Results not recorded</span>
+        : <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800"><ClockIcon size={14} weight="bold" />{waited === 0 ? 'Awaiting results · ordered today' : `Awaiting results · ${waited} day${waited === 1 ? '' : 's'}`}</span>}
     </div>
     <TestChips tests={order.tests} />
     {report && <p className="mt-3 text-xs font-semibold text-green-deep">{report.results.length} result{report.results.length === 1 ? '' : 's'} saved on {formatDay(report.updatedAt || report.createdAt)}. Waiting for the rest.</p>}
@@ -171,7 +180,7 @@ function AwaitingOrderCard({ order, report, files, showPatient, onEnter, onUploa
       <UploadButton onFiles={onUpload} disabled={!order.patientId} />
       <button type="button" onClick={() => actions.download('order', order.id)} className="secondary"><DownloadSimpleIcon size={18} weight="bold" />Request form</button>
       {report && <button type="button" onClick={() => actions.download('report', report.id)} className="secondary"><DownloadSimpleIcon size={18} weight="bold" />Results so far</button>}
-      <button type="button" onClick={() => actions.cancelOrder(order)} className="px-2 text-sm font-semibold text-text-mid hover:text-red-700">Cancel order</button>
+      <button type="button" onClick={() => actions.cancelOrder(order)} className="px-2 text-sm font-semibold text-text-mid hover:text-red-700">{earlier ? 'Close without results' : 'Cancel order'}</button>
     </div>
   </article>
 }
@@ -200,7 +209,7 @@ function ReportCard({ report, order, files, onEdit, actions }: { report: Investi
 const statusChip: Record<string, { text: string; tone: string }> = {
   awaiting_results: { text: 'Awaiting results', tone: 'bg-amber-50 text-amber-800' },
   completed: { text: 'Results in', tone: 'bg-emerald-50 text-emerald-700' },
-  cancelled: { text: 'Cancelled', tone: 'bg-gray-100 text-text-mid' },
+  cancelled: { text: 'Closed without results', tone: 'bg-gray-100 text-text-mid' },
   untracked: { text: 'Not tracked', tone: 'bg-gray-100 text-text-mid' },
 }
 
@@ -235,6 +244,32 @@ function OrderHistory({ orders, showPatient, loading, onReuse, onEnter, onOpenPa
   </Panel>
 }
 
+// Forms and reports made under this patient's name without being linked to a
+// patient record. Two patients can share a name, so each is linked only when
+// a clinician confirms it.
+function NameMatches({ name, orders, reports, onLink, actions }: {
+  name: string
+  orders: InvestigationOrder[]
+  reports: InvestigationReport[]
+  onLink: (kind: 'order' | 'report', id: string) => void
+  actions: ReturnType<typeof useActions>
+}) {
+  const items = [
+    ...orders.map(order => ({ kind: 'order' as const, id: order.id, at: order.createdAt, title: `Request form · ${order.panelTitle}`, detail: `${order.tests.length} test${order.tests.length === 1 ? '' : 's'}` })),
+    ...reports.map(report => ({ kind: 'report' as const, id: report.id, at: report.createdAt, title: `Results · ${report.reportMeta.reportTitle}`, detail: `${report.results.length} result${report.results.length === 1 ? '' : 's'}` })),
+  ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+  if (!items.length) return null
+  return <Panel title="Found under this patient's name" subtitle={`${items.length} earlier record${items.length === 1 ? ' was' : 's were'} made for "${name}" without being linked to a patient record. Download each one to check it belongs to this patient, then link it. Leave any that belong to someone else with the same name.`}>
+    <div className="mt-5 divide-y divide-green-deep/10">{items.map(item => <div key={`${item.kind}-${item.id}`} className="flex flex-wrap items-center gap-4 py-4">
+      <div className="min-w-56 flex-1"><p className="font-bold text-green-deep">{item.title}</p><p className="mt-0.5 text-xs text-text-mid">{formatDay(item.at)} · {item.detail}</p></div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => actions.download(item.kind, item.id)} className="secondary"><DownloadSimpleIcon size={16} weight="bold" />Download to check</button>
+        <button type="button" onClick={() => onLink(item.kind, item.id)} className="primary">Link to this patient</button>
+      </div>
+    </div>)}</div>
+  </Panel>
+}
+
 function orderTemplate(order: InvestigationOrder, samePatient: boolean): OrderTemplate {
   // Clinical details describe one patient, so they only carry over on that
   // patient's own record.
@@ -252,6 +287,7 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
   const actions = useActions(onChanged)
 
   const awaiting = orders.filter(order => order.status === 'awaiting_results')
+  const earlier = orders.filter(order => !order.status)
   const reportFor = (order: InvestigationOrder) => reports.find(report => report.orderId === order.id)
   const filesFor = (orderId: string | null) => orderId ? files.filter(file => file.orderId === orderId) : []
   // Results for orders still awaiting the rest are shown on their order.
@@ -277,6 +313,13 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
           onUpload={selected => open(order, reportFor(order) || null, selected)} />)
           : <Empty text="No orders are waiting for results." />}</div>
       </Panel>
+      {earlier.length > 0 && <Panel title="Earlier orders" subtitle={`${earlier.length} order${earlier.length === 1 ? ' was' : 's were'} placed before results were tracked, so the system cannot tell whether their results came back. Enter or upload the results for any you have, and close the rest.`}>
+        <div className="mt-5 space-y-3">{earlier.map(order => <AwaitingOrderCard key={order.id} order={order} report={reportFor(order)} files={filesFor(order.id)} actions={actions}
+          onEnter={() => open(order, reportFor(order) || null)}
+          onUpload={selected => open(order, reportFor(order) || null, selected)} />)}</div>
+      </Panel>}
+      <NameMatches name={patientSnapshot(patient).fullName} orders={chart.unlinkedInvestigationOrders || []} reports={chart.unlinkedInvestigationReports || []} actions={actions}
+        onLink={(kind, id) => actions.link(kind, id, patient.id)} />
       <Panel title="Results" subtitle={finished.length ? `${finished.length} results report${finished.length === 1 ? '' : 's'}. Each downloads as an FXMed-branded PDF.` : 'Results appear here once they are saved.'}>
         <div className="mt-5 space-y-3">{finished.length ? finished.map(report => {
           const order = orders.find(item => item.id === report.orderId)
