@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { syncReviewFollowUps } from '@/lib/reviewFollowUps'
 import { createClient } from '@supabase/supabase-js'
 import { getRequestAdminUser } from '@/lib/admin-api-auth'
 import { canAccessTab, getUserAdminRole, type AdminTab } from '@/lib/admin-auth'
@@ -201,6 +202,8 @@ export async function GET(request: NextRequest) {
 
   const since = new Date(Date.now() - MAX_AGE_DAYS * 86400000).toISOString()
   const visible = sources.filter(source => canAccessTab(role, source.tab))
+  // Due review follow-ups are raised automatically; make sure they exist first.
+  if (visible.some(source => source.kind === 'follow_up')) await syncReviewFollowUps(supabase)
 
   // A missing table or a single failed query must not blank the whole bell, so
   // each source is settled independently and its failure reported separately.

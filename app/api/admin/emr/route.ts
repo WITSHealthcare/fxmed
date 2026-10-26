@@ -12,6 +12,7 @@ import {
 } from '@/lib/emr'
 import { lagosDate, parseFollowUpDue } from '@/lib/follow-ups'
 import { ORDER_COLUMNS, REPORT_COLUMNS, mapOrderRow, mapReportRow } from '@/lib/investigations'
+import { syncReviewFollowUps } from '@/lib/reviewFollowUps'
 
 export const runtime = 'nodejs'
 
@@ -128,6 +129,10 @@ export async function GET(request: NextRequest) {
   const patientId = params.get('patientId')
 
   try {
+    // Automatic review follow-ups are brought up to date before anything
+    // that shows follow-ups is loaded.
+    if (resource === 'dashboard' || resource === 'patient' || resource === 'follow_ups') await syncReviewFollowUps(database)
+
     if (resource === 'dashboard') {
       const today = new Date().toISOString().slice(0, 10)
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString()
@@ -321,6 +326,8 @@ export async function POST(request: NextRequest) {
     const { data, error } = await database.from(config.table).insert(record as Record<string, any>).select('*').single()
     if (error) throw error
 
+    // A new encounter can make a patient's open review follow-up unnecessary.
+    if (resource === 'encounters') await syncReviewFollowUps(database, { force: true })
     if (resource === 'encounters' && body.appointment_id && isUuid(body.appointment_id)) await database.from('appointments').update({ patient_id: patientId, encounter_id: data.id, status: 'confirmed' }).eq('id', body.appointment_id)
     // A note can name a date to follow up by, which raises the follow-up with it.
     // The note is already saved, so a failure here is reported rather than thrown,
@@ -369,6 +376,8 @@ export async function PATCH(request: NextRequest) {
       if ('status' in body) updates.status = enumValue(body.status, 'patient_status', 'active')
       const { data, error } = await database.from('emr_patients').update(updates).eq('id', id).select('*').single()
       if (error) throw error
+      // A patient made inactive gets no more review follow-ups; one made active again can.
+      if ('status' in body) await syncReviewFollowUps(database, { force: true })
       await writeEmrAudit(database, user, { action: 'update', entityType: 'emr_patient', entityId: id, patientId: id })
       return NextResponse.json({ record: data })
     }
@@ -438,6 +447,8 @@ export async function PATCH(request: NextRequest) {
       const { error: reconcileError } = await database.rpc('reconcile_emr_financial_record', { record_id: id })
       if (reconcileError) throw reconcileError
     }
+    // An encounter's date or status decides when a patient was last seen.
+    if (resource === 'encounters') await syncReviewFollowUps(database, { force: true })
     await writeEmrAudit(database, user, { action: `update_${resource}`, entityType: config.table, entityId: id, patientId: data.patient_id || null, metadata: { status: data.status } })
     return NextResponse.json({ record: data })
   } catch (error) {
