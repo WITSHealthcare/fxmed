@@ -147,7 +147,7 @@ function FollowUpCard({ item, data, showPatient, onPatient, onChanged }: { item:
       <div className="min-w-0 flex-1">
         {showPatient && <button type="button" onClick={() => onPatient?.(patient.id)} className="text-left"><span className="text-xs font-bold text-green-mid">{patient.mrn}</span> <span className="font-bold hover:underline">{fullName(patient)}</span></button>}
         <p className={showPatient ? 'mt-1 text-sm font-semibold text-text-dark' : 'font-bold'}>{item.title}</p>
-        <p className="mt-1 text-xs text-text-mid">{[label(item.task_type), item.priority !== 'routine' && label(item.priority), open && assigned].filter(Boolean).join(' · ')}</p>
+        <p className="mt-1 text-xs text-text-mid">{[label(item.task_type), item.automatic && 'Added automatically', item.priority !== 'routine' && label(item.priority), open && assigned].filter(Boolean).join(' · ')}</p>
       </div>
       <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${dueTone(item)}`}>{open ? dueLabel(item.due_at) : `${label(item.status)}${item.completed_at ? ` ${day.format(new Date(item.completed_at))}` : ''}`}</span>
     </div>
