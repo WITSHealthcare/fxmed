@@ -19,10 +19,11 @@ export type StampDesign = {
 
 /** Who the stamp says it is from. */
 export const STAMP_ISSUER = {
-  name: 'FXMed Functional Medicine',
+  name: 'WITS Functional Medicine',
   address: '6A Robin Road, Crown Estate, Sangotedo, Lagos',
   locality: 'Sangotedo · Lagos · Nigeria',
-  phone: '+234 907 703 1311',
+  /** Company registration number. */
+  registration: 'RC1694087',
 }
 
 export const STAMP_INKS: Record<StampInk, { label: string; color: string }> = {
@@ -224,7 +225,7 @@ function drawRound(ctx: Context, design: StampDesign, size: number, emblem: Canv
   star(ctx, -bandMiddle, 0, 24)
   star(ctx, bandMiddle, 0, 24)
 
-  // The centre: the mark or the wording, the date between rules, the phone.
+  // The centre: the mark or the wording, the date between rules, the RC number.
   const wording = wordingLines(design.wording)
   if (wording.length) {
     const lineSize = wording.length === 1 ? 68 : 54
@@ -249,10 +250,10 @@ function drawRound(ctx: Context, design: StampDesign, size: number, emblem: Canv
   ctx.textBaseline = 'middle'
   spacedText(ctx, date, 0, 4, dateSize, 0.04)
 
-  const phoneSize = fitFont(ctx, STAMP_ISSUER.phone, 600, font, 44, 400, 0.04)
-  ctx.font = `600 ${phoneSize}px ${font}`
+  const registrationSize = fitFont(ctx, STAMP_ISSUER.registration, 700, font, 46, 400, 0.08)
+  ctx.font = `700 ${registrationSize}px ${font}`
   ctx.textBaseline = 'middle'
-  spacedText(ctx, STAMP_ISSUER.phone, 0, 146, phoneSize, 0.04)
+  spacedText(ctx, STAMP_ISSUER.registration, 0, 146, registrationSize, 0.08)
 }
 
 function roundedRect(ctx: Context, x: number, y: number, width: number, height: number, radius: number) {
@@ -307,10 +308,9 @@ function drawRectangle(ctx: Context, design: StampDesign, width: number, height:
     spacedText(ctx, date, 500, 262, dateSize, 0.05)
   }
 
-  const phone = `Tel: ${STAMP_ISSUER.phone}`
-  const phoneSize = fitFont(ctx, phone, 600, font, 38, 820, 0.03)
-  ctx.font = `600 ${phoneSize}px ${font}`
-  spacedText(ctx, phone, 500, 378, phoneSize, 0.03)
+  const registrationSize = fitFont(ctx, STAMP_ISSUER.registration, 700, font, 40, 820, 0.08)
+  ctx.font = `700 ${registrationSize}px ${font}`
+  spacedText(ctx, STAMP_ISSUER.registration, 500, 378, registrationSize, 0.08)
 }
 
 /**
