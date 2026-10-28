@@ -5,6 +5,7 @@
 
 import { renderReportPdf } from './reportPdf'
 import { REPORT_LEADING, pdfType } from './reportTheme'
+import { STAMP_INKS, STAMP_INK_OPACITY, drawPartnerSeal, loadStampFonts } from './stamp/design'
 
 export interface InvestigationTest {
   name: string
@@ -274,28 +275,43 @@ function formatStampDate(value: string) {
   return parsed.toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-// A verification mark the partner laboratory can check at the counter. Angled
-// and double-ruled so it reads as a stamp rather than as body copy.
-function buildStampHtml(stamp: InvestigationStamp, patientName: string) {
-  const partner = escapeHtml(stamp.partner.toUpperCase())
+// The seal is drawn several times larger than it prints, so it stays sharp
+// when the page is captured.
+const SEAL_DRAWN_PX = 800
+const SEAL_SHOWN_PX = 190
+
+/** The round FXMed seal for the partner stamp, as an image, or '' if it cannot be drawn. */
+async function partnerSealImage(stamp: InvestigationStamp) {
+  await loadStampFonts()
+  const canvas = document.createElement('canvas')
+  canvas.width = SEAL_DRAWN_PX
+  canvas.height = SEAL_DRAWN_PX
+  const context = canvas.getContext('2d')
+  if (!context) return ''
+  drawPartnerSeal(context, stamp.partner, stamp.validOn, SEAL_DRAWN_PX)
+  return canvas.toDataURL('image/png')
+}
+
+// A verification mark the partner laboratory can check at the counter: the
+// round seal, in the same design as the Tools tab stamp, with the
+// authorisation spelled out beside it.
+function buildStampHtml(stamp: InvestigationStamp, patientName: string, seal: string) {
   return `
-    <div style="margin-top: 34px; display: flex; justify-content: flex-end;">
-      <div data-pdf-keep-together style="transform: rotate(-2.5deg); border: 3px double #0F2419; border-radius: 10px; padding: 14px 20px; background: rgba(202,222,104,.12); text-align: center; min-width: 300px;">
-        <div style="font-size: ${pdfType('label')}; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #6B8E23;">
-          FXMed Functional Medicine
-        </div>
-        <div style="margin: 7px 0 4px; font-size: ${pdfType('stamp')}; font-weight: 800; letter-spacing: .05em; color: #0F2419;">
-          VERIFIED FOR ${partner}
+    <div data-pdf-keep-together style="margin-top: 30px; display: flex; justify-content: flex-end; align-items: center; gap: 24px; break-inside: avoid; page-break-inside: avoid;">
+      <div style="max-width: 320px; text-align: right;">
+        <div style="font-size: ${pdfType('label')}; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: ${STAMP_INKS.green.color}; margin-bottom: 6px;">
+          Partner verification
         </div>
         <div style="font-size: ${pdfType('fine')}; color: #0F2419; line-height: ${REPORT_LEADING.tight};">
-          ${escapeHtml(patientName || 'The named patient')} is authorised by FXMed<br>
-          to undergo the investigations listed on this form<br>
+          ${escapeHtml(patientName || 'The named patient')} is authorised by FXMed
+          to undergo the investigations listed on this form
           at ${escapeHtml(stamp.partner)}.
         </div>
-        <div style="margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(15,36,25,.25); font-size: ${pdfType('body')}; font-weight: 800; color: #0F2419;">
+        <div style="margin-top: 8px; font-size: ${pdfType('body')}; font-weight: 800; color: #0F2419;">
           VALID ON: ${escapeHtml(formatStampDate(stamp.validOn))}
         </div>
       </div>
+      ${seal ? `<img src="${seal}" alt="" style="width: ${SEAL_SHOWN_PX}px; height: ${SEAL_SHOWN_PX}px; flex-shrink: 0; opacity: ${STAMP_INK_OPACITY};" />` : ''}
     </div>
   `
 }
@@ -333,7 +349,7 @@ export async function generateInvestigationFormPdf(data: InvestigationFormData):
 
   // Stamp then footer, both on the final page so the verification mark sits
   // directly beneath the tests it authorises.
-  if (data.stamp?.validOn) pageHtmls[pageHtmls.length - 1] += buildStampHtml(data.stamp, data.fullName)
+  if (data.stamp?.validOn) pageHtmls[pageHtmls.length - 1] += buildStampHtml(data.stamp, data.fullName, await partnerSealImage(data.stamp))
   pageHtmls[pageHtmls.length - 1] += footerHtml
 
   return renderReportPdf(pageHtmls, { continuationTopMarginPx: 34, continuationBottomMarginPx: 24 })
