@@ -1,22 +1,29 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { downloadBlob, formatFileSize } from '@/lib/fileDownload'
+import {
+  LETTERHEAD_HISTORY_STORE as LETTERHEAD_HISTORY_STORE_NAME,
+  MEAL_PLAN_HISTORY_STORE as MEAL_PLAN_HISTORY_STORE_NAME,
+  deleteHistoryItem,
+  getStoredHistory,
+  saveHistoryItem,
+  type ToolHistoryItem,
+} from '@/lib/toolHistory'
 
-// Document tools: the FXMed letterhead formatter and meal-plan designer.
-// Investigation forms and results live in the EMR (components/admin/emr/Investigations).
+// Document tools: the FXMed letterhead formatter, meal-plan designer and
+// document stamp. Investigation forms and results live in the EMR
+// (components/admin/emr/Investigations).
+
+// Loaded only when opened: it brings the PDF reader and writer with it.
+const DocumentStamper = dynamic(() => import('@/components/admin/DocumentStamper'), {
+  ssr: false,
+  loading: () => <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10 font-dm-sans text-sm text-text-mid">Loading the stamp tool…</div>,
+})
 
 type FormatterStatus = 'idle' | 'working' | 'success' | 'error'
-type ActiveTool = 'letterhead' | 'meal-plan'
-
-type ToolHistoryItem = {
-  id: string
-  originalName: string
-  downloadName: string
-  size: number
-  uploadedAt: string
-  document: Blob
-}
+type ActiveTool = 'letterhead' | 'meal-plan' | 'stamp'
 
 type FormattedDocument = {
   blob: Blob
@@ -25,90 +32,9 @@ type FormattedDocument = {
 
 type OutputFormat = 'docx' | 'pdf'
 
-const HISTORY_DB_NAME = 'fxmed-admin-tools'
-const LETTERHEAD_HISTORY_STORE_NAME = 'letterhead-documents'
-const MEAL_PLAN_HISTORY_STORE_NAME = 'meal-plan-documents'
-
 function makeDownloadName(filename: string, outputFormat: OutputFormat) {
   const baseName = filename.replace(/\.(docx|pdf)$/i, '').trim() || 'document'
   return `${baseName}-fxmed-letterhead.${outputFormat}`
-}
-
-function openHistoryDb() {
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(HISTORY_DB_NAME, 4)
-
-    request.onupgradeneeded = () => {
-      const db = request.result
-      if (!db.objectStoreNames.contains(LETTERHEAD_HISTORY_STORE_NAME)) {
-        db.createObjectStore(LETTERHEAD_HISTORY_STORE_NAME, { keyPath: 'id' })
-      }
-      if (!db.objectStoreNames.contains(MEAL_PLAN_HISTORY_STORE_NAME)) {
-        db.createObjectStore(MEAL_PLAN_HISTORY_STORE_NAME, { keyPath: 'id' })
-      }
-    }
-
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
-
-async function getStoredHistory(storeName: string) {
-  const db = await openHistoryDb()
-
-  return new Promise<ToolHistoryItem[]>((resolve, reject) => {
-    const transaction = db.transaction(storeName, 'readonly')
-    const store = transaction.objectStore(storeName)
-    const request = store.getAll()
-
-    request.onsuccess = () => {
-      const items = request.result as ToolHistoryItem[]
-      resolve(items.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()))
-      db.close()
-    }
-    request.onerror = () => {
-      reject(request.error)
-      db.close()
-    }
-  })
-}
-
-async function saveHistoryItem(storeName: string, item: ToolHistoryItem) {
-  const db = await openHistoryDb()
-
-  return new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction(storeName, 'readwrite')
-    const store = transaction.objectStore(storeName)
-    const request = store.put(item)
-
-    request.onsuccess = () => {
-      resolve()
-      db.close()
-    }
-    request.onerror = () => {
-      reject(request.error)
-      db.close()
-    }
-  })
-}
-
-async function deleteHistoryItem(storeName: string, id: string) {
-  const db = await openHistoryDb()
-
-  return new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction(storeName, 'readwrite')
-    const store = transaction.objectStore(storeName)
-    const request = store.delete(id)
-
-    request.onsuccess = () => {
-      resolve()
-      db.close()
-    }
-    request.onerror = () => {
-      reject(request.error)
-      db.close()
-    }
-  })
 }
 
 export default function AdminTools() {
@@ -303,10 +229,11 @@ export default function AdminTools() {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-[20px] p-2 shadow-lg border border-green-deep/10">
-        <div className="grid gap-2 md:grid-cols-2">
+        <div className="grid gap-2 md:grid-cols-3">
           {([
             { id: 'letterhead', label: 'Letterhead Formatter', description: 'Apply FXMed letterhead to DOCX and PDF documents.' },
             { id: 'meal-plan', label: 'Meal Plan Designer', description: 'Turn DOCX meal plans into branded PDFs with food visuals.' },
+            { id: 'stamp', label: 'Document Stamp', description: 'Stamp PDFs and scans where they ask for the FXMed stamp.' },
           ] as const).map((tool) => (
             <button
               key={tool.id}
@@ -683,6 +610,7 @@ export default function AdminTools() {
       </>
       )}
 
+      {activeTool === 'stamp' && <DocumentStamper />}
     </div>
   )
 }
