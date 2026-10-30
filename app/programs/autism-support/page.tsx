@@ -4,6 +4,9 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import AppointmentModal from '@/components/AppointmentModal'
 import Image from 'next/image'
+import AutismDevelopmentCheck from '@/components/AutismDevelopmentCheck'
+import AutismLabTesting from '@/components/AutismLabTesting'
+import AutismTreatmentOptions from '@/components/AutismTreatmentOptions'
 import {
   AutismAtAGlance,
   FamilyJourney,
@@ -16,7 +19,7 @@ import {
   SignsToWatch,
   type IconName,
 } from '@/components/AutismSupportInfographics'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const receives = [
   {
@@ -81,8 +84,55 @@ const benefits = [
   { title: 'Clear Answers', icon: 'clipboard' as IconName, description: 'Test results that explain what is happening and a plan for what to do next.' },
 ]
 
+type TabId = 'glance' | 'labs' | 'treatment'
+
+const tabs: { id: TabId; hash: string; label: string; blurb: string; icon: IconName }[] = [
+  { id: 'glance', hash: '#autism-at-a-glance', label: 'Autism at a Glance', blurb: 'Signs, the gut–brain link and our program', icon: 'brain' },
+  { id: 'labs', hash: '#lab-testing', label: 'Lab Testing', blurb: 'Which tests help, when, and which to avoid', icon: 'flask' },
+  { id: 'treatment', hash: '#treatment-options', label: 'Treatment Options', blurb: 'Therapies, medical care and what the evidence says', icon: 'heart' },
+]
+
 export default function AutismSupport() {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
+  const [tab, setTab] = useState<TabId>('glance')
+  const tabBarRef = useRef<HTMLDivElement>(null)
+  const scrollToTabsPending = useRef(false)
+
+  const selectTab = (id: TabId) => {
+    setTab(id)
+    history.replaceState(null, '', tabs.find((t) => t.id === id)!.hash)
+    scrollToTabsPending.current = true
+  }
+
+  // After a tab switch renders, bring the tab bar back into view below the fixed nav,
+  // whose height varies by screen. Running it here avoids the page height changing mid-scroll.
+  useEffect(() => {
+    if (!scrollToTabsPending.current) return
+    scrollToTabsPending.current = false
+    const bar = tabBarRef.current
+    const navHeight = document.querySelector('nav')?.getBoundingClientRect().height ?? 100
+    if (bar && bar.getBoundingClientRect().top < navHeight) {
+      window.scrollTo({ top: bar.getBoundingClientRect().top + window.scrollY - navHeight - 16, behavior: 'smooth' })
+    }
+  }, [tab])
+
+  // Opens a section that lives in the At a Glance tab, switching tabs first if needed
+  const goToGlanceSection = (id: string) => {
+    setTab('glance')
+    history.replaceState(null, '', `#${id}`)
+    setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
+
+  // Tab links such as /programs/autism-support#lab-testing open the matching tab
+  useEffect(() => {
+    const syncFromHash = () => {
+      const match = tabs.find((t) => t.hash === window.location.hash)
+      if (match) setTab(match.id)
+    }
+    syncFromHash()
+    window.addEventListener('hashchange', syncFromHash)
+    return () => window.removeEventListener('hashchange', syncFromHash)
+  }, [])
 
   return (
     <main className="min-h-screen bg-[#FCFFF0]">
@@ -122,146 +172,213 @@ export default function AutismSupport() {
                 Book a Consultation
               </button>
               <a
-                href="#whats-included"
+                href="#development-check"
+                onClick={(e) => {
+                  e.preventDefault()
+                  goToGlanceSection('development-check')
+                }}
                 className="font-dm-sans text-center border border-cream/50 text-cream px-8 py-4 rounded-[50px] font-semibold text-lg no-underline transition-all hover:bg-cream/10 hover:border-cream"
               >
-                What’s Included
+                Take the 2-Minute Check
               </a>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Introduction */}
-      <section className="py-20 px-[5%]">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-10 items-center">
-          <div className="lg:col-span-3">
-            <div className="inline-block text-green-mid bg-green-mid/10 px-4 py-1.5 rounded-[20px] text-[0.75rem] font-dm-sans font-semibold tracking-[0.14em] uppercase mb-4">
-              About the program
+      {/* Tabs */}
+      <div ref={tabBarRef} className="bg-[#FCFFF0] px-[5%] pt-10">
+        <div className="max-w-5xl mx-auto">
+          <div role="tablist" aria-label="Autism Support sections" className="grid grid-cols-3 gap-2 md:gap-4 bg-white rounded-2xl md:rounded-3xl p-2 shadow-lg border border-green-deep/10">
+            {tabs.map((t) => {
+              const active = tab === t.id
+              return (
+                <button
+                  key={t.id}
+                  role="tab"
+                  id={`tab-${t.id}`}
+                  aria-selected={active}
+                  aria-controls={`panel-${t.id}`}
+                  onClick={() => selectTab(t.id)}
+                  className={`flex flex-col md:flex-row items-center justify-center gap-1.5 md:gap-3 rounded-xl md:rounded-2xl px-2 py-3 md:py-4 font-dm-sans font-semibold text-xs sm:text-sm md:text-base transition-all ${active ? 'bg-green-deep text-white shadow-md' : 'text-green-deep hover:bg-green-deep/5'}`}
+                >
+                  <span className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${active ? 'bg-gold text-green-deep' : 'bg-gold/30 text-green-deep'}`}>
+                    <Icon name={t.icon} className="w-4 h-4 md:w-5 md:h-5" />
+                  </span>
+                  <span className="text-center leading-tight">{t.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        {tab === 'glance' && (
+          <>
+          {/* Introduction */}
+          <section className="py-20 px-[5%]">
+            <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-10 items-center">
+              <div className="lg:col-span-3">
+                <div className="inline-block text-green-mid bg-green-mid/10 px-4 py-1.5 rounded-[20px] text-[0.75rem] font-dm-sans font-semibold tracking-[0.14em] uppercase mb-4">
+                  About the program
+                </div>
+                <h2 className="font-dm-sans font-bold text-3xl md:text-4xl text-green-deep mb-6">
+                  Supporting the whole child
+                </h2>
+                <p className="font-dm-sans text-lg text-text-mid leading-[1.7] mb-6">
+                  Many autistic children also live with digestive problems, very selective eating,
+                  poor sleep or nutrient gaps. These can leave a child uncomfortable, tired and
+                  unsettled, and they are often overlooked.
+                </p>
+                <p className="font-dm-sans text-lg text-text-mid leading-[1.7]">
+                  Our Autism Support program looks for these underlying health issues and builds a
+                  practical plan to address them, so your child can feel more comfortable and get
+                  more out of every day.
+                </p>
+              </div>
+              <div className="lg:col-span-2 bg-green-deep rounded-3xl p-8 text-white relative overflow-hidden">
+                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gold/15" aria-hidden="true" />
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-full bg-gold text-green-deep flex items-center justify-center mb-5">
+                    <Icon name="heart" className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-dm-sans font-semibold text-xl mb-3">Our promise to families</h3>
+                  <p className="font-dm-sans text-cream/85 leading-[1.65]">
+                    This program supports your child’s physical health. It does not aim to cure or
+                    change autism, and it works alongside, not in place of, your child’s paediatrician,
+                    therapists and other care.
+                  </p>
+                </div>
+              </div>
             </div>
-            <h2 className="font-dm-sans font-bold text-3xl md:text-4xl text-green-deep mb-6">
-              Supporting the whole child
-            </h2>
-            <p className="font-dm-sans text-lg text-text-mid leading-[1.7] mb-6">
-              Many autistic children also live with digestive problems, very selective eating,
-              poor sleep or nutrient gaps. These can leave a child uncomfortable, tired and
-              unsettled, and they are often overlooked.
-            </p>
-            <p className="font-dm-sans text-lg text-text-mid leading-[1.7]">
-              Our Autism Support program looks for these underlying health issues and builds a
-              practical plan to address them, so your child can feel more comfortable and get
-              more out of every day.
-            </p>
-          </div>
-          <div className="lg:col-span-2 bg-green-deep rounded-3xl p-8 text-white relative overflow-hidden">
-            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gold/15" aria-hidden="true" />
-            <div className="relative">
-              <div className="w-12 h-12 rounded-full bg-gold text-green-deep flex items-center justify-center mb-5">
-                <Icon name="heart" className="w-6 h-6" />
+          </section>
+
+          <AutismDevelopmentCheck onBook={() => setShowAppointmentModal(true)} />
+          <AutismAtAGlance />
+          <GutBrainConnection />
+          <HealthCycle />
+          <SignsToWatch onBook={() => setShowAppointmentModal(true)} />
+
+          {/* What You'll Receive */}
+          <section id="whats-included" className="py-20 px-[5%] bg-[#FCFFF0] scroll-mt-28">
+            <div className="max-w-6xl mx-auto">
+              <SectionHeading
+                eyebrow="What’s included"
+                title="Join the Autism Support Program"
+                intro="We combine functional testing, child-friendly nutrition and ongoing guidance for parents to address the health issues that most often affect autistic children."
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {receives.map((item, index) => (
+                  <div key={item.title} className="relative bg-white p-7 rounded-2xl shadow-lg border border-green-deep/10 transition-all hover:-translate-y-1 hover:shadow-xl">
+                    <span className="absolute top-6 right-6 font-dm-sans font-bold text-4xl text-green-deep/10">{String(index + 1).padStart(2, '0')}</span>
+                    <div className="w-12 h-12 bg-gold rounded-xl text-green-deep flex items-center justify-center mb-5">
+                      <Icon name={item.icon} className="w-6 h-6" />
+                    </div>
+                    <h3 className="font-dm-sans font-semibold text-lg text-green-deep mb-3">
+                      {item.title}
+                    </h3>
+                    <p className="font-dm-sans text-text-mid leading-[1.6]">
+                      {item.description}
+                    </p>
+                  </div>
+                ))}
               </div>
-              <h3 className="font-dm-sans font-semibold text-xl mb-3">Our promise to families</h3>
-              <p className="font-dm-sans text-cream/85 leading-[1.65]">
-                This program supports your child’s physical health. It does not aim to cure or
-                change autism, and it works alongside, not in place of, your child’s paediatrician,
-                therapists and other care.
-              </p>
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      <AutismAtAGlance />
-      <GutBrainConnection />
-      <HealthCycle />
-      <SignsToWatch onBook={() => setShowAppointmentModal(true)} />
+          <NutrientsWeCheck />
+          <FamilyJourney />
 
-      {/* What You'll Receive */}
-      <section id="whats-included" className="py-20 px-[5%] bg-[#FCFFF0] scroll-mt-28">
-        <div className="max-w-6xl mx-auto">
-          <SectionHeading
-            eyebrow="What’s included"
-            title="Join the Autism Support Program"
-            intro="We combine functional testing, child-friendly nutrition and ongoing guidance for parents to address the health issues that most often affect autistic children."
-          />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {receives.map((item, index) => (
-              <div key={item.title} className="relative bg-white p-7 rounded-2xl shadow-lg border border-green-deep/10 transition-all hover:-translate-y-1 hover:shadow-xl">
-                <span className="absolute top-6 right-6 font-dm-sans font-bold text-4xl text-green-deep/10">{String(index + 1).padStart(2, '0')}</span>
-                <div className="w-12 h-12 bg-gold rounded-xl text-green-deep flex items-center justify-center mb-5">
-                  <Icon name={item.icon} className="w-6 h-6" />
-                </div>
-                <h3 className="font-dm-sans font-semibold text-lg text-green-deep mb-3">
-                  {item.title}
-                </h3>
-                <p className="font-dm-sans text-text-mid leading-[1.6]">
-                  {item.description}
-                </p>
+          {/* Program Features */}
+          <section className="py-20 px-[5%] bg-[#FCFFF0]">
+            <div className="max-w-6xl mx-auto">
+              <SectionHeading eyebrow="Our approach" title="Program features" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                {features.map((feature) => (
+                  <div key={feature.title} className="text-center">
+                    <div className="w-16 h-16 bg-green-light/25 text-green-deep rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Icon name={feature.icon} className="w-8 h-8" />
+                    </div>
+                    <h3 className="font-dm-sans font-semibold text-lg text-green-deep mb-2">{feature.title}</h3>
+                    <p className="font-dm-sans text-text-mid text-sm leading-[1.6]">
+                      {feature.description}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+            </div>
+          </section>
 
-      <NutrientsWeCheck />
-      <FamilyJourney />
+          <MythsAndFacts />
 
-      {/* Program Features */}
-      <section className="py-20 px-[5%] bg-[#FCFFF0]">
-        <div className="max-w-6xl mx-auto">
-          <SectionHeading eyebrow="Our approach" title="Program features" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature) => (
-              <div key={feature.title} className="text-center">
-                <div className="w-16 h-16 bg-green-light/25 text-green-deep rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Icon name={feature.icon} className="w-8 h-8" />
-                </div>
-                <h3 className="font-dm-sans font-semibold text-lg text-green-deep mb-2">{feature.title}</h3>
-                <p className="font-dm-sans text-text-mid text-sm leading-[1.6]">
-                  {feature.description}
-                </p>
+          {/* Benefits and CTA */}
+          <section className="py-20 px-[5%]">
+            <div className="max-w-6xl mx-auto">
+              <SectionHeading eyebrow="Results" title="What families can expect" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+                {benefits.map((benefit) => (
+                  <div key={benefit.title} className="bg-white rounded-2xl p-6 border border-green-deep/10 shadow-sm">
+                    <div className="w-11 h-11 bg-gold rounded-full text-green-deep flex items-center justify-center mb-4">
+                      <Icon name={benefit.icon} className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-dm-sans font-semibold text-lg text-green-deep mb-2">{benefit.title}</h3>
+                    <p className="font-dm-sans text-text-mid text-sm leading-[1.6]">
+                      {benefit.description}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      <MythsAndFacts />
-
-      {/* Benefits and CTA */}
-      <section className="py-20 px-[5%]">
-        <div className="max-w-6xl mx-auto">
-          <SectionHeading eyebrow="Results" title="What families can expect" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-            {benefits.map((benefit) => (
-              <div key={benefit.title} className="bg-white rounded-2xl p-6 border border-green-deep/10 shadow-sm">
-                <div className="w-11 h-11 bg-gold rounded-full text-green-deep flex items-center justify-center mb-4">
-                  <Icon name={benefit.icon} className="w-5 h-5" />
+              <div className="relative bg-gradient-to-r from-green-deep to-green-mid rounded-3xl p-10 md:p-14 text-center overflow-hidden">
+                <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-gold/10" aria-hidden="true" />
+                <div className="absolute -top-20 -right-10 w-64 h-64 rounded-full bg-white/5" aria-hidden="true" />
+                <div className="relative">
+                  <h2 className="font-dm-sans font-bold text-3xl md:text-4xl text-white mb-6">
+                    Ready to Support Your Child’s Health?
+                  </h2>
+                  <p className="font-dm-sans text-xl text-cream/90 mb-8 max-w-2xl mx-auto">
+                    Book a consultation and we will talk through your child’s needs and how we can help.
+                  </p>
+                  <button
+                    onClick={() => setShowAppointmentModal(true)}
+                    className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-lg transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg"
+                  >
+                    Book Consultation
+                  </button>
                 </div>
-                <h3 className="font-dm-sans font-semibold text-lg text-green-deep mb-2">{benefit.title}</h3>
-                <p className="font-dm-sans text-text-mid text-sm leading-[1.6]">
-                  {benefit.description}
-                </p>
               </div>
-            ))}
-          </div>
+            </div>
+          </section>
+          </>
+        )}
+        {tab === 'labs' && <AutismLabTesting onBook={() => setShowAppointmentModal(true)} />}
+        {tab === 'treatment' && (
+          <AutismTreatmentOptions onBook={() => setShowAppointmentModal(true)} onShowLabs={() => selectTab('labs')} />
+        )}
+      </div>
 
-          <div className="relative bg-gradient-to-r from-green-deep to-green-mid rounded-3xl p-10 md:p-14 text-center overflow-hidden">
-            <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-gold/10" aria-hidden="true" />
-            <div className="absolute -top-20 -right-10 w-64 h-64 rounded-full bg-white/5" aria-hidden="true" />
-            <div className="relative">
-              <h2 className="font-dm-sans font-bold text-3xl md:text-4xl text-white mb-6">
-                Ready to Support Your Child’s Health?
-              </h2>
-              <p className="font-dm-sans text-xl text-cream/90 mb-8 max-w-2xl mx-auto">
-                Book a consultation and we will talk through your child’s needs and how we can help.
-              </p>
+      {/* Explore the other tabs */}
+      <section className="px-[5%] pb-20">
+        <div className="max-w-5xl mx-auto">
+          <p className="font-dm-sans text-xs font-bold tracking-[0.14em] uppercase text-green-mid text-center mb-4">Keep exploring</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {tabs.filter((t) => t.id !== tab).map((t) => (
               <button
-                onClick={() => setShowAppointmentModal(true)}
-                className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-lg transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg"
+                key={t.id}
+                onClick={() => selectTab(t.id)}
+                className="group flex items-center gap-4 text-left bg-white rounded-2xl border border-green-deep/10 p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg hover:border-gold"
               >
-                Book Consultation
+                <span className="w-12 h-12 rounded-xl bg-green-deep text-gold flex items-center justify-center flex-shrink-0 [&_img]:brightness-0 [&_img]:invert">
+                  <Icon name={t.icon} className="w-6 h-6" />
+                </span>
+                <span className="flex-1">
+                  <span className="block font-dm-sans font-semibold text-lg text-green-deep">{t.label}</span>
+                  <span className="block font-dm-sans text-sm text-text-mid">{t.blurb}</span>
+                </span>
+                <span className="font-dm-sans text-xl text-green-mid transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
               </button>
-            </div>
+            ))}
           </div>
         </div>
       </section>
