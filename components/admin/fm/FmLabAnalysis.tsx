@@ -250,7 +250,7 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       <ResultsTable entries={entries} sex={patient.sex} onChange={setEntries} />
       {summary.total > 0 && <div className="flex justify-end"><button type="button" className="primary" onClick={() => setStep('analysis')}><ChartBarIcon size={16} />See the analysis</button></div>}
     </div>}
-    {step === 'analysis' && <AnalysisDashboard entries={entries} narrative={narrative} />}
+    {step === 'analysis' && <AnalysisDashboard entries={entries} narrative={narrative} sex={patient.sex} />}
     {step === 'report' && <ReportBuilder patient={patient} entries={entries} setEntries={setEntries} narrative={narrative} setNarrative={setNarrative} emrPatientId={emrPatientId} onSaveAnalysis={save} />}
   </div>
 }
