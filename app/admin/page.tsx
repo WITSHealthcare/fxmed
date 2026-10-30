@@ -11,6 +11,7 @@ import {
   BriefcaseIcon,
   HandshakeIcon,
   HospitalIcon,
+  FlaskIcon,
   GraduationCapIcon,
   RobotIcon,
   ShieldCheckIcon,
@@ -32,6 +33,7 @@ import Contacts from '@/components/admin/Contacts'
 import AmbassadorProgram from '@/components/admin/AmbassadorProgram'
 import CareersManagement from '@/components/admin/CareersManagement'
 import EmrWorkspace from '@/components/admin/emr/EmrWorkspace'
+import FmLabAnalysis from '@/components/admin/fm/FmLabAnalysis'
 import Training from '@/components/admin/Training'
 import AdminAccountMenu from '@/components/admin/AdminAccountMenu'
 import { getCurrentAdminRole, signOut, supabase } from '@/lib/supabase-auth'
@@ -71,6 +73,7 @@ const adminNavItems: Array<{ id: AdminTab; label: string; Icon: typeof ArticleIc
   { id: 'zara', label: 'Zara', Icon: RobotIcon, title: 'Zara Conversations', description: 'View all interactions people have had with Zara, the AI assistant' },
   { id: 'contacts', label: 'Contacts', Icon: AddressBookIcon, title: 'Contacts', description: 'Contact details from every form, booking, enquiry and outreach' },
   { id: 'healthcare', label: 'Healthcare / EMR', Icon: HospitalIcon, title: 'Healthcare / EMR', description: 'Manage clinical patients, encounters, records, investigations, medications and care plans' },
+  { id: 'fm_analysis', label: 'FM Lab Analysis', Icon: FlaskIcon, title: 'Functional Medicine Lab Analysis', description: 'Analyse lab results against functional medicine optimal ranges and issue reports' },
 ]
 
 type Note = {
@@ -730,6 +733,7 @@ export default function AdminPanel() {
             {activeTab === 'contacts' && canAccessTab(currentRole, 'contacts') && <Contacts />}
 
             {activeTab === 'healthcare' && canAccessTab(currentRole, 'healthcare') && <EmrWorkspace />}
+            {activeTab === 'fm_analysis' && canAccessTab(currentRole, 'fm_analysis') && <FmLabAnalysis />}
           </div>
         </div>
       </main>
