@@ -64,7 +64,7 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('non_hdl', 'Non-HDL Cholesterol', 'cardio', 'mmol/L', [0, 4.2], [0, 3.4], { aliases: ['non hdl', 'non-hdl-c'] }),
   m('chol_hdl_ratio', 'Chol./HDL Ratio', 'cardio', 'ratio', [0, 5], [0, 4], { aliases: ['cholesterol/hdl ratio', 'tc/hdl', 'chol/hdl'] }),
   // Glucose
-  m('fasting_glucose', 'Fasting Glucose', 'glucose', 'mmol/L', [3.9, 6], [4.4, 5.5], { aliases: ['glucose', 'fbs', 'fbg', 'fasting blood sugar', 'fasting plasma glucose'], critical: { low: 3, high: 11 } }),
+  m('fasting_glucose', 'Fasting Glucose', 'glucose', 'mmol/L', [3.9, 6], [4.4, 5.5], { aliases: ['glucose', 'fbs', 'fbg', 'fasting blood sugar', 'fasting blood glucose', 'fasting plasma glucose'], critical: { low: 3, high: 11 } }),
   m('hba1c', 'HbA1c', 'glucose', '%', [4, 5.6], [4, 5.4], { aliases: ['hba1c (ngsp)', 'glycated haemoglobin', 'glycated hemoglobin', 'a1c'], critical: { high: 9 } }),
   m('hba1c_ifcc', 'HbA1c (IFCC)', 'glucose', 'mmol/mol', [20, 38], [20, 36], { aliases: ['hba1c ifcc'] }),
   m('fasting_insulin', 'Fasting Insulin', 'glucose', 'µIU/mL', [2.6, 24.9], [2.6, 8], { aliases: ['insulin', 'insulin fasting'] }),
@@ -77,8 +77,8 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('free_t3', 'Free T3', 'thyroid', 'pmol/L', [3.5, 6.5], [5, 6.5], { aliases: ['ft3', 'free triiodothyronine'] }),
   m('free_t4', 'Free T4', 'thyroid', 'pmol/L', [10, 23], [15, 23], { aliases: ['ft4', 'free thyroxine'] }),
   m('reverse_t3', 'Reverse T3', 'thyroid', 'ng/mL', [0.09, 0.35], [0.09, 0.2], { aliases: ['rt3', 'reverse triiodothyronine'] }),
-  m('anti_tpo', 'Anti-TPO Ab', 'thyroid', 'IU/mL', [0, 35], [0, 2], { aliases: ['tpo', 'tpo antibodies', 'anti-thyroid peroxidase', 'thyroid peroxidase antibodies'] }),
-  m('anti_tg', 'Anti-TG Ab', 'thyroid', 'IU/mL', [0, 40], [0, 2], { aliases: ['tg antibodies', 'anti-thyroglobulin', 'thyroglobulin antibodies'] }),
+  m('anti_tpo', 'Anti-TPO Ab', 'thyroid', 'IU/mL', [0, 35], [0, 2], { aliases: ['tpo', 'tpo antibodies', 'anti-thyroid peroxidase', 'thyroid peroxidase antibodies', 'thyroid peroxidase antibody'] }),
+  m('anti_tg', 'Anti-TG Ab', 'thyroid', 'IU/mL', [0, 40], [0, 2], { aliases: ['tg antibodies', 'anti-thyroglobulin', 'thyroglobulin antibodies', 'thyroglobulin antibody'] }),
   // Adrenal & hormones
   m('dhea_s', 'DHEA-S', 'adrenal', 'µmol/L', [2.68, 9.23], [5, 9.23], { aliases: ['dheas', 'dhea sulphate', 'dhea sulfate'] }),
   m('cortisol_am', 'Cortisol AM', 'adrenal', 'nmol/L', [6.3, 29.2], [13, 24], { aliases: ['cortisol', 'morning cortisol', 'cortisol (am)', 'cortisol 8am'], critical: { low: 5 } }),

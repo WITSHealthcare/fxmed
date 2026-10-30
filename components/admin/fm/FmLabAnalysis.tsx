@@ -5,6 +5,7 @@ import { ArrowLeftIcon, ChartBarIcon, FileTextIcon, FlaskIcon, FloppyDiskIcon, M
 import { ageFromDateOfBirth } from '@/lib/age'
 import { defaultRanges, emptyNarrative, markerById, summarize, type FmEntry, type FmNarrative, type FmPatient, type Sex } from '@/lib/fmBiomarkers'
 import AnalysisDashboard from './AnalysisDashboard'
+import RecordResults from './RecordResults'
 import ReportBuilder from './ReportBuilder'
 import { ImportPanel, ResultsTable, inputClass, mergeEntries } from './ResultsEntry'
 
@@ -142,9 +143,11 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
     }))
   }
 
+  // Linking a patient also brings in the results saved in their record; see RecordResults.
   function linkPatient(record: EmrPatient) {
     setEmrPatientId(record.id)
     setEmrPatientLabel(`${patientName(record)} · ${record.mrn}`)
+    setStep('results')
     const age = ageFromDateOfBirth(record.date_of_birth)
     setPatient(current => ({ ...current, name: patientName(record), age: age === null ? current.age : String(age) }))
     if (record.sex === 'female' || record.sex === 'male') setSex(record.sex)
@@ -159,7 +162,10 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       return next
     })
     if (!patient.sex && (details.sex === 'female' || details.sex === 'male')) setSex(details.sex)
-    setMessage({ tone: 'ok', text: `Read ${incoming.length} result${incoming.length === 1 ? '' : 's'} from ${source}: ${merge.added} added, ${merge.updated} updated. Check each value against the lab report.` })
+    const counts = `${merge.added} added, ${merge.updated} updated`
+    setMessage({ tone: 'ok', text: source.startsWith('the patient\'s record')
+      ? `Brought in ${incoming.length} result${incoming.length === 1 ? '' : 's'} from ${source}: ${counts}.`
+      : `Read ${incoming.length} result${incoming.length === 1 ? '' : 's'} from ${source}: ${counts}. Check each value against the lab report.` })
   }
 
   const save = useCallback(async (nextStatus?: 'draft' | 'final') => {
@@ -239,6 +245,7 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
     </nav>
 
     {step === 'results' && <div className="space-y-6">
+      {emrPatientId && <RecordResults key={emrPatientId} patientId={emrPatientId} patientName={patient.name} sex={patient.sex} empty={entries.length === 0} onImported={imported} />}
       <ImportPanel sex={patient.sex} onImported={imported} />
       <ResultsTable entries={entries} sex={patient.sex} onChange={setEntries} />
       {summary.total > 0 && <div className="flex justify-end"><button type="button" className="primary" onClick={() => setStep('analysis')}><ChartBarIcon size={16} />See the analysis</button></div>}
