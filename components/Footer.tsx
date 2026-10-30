@@ -43,6 +43,9 @@ export default function Footer() {
               <li className="font-dm-sans text-cream/80 text-[0.9rem]">
                 <a href="/programs/immune-support" className="hover:text-gold transition-colors">Immune Support</a>
               </li>
+              <li className="font-dm-sans text-cream/80 text-[0.9rem]">
+                <a href="/programs/autism-support" className="hover:text-gold transition-colors">Autism Support</a>
+              </li>
             </ul>
           </div>
 

@@ -103,6 +103,7 @@ We provide personalized, evidence-based functional medicine services delivered d
 - Gut Analysis: Diagnostic — deep diagnostic gut analysis
 - Adrenal Reset: 8-12 weeks — for burnout, chronic stress, and adrenal fatigue
 - Immune Support: 8-12 weeks — for frequent infections, autoimmune issues, low immunity
+- Autism Support: 3-6 months — gut health, nutrition and sleep support for autistic children, alongside their existing care (not a cure for autism)
 
 ## Location & Contact
 - Address: 6A Robin Road, Crown Estate, Sangotedo, Lagos, Nigeria

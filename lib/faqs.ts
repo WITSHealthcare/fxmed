@@ -43,6 +43,6 @@ export const servicesFaqs: FaqItem[] = [
   {
     question: 'Which health programs does FXMed run?',
     answer:
-      'We run five structured programs: Thyroid Recovery, Hormone Balance, Gut Repair, Adrenal Reset and Immune Support. Each combines comprehensive testing, a personalised protocol and ongoing coaching between consultations. We also offer dedicated pregnancy and maternal wellness support.',
+      'We run six structured programs: Thyroid Recovery, Hormone Balance, Gut Repair, Adrenal Reset, Immune Support and Autism Support. Each combines comprehensive testing, a personalised protocol and ongoing coaching between consultations. We also offer dedicated pregnancy and maternal wellness support.',
   },
 ]

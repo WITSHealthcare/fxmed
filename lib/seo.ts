@@ -204,6 +204,7 @@ export const publicRoutes: PublicRoute[] = [
   { path: '/programs/hormone-balance', lastModified: '2026-05-07', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/programs/thyroid-recovery', lastModified: '2026-05-07', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/programs/immune-support', lastModified: '2026-05-07', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/programs/autism-support', lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/functional-health-analysis', lastModified: '2026-05-27', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/health-assessment', lastModified: '2026-08-18', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/maternal-wellness', lastModified: '2026-05-11', changeFrequency: 'monthly', priority: 0.8 },
@@ -241,6 +242,7 @@ export const programCatalog = [
   { slug: 'gut-repair', name: 'Gut Repair', condition: 'Digestive disorder', description: 'Address digestive symptoms at their source with comprehensive stool analysis and gut-focused protocols.' },
   { slug: 'adrenal-reset', name: 'Adrenal Reset', condition: 'Adrenal fatigue', description: 'Rebuild energy and stress resilience with adrenal testing and a structured recovery plan.' },
   { slug: 'immune-support', name: 'Immune Support', condition: 'Immune dysfunction', description: 'Strengthen immune resilience through targeted testing, nutrition and lifestyle support.' },
+  { slug: 'autism-support', name: 'Autism Support', condition: 'Autism spectrum disorder', description: 'Support autistic children with gut health testing, nutrition and sleep guidance alongside their existing care.' },
 ]
 
 // Offer nodes reused by both the Organization schema and the services page.
