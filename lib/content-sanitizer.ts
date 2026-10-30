@@ -38,7 +38,7 @@ export function sanitizeRichText(content: string = '') {
     allowedTags,
     allowedAttributes: {
       a: ['href', 'name', 'target', 'rel'],
-      img: ['src', 'alt', 'title', 'width', 'height'],
+      img: ['src', 'alt', 'title', 'width', 'height', 'class'],
       span: ['class'],
       div: ['class'],
       p: ['class'],
