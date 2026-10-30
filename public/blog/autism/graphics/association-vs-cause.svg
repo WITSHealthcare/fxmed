@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" font-family="'DM Sans', Arial, sans-serif">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2d6a4f"/></marker></defs>
+<rect x="200" y="20" width="240" height="84" rx="18" fill="#1a3d2e"/><text x="320.0" y="58.0" text-anchor="middle" font-size="18" font-weight="800" fill="#C9E265">Shared factor</text><text x="320.0" y="80.0" text-anchor="middle" font-size="13" fill="#f8f3ea">e.g. genes or a health condition</text>
+<rect x="20" y="236" width="220" height="84" rx="18" fill="#f8f3ea"/><text x="130.0" y="274.0" text-anchor="middle" font-size="18" font-weight="800" fill="#1a3d2e">Exposure</text><text x="130.0" y="296.0" text-anchor="middle" font-size="13" fill="#4a5e52">e.g. a medicine in pregnancy</text>
+<rect x="400" y="236" width="220" height="84" rx="18" fill="#f8f3ea"/><text x="510.0" y="274.0" text-anchor="middle" font-size="18" font-weight="800" fill="#1a3d2e">Autism</text><text x="510.0" y="296.0" text-anchor="middle" font-size="13" fill="#4a5e52">more likely to be diagnosed</text>
+<path d="M260 104 L170 232" stroke="#2d6a4f" stroke-width="3.5" fill="none" marker-end="url(#ar)"/>
+<path d="M380 104 L470 232" stroke="#2d6a4f" stroke-width="3.5" fill="none" marker-end="url(#ar)"/>
+<text x="186" y="168" text-anchor="end" font-size="13" font-weight="700" fill="#2d6a4f">makes more likely</text>
+<text x="454" y="168" font-size="13" font-weight="700" fill="#2d6a4f">makes more likely</text>
+<line x1="244" y1="278" x2="396" y2="278" stroke="#e8833a" stroke-width="3.5" stroke-dasharray="8 7"/>
+<rect x="262" y="290" width="116" height="28" rx="14" fill="#fff4ea" stroke="#e8833a"/>
+<text x="320" y="309" text-anchor="middle" font-size="13" font-weight="800" fill="#b4531a">Looks linked</text>
+<text x="320" y="352" text-anchor="middle" font-size="13" fill="#4a5e52">The exposure and autism appear together, but the shared factor is driving both.</text>
+</svg>
