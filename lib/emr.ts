@@ -10,6 +10,7 @@ export type EmrPermission =
   | 'manage_allergies' | 'prescribe_medication' | 'order_investigations'
   | 'record_results' | 'review_results' | 'upload_documents' | 'manage_care_plans'
   | 'view_financial_records' | 'manage_financial_records'
+  | 'manage_coverage' | 'manage_referrals'
 
 const clinicalPermissions: EmrPermission[] = [
   'view_patients', 'create_patients', 'edit_patients', 'view_clinical_records',
@@ -18,6 +19,7 @@ const clinicalPermissions: EmrPermission[] = [
   'prescribe_medication', 'order_investigations', 'record_results',
   'review_results', 'upload_documents', 'manage_care_plans',
   'view_financial_records', 'manage_financial_records',
+  'manage_coverage', 'manage_referrals',
 ]
 
 export const emrRolePermissions: Record<AdminRole, EmrPermission[]> = {

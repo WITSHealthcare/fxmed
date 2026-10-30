@@ -68,6 +68,7 @@ export function whatsappNumber(phone: string | null | undefined) {
 export function reminderMessage(firstName: string | null | undefined, taskType: string) {
   const greeting = `Hello${firstName ? ` ${firstName}` : ''}, this is FXMed.`
   if (taskType === 'investigation') return `${greeting} We are checking in on the investigations we sent you. Have you been able to do them? Let us know if you need any help.`
+  if (taskType === 'referral') return `${greeting} We are checking in on the referral we arranged for you. Have you been able to attend? Let us know if you need any help.`
   if (taskType === 'review') return `${greeting} It is time for your review. Please let us know when you are available.`
   return `${greeting} We are following up on your care. Please let us know a good time to talk.`
 }
