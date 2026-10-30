@@ -19,16 +19,20 @@ export const PAGE_W = 816
 export const PAGE_H = 1056
 const BASE_FONT = 11
 const MIN_FONT = 8
-const MINT = '#3CC48A'
-const MINT_DARK = '#1E9E68'
-const INK = '#1F2A37'
-const BODY = '#3F4A57'
-const MUTED = '#6B7280'
-const FAINT = '#A0A8B2'
-const LINE = '#E3E7EA'
-const SOFT = '#F3FAF6'
+// The FxMed palette: forest green and lime on warm cream.
+const DEEP = '#1A3D2E'
+const GREEN = '#2D6A4F'
+const LIME = '#C9E265'
+const CREAM = '#F8F3EA'
+const TRACK = '#EDE7DA'
+const INK = '#1C2B22'
+const BODY = '#4A5E52'
+const MUTED = '#6B7C72'
+const FAINT = '#A9B5AD'
+const LINE = '#E6E0D3'
+const ON_DARK = 'rgba(248,243,234,.78)'
 const FONT = "'DM Sans', 'Lato', Arial, Helvetica, sans-serif"
-const GRADIENT = 'linear-gradient(90deg, #3CC48A 0%, #9CCB5E 32%, #F5C04A 55%, #F59A4F 76%, #EF6F5E 100%)'
+const GRADIENT = 'linear-gradient(90deg, #52B788 0%, #C9E265 34%, #F2C14E 58%, #EE8B4F 80%, #D9534F 100%)'
 
 export type FmReportData = {
   patient: FmPatient
@@ -67,66 +71,91 @@ const SECTIONS: Array<{ id: SectionId; number: number; title: string; blurb: str
 type TocIndex = Map<string, number>
 type Page = { kind: 'cover' | 'divider' | 'content'; section: SectionId; tab: string; body: (toc: TocIndex) => string }
 
+let svgId = 0
+
+/** The FxMed mark: a circle split by a wave, forest green below and lime above. */
+function logoMark(size: number) {
+  const id = `fmc${svgId++}`
+  return `<svg width="${size}em" height="${size}em" viewBox="0 0 100 100" style="display:block">
+    <defs><clipPath id="${id}"><circle cx="50" cy="50" r="50"/></clipPath></defs>
+    <g clip-path="url(#${id})">
+      <rect width="100" height="100" fill="${LIME}"/>
+      <path d="M -2 26 C 22 18 34 40 46 56 C 58 72 74 70 102 86 L 102 102 L -2 102 Z" fill="#14693E"/>
+      <path d="M -2 26 C 22 18 34 40 46 56 C 58 72 74 70 102 86" fill="none" stroke="${DEEP}" stroke-width="3"/>
+    </g>
+  </svg>`
+}
+
+/** A header tab. SVG, because html2canvas draws text in small boxes too low. */
+function pill(text: string, active: boolean) {
+  const width = text.length * 0.56 + 1.9
+  return `<span style="display:block;font-size:.8em"><svg width="${width}em" height="2.1em" viewBox="0 0 ${width * 10} 21" style="display:block">
+    ${active ? `<rect width="${width * 10}" height="21" rx="10.5" fill="${LIME}"/>` : ''}
+    <text x="${width * 5}" y="14.3" text-anchor="middle" font-family="${FONT.replace(/"/g, "'")}" font-size="10" font-weight="${active ? 800 : 500}" fill="${active ? DEEP : ON_DARK}">${esc(text)}</text>
+  </svg></span>`
+}
+
 function header(section: SectionId, tab: string, tabs: string[]) {
   const name = SECTIONS.find(item => item.id === section)!.title
-  return `<div style="display:flex;gap:1.8em;padding:2.2em 2.6em 0">
-    <div style="width:15.5em;flex:none;border-top:1px solid ${MINT};padding-top:.7em;font-size:.95em;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${MINT};line-height:1.35">${esc(name)}</div>
-    <div style="flex:1;display:flex;border-top:1px solid ${MINT}">${tabs.map(item => {
-      const active = item === tab
-      return `<div style="width:9.6em;margin-top:-1px;padding-top:.7em;padding-right:.8em;border-top:3px solid ${active ? MINT : 'transparent'};font-size:.92em;line-height:1.35;font-weight:${active ? 800 : 400};color:${active ? MINT : INK}">${esc(item)}</div>`
-    }).join('')}</div>
-  </div>`
+  return `<div style="background:${DEEP};padding:1.05em 2.6em;display:flex;align-items:center;justify-content:space-between">
+      <img src="/logo-trimmed.png" style="height:1.75em;display:block" />
+      <div style="display:flex;align-items:center;gap:.35em">
+        <span style="font-size:.76em;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:${LIME};margin-right:.9em">${esc(name)}</span>
+        ${tabs.map(item => pill(item, item === tab)).join('')}
+      </div>
+    </div>
+    <div style="height:.32em;background:linear-gradient(90deg, ${LIME}, #52B788)"></div>`
 }
 
-function footer(patient: FmPatient, number: number) {
+function footer(patient: FmPatient, number: number, dark: boolean) {
   const date = readableDate(patient.collectedAt)
-  return `<div style="position:absolute;left:2.6em;right:2.6em;bottom:2em;display:flex;justify-content:space-between;font-size:.88em;color:${BODY};line-height:1.4">
-    <span>Functional Health Report &nbsp;&nbsp;|&nbsp;&nbsp; ${esc(patient.name || 'Patient')}${date ? `&nbsp;&nbsp;&nbsp;&nbsp; Lab test ${esc(date)}` : ''}</span><span>${number}</span>
+  return `<div style="position:absolute;left:2.6em;right:2.6em;bottom:1.6em;display:flex;align-items:center;justify-content:space-between;border-top:1px solid ${dark ? 'rgba(248,243,234,.2)' : LINE};padding-top:.75em;font-size:.85em;line-height:1.4;color:${dark ? ON_DARK : MUTED}">
+    <span><span style="font-weight:800;color:${dark ? LIME : GREEN}">Functional Health Report</span> &nbsp;·&nbsp; ${esc(patient.name || 'Patient')}${date ? ` &nbsp;·&nbsp; Lab test ${esc(date)}` : ''}</span>
+    ${disc(dark ? LIME : DEEP, [[String(number), 40, 700]], 2.3, false, dark ? DEEP : '#fff')}
   </div>`
 }
 
-function shell(content: string, chrome: string, patient: FmPatient, number: number | null) {
-  return `<div data-fm-page style="position:relative;width:${PAGE_W}px;height:${PAGE_H}px;overflow:hidden;background:#fff;color:${INK};font-family:${FONT};font-size:${BASE_FONT}px;line-height:1.45;box-sizing:border-box">
+function shell(content: string, chrome: string, patient: FmPatient, number: number | null, dark = false) {
+  return `<div data-fm-page style="position:relative;width:${PAGE_W}px;height:${PAGE_H}px;overflow:hidden;background:${dark ? DEEP : '#fff'};color:${INK};font-family:${FONT};font-size:${BASE_FONT}px;line-height:1.45;box-sizing:border-box">
     ${chrome}
     <div data-fm-body style="padding:0 2.6em">${content}</div>
-    ${number === null ? '' : footer(patient, number)}
+    ${number === null ? '' : footer(patient, number, dark)}
   </div>`
 }
 
-const dash = (margin = '1.6em 0 1em') => `<div style="width:2.8em;height:.38em;background:${MINT};border-radius:1em;margin:${margin}"></div>`
+const dash = (margin = '1.6em 0 1em') => `<div style="width:3.2em;height:.42em;background:${LIME};border-radius:1em;margin:${margin}"></div>`
 
 function title(text: string) {
-  return `${dash()}<div style="font-size:3em;font-weight:800;letter-spacing:-.02em;line-height:1.2;color:${MINT}">${esc(text)}</div>`
+  return `${dash()}<div style="font-size:2.9em;font-weight:800;letter-spacing:-.025em;line-height:1.2;color:${DEEP}">${esc(text)}</div>`
 }
 
-const subtitle = (text: string) => `<div style="font-size:2.1em;font-weight:400;color:${MINT};line-height:1.3;margin:1.4em 0 .7em">${esc(text)}</div>`
+const subtitle = (text: string) => `<div style="font-size:2.1em;font-weight:400;color:${GREEN};line-height:1.3;margin:1.4em 0 .7em">${esc(text)}</div>`
 const lead = (text: string) => `<p style="font-size:1.08em;line-height:1.65;color:${BODY};margin:.9em 0 0">${esc(text)}</p>`
 const heading = (text: string) => `<div style="font-size:1.05em;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:1em">${esc(text)}</div>`
 
 // ---------------------------------------------------------------------------
 // Charts
 
-let svgId = 0
 
 /** A half-circle gauge of a likelihood, green to red. */
 function gauge(score: number, size = 9) {
   const id = `fmg${svgId++}`
   const arc = 'M 14 64 A 46 46 0 0 1 106 64'
   return `<svg width="${size}em" height="${size * 0.62}em" viewBox="0 0 120 74" style="display:block;margin:0 auto">
-    <defs><linearGradient id="${id}" x1="14" y1="0" x2="106" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3CC48A"/><stop offset=".55" stop-color="#F5C04A"/><stop offset="1" stop-color="#EF6F5E"/></linearGradient></defs>
-    <path d="${arc}" fill="none" stroke="#ECEFF1" stroke-width="13" stroke-linecap="round"/>
+    <defs><linearGradient id="${id}" x1="14" y1="0" x2="106" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#52B788"/><stop offset=".35" stop-color="${LIME}"/><stop offset=".65" stop-color="#F2C14E"/><stop offset="1" stop-color="#D9534F"/></linearGradient></defs>
+    <path d="${arc}" fill="none" stroke="${TRACK}" stroke-width="13" stroke-linecap="round"/>
     ${score > 0 ? `<path d="${arc}" fill="none" stroke="url(#${id})" stroke-width="13" stroke-linecap="round" pathLength="100" stroke-dasharray="${Math.min(score, 100)} 200"/>` : ''}
     <text x="60" y="62" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="${INK}">${score}%</text>
   </svg>`
 }
 
 /** A filled circle with centred lines of text. SVG, because html2canvas mis-centres text in boxes. */
-function disc(color: string, lines: Array<[string, number, number?]>, size: number, outline = false) {
+function disc(color: string, lines: Array<[string, number, number?]>, size: number, outline = false, text = '#fff') {
   const total = lines.reduce((sum, [, font]) => sum + font, 0) + (lines.length - 1) * 4
   let y = 50 - total / 2
-  const texts = lines.map(([text, font, weight], index) => {
+  const texts = lines.map(([label, font, weight], index) => {
     y += (index ? 4 : 0) + font * 0.85
-    const line = `<text x="50" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${font}" font-weight="${weight || 400}" fill="${outline ? INK : '#fff'}">${esc(text)}</text>`
+    const line = `<text x="50" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${font}" font-weight="${weight || 400}" fill="${outline ? INK : text}">${esc(label)}</text>`
     y += font * 0.15
     return line
   }).join('')
@@ -138,7 +167,7 @@ function likelihoodBar(score: number, grow = true, labelled = true) {
   const label = !labelled ? '' : width >= 9
     ? `<div style="position:absolute;top:0;right:${100 - width}%;padding-right:.7em;height:100%;line-height:1.7em;font-size:.76em;font-weight:800;color:#fff">${score}%</div>`
     : `<div style="position:absolute;top:0;left:${width}%;padding-left:.6em;height:100%;line-height:1.7em;font-size:.76em;font-weight:800;color:${INK}">${score}%</div>`
-  return `<div style="position:relative;${grow ? 'flex:1;' : ''}height:1.3em;background:#E6E9EC;border-radius:1em;overflow:hidden">
+  return `<div style="position:relative;${grow ? 'flex:1;' : ''}height:1.3em;background:${TRACK};border-radius:1em;overflow:hidden">
     ${width ? `<div style="position:absolute;left:0;top:0;bottom:0;width:${width}%;overflow:hidden;border-radius:1em"><div style="width:${10000 / width}%;height:100%;background:${GRADIENT}"></div></div>` : ''}${label}
   </div>`
 }
@@ -180,7 +209,7 @@ function markerList(items: Array<{ entry: AssessedEntry; direction?: 'low' | 'hi
 }
 
 function evidence(item: AreaResult) {
-  const block = (label: string, text: string) => text ? `<div style="margin-bottom:.9em"><div style="font-weight:800;color:${MINT_DARK};margin-bottom:.15em">${label}</div><div style="color:${MINT_DARK}">${text}</div></div>` : ''
+  const block = (label: string, text: string) => text ? `<div style="margin-bottom:.9em"><div style="font-weight:800;color:${GREEN};margin-bottom:.15em">${label}</div><div style="color:${GREEN}">${text}</div></div>` : ''
   return `<div style="font-size:.88em;line-height:1.5">
     ${block('Rationale', markerList(item.contributors) || 'No markers outside optimal.')}
     ${block('Biomarkers considered', markerList(item.considered.map(entry => ({ entry }))))}
@@ -236,7 +265,7 @@ function rangeBar(entry: AssessedEntry) {
   const labels = ['Below standard', 'Below optimal', 'Optimal', 'Above optimal', 'Above standard']
   return `<div>
     <div style="position:relative;height:1.7em;margin-top:.5em">
-      <div style="position:absolute;left:0;right:0;top:.38em;height:.95em;border-radius:1em;background:linear-gradient(90deg,#EF6F5E 0%,#F5C04A 25%,#3CC48A 42%,#3CC48A 58%,#F5C04A 75%,#EF6F5E 100%)"></div>
+      <div style="position:absolute;left:0;right:0;top:.38em;height:.95em;border-radius:1em;background:linear-gradient(90deg,#D9534F 0%,#F2C14E 24%,#52B788 41%,#52B788 59%,#F2C14E 76%,#D9534F 100%)"></div>
       ${[20, 40, 60, 80].map(left => `<div style="position:absolute;left:${left}%;top:.38em;height:.95em;width:2px;margin-left:-1px;background:#fff"></div>`).join('')}
       <div style="position:absolute;left:${position}%;top:-.2em;width:2.1em;height:2.1em;margin-left:-1.05em;border-radius:50%;background:#fff;border:.3em solid ${BAND_COLOR[band]};box-sizing:border-box"></div>
     </div>
@@ -272,7 +301,7 @@ function outOfRangeCard(entry: AssessedEntry) {
     <div style="flex:1"><div style="font-size:1.02em;font-weight:800;text-transform:uppercase;line-height:1.35">${esc(entry.name)}${alarm ? ` <span style="color:${BAND_COLOR[band]}">▲</span>` : ''}</div>
       <div style="font-size:.78em;font-weight:800;color:${BAND_COLOR[band]};letter-spacing:.04em;text-transform:uppercase;margin-top:.15em">${esc(BAND_LABEL[band])} · optimal ${esc(entry.fmRange || '—')}</div>
       <div style="font-size:.9em;line-height:1.55;color:${BODY};margin-top:.4em">${esc(text)}</div>
-      ${entry.note && !entry.calculated ? `<div style="font-size:.86em;line-height:1.5;color:${MINT_DARK};margin-top:.35em;font-style:italic">${esc(entry.note)}</div>` : ''}
+      ${entry.note && !entry.calculated ? `<div style="font-size:.86em;line-height:1.5;color:${GREEN};margin-top:.35em;font-style:italic">${esc(entry.note)}</div>` : ''}
     </div></div>`
 }
 
@@ -289,7 +318,7 @@ function targets(item: AreaResult) {
   return `<div style="margin-top:1.5em">
     <div style="font-size:1.05em;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.6em">Your numbers and targets</div>
     <table style="width:100%;border-collapse:collapse;font-size:.92em;line-height:1.4">
-      <thead><tr style="background:${SOFT};color:${MINT_DARK};font-weight:800;text-align:left"><th style="${cell}">Biomarker</th><th style="${cell}">Your result</th><th style="${cell}">Optimal target</th><th style="${cell}">Where it sits</th></tr></thead>
+      <thead><tr style="background:${CREAM};color:${GREEN};font-weight:800;text-align:left"><th style="${cell}">Biomarker</th><th style="${cell}">Your result</th><th style="${cell}">Optimal target</th><th style="${cell}">Where it sits</th></tr></thead>
       <tbody>${item.contributors.map(({ entry, direction }) => {
         const band = bandOf(entry)
         return `<tr><td style="${cell};font-weight:700">${esc(entry.name)}</td>
@@ -298,7 +327,7 @@ function targets(item: AreaResult) {
           <td style="${cell};color:${BAND_COLOR[band]};font-weight:700">${esc(band === 'optimal' ? 'Borderline' : BAND_LABEL[band])}</td></tr>`
       }).join('')}</tbody>
     </table>
-    ${item.missing.length ? `<div style="font-size:.88em;line-height:1.5;margin-top:.7em;color:${BODY}"><span style="font-weight:800;color:${MINT_DARK}">Not in these results — consider testing:</span> ${esc(item.missing.join(', '))}</div>` : ''}
+    ${item.missing.length ? `<div style="font-size:.88em;line-height:1.5;margin-top:.7em;color:${BODY}"><span style="font-weight:800;color:${GREEN}">Not in these results — consider testing:</span> ${esc(item.missing.join(', '))}</div>` : ''}
   </div>`
 }
 
@@ -316,7 +345,7 @@ function improvementPage(item: AreaResult, narrative: FmNarrative) {
     </div>
     ${targets(item)}
     <div style="font-size:1.05em;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin:1.7em 0 .9em">Your plan</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em">${PLAN_PARTS.filter(part => plan[part.key].length).map(part => `<div style="border:1px solid ${LINE};border-top:.35em solid ${part.color};border-radius:.4em;padding:.9em 1.1em">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em">${PLAN_PARTS.filter(part => plan[part.key].length).map(part => `<div style="background:${CREAM};border-top:.35em solid ${part.color};border-radius:.3em .3em .9em .9em;padding:.95em 1.15em">
       <div style="font-weight:800;color:${part.color};margin-bottom:.6em;font-size:1em">${part.title}</div>
       <div style="font-size:.9em;line-height:1.5;color:${BODY}">${bullets(plan[part.key], part.color)}</div></div>`).join('')}</div>
     <div style="font-size:.8em;color:${MUTED};margin-top:1.1em;line-height:1.5">Supplement doses are typical adult doses for discussion with your clinician. Do not start, stop or change any medicine or supplement without their advice, particularly if you are pregnant, breastfeeding or taking prescribed medicines.</div>`
@@ -332,7 +361,7 @@ function recommendationCard(item: FmNarrative['recommendations'][number]) {
 
 function findingCard(item: FmNarrative['findings'][number]) {
   const color = PRIORITY_COLOR[item.priority]
-  return `<div style="border-left:.35em solid ${color};background:#FAFBFB;padding:.7em 1em;margin-bottom:.7em;border-radius:.3em">
+  return `<div style="border-left:.35em solid ${color};background:${CREAM};padding:.75em 1em;margin-bottom:.7em;border-radius:.2em .6em .6em .2em">
     <div style="font-weight:800;color:${color};line-height:1.4">${esc(item.title)}</div>
     ${item.detail ? `<div style="font-size:.9em;line-height:1.55;color:${BODY};margin-top:.25em">${esc(item.detail)}</div>` : ''}</div>`
 }
@@ -351,46 +380,69 @@ const BCA_COLUMNS: Array<[string, string]> = [
 
 function coverBody(data: FmReportData) {
   const { patient } = data
-  const who = [patient.age ? `${patient.age}-year-old` : '', patient.sex].filter(Boolean).join(' ')
-  const row = (label: string, value: string) => value ? `<div style="display:grid;grid-template-columns:7.5em 1fr;gap:1em;border-top:1px solid ${INK};padding:1em 0;font-size:1.02em;line-height:1.55"><div style="font-weight:800">${label}</div><div style="color:${BODY}">${value}</div></div>` : ''
-  return `<div style="padding-top:5em">
-      <img src="/FXMed_Logo_Black.png" style="height:4.6em;display:block" />
-      <div style="margin-top:9em">${dash('0 0 1.4em')}</div>
-      <div style="font-size:2.7em;font-weight:800;color:${MINT};line-height:1.2">Blood Chemistry Analysis</div>
-      <div style="font-size:3.9em;font-weight:800;line-height:1.15;letter-spacing:-.02em;margin-top:.1em">Functional Health Report</div>
-      <div style="margin-top:4em">${disc(MINT, [['›', 64, 700]], 4.4)}</div>
-      <div style="margin-top:2.8em">${dash('0 0 1em')}</div>
-      <div style="font-size:1.9em;font-weight:800;color:${MINT};margin-bottom:1.1em">Patient Report</div>
-      <div style="width:36em">
-        ${row('Prepared for', `${esc(patient.name || '—')}${who ? `<br/>${esc(who)}` : ''}`)}
-        ${row('Requested by', [patient.clinician, patient.facility || 'WITS FxMed Nigeria'].filter(Boolean).map(esc).join('<br/>'))}
-        ${row('Test date', esc(readableDate(patient.collectedAt) || '—'))}
-        ${row('Lab reference', esc(patient.labRef))}
-        <div style="border-top:1px solid ${INK}"></div>
+  const who = [patient.age ? `${patient.age} years` : '', patient.sex ? patient.sex[0].toUpperCase() + patient.sex.slice(1) : ''].filter(Boolean).join(' · ')
+  const field = (label: string, value: string) => `<div><div style="font-size:.74em;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:${GREEN}">${label}</div><div style="font-size:1.12em;font-weight:700;color:${INK};margin-top:.3em;line-height:1.4">${value || '—'}</div></div>`
+  return `<div style="position:absolute;right:-17em;top:17em;opacity:.95">${logoMark(50)}</div>
+    <div style="position:absolute;left:0;right:0;top:0;height:.5em;background:linear-gradient(90deg, ${LIME}, #52B788)"></div>
+    <div style="position:relative;padding:4.6em 0.8em 0">
+      <img src="/logo-trimmed.png" style="height:3em;display:block" />
+      <div style="margin-top:11em;font-size:.9em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">Functional Medicine &nbsp;·&nbsp; Blood Chemistry Analysis</div>
+      <div style="font-size:5em;font-weight:800;line-height:1.15;letter-spacing:-.035em;color:#fff;margin-top:.3em">Functional<br/>Health Report</div>
+      <div style="font-size:1.25em;line-height:1.55;color:${ON_DARK};margin-top:1.5em;width:25em">Your blood results read for optimal health, not just for disease, with a personal plan to get there.</div>
+    </div>
+    <div style="position:absolute;left:3.4em;right:3.4em;bottom:3.4em;background:${CREAM};border-radius:1.4em;padding:1.9em 2.2em">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4em"><div style="font-size:1.5em;font-weight:800;color:${DEEP}">${esc(patient.name || 'Patient')}</div><div style="font-size:.95em;font-weight:700;color:${GREEN}">${esc(who)}</div></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.3em 2em;border-top:1px solid ${LINE};padding-top:1.3em">
+        ${field('Test date', esc(readableDate(patient.collectedAt)))}${field('Lab reference', esc(patient.labRef))}${field('Facility', esc(patient.facility || 'WITS FxMed Nigeria'))}
+        ${field('Requested by', esc(patient.clinician))}${field('Report prepared', esc(fmtDate(data.generatedAt || new Date())))}${field('Prepared by', 'WITS FxMed Nigeria')}
       </div>
     </div>`
 }
 
-function contentsList(section: SectionId, toc: TocIndex) {
+function contentsList(section: SectionId, toc: TocIndex, dark = false) {
   return Array.from(toc.entries()).filter(([key]) => key.startsWith(`${section}:`)).map(([key, number]) =>
-    `<div style="display:flex;gap:1.6em;color:${MINT};font-size:1.02em;line-height:1.75"><span style="width:1.4em">${number}</span><span>${esc(key.slice(section.length + 1))}</span></div>`).join('')
+    `<div style="display:flex;gap:1.4em;font-size:1.02em;line-height:1.8"><span style="width:1.6em;font-weight:800;color:${dark ? LIME : GREEN}">${String(number).padStart(2, '0')}</span><span style="color:${dark ? '#fff' : INK}">${esc(key.slice(section.length + 1))}</span></div>`).join('')
 }
 
 function tocBody(toc: TocIndex) {
   return `${title("What's Inside?")}
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3.2em 2em;margin-top:3em">${SECTIONS.map(section => `<div>
       <div style="font-size:1.05em;color:${MUTED};line-height:1.55;min-height:4.8em">${esc(section.blurb)}</div>
-      <div style="border-top:1px solid ${INK};margin-top:1.2em;padding-top:1.1em;font-size:1.2em;font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:1.35">Section ${section.number}: ${esc(section.title)}</div>
-      <div style="margin-top:.8em">${contentsList(section.id, toc)}</div></div>`).join('')}</div>`
+      <div style="margin-top:1.2em;display:flex;align-items:center;gap:.8em">${disc(DEEP, [[String(section.number), 46, 700]], 2.6, false, LIME)}<div style="font-size:1.15em;font-weight:800;line-height:1.3;color:${DEEP}">${esc(section.title)}</div></div>
+      <div style="border-top:1px solid ${LINE};margin-top:.9em"></div>
+      <div style="margin-top:.8em">${contentsList(section.id, toc)}</div></div>`).join('')}</div>
+    ${readingKey()}`
+}
+
+/** How to read the colours and scores used through the report. */
+function readingKey() {
+  const bands: Array<[Band, string]> = [
+    ['optimal', 'Within the functional optimal range'],
+    ['below_optimal', 'Outside optimal, but within the lab\'s standard range'],
+    ['above_standard', 'Outside the lab\'s standard range'],
+    ['alarm_high', 'Well outside the standard range: review promptly'],
+  ]
+  return `<div style="margin-top:3.4em;background:${CREAM};border-radius:1.2em;padding:1.6em 1.9em;display:grid;grid-template-columns:1fr 1fr;gap:2.4em">
+    <div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${GREEN};margin-bottom:1em">How to read your results</div>
+      ${bands.map(([band, text]) => `<div style="display:flex;align-items:center;gap:.8em;margin-bottom:.7em"><span style="flex:none;width:1.1em;height:1.1em;border-radius:50%;background:${BAND_COLOR[band]}"></span><span style="font-size:.95em;line-height:1.4;color:${BODY}">${text}</span></div>`).join('')}</div>
+    <div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${GREEN};margin-bottom:1em">How to read the scores</div>
+      <div style="font-size:.95em;line-height:1.6;color:${BODY}">Each body system, nutrient and improvement area is scored from 0 to 100%: the likelihood, from your results, that it needs support. Areas at 50% or more are explained in full, and those in the health improvement plan come with a personal plan.</div>
+      <div style="margin-top:1em">${likelihoodBar(75, false, false)}</div>
+      <div style="display:flex;justify-content:space-between;font-size:.8em;color:${MUTED};margin-top:.4em"><span>Less likely</span><span>Possible</span><span>Likely</span><span>Highly likely</span></div></div>
+  </div>`
 }
 
 function dividerBody(section: (typeof SECTIONS)[number], toc: TocIndex) {
-  return `<div style="position:absolute;left:2.6em;bottom:8.5em"><div style="font-size:40em;font-weight:900;line-height:.8;color:${MINT};letter-spacing:-.05em">${section.number}</div></div>
-    <div style="position:absolute;left:36.5em;right:2.6em;bottom:11em">
-      <div style="font-size:1.08em;line-height:1.55;color:${BODY}">${esc(section.blurb)}</div>
-      ${dash('2.2em 0 .9em')}
-      <div style="font-size:3em;font-weight:800;color:${MINT};line-height:1.15">${esc(section.title)}</div>
-      <div style="margin-top:.9em">${contentsList(section.id, toc)}</div>
+  return `<div style="position:absolute;right:-12em;top:-8em;opacity:.95">${logoMark(36)}</div>
+    <div style="position:absolute;left:0;right:0;top:0;height:.5em;background:linear-gradient(90deg, ${LIME}, #52B788)"></div>
+    <div style="position:absolute;left:3.4em;top:3.4em"><img src="/logo-trimmed.png" style="height:2.2em;display:block" /></div>
+    <div style="position:absolute;left:3.4em;right:3.4em;bottom:7.5em">
+      <div style="font-size:.95em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">Section</div>
+      <div style="font-size:15em;font-weight:900;line-height:.95;letter-spacing:-.04em;color:${LIME}">${String(section.number).padStart(2, '0')}</div>
+      <div style="font-size:3.4em;font-weight:800;line-height:1.1;letter-spacing:-.02em;color:#fff;margin-top:.15em">${esc(section.title)}</div>
+      <div style="font-size:1.15em;line-height:1.55;color:${ON_DARK};margin-top:.8em;width:32em">${esc(section.blurb)}</div>
+      <div style="width:3.2em;height:.42em;background:${LIME};border-radius:1em;margin:2em 0 1.2em"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 2.4em;width:40em">${contentsList(section.id, toc, true)}</div>
     </div>`
 }
 
@@ -398,7 +450,11 @@ function glanceBody(analysis: Analysis, narrative: FmNarrative) {
   const findings = (narrative.findings.length ? narrative.findings : defaultFindings(analysis)).slice(0, 4)
   const top = analysis.plan.slice(0, 6)
   return `${title('Your Results at a Glance')}
-    ${lead(narrative.summary || defaultSummary(analysis))}
+    <div style="margin-top:1.4em;background:${DEEP};border-radius:1.2em;padding:1.5em 1.8em;position:relative;overflow:hidden">
+      <div style="position:absolute;right:-3.5em;top:-3.5em;opacity:.9">${logoMark(9)}</div>
+      <div style="font-size:.78em;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:${LIME}">Summary</div>
+      <div style="font-size:1.08em;line-height:1.65;color:#fff;margin-top:.5em;padding-right:5em">${esc(narrative.summary || defaultSummary(analysis))}</div>
+    </div>
     ${bandCounts(analysis)}
     <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:2.2em;margin-top:2.6em">
       <div>${heading('Areas needing attention')}
@@ -413,10 +469,10 @@ function nextStepsBody(analysis: Analysis, narrative: FmNarrative, patient: FmPa
   return `${title('Next Steps')}
     ${lead('Lasting change comes from a few well-chosen steps, repeated. Start with the foundations, retest to see what has improved, and adjust the plan with your clinician.')}
     <div style="margin-top:2em">${steps.map((step, index) => `<div style="display:flex;gap:1.2em;padding:1.2em 0;border-top:1px solid ${LINE}">
-      ${disc(MINT, [[String(index + 1), 44, 700]], 2.8)}
+      ${disc(DEEP, [[String(index + 1), 44, 700]], 2.8, false, LIME)}
       <div style="flex:1"><div style="font-weight:800;font-size:1.2em;line-height:1.35">${esc(step.title)}</div>
         ${step.text ? `<div style="font-size:.98em;line-height:1.6;color:${BODY};margin:.35em 0 .6em">${esc(step.text)}</div>` : ''}
-        <div style="font-size:.95em;line-height:1.5;color:${BODY}">${bullets(step.items, MINT)}</div></div></div>`).join('')}</div>
+        <div style="font-size:.95em;line-height:1.5;color:${BODY}">${bullets(step.items, GREEN)}</div></div></div>`).join('')}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:2em;margin-top:2.4em;font-size:.95em">
       <div><div style="border-bottom:1px solid ${INK};height:2.2em;font-size:1.1em;line-height:2.2em">${esc(patient.clinician)}</div><div style="color:${MUTED};margin-top:.4em">Reviewing clinician</div></div>
       <div><div style="border-bottom:1px solid ${INK};height:2.2em"></div><div style="color:${MUTED};margin-top:.4em">Date of review</div></div>
@@ -455,7 +511,7 @@ export function buildFmReportPages(data: FmReportData) {
   divider('intro')
   add('intro', 'Functional Analysis', () => `${title('Functional Blood Chemistry Analysis')}
     ${lead('Functional blood chemistry analysis organises and interprets your blood results to show the state of your main body systems, your nutrient status, and the trends towards or away from health, so that early change can be acted on.')}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.8em;margin-top:2em">${BCA_COLUMNS.map(([name, text]) => `<div style="border-top:3px solid ${MINT};padding-top:1em"><div style="font-weight:800;font-size:1.1em;text-transform:uppercase;letter-spacing:.02em;margin-bottom:.6em;line-height:1.35">${esc(name)}</div><div style="font-size:.98em;line-height:1.65;color:${BODY}">${esc(text)}</div></div>`).join('')}</div>`)
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.8em;margin-top:2em">${BCA_COLUMNS.map(([name, text]) => `<div style="border-top:3px solid ${GREEN};padding-top:1em"><div style="font-weight:800;font-size:1.1em;text-transform:uppercase;letter-spacing:.02em;margin-bottom:.6em;line-height:1.35">${esc(name)}</div><div style="font-size:.98em;line-height:1.65;color:${BODY}">${esc(text)}</div></div>`).join('')}</div>`)
   add('intro', 'At a Glance', () => glanceBody(analysis, narrative))
 
   // 2. Assessment
@@ -483,7 +539,7 @@ export function buildFmReportPages(data: FmReportData) {
     add('analysis', 'Out of Optimal Range', () => `${title('Out of Optimal Range')}${lead('These biomarkers are outside the optimal range. For each one you will find what it measures and the most common reasons it runs high or low. Your clinician will interpret them together with your history and symptoms.')}${bandCounts(analysis)}`)
     for (const [name, list] of [['Above Optimal', out.filter(entry => directionOf(entry) === 'high')], ['Below Optimal', out.filter(entry => directionOf(entry) === 'low')]] as const) {
       chunk(list, 8).forEach((part, page) => add('analysis', 'Out of Optimal Range', () =>
-        `<div style="font-size:2.1em;color:${MINT};line-height:1.3;margin:1.3em 0 1em">${name}${page ? ' (continued)' : ''}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:2em 2.2em">${part.map(outOfRangeCard).join('')}</div>`))
+        `<div style="font-size:2.1em;color:${GREEN};line-height:1.3;margin:1.3em 0 1em">${name}${page ? ' (continued)' : ''}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:2em 2.2em">${part.map(outOfRangeCard).join('')}</div>`))
     }
   }
 
@@ -504,8 +560,9 @@ export function buildFmReportPages(data: FmReportData) {
   const toc: TocIndex = new Map()
   pages.forEach((item, number) => { if (item.kind === 'content' && !toc.has(`${item.section}:${item.tab}`)) toc.set(`${item.section}:${item.tab}`, number) })
   return pages.map((item, number) => {
-    if (item.kind === 'cover') return shell(item.body(toc), '', data.patient, null)
-    const tabs = item.kind === 'divider' ? [] : Array.from(toc.keys()).filter(key => key.startsWith(`${item.section}:`)).map(key => key.slice(item.section.length + 1))
+    if (item.kind === 'cover') return shell(item.body(toc), '', data.patient, null, true)
+    if (item.kind === 'divider') return shell(item.body(toc), '', data.patient, number, true)
+    const tabs = Array.from(toc.keys()).filter(key => key.startsWith(`${item.section}:`)).map(key => key.slice(item.section.length + 1))
     return shell(item.body(toc), header(item.section, item.tab, tabs), data.patient, number)
   })
 }
@@ -514,7 +571,7 @@ export function buildFmReportPages(data: FmReportData) {
 export function fitPage(root: HTMLElement) {
   const body = root.querySelector<HTMLElement>('[data-fm-body]')
   if (!body) return
-  const limit = PAGE_H - 62
+  const limit = PAGE_H - 70
   let size = BASE_FONT
   root.style.fontSize = `${size}px`
   while (size > MIN_FONT && body.offsetTop + body.scrollHeight > limit) {

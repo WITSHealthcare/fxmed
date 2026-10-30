@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin', '/api', '/functional-health-analysis/results'],
+        disallow: ['/admin', '/api', '/patient-portal', '/functional-health-analysis/results'],
       },
     ],
     sitemap: absoluteUrl('/sitemap.xml'),

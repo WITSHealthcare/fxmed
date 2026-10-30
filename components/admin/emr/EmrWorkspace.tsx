@@ -14,6 +14,7 @@ import { daysUntilDue, followUpTypes } from '@/lib/follow-ups'
 import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysis'
 import { InvestigationWorklist, PatientInvestigations } from '@/components/admin/emr/Investigations'
 import PatientAssistant from '@/components/admin/emr/PatientAssistant'
+import PatientPortalPanel from '@/components/admin/emr/PatientPortalPanel'
 import { CoverageBanner, CoveragePanel, useCoverage } from '@/components/admin/emr/Coverage'
 import ReferralWorklist, { PatientReferrals } from '@/components/admin/emr/Referrals'
 import { REPORT_ACCENT, REPORT_INK, REPORT_LEADING, printType, reportPrintCss } from '@/lib/reportTheme'
@@ -42,14 +43,17 @@ const nav: Array<{ id: EmrView; label: string; Icon: typeof ActivityIcon }> = [
 ]
 
 export default function EmrWorkspace() {
-  // A notification can open a view directly, as /admin?tab=healthcare&view=follow_ups.
+  // A notification can open a view directly, as /admin?tab=healthcare&view=follow_ups,
+  // or one patient's chart, as /admin?tab=healthcare&patient=<id>&chart=portal.
   const [view, setView] = useState<EmrView>(() => {
-    const requested = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('view')
+    const params = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search)
+    if (params?.get('patient')) return 'patients'
+    const requested = params?.get('view')
     return nav.some(item => item.id === requested) ? requested as EmrView : 'dashboard'
   })
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(() => typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('patient'))
   // The patient-record tab to open on, when a link goes straight to one.
-  const [patientTab, setPatientTab] = useState('overview')
+  const [patientTab, setPatientTab] = useState(() => (typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('chart')) || 'overview')
   const [patients, setPatients] = useState<Patient[]>([])
   const [error, setError] = useState('')
 
@@ -200,7 +204,7 @@ function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }:
   if (error) return <Alert tone="error">{error}</Alert>
   if (!chart) return <Loading />
   const patient = chart.patient
-  const tabs = ['overview','coverage','follow_ups','timeline','encounters','notes','diagnoses','allergies','medications','investigations','referrals','financial','documents','care_plans']
+  const tabs = ['overview','coverage','follow_ups','timeline','encounters','notes','diagnoses','allergies','medications','investigations','referrals','financial','documents','care_plans','portal']
   // Recording against an encounter starts on the most recent one.
   const latestEncounterId = chart.encounters[0]?.id
   return <div className="space-y-6">
@@ -211,7 +215,7 @@ function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }:
     </section>
     <CoverageBanner state={coverage} onOpen={() => setTab('coverage')} />
     <OpenFollowUpsBanner tasks={chart.tasks} onOpen={() => setTab('follow_ups')} />
-    <section className="flex gap-2 overflow-x-auto rounded-[18px] border border-green-deep/10 bg-white p-2">{tabs.map(item => <button key={item} onClick={() => setTab(item)} className={`shrink-0 rounded-[12px] px-4 py-2.5 text-sm font-bold ${tab === item ? 'bg-green-deep text-white' : 'text-text-mid hover:bg-green-deep/5'}`}>{item === 'follow_ups' ? 'Follow-ups' : label(item)}</button>)}</section>
+    <section className="flex gap-2 overflow-x-auto rounded-[18px] border border-green-deep/10 bg-white p-2">{tabs.map(item => <button key={item} onClick={() => setTab(item)} className={`shrink-0 rounded-[12px] px-4 py-2.5 text-sm font-bold ${tab === item ? 'bg-green-deep text-white' : 'text-text-mid hover:bg-green-deep/5'}`}>{item === 'follow_ups' ? 'Follow-ups' : item === 'portal' ? 'Patient Portal' : label(item)}</button>)}</section>
     {tab === 'overview' && <PatientOverview chart={chart} onEdit={() => setModal('patient')} />}
     {tab === 'coverage' && <CoveragePanel patient={patient} state={coverage} />}
     {tab === 'referrals' && <PatientReferrals patient={patient} chart={chart} coverage={coverage} onChanged={load} />}
@@ -226,6 +230,7 @@ function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }:
     {tab === 'financial' && <FinancialRecords chart={chart} onUpdate={load} onAdd={() => setModal('financial_record')} />}
     {tab === 'documents' && <Panel title="Documents" subtitle={`${chart.documents.length} document${chart.documents.length === 1 ? '' : 's'}`} action={<button onClick={() => setModal('document')} className="primary"><FileArrowUpIcon size={18} weight="duotone" />Upload document</button>}><PatientDocuments chart={chart} onChanged={load} /></Panel>}
     {tab === 'care_plans' && <CarePlanList chart={chart} patient={patient} onUpdate={load} onCreate={() => setModal('care_plan')} />}
+    {tab === 'portal' && <PatientPortalPanel chart={chart} onChanged={load} />}
     {modal === 'report' && <PatientReportModal patient={patient} mode="clinical" onClose={() => setModal(null)} />}
     {modal === 'financial_report' && <PatientReportModal patient={patient} mode="financial" onClose={() => setModal(null)} />}
     <PatientAssistant key={patientId} patientId={patientId} patientName={fullName(patient)} />
@@ -301,7 +306,7 @@ function LegacyReports({ patients, onPatient }: { patients: Patient[]; onPatient
 
 function PatientDocuments({ chart }: { chart: Chart; onChanged: () => void }) {
   async function open(id: string) { const response = await fetch(`${api}?resource=document_url&id=${id}`); const result = await response.json(); if (response.ok) window.open(result.url, '_blank', 'noopener,noreferrer') }
-  return <div className="mt-6 grid gap-3 md:grid-cols-2">{chart.documents.length ? chart.documents.map((item: any) => <button key={item.id} onClick={() => open(item.id)} className="flex items-center gap-4 rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4 text-left hover:border-green-mid"><FileTextIcon size={25} weight="duotone" className="text-green-mid" /><div><p className="font-bold">{item.title}</p><p className="mt-1 text-xs text-text-mid">{label(item.category)} · {date.format(new Date(item.created_at))}</p></div></button>) : <Empty text="No clinical documents uploaded." />}</div>
+  return <div className="mt-6 grid gap-3 md:grid-cols-2">{chart.documents.length ? chart.documents.map((item: any) => <button key={item.id} onClick={() => open(item.id)} className="flex items-center gap-4 rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4 text-left hover:border-green-mid"><FileTextIcon size={25} weight="duotone" className="text-green-mid" /><div><p className="font-bold">{item.title}</p><p className="mt-1 text-xs text-text-mid">{label(item.category)} · {date.format(new Date(item.created_at))}{item.source === 'patient' ? ' · Uploaded by patient' : item.shared_with_patient ? ' · Shared with patient' : ''}</p></div></button>) : <Empty text="No clinical documents uploaded." />}</div>
 }
 
 function RecordList({ records, kind, patient, chart, prescriptions = [], onUpdate, onCreateResult, action }: { records: any[]; kind: string; patient?: Patient; chart?: Chart; prescriptions?: any[]; onUpdate: () => void; onCreateResult?: (record: any) => void; action?: React.ReactNode }) {
@@ -491,7 +496,7 @@ function StandaloneVitals({ chart, patient, onUpdate }: { chart: Chart; patient:
 function CarePlanList({ chart, patient, onUpdate, onCreate }: { chart: Chart; patient: Patient; onUpdate: () => void; onCreate: () => void }) {
   const [plan, setPlan] = useState<any>(null)
   async function complete(item: any) { await fetch(api, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: 'care_plan_items', id: item.id, status: 'completed', completed_at: new Date().toISOString() }) }); onUpdate() }
-  return <><Panel title="Care plans" subtitle={`${chart.carePlans.length} coordinated plan${chart.carePlans.length === 1 ? '' : 's'}`} action={<button onClick={onCreate} className="primary"><HeartbeatIcon size={18} weight="duotone" />Create care plan</button>}><div className="mt-5 space-y-4">{chart.carePlans.length ? chart.carePlans.map((item: any) => <div key={item.id} className="rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold">{item.title}</p><p className="mt-1 text-sm text-text-mid">{item.goals || item.description}</p></div><Status value={item.status} /></div><div className="mt-4 space-y-2">{item.items?.map((step: any) => <div key={step.id} className="flex items-center gap-3 rounded-xl bg-white p-3 text-sm"><CheckCircleIcon className={step.status === 'completed' ? 'text-green-mid' : 'text-text-mid/35'} weight={step.status === 'completed' ? 'fill' : 'regular'} /><span className="flex-1 font-semibold">{step.title}</span>{step.status !== 'completed' && <button onClick={() => complete(step)} className="text-xs font-bold text-green-mid">Complete</button>}</div>)}</div><button onClick={() => setPlan(item)} className="secondary mt-4"><PlusIcon />Add plan item</button></div>) : <Empty text="No care plans yet." />}</div></Panel>{plan && <ClinicalModal type="care_plan_item" patient={patient} chart={chart} fixed={{ care_plan_id: plan.id }} patients={[patient]} onClose={() => setPlan(null)} onSaved={() => { setPlan(null); onUpdate() }} />}</>
+  return <><Panel title="Care plans" subtitle={`${chart.carePlans.length} coordinated plan${chart.carePlans.length === 1 ? '' : 's'}`} action={<button onClick={onCreate} className="primary"><HeartbeatIcon size={18} weight="duotone" />Create care plan</button>}><div className="mt-5 space-y-4">{chart.carePlans.length ? chart.carePlans.map((item: any) => <div key={item.id} className="rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold">{item.title}</p><p className="mt-1 text-sm text-text-mid">{item.goals || item.description}</p>{item.shared_with_patient && <p className="mt-1 text-xs font-bold text-green-mid">Shared with patient</p>}</div><Status value={item.status} /></div><div className="mt-4 space-y-2">{item.items?.map((step: any) => <div key={step.id} className="flex items-center gap-3 rounded-xl bg-white p-3 text-sm"><CheckCircleIcon className={step.status === 'completed' ? 'text-green-mid' : 'text-text-mid/35'} weight={step.status === 'completed' ? 'fill' : 'regular'} /><span className="flex-1 font-semibold">{step.title}{step.completed_by_patient && <span className="ml-2 text-xs font-bold text-green-mid">Done by patient</span>}</span>{step.status !== 'completed' && <button onClick={() => complete(step)} className="text-xs font-bold text-green-mid">Complete</button>}</div>)}</div><button onClick={() => setPlan(item)} className="secondary mt-4"><PlusIcon />Add plan item</button></div>) : <Empty text="No care plans yet." />}</div></Panel>{plan && <ClinicalModal type="care_plan_item" patient={patient} chart={chart} fixed={{ care_plan_id: plan.id }} patients={[patient]} onClose={() => setPlan(null)} onSaved={() => { setPlan(null); onUpdate() }} />}</>
 }
 
 function FinancialRecords({ chart, onUpdate, onAdd }: { chart: Chart; onUpdate: () => void; onAdd: () => void }) {

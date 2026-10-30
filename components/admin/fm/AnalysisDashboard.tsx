@@ -22,7 +22,7 @@ function Stat({ label, value, sub, color, Icon }: { label: string; value: number
 }
 
 const pct = (part: number, total: number) => total ? `${Math.round((part / total) * 100)}%` : ''
-const GRADIENT = 'linear-gradient(90deg, #3CC48A 0%, #9CCB5E 32%, #F5C04A 55%, #F59A4F 76%, #EF6F5E 100%)'
+const GRADIENT = 'linear-gradient(90deg, #52B788 0%, #C9E265 34%, #F2C14E 58%, #EE8B4F 80%, #D9534F 100%)'
 const markers = (item: AreaResult) => item.contributors.map(({ entry, direction }) => `${entry.name} ${direction === 'low' ? '↓' : '↑'}`).join(', ')
 
 /** A likelihood bar coloured from green to red along its full length, as on the report. */
