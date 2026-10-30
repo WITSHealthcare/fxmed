@@ -8,7 +8,7 @@ import { openFestiveBooking } from '@/components/FestiveBooking'
 import { festiveBookingUrl, festiveOffer, festiveOfferPhase, wellnessPackages } from '@/lib/festive-offer'
 
 // Keep the promotion out of staff areas and active patient workflows.
-const excludedPaths = ['/admin', '/api', '/ambassador-portal', '/register', '/patient-registration', '/health-assessment', '/functional-health-analysis/form', '/functional-health-analysis/results', '/functional-health-analysis/investigations']
+const excludedPaths = ['/admin', '/api', '/ambassador-portal', '/patient-portal', '/register', '/patient-registration', '/health-assessment', '/functional-health-analysis/form', '/functional-health-analysis/results', '/functional-health-analysis/investigations']
 const storageKey = `fxmed:${festiveOffer.id}:shown`
 
 export default function FestiveOfferPopup() {
