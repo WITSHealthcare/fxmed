@@ -32,7 +32,8 @@ export default function BlogPostsGrid({ initialPosts }: BlogPostsGridProps) {
       'Nutrition': 'bg-orange-500 text-white',
       'Functional Medicine': 'bg-green-500 text-white',
       'Mobile Health': 'bg-red-500 text-white',
-      'Hormonal Health': 'bg-pink-500 text-white'
+      'Hormonal Health': 'bg-pink-500 text-white',
+      'Autism': 'bg-indigo-500 text-white'
     }
     return colors[category] || 'bg-gray-500 text-white'
   }

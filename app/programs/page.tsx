@@ -69,6 +69,15 @@ export default function Programs() {
       link: "/programs/immune-support",
       features: ["Immune Nutrition Guide", "24 Recipes", "Micronutrient Assessment", "Lifestyle Guide"],
       color: "from-orange-500 to-orange-600"
+    },
+    {
+      title: "Autism Support",
+      description: "Help your autistic child feel their best with gut health, nutrition and sleep support.",
+      icon: "/Brain.svg",
+      duration: "3-6 months",
+      link: "/programs/autism-support",
+      features: ["Gut Health Testing", "Nutrient Assessment", "Picky Eating Plan", "Family Support"],
+      color: "from-indigo-500 to-indigo-600"
     }
   ]
 

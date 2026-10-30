@@ -126,6 +126,7 @@ const isHomePage = pathname === '/'
                   <a href="/programs/hormone-balance" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-deep/10 hover:text-green-deep no-underline">Hormone Balance</a>
                   <a href="/programs/thyroid-recovery" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-deep/10 hover:text-green-deep no-underline">Thyroid Recovery</a>
                   <a href="/programs/immune-support" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-deep/10 hover:text-green-deep no-underline">Immune Support</a>
+                  <a href="/programs/autism-support" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-deep/10 hover:text-green-deep no-underline">Autism Support</a>
                 </div>
               )}
             </li>
@@ -229,6 +230,9 @@ const isHomePage = pathname === '/'
                   <a href="/programs/immune-support" onClick={closeMobileMenu} className={`block text-[0.85rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-1.5 px-3 rounded-lg ml-3 ${
                     pathname === '/programs/immune-support' ? 'bg-gold/20 text-gold font-semibold' : ''
                   }`}>Immune Support</a>
+                  <a href="/programs/autism-support" onClick={closeMobileMenu} className={`block text-[0.85rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-1.5 px-3 rounded-lg ml-3 ${
+                    pathname === '/programs/autism-support' ? 'bg-gold/20 text-gold font-semibold' : ''
+                  }`}>Autism Support</a>
                 </div>
               </li>
               
