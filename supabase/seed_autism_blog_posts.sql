@@ -89,9 +89,9 @@ SELECT
 <p>Paracetamol (acetaminophen) in pregnancy is a good example. Some earlier studies found an association with autism. But when a large Swedish study of nearly 2.5 million children compared brothers and sisters from the same family, so that shared genes and home life were taken into account, the link disappeared. If you are pregnant, talk to your doctor before stopping any medicine you need, as a high fever that is left untreated carries its own risks.</p>
 <h2>What remains uncertain</h2>
 <p>Scientists still do not fully understand how different genes and early-life factors combine, or why autism looks so different from one person to the next. Research is also exploring areas such as the immune system and the gut microbiome. These are active questions, and you should be cautious of anyone who claims to have found “the cause” or a cure.</p>
-<h2>Common myths</h2>
+<h2>Common myths and concerns</h2>
 <ul>
-<li><strong>Myth: vaccines cause autism.</strong> Large studies of millions of children, including a Danish study of more than 650,000 children, have found no link between the MMR vaccine, or any other vaccine, and autism.</li>
+<li><strong>A common concern: “my child changed after their vaccines.”</strong> Many parents first notice signs of autism between 12 and 18 months, the same age children get several routine vaccines, so the timing can feel like more than coincidence. What you saw is real, and any change in your child deserves a doctor’s attention. Large studies following millions of children, including a Danish study of more than 650,000 children, have found autism is just as common in children who were not vaccinated, which tells us vaccines are not the cause.</li>
 <li><strong>Myth: poor parenting causes autism.</strong> The old idea of cold “refrigerator mothers” was proven wrong decades ago. Parenting does not cause autism.</li>
 <li><strong>Myth: screens or diet cause autism.</strong> There is no good evidence that screen time, gluten, sugar or any food causes autism.</li>
 <li><strong>Myth: there is an autism epidemic.</strong> Diagnoses have risen mainly because the definition has broadened and awareness and screening have improved, so more people, including girls and adults, are recognised.</li>

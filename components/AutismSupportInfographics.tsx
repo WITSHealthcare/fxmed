@@ -427,9 +427,15 @@ export function FamilyJourney() {
 
 /* ---------- Myths and facts ---------- */
 
-const myths = [
+// A `concern` card answers a worry many parents genuinely hold, so it is framed as
+// a question to explore rather than a myth to dismiss.
+const myths: { myth: string; fact: string; concern?: boolean }[] = [
   { myth: 'Autism is caused by parenting.', fact: 'Autism is a lifelong developmental difference with strong genetic roots. It is not caused by anything a parent did.' },
-  { myth: 'Vaccines cause autism.', fact: 'Large studies of millions of children have found no link between vaccines and autism.' },
+  {
+    concern: true,
+    myth: '“My child changed after their vaccines.”',
+    fact: 'Many parents first notice signs of autism between 12 and 18 months, the same age children get several routine vaccines, so the timing can feel like more than coincidence. What you saw is real, and any change in your child deserves a doctor’s attention. Studies following millions of children have found autism is just as common in children who were not vaccinated, which tells us vaccines are not the cause.',
+  },
   { myth: 'A special diet can cure autism.', fact: 'No diet cures autism. Good nutrition can ease tummy problems, sleep and energy, which helps a child feel better.' },
   { myth: 'Autistic children don’t feel pain.', fact: 'Many feel pain but show it differently, often through changes in behaviour rather than words.' },
 ]
@@ -438,21 +444,30 @@ export function MythsAndFacts() {
   return (
     <section className="py-20 px-[5%] bg-cream">
       <div className="max-w-5xl mx-auto">
-        <SectionHeading eyebrow="Myths & facts" title="Clearing up common myths" />
+        <SectionHeading eyebrow="Myths & facts" title="Common myths and concerns" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {myths.map((item) => (
             <div key={item.myth} className="bg-white rounded-2xl shadow-md overflow-hidden border border-green-deep/10">
-              <div className="flex items-start gap-3 p-5 bg-red-50 border-b border-red-100">
-                <span className="w-7 h-7 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
-                  <Icon name="x" className="w-4 h-4" />
-                </span>
-                <p className="font-dm-sans text-text-dark"><span className="font-semibold text-red-700">Myth: </span>{item.myth}</p>
-              </div>
+              {item.concern ? (
+                <div className="flex items-start gap-3 p-5 bg-gold/20 border-b border-gold/40">
+                  <span className="w-7 h-7 rounded-full bg-gold text-green-deep flex items-center justify-center flex-shrink-0">
+                    <Icon name="chat" className="w-4 h-4" />
+                  </span>
+                  <p className="font-dm-sans text-text-dark"><span className="font-semibold text-green-deep">A common concern: </span>{item.myth}</p>
+                </div>
+              ) : (
+                <div className="flex items-start gap-3 p-5 bg-red-50 border-b border-red-100">
+                  <span className="w-7 h-7 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+                    <Icon name="x" className="w-4 h-4" />
+                  </span>
+                  <p className="font-dm-sans text-text-dark"><span className="font-semibold text-red-700">Myth: </span>{item.myth}</p>
+                </div>
+              )}
               <div className="flex items-start gap-3 p-5">
                 <span className="w-7 h-7 rounded-full bg-green-light/20 text-green-mid flex items-center justify-center flex-shrink-0">
-                  <Icon name="check" className="w-4 h-4" />
+                  <Icon name={item.concern ? 'heart' : 'check'} className="w-4 h-4" />
                 </span>
-                <p className="font-dm-sans text-text-mid leading-[1.6]"><span className="font-semibold text-green-deep">Fact: </span>{item.fact}</p>
+                <p className="font-dm-sans text-text-mid leading-[1.6]"><span className="font-semibold text-green-deep">{item.concern ? 'What we know: ' : 'Fact: '}</span>{item.fact}</p>
               </div>
             </div>
           ))}
