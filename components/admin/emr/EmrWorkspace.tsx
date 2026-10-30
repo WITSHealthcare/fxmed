@@ -6,7 +6,7 @@ import {
   CheckCircleIcon, ClipboardTextIcon, ClockIcon, FileArrowUpIcon, FileTextIcon, FirstAidKitIcon,
   FlaskIcon, HeartbeatIcon, MagnifyingGlassIcon, NotePencilIcon, PillIcon, PlusIcon, PulseIcon,
   PrinterIcon, PencilSimpleIcon, StethoscopeIcon, UserCirclePlusIcon,
-  UsersThreeIcon, WarningCircleIcon, XIcon, PhoneCallIcon,
+  UsersThreeIcon, WarningCircleIcon, XIcon, PhoneCallIcon, SignpostIcon,
 } from '@phosphor-icons/react'
 import FollowUps, { FollowUpDateInput, FollowUpList, NoteFollowUp } from '@/components/admin/emr/FollowUps'
 import { Alert, Empty, Field, Loading, Panel, Status, fullName, label } from '@/components/admin/emr/ui'
@@ -14,9 +14,11 @@ import { daysUntilDue, followUpTypes } from '@/lib/follow-ups'
 import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysis'
 import { InvestigationWorklist, PatientInvestigations } from '@/components/admin/emr/Investigations'
 import PatientAssistant from '@/components/admin/emr/PatientAssistant'
+import { CoverageBanner, CoveragePanel, useCoverage } from '@/components/admin/emr/Coverage'
+import ReferralWorklist, { PatientReferrals } from '@/components/admin/emr/Referrals'
 import { REPORT_ACCENT, REPORT_INK, REPORT_LEADING, printType, reportPrintCss } from '@/lib/reportTheme'
 
-type EmrView = 'dashboard' | 'follow_ups' | 'health_analysis' | 'patients' | 'appointments' | 'encounters' | 'records' | 'investigations' | 'medications' | 'care_plans' | 'documents'
+type EmrView = 'dashboard' | 'follow_ups' | 'referrals' | 'health_analysis' | 'patients' | 'appointments' | 'encounters' | 'records' | 'investigations' | 'medications' | 'care_plans' | 'documents'
 type Patient = Record<string, any>
 type Chart = Record<string, any>
 
@@ -27,6 +29,7 @@ const dateTime = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'shor
 const nav: Array<{ id: EmrView; label: string; Icon: typeof ActivityIcon }> = [
   { id: 'dashboard', label: 'EMR Dashboard', Icon: ActivityIcon },
   { id: 'follow_ups', label: 'Follow-ups', Icon: PhoneCallIcon },
+  { id: 'referrals', label: 'Referrals', Icon: SignpostIcon },
   { id: 'health_analysis', label: 'Health Analysis', Icon: FirstAidKitIcon },
   { id: 'patients', label: 'Patients', Icon: UsersThreeIcon },
   { id: 'appointments', label: 'Appointments', Icon: CalendarCheckIcon },
@@ -76,6 +79,7 @@ export default function EmrWorkspace() {
       {error && <Alert tone="error">{error}</Alert>}
       {view === 'dashboard' && <Dashboard onNavigate={setView} onPatient={openPatient} />}
       {view === 'follow_ups' && <FollowUps onPatient={openPatient} />}
+      {view === 'referrals' && <ReferralWorklist onPatient={openPatient} />}
       {view === 'health_analysis' && <FunctionalHealthAnalysis onPatient={openPatient} />}
       {view === 'patients' && (selectedPatientId ? <PatientChart key={`${selectedPatientId}:${patientTab}`} patientId={selectedPatientId} initialTab={patientTab} onBack={() => setSelectedPatientId(null)} onChanged={loadPatientOptions} /> : <PatientRegistry onPatient={openPatient} onChanged={loadPatientOptions} />)}
       {view === 'appointments' && <Appointments patients={patients} onPatient={openPatient} onError={setError} />}
@@ -108,6 +112,7 @@ function Dashboard({ onNavigate, onPatient }: { onNavigate: (view: EmrView) => v
     ['Incomplete clinical notes', data.metrics.incompleteNotes, 'records' as EmrView],
     ['Follow-ups due', data.metrics.followUpsDue, 'follow_ups' as EmrView],
     ['Open follow-ups', data.metrics.pendingTasks, 'follow_ups' as EmrView],
+    ['Referrals overdue', data.metrics.overdueReferrals ?? 0, 'referrals' as EmrView],
   ]
   return <div className="space-y-6">
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{metrics.map(([label, value, Icon, tone]: any) => <StatCard key={label} label={label} value={value} Icon={Icon} tone={tone} />)}</section>
@@ -191,10 +196,11 @@ function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }:
   const [chart, setChart] = useState<Chart | null>(null), [tab, setTab] = useState(initialTab), [modal, setModal] = useState<string | null>(null), [error, setError] = useState('')
   const load = useCallback(async () => { const response = await fetch(`${api}?resource=patient&patientId=${patientId}`); const result = await response.json(); if (response.ok) setChart(result); else setError(result.error) }, [patientId])
   useEffect(() => { load() }, [load])
+  const coverage = useCoverage(patientId)
   if (error) return <Alert tone="error">{error}</Alert>
   if (!chart) return <Loading />
   const patient = chart.patient
-  const tabs = ['overview','follow_ups','timeline','encounters','notes','diagnoses','allergies','medications','investigations','financial','documents','care_plans']
+  const tabs = ['overview','coverage','follow_ups','timeline','encounters','notes','diagnoses','allergies','medications','investigations','referrals','financial','documents','care_plans']
   // Recording against an encounter starts on the most recent one.
   const latestEncounterId = chart.encounters[0]?.id
   return <div className="space-y-6">
@@ -203,9 +209,12 @@ function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }:
       <div className="bg-green-deep p-6 text-white sm:p-8"><div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-gold">{patient.mrn}</p><h2 className="mt-2 text-3xl font-bold">{fullName(patient)}</h2><p className="mt-2 text-sm text-white/65">{formatPatientAge(patient.date_of_birth)} · {label(patient.sex)} · {patient.phone || 'No phone'}</p></div><div className="flex flex-col items-end gap-3"><Status value={patient.status} /><div className="flex flex-wrap justify-end gap-2"><button onClick={() => setModal('financial_report')} className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"><FileTextIcon size={18} weight="duotone" />Financial report</button><button onClick={() => setModal('report')} className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-green-deep transition-colors hover:bg-gold-light"><FileTextIcon size={18} weight="duotone" />Generate patient report</button></div></div></div></div>
       <div className="grid gap-4 p-5 md:grid-cols-3 sm:p-7"><SummaryAlert title="Allergies" warning items={chart.allergies.filter((x: any) => x.status === 'active').map((x: any) => `${x.allergen}${x.reaction ? ` — ${x.reaction}` : ''}`)} empty="No known allergies" /><SummaryAlert title="Active conditions" items={chart.diagnoses.filter((x: any) => x.status === 'active').map((x: any) => x.diagnosis_name)} empty="No active diagnoses" /><SummaryAlert title="Current medications" items={chart.medications.filter((x: any) => x.status === 'active').map((x: any) => `${x.medication_name} ${x.strength || ''}`.trim())} empty="No active medications" /></div>
     </section>
+    <CoverageBanner state={coverage} onOpen={() => setTab('coverage')} />
     <OpenFollowUpsBanner tasks={chart.tasks} onOpen={() => setTab('follow_ups')} />
     <section className="flex gap-2 overflow-x-auto rounded-[18px] border border-green-deep/10 bg-white p-2">{tabs.map(item => <button key={item} onClick={() => setTab(item)} className={`shrink-0 rounded-[12px] px-4 py-2.5 text-sm font-bold ${tab === item ? 'bg-green-deep text-white' : 'text-text-mid hover:bg-green-deep/5'}`}>{item === 'follow_ups' ? 'Follow-ups' : label(item)}</button>)}</section>
     {tab === 'overview' && <PatientOverview chart={chart} onEdit={() => setModal('patient')} />}
+    {tab === 'coverage' && <CoveragePanel patient={patient} state={coverage} />}
+    {tab === 'referrals' && <PatientReferrals patient={patient} chart={chart} coverage={coverage} onChanged={load} />}
     {tab === 'follow_ups' && <FollowUpList key={chart.tasks.map((task: any) => `${task.id}:${task.status}:${task.due_at}`).join()} patientId={patientId} onChanged={load} onCreate={() => setModal('task')} />}
     {tab === 'timeline' && <Timeline chart={chart} />}
     {tab === 'encounters' && <RecordList records={chart.encounters} kind="encounter" patient={patient} chart={chart} onUpdate={load} action={<div className="flex flex-wrap gap-2"><button disabled={!latestEncounterId} title={latestEncounterId ? undefined : 'Start an encounter first'} onClick={() => setModal(`encounter_vitals:${latestEncounterId}`)} className="secondary disabled:opacity-40"><PulseIcon size={18} weight="duotone" />Record vitals</button><button onClick={() => setModal(latestEncounterId ? `diagnosis:${latestEncounterId}` : 'diagnosis')} className="secondary"><FirstAidKitIcon size={18} weight="duotone" />Diagnosis</button><button onClick={() => setModal('encounter')} className="primary"><StethoscopeIcon size={18} weight="duotone" />Start encounter</button></div>} />}
