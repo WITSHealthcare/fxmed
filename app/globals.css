@@ -159,6 +159,13 @@ h1, h2, h3 {
 .fx-figure { background: #fff; border: 1px solid rgba(26, 61, 46, 0.1); border-radius: 18px; padding: 1.25rem; text-align: center; }
 .fx-figure img { width: 100%; max-width: 640px; height: auto; margin: 0 auto; display: block; }
 .fx-figure figcaption { font-size: 0.85rem; color: #4a5e52; margin-top: 0.8rem; line-height: 1.5; }
+/* Diagrams ship a wide and a tall (phone) version; only one shows at a time */
+.fx-figure .fx-img-narrow { display: none; }
+@media (max-width: 640px) {
+  .fx-figure { padding: 0.75rem 0.5rem; }
+  .fx-figure .fx-img-wide { display: none; }
+  .fx-figure .fx-img-narrow { display: block; max-width: 420px; }
+}
 
 /* Tables */
 .fx-table-wrap { overflow-x: auto; border-radius: 18px; border: 1px solid rgba(26, 61, 46, 0.12); }
