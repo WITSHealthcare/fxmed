@@ -1,13 +1,23 @@
-import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import { sanitizeRichText, stripHtml } from '@/lib/content-sanitizer'
-import { absoluteUrl, createBreadcrumbJsonLd, createMetadata, siteName } from '@/lib/seo'
+import { absoluteUrl, createBreadcrumbJsonLd, createMetadata, organizationId, siteName, siteUrl } from '@/lib/seo'
+import { careLinkFor, getPublicBlogClient, getPublishedPostSummaries, topicPath } from '@/lib/blog'
 
+// Articles are served from the cache and refreshed at most once a minute;
+// publishing and editing also revalidate them on demand.
 export const revalidate = 60
+
+// Prerendering the known slugs is what makes this route ISR rather than
+// rendered on every request. If Supabase is unreachable at build this returns
+// nothing and every article is generated on its first visit instead.
+export async function generateStaticParams() {
+  const posts = await getPublishedPostSummaries()
+  return posts.map((post) => ({ slug: post.slug }))
+}
 
 interface BlogPost {
   id: string
@@ -25,19 +35,9 @@ interface BlogPost {
 }
 
 function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase public environment variables are missing')
-  }
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  })
+  const supabase = getPublicBlogClient()
+  if (!supabase) throw new Error('Supabase public environment variables are missing')
+  return supabase
 }
 
 async function getPost(slug: string): Promise<BlogPost | null> {
@@ -59,22 +59,50 @@ async function getPost(slug: string): Promise<BlogPost | null> {
   return data
 }
 
+const RELATED_POST_COUNT = 4
+const relatedColumns = 'id,title,slug,excerpt,content,author,category,thumbnail_url,thumbnail_alt,read_time,created_at'
+
+// Same-topic articles first, topped up with the newest posts. Linking within a
+// topic is what lets search engines see the blog as covering that subject in
+// depth rather than as a flat list of unrelated pages.
 async function getRelatedPosts(post: BlogPost): Promise<BlogPost[]> {
   const supabase = getSupabaseClient()
-  const { data, error } = await supabase
+  const { data: sameTopic, error } = await supabase
     .from('blog_posts')
-    .select('id,title,slug,excerpt,content,author,category,thumbnail_url,thumbnail_alt,read_time,created_at')
+    .select(relatedColumns)
     .eq('status', 'published')
+    .eq('category', post.category)
     .neq('id', post.id)
     .order('created_at', { ascending: false })
-    .limit(2)
+    .limit(RELATED_POST_COUNT)
 
   if (error) {
     console.error('Failed to fetch related blog posts:', error)
     return []
   }
 
-  return data || []
+  const related = sameTopic || []
+  if (related.length >= RELATED_POST_COUNT) return related
+
+  const { data: latest, error: latestError } = await supabase
+    .from('blog_posts')
+    .select(relatedColumns)
+    .eq('status', 'published')
+    .neq('id', post.id)
+    .order('created_at', { ascending: false })
+    .limit(RELATED_POST_COUNT * 2)
+
+  if (latestError) {
+    console.error('Failed to fetch latest blog posts:', latestError)
+    return related
+  }
+
+  const seen = new Set(related.map((item) => item.id))
+  for (const item of latest || []) {
+    if (related.length >= RELATED_POST_COUNT) break
+    if (!seen.has(item.id)) related.push(item)
+  }
+  return related
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -97,6 +125,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       path: `/blog/${post.slug}`,
       image: post.thumbnail_url || '/blog/functional-medicine.jpg',
       keywords: [post.category, 'FXMed', 'functional medicine', 'health education'],
+      article: {
+        publishedTime: post.created_at,
+        modifiedTime: post.updated_at || post.created_at,
+        section: post.category,
+        authors: [post.author || siteName],
+      },
     })
   } catch (error) {
     console.error('Failed to generate blog post metadata:', error)
@@ -165,31 +199,41 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   const relatedPosts = await getRelatedPosts(post)
   const articleHtml = markdownToHtml(post.content)
+  const careLink = careLinkFor(post)
+  const postUrl = absoluteUrl(`/blog/${post.slug}`)
   const articleJsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'Article',
+    '@type': 'BlogPosting',
     headline: post.title,
     description: stripHtml(post.excerpt || post.content).slice(0, 200),
     image: post.thumbnail_url ? absoluteUrl(post.thumbnail_url) : absoluteUrl('/blog/functional-medicine.jpg'),
     datePublished: post.created_at,
     dateModified: post.updated_at || post.created_at,
+    inLanguage: 'en',
+    articleSection: post.category,
+    keywords: [post.category, 'functional medicine'].filter(Boolean).join(', '),
     author: {
       '@type': 'Person',
       name: post.author || siteName,
     },
+    // Ties the article to the same Organization entity declared in the root
+    // layout, so its authority accrues to FXMed rather than a detached name.
     publisher: {
       '@type': 'Organization',
+      '@id': organizationId,
       name: siteName,
       logo: {
         '@type': 'ImageObject',
         url: absoluteUrl('/logo.png'),
       },
     },
-    mainEntityOfPage: absoluteUrl(`/blog/${post.slug}`),
+    isPartOf: { '@type': 'Blog', name: `${siteName} Blog`, url: `${siteUrl}/blog` },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': postUrl },
   }
   const breadcrumbJsonLd = createBreadcrumbJsonLd([
     { name: 'Home', path: '/' },
     { name: 'Blog', path: '/blog' },
+    ...(post.category ? [{ name: post.category, path: topicPath(post.category) }] : []),
     { name: post.title, path: `/blog/${post.slug}` },
   ])
 
@@ -222,9 +266,12 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           <div className="mb-8">
             <div className="flex items-center mb-4">
               <div>
-                <span className={`inline-block px-3 py-1 rounded-[20px] text-[0.8rem] font-dm-sans font-semibold mb-2 ${getCategoryColor(post.category)}`}>
+                <Link
+                  href={topicPath(post.category)}
+                  className={`inline-block px-3 py-1 rounded-[20px] text-[0.8rem] font-dm-sans font-semibold mb-2 no-underline hover:opacity-90 ${getCategoryColor(post.category)}`}
+                >
                   {post.category}
-                </span>
+                </Link>
                 <div className="text-text-mid text-[0.9rem]">
                   {new Date(post.created_at).toLocaleDateString('en-US', {
                     year: 'numeric',
@@ -250,6 +297,30 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               dangerouslySetInnerHTML={{ __html: articleHtml }}
             />
           </div>
+
+          <aside className="mt-10 rounded-[20px] border border-green-deep/10 bg-green-deep/5 p-8">
+            <div className="text-green-mid text-[0.75rem] font-dm-sans font-semibold tracking-[0.14em] uppercase mb-2">
+              Care at FXMed
+            </div>
+            <h2 className="font-dm-sans font-bold text-green-deep text-[1.4rem] mb-2">{careLink.label}</h2>
+            <p className="font-dm-sans text-text-mid mb-5">{careLink.blurb}</p>
+            <div className="flex flex-wrap gap-4">
+              <Link
+                href={careLink.href}
+                className="font-dm-sans bg-green-deep text-white px-6 py-3 rounded-[50px] font-semibold text-[0.95rem] no-underline transition-all hover:opacity-90"
+              >
+                Learn about {careLink.label}
+              </Link>
+              {post.category && (
+                <Link
+                  href={topicPath(post.category)}
+                  className="font-dm-sans text-green-deep px-6 py-3 rounded-[50px] font-semibold text-[0.95rem] no-underline border-2 border-green-deep transition-all hover:bg-green-deep hover:text-white"
+                >
+                  More on {post.category}
+                </Link>
+              )}
+            </div>
+          </aside>
 
           <div className="mt-12 pt-8 border-t border-green-deep/20">
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">

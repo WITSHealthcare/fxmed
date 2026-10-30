@@ -31,6 +31,12 @@ export const metadata: Metadata = {
     icon: '/FXMed_Favicon.png',
     apple: '/FXMed_Favicon.png',
   },
+  // Ownership tokens from Google Search Console and Bing Webmaster Tools. Each
+  // tag is emitted only when its env var is set.
+  verification: {
+    ...(process.env.GOOGLE_SITE_VERIFICATION ? { google: process.env.GOOGLE_SITE_VERIFICATION } : {}),
+    ...(process.env.BING_SITE_VERIFICATION ? { other: { 'msvalidate.01': process.env.BING_SITE_VERIFICATION } } : {}),
+  },
 }
 
 const organizationJsonLd = {
