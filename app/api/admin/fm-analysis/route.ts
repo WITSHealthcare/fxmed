@@ -3,6 +3,8 @@ import { isReadable, type ReportAttachment } from '@/lib/ai/clinical-report'
 import { cleanText, emrErrorMessage, getEmrContext, isUuid, writeEmrAudit } from '@/lib/emr'
 import { extractLabResults, interpretLabResults } from '@/lib/fmAnalysisAi'
 import { FM_PANELS, type FmEntry, type FmNarrative, type FmPatient, type PanelId, type Sex } from '@/lib/fmBiomarkers'
+import type { PatientRecordResults, RecordFile, RecordReport } from '@/lib/fmRecordResults'
+import { REPORT_COLUMNS, mapReportRow } from '@/lib/investigations'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -61,6 +63,11 @@ export async function GET(request: NextRequest) {
   if (!context) return fail('Clinical access required.', 403)
   const { database } = context
   try {
+    const patientId = request.nextUrl.searchParams.get('patientId')
+    if (patientId) {
+      if (!isUuid(patientId)) return fail('Patient not found.', 404)
+      return NextResponse.json(await recordResults(database, patientId))
+    }
     const id = request.nextUrl.searchParams.get('id')
     if (id) {
       if (!isUuid(id)) return fail('Analysis not found.', 404)
@@ -87,6 +94,7 @@ export async function POST(request: NextRequest) {
     return fail('Invalid request.')
   }
   if (body.action === 'extract') return readPasted(request, body)
+  if (body.action === 'read_record') return readRecordFiles(request, body)
   if (body.action === 'interpret') return interpret(request, body)
   return save(request, body)
 }
@@ -207,5 +215,95 @@ async function interpret(request: NextRequest, body: Record<string, any>) {
     return fail(error instanceof Error && error.message === 'No AI provider is configured.'
       ? 'Writing the interpretation needs an AI provider to be configured. You can write it by hand.'
       : 'The interpretation could not be written. Try again, or write it by hand.', 502)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Results already in the patient's record
+
+type Database = NonNullable<Awaited<ReturnType<typeof getEmrContext>>>['database']
+
+// Issued FM reports are filed as lab documents too; they are not lab results.
+const FM_REPORT_TITLE = /^functional health analysis/i
+
+/**
+ * The investigation results saved for the patient, and the lab reports in
+ * their documents that have no saved results yet, newest first.
+ */
+async function recordResults(database: Database, patientId: string): Promise<PatientRecordResults> {
+  const [reportsResult, filesResult] = await Promise.all([
+    database.from('investigation_results')
+      .select(`${REPORT_COLUMNS},order:investigation_forms(panel_title)`)
+      .eq('emr_patient_id', patientId)
+      .order('created_at', { ascending: false })
+      .limit(30),
+    database.from('emr_documents')
+      .select('id,title,mime_type,file_size,created_at,investigation_form_id')
+      .eq('patient_id', patientId)
+      .eq('category', 'laboratory')
+      .order('created_at', { ascending: false })
+      .limit(30),
+  ])
+  if (reportsResult.error) throw reportsResult.error
+  if (filesResult.error) throw filesResult.error
+
+  const answeredOrders = new Set<string>()
+  const reports: RecordReport[] = (reportsResult.data || []).map((row: any) => {
+    const report = mapReportRow(row)
+    if (report.orderId) answeredOrders.add(report.orderId)
+    const order = Array.isArray(row.order) ? row.order[0] : row.order
+    return {
+      id: report.id,
+      title: order?.panel_title || report.reportMeta.reportTitle || 'Laboratory results',
+      collectedAt: report.reportMeta.collectedAt,
+      reportedAt: report.reportMeta.reportedAt,
+      savedAt: report.updatedAt || report.createdAt,
+      results: report.results.map(result => ({ test: result.test, result: result.result, unit: result.unit, referenceRange: result.referenceRange })),
+    }
+  }).filter(report => report.results.length)
+
+  const files: RecordFile[] = (filesResult.data || [])
+    .filter((doc: any) => isReadable(doc.mime_type) && !FM_REPORT_TITLE.test(doc.title || '') && !(doc.investigation_form_id && answeredOrders.has(doc.investigation_form_id)))
+    .map((doc: any) => ({ id: doc.id, title: doc.title, mimeType: doc.mime_type, fileSize: doc.file_size ?? null, createdAt: doc.created_at }))
+
+  return { reports, files }
+}
+
+// Reads lab reports already stored in the patient's documents, the same way
+// an uploaded report is read. Nothing new is stored.
+async function readRecordFiles(request: NextRequest, body: Record<string, any>) {
+  const context = await getEmrContext(request, 'record_results')
+  if (!context) return fail('Result recording access required.', 403)
+  const { database, user } = context
+  try {
+    const patientId = isUuid(body.patientId) ? body.patientId : null
+    const documentIds = (Array.isArray(body.documentIds) ? body.documentIds : []).filter(isUuid).slice(0, 10)
+    if (!patientId || !documentIds.length) return fail('Choose the lab report to read.')
+    const { data: documents, error } = await database.from('emr_documents')
+      .select('id,title,storage_path,mime_type,file_size')
+      .in('id', documentIds)
+      .eq('patient_id', patientId)
+    if (error) throw error
+    const files: ReportAttachment[] = []
+    let total = 0
+    for (const doc of documents || []) {
+      if (!isReadable(doc.mime_type)) continue
+      total += Number(doc.file_size) || 0
+      if (total > MAX_READ_BYTES) return fail('These files are too large to read together (15 MB). Read them one at a time.')
+      const { data: blob, error: downloadError } = await database.storage.from('emr-documents').download(doc.storage_path)
+      if (downloadError || !blob) throw downloadError || new Error('The lab report could not be opened.')
+      files.push({ name: doc.title, mimeType: doc.mime_type, base64: Buffer.from(await blob.arrayBuffer()).toString('base64') })
+    }
+    if (!files.length) return fail('This document could not be opened for reading.')
+    let extracted
+    try {
+      extracted = await extractLabResults(files, '', sex(body.sex))
+    } catch (error) {
+      return readError(error)
+    }
+    await writeEmrAudit(database, user, { action: 'read_fm_record_document', entityType: 'emr_document', entityId: documentIds[0], patientId, metadata: { files: files.length, results: extracted.entries.length, provider: extracted.provider } })
+    return NextResponse.json(extracted)
+  } catch (error) {
+    return serverError(error)
   }
 }

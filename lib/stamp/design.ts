@@ -198,7 +198,12 @@ function wordingLines(wording: string) {
   return best
 }
 
-function drawRound(ctx: Context, design: StampDesign, size: number, emblem: CanvasImageSource | null, font: string) {
+/**
+ * The outer part of the round seal, shared by every round design: the rings,
+ * the issuer's name and locality set around them, and a star either side.
+ * Leaves the context centred on the seal, in a 1000-unit grid.
+ */
+function drawSealRing(ctx: Context, size: number, font: string) {
   ctx.translate(size / 2, size / 2)
   ctx.scale(size / 1000, size / 1000)
 
@@ -207,7 +212,6 @@ function drawRound(ctx: Context, design: StampDesign, size: number, emblem: Canv
   ring(ctx, 318, 5)
   ring(ctx, 304, 2.5)
 
-  // The lettering band between the rings, with a star either side.
   const bandMiddle = 388
   const spacing = 0.14
   const top = STAMP_ISSUER.name.toUpperCase()
@@ -224,6 +228,37 @@ function drawRound(ctx: Context, design: StampDesign, size: number, emblem: Canv
   arcText(ctx, bottom, bandMiddle + cap / 2, Math.PI / 2, ringSize, spacing, 'bottom')
   star(ctx, -bandMiddle, 0, 24)
   star(ctx, bandMiddle, 0, 24)
+}
+
+/** The date between two rules across the middle, with an optional label above it. */
+function drawSealDate(ctx: Context, date: string, font: string, label = '') {
+  rule(ctx, -236, 236, -64, 6)
+  rule(ctx, -236, 236, 68, 6)
+  ctx.textBaseline = 'middle'
+  const text = stampDateText(date)
+  if (label) {
+    const labelSize = fitFont(ctx, label, 700, font, 30, 400, 0.16)
+    ctx.font = `700 ${labelSize}px ${font}`
+    spacedText(ctx, label, 0, -32, labelSize, 0.16)
+    const dateSize = fitFont(ctx, text, 800, font, 70, 440, 0.04)
+    ctx.font = `800 ${dateSize}px ${font}`
+    spacedText(ctx, text, 0, 22, dateSize, 0.04)
+  } else {
+    const dateSize = fitFont(ctx, text, 800, font, 84, 440, 0.04)
+    ctx.font = `800 ${dateSize}px ${font}`
+    spacedText(ctx, text, 0, 4, dateSize, 0.04)
+  }
+}
+
+function drawSealRegistration(ctx: Context, font: string) {
+  const size = fitFont(ctx, STAMP_ISSUER.registration, 700, font, 46, 400, 0.08)
+  ctx.font = `700 ${size}px ${font}`
+  ctx.textBaseline = 'middle'
+  spacedText(ctx, STAMP_ISSUER.registration, 0, 146, size, 0.08)
+}
+
+function drawRound(ctx: Context, design: StampDesign, size: number, emblem: CanvasImageSource | null, font: string) {
+  drawSealRing(ctx, size, font)
 
   // The centre: the mark or the wording, the date between rules, the RC number.
   const wording = wordingLines(design.wording)
@@ -242,18 +277,49 @@ function drawRound(ctx: Context, design: StampDesign, size: number, emblem: Canv
     ctx.drawImage(emblem, -74, -250, 148, 148)
   }
 
-  rule(ctx, -236, 236, -64, 6)
-  rule(ctx, -236, 236, 68, 6)
-  const date = stampDateText(design.date)
-  const dateSize = fitFont(ctx, date, 800, font, 84, 440, 0.04)
-  ctx.font = `800 ${dateSize}px ${font}`
-  ctx.textBaseline = 'middle'
-  spacedText(ctx, date, 0, 4, dateSize, 0.04)
+  drawSealDate(ctx, design.date, font)
+  drawSealRegistration(ctx, font)
+}
 
-  const registrationSize = fitFont(ctx, STAMP_ISSUER.registration, 700, font, 46, 400, 0.08)
-  ctx.font = `700 ${registrationSize}px ${font}`
-  ctx.textBaseline = 'middle'
-  spacedText(ctx, STAMP_ISSUER.registration, 0, 146, registrationSize, 0.08)
+/**
+ * The partner verification seal on investigation request forms: the round
+ * seal, saying which partner laboratory the form is verified for and the
+ * day it is valid on (YYYY-MM-DD).
+ */
+export function drawPartnerSeal(ctx: Context, partner: string, validOn: string, size: number, font = STAMP_FONT, ink: StampInk = 'green') {
+  const color = STAMP_INKS[ink]?.color || STAMP_INKS.green.color
+  ctx.save()
+  ctx.fillStyle = color
+  ctx.strokeStyle = color
+  drawSealRing(ctx, size, font)
+
+  ctx.textBaseline = 'alphabetic'
+  const heading = 'VERIFIED FOR'
+  const headingSize = fitFont(ctx, heading, 700, font, 32, 380, 0.18)
+  ctx.font = `700 ${headingSize}px ${font}`
+  const name = wordingLines(partner)
+  if (name.length === 2) {
+    spacedText(ctx, heading, 0, -226, headingSize, 0.18)
+    const nameSize = Math.min(...name.map((line, index) => fitFont(ctx, line, 800, font, 52, index === 0 ? 400 : 460, 0.05)))
+    ctx.font = `800 ${nameSize}px ${font}`
+    spacedText(ctx, name[0], 0, -150, nameSize, 0.05)
+    spacedText(ctx, name[1], 0, -92, nameSize, 0.05)
+  } else {
+    spacedText(ctx, heading, 0, -196, headingSize, 0.18)
+    const nameSize = fitFont(ctx, name[0] || '', 800, font, 76, 460, 0.06)
+    ctx.font = `800 ${nameSize}px ${font}`
+    spacedText(ctx, name[0] || '', 0, -102, nameSize, 0.06)
+  }
+
+  drawSealDate(ctx, validOn, font, 'VALID ON')
+  drawSealRegistration(ctx, font)
+  ctx.restore()
+}
+
+/** Waits for the stamp's typeface, so canvas text is not drawn in a fallback. */
+export async function loadStampFonts() {
+  if (typeof document === 'undefined' || !document.fonts) return
+  await Promise.all(['500', '600', '700', '800'].map(weight => document.fonts.load(`${weight} 40px "DM Sans"`).catch(() => [])))
 }
 
 function roundedRect(ctx: Context, x: number, y: number, width: number, height: number, radius: number) {

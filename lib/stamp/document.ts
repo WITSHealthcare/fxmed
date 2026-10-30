@@ -6,7 +6,7 @@
 import { BlendMode, PDFDocument, degrees } from 'pdf-lib'
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { blobToBase64 } from '@/lib/fileDownload'
-import { STAMP_INK_OPACITY, drawStamp, stampAspect, tintEmblemPixels, type StampDesign, type StampInk } from '@/lib/stamp/design'
+import { STAMP_INK_OPACITY, drawStamp, loadStampFonts, stampAspect, tintEmblemPixels, type StampDesign, type StampInk } from '@/lib/stamp/design'
 import { inkMapFromPixels, toPdfPoint, uprightImageOrigin, type Box, type InkMap, type StampRequest, type TextRun } from '@/lib/stamp/placement'
 
 export type StampPage = {
@@ -228,14 +228,9 @@ async function emblemFor(ink: StampInk) {
   return canvas
 }
 
-async function fontsReady() {
-  if (typeof document === 'undefined' || !document.fonts) return
-  await Promise.all(['500', '600', '700', '800'].map(weight => document.fonts.load(`${weight} 40px "DM Sans"`).catch(() => [])))
-}
-
 /** The stamp drawn at the given pixel width, on a clear background. */
 export async function renderStamp(design: StampDesign, widthPx: number) {
-  await fontsReady()
+  await loadStampFonts()
   const height = Math.round(widthPx * stampAspect(design.style))
   const canvas = canvasOf(widthPx, height)
   const context = canvas.getContext('2d')
