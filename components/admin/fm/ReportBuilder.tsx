@@ -1,13 +1,17 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { DownloadSimpleIcon, FloppyDiskIcon, PlusIcon, SparkleIcon, TrashIcon } from '@phosphor-icons/react'
+import { ArrowCounterClockwiseIcon, DownloadSimpleIcon, FloppyDiskIcon, ListChecksIcon, PlusIcon, SparkleIcon, TrashIcon } from '@phosphor-icons/react'
 import { PAGE_H, PAGE_W, buildFmReportPages, fitPage, renderFmReportPdf } from '@/lib/fmAnalysisPdf'
-import { summarize, type FmEntry, type FmNarrative, type FmPatient, type PanelId, type Priority } from '@/lib/fmBiomarkers'
+import { PLAN_PARTS, analyse, defaultFindings, defaultNextSteps, defaultRecommendations, defaultSummary, planFor } from '@/lib/fmAssessment'
+import { type AreaPlan, type FmEntry, type FmNarrative, type FmPatient, type Priority } from '@/lib/fmBiomarkers'
 import { inputClass } from './ResultsEntry'
 
-// Step three: the AI writes the interpretation, the clinician edits any of
-// it, and the report is previewed page by page exactly as it will print.
+// Step three: the report. Every section has standard wording worked out from
+// the results, so it is complete without the AI; the AI can personalise the
+// summary, findings, priority actions and next steps, and the clinician can
+// edit all of it, including each improvement area's plan. The report is
+// previewed page by page exactly as it will print.
 
 const PRIORITIES: Priority[] = ['urgent', 'high', 'moderate', 'low']
 const lines = (value: string) => value.split('\n').map(line => line.trim()).filter(Boolean)
@@ -56,12 +60,22 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [showPreview, setShowPreview] = useState(true)
-  const summary = useMemo(() => summarize(entries), [entries])
+  const analysis = useMemo(() => analyse(entries, patient.sex), [entries, patient.sex])
+  const summary = analysis.summary
   const pages = useMemo(() => showPreview ? buildFmReportPages({ patient, entries, narrative }) : [], [patient, entries, narrative, showPreview])
   const update = (changes: Partial<FmNarrative>) => setNarrative(current => ({ ...current, ...changes }))
-  const updatePanel = (id: PanelId, changes: Partial<NonNullable<FmNarrative['panels'][PanelId]>>) => setNarrative(current => ({
-    ...current, panels: { ...current.panels, [id]: { summary: '', understanding: [], actions: [], ...current.panels[id], ...changes } },
-  }))
+  const updatePlan = (id: string, plan: AreaPlan | null) => setNarrative(current => {
+    const areaPlans = { ...current.areaPlans }
+    if (plan) areaPlans[id] = plan
+    else delete areaPlans[id]
+    return { ...current, areaPlans }
+  })
+
+  function startFromAnalysis() {
+    if ((narrative.summary || narrative.findings.length || narrative.recommendations.length) && !window.confirm('Replace the summary, findings, priority actions and next steps with the standard wording from the analysis?')) return
+    setNarrative(current => ({ ...current, summary: defaultSummary(analysis), findings: defaultFindings(analysis), recommendations: defaultRecommendations(analysis), nextSteps: defaultNextSteps(analysis) }))
+    setNotice('Standard wording added. Edit anything below before issuing the report.')
+  }
 
   async function interpret() {
     if (narrative.findings.length && !window.confirm('Replace the current interpretation and marker notes with a new one?')) return
@@ -70,7 +84,8 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
       const response = await fetch('/api/admin/fm-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'interpret', patient, entries, context }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'The interpretation could not be written.')
-      setNarrative(result.narrative)
+      // Keep the clinician's edits to the improvement area plans.
+      setNarrative(current => ({ ...result.narrative, areaPlans: current.areaPlans }))
       const notes: Record<string, string> = result.notes || {}
       setEntries(current => current.map(entry => ({ ...entry, note: notes[entry.name.toLowerCase()] || entry.note })))
       setNotice('Interpretation written. Review and edit it before issuing the report.')
@@ -81,7 +96,7 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
     }
   }
 
-  const fileName = `FXMed-Functional-Health-Analysis-${(patient.name || 'patient').replace(/[^a-z0-9]+/gi, '-')}-${patient.collectedAt || new Date().toISOString().slice(0, 10)}.pdf`
+  const fileName = `FXMed-Functional-Health-Report-${(patient.name || 'patient').replace(/[^a-z0-9]+/gi, '-')}-${patient.collectedAt || new Date().toISOString().slice(0, 10)}.pdf`
 
   async function download() {
     setError(''); setBusy('pdf')
@@ -109,7 +124,7 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
       form.append('file', new File([blob], fileName, { type: 'application/pdf' }))
       form.append('patient_id', emrPatientId)
       form.append('category', 'laboratory')
-      form.append('title', `Functional Health Analysis${patient.collectedAt ? ` — ${patient.collectedAt}` : ''}`)
+      form.append('title', `Functional Health Report${patient.collectedAt ? ` — ${patient.collectedAt}` : ''}`)
       form.append('notes', `${summary.total} biomarkers analysed against functional medicine optimal ranges.`)
       const response = await fetch('/api/admin/emr', { method: 'POST', body: form })
       const result = await response.json().catch(() => ({}))
@@ -125,56 +140,55 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
   if (!summary.total) return <div className="rounded-[20px] border border-green-deep/10 bg-white p-10 text-center text-sm text-text-mid">Enter or import results before writing the report.</div>
 
   return <div className="space-y-6">
-    <Card title="Interpretation" subtitle="Statuses and scores are calculated from the ranges; the AI only writes the explanation, notes and plan. Everything below can be edited."
-      action={<button type="button" onClick={interpret} disabled={!!busy} className="primary disabled:opacity-50">{busy === 'interpret' ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Writing…</> : <><SparkleIcon size={16} />{narrative.findings.length ? 'Rewrite with AI' : 'Write with AI'}</>}</button>}>
+    <Card title="Interpretation" subtitle="Statuses, likelihood scores and each area's plan are calculated from the results, so the report is complete as it is: any section left empty uses the standard wording. The AI can personalise the summary, findings, priority actions and next steps. Everything can be edited."
+      action={<div className="flex flex-wrap gap-2">
+        <button type="button" onClick={startFromAnalysis} disabled={!!busy} className="secondary disabled:opacity-50"><ListChecksIcon size={16} />Start from the analysis</button>
+        <button type="button" onClick={interpret} disabled={!!busy} className="primary disabled:opacity-50">{busy === 'interpret' ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Writing…</> : <><SparkleIcon size={16} />{narrative.findings.length ? 'Rewrite with AI' : 'Write with AI'}</>}</button>
+      </div>}>
       <label className="text-xs font-semibold text-text-mid">Clinical context for the AI (optional — symptoms, history, medications)
         <textarea value={context} onChange={event => setContext(event.target.value)} rows={3} placeholder="e.g. 62F, fatigue and dizziness for 6 months, on atorvastatin 20 mg, no steroid use" className={`${inputClass} mt-1`} />
       </label>
       {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {notice && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</p>}
-      <label className="mt-4 block text-xs font-semibold text-text-mid">Overall summary<textarea value={narrative.summary} onChange={event => update({ summary: event.target.value })} rows={3} className={`${inputClass} mt-1`} /></label>
+      <label className="mt-4 block text-xs font-semibold text-text-mid">Overall summary (results at a glance)<textarea value={narrative.summary} onChange={event => update({ summary: event.target.value })} rows={3} placeholder={defaultSummary(analysis)} className={`${inputClass} mt-1`} /></label>
     </Card>
 
-    <Card title="Key findings" subtitle="Urgent and high findings appear on the cover; up to seven on the clinical overview."
+    <Card title="Key findings" subtitle="Up to four appear on the results-at-a-glance page. Left empty, the report lists alarm results and the top improvement areas."
       action={<button type="button" className="secondary" onClick={() => update({ findings: [...narrative.findings, { priority: 'high', title: '', detail: '' }] })}><PlusIcon size={16} />Finding</button>}>
       <div className="space-y-3">{narrative.findings.map((item, index) => <div key={index} className="grid gap-2 rounded-xl bg-cream/30 p-3 sm:grid-cols-[8rem_1fr_2rem]">
         <PrioritySelect value={item.priority} onChange={priority => update({ findings: narrative.findings.map((f, i) => i === index ? { ...f, priority } : f) })} />
         <div className="space-y-2"><input value={item.title} placeholder="Headline, e.g. Adrenal insufficiency — AM cortisol 3.7 nmol/L" onChange={event => update({ findings: narrative.findings.map((f, i) => i === index ? { ...f, title: event.target.value } : f) })} className={`${inputClass} font-semibold`} />
           <textarea value={item.detail} rows={2} onChange={event => update({ findings: narrative.findings.map((f, i) => i === index ? { ...f, detail: event.target.value } : f) })} className={inputClass} /></div>
         <button type="button" aria-label="Remove finding" onClick={() => update({ findings: narrative.findings.filter((_, i) => i !== index) })} className="flex h-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"><TrashIcon size={16} /></button>
-      </div>)}{!narrative.findings.length && <p className="text-sm text-text-mid">No findings yet.</p>}</div>
+      </div>)}{!narrative.findings.length && <p className="text-sm text-text-mid">None written — the report will use {defaultFindings(analysis).length} standard findings from the analysis.</p>}</div>
     </Card>
 
-    <Card title="Panel pages" subtitle="Each panel page carries an 'Understanding your results' box and an action plan (one action per line).">
-      <div className="space-y-2">{summary.panels.map(item => {
-        const text = narrative.panels[item.panel.id] || { summary: '', understanding: [], actions: [] }
-        return <details key={item.panel.id} className="rounded-xl border border-green-deep/10">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-green-deep"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ background: item.panel.color }} />{item.panel.name}<span className="ml-2 text-xs font-normal text-text-mid">{item.score ?? '—'}% · {text.understanding.length} explanations · {text.actions.length} actions</span></summary>
-          <div className="space-y-3 px-4 pb-4">
-            <label className="block text-xs font-semibold text-text-mid">One-line summary (overview page)<input value={text.summary} onChange={event => updatePanel(item.panel.id, { summary: event.target.value })} className={`${inputClass} mt-1`} /></label>
-            {text.understanding.map((point, index) => <div key={index} className="grid gap-2 sm:grid-cols-[1fr_2fr_2rem]">
-              <input value={point.title} placeholder="Heading" onChange={event => updatePanel(item.panel.id, { understanding: text.understanding.map((p, i) => i === index ? { ...p, title: event.target.value } : p) })} className={`${inputClass} font-semibold`} />
-              <textarea value={point.text} rows={2} onChange={event => updatePanel(item.panel.id, { understanding: text.understanding.map((p, i) => i === index ? { ...p, text: event.target.value } : p) })} className={inputClass} />
-              <button type="button" aria-label="Remove explanation" onClick={() => updatePanel(item.panel.id, { understanding: text.understanding.filter((_, i) => i !== index) })} className="flex h-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"><TrashIcon size={16} /></button>
-            </div>)}
-            <button type="button" className="text-xs font-semibold text-green-mid underline underline-offset-2" onClick={() => updatePanel(item.panel.id, { understanding: [...text.understanding, { title: '', text: '' }] })}>Add explanation</button>
-            <label className="block text-xs font-semibold text-text-mid">Action plan<LinesField value={text.actions} onChange={actions => updatePanel(item.panel.id, { actions })} placeholder="One action per line" /></label>
+    <Card title="Health improvement plan" subtitle={`${analysis.plan.length} area${analysis.plan.length === 1 ? '' : 's'} at 50% likelihood or more, each with its own page. Edit any area's plan (one point per line); the standard plan is used until you do.`}>
+      <div className="space-y-2">{analysis.plan.map(item => {
+        const plan = planFor(item.area, narrative)
+        const edited = !!narrative.areaPlans?.[item.area.id]
+        return <details key={item.area.id} className="rounded-xl border border-green-deep/10">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-green-deep">{item.area.name}<span className="ml-2 text-xs font-normal text-text-mid">{item.score}%{item.urgent ? ' · alarm marker' : ''} · {item.contributors.map(({ entry, direction }) => `${entry.name} ${direction === 'low' ? '↓' : '↑'}`).join(', ')}{edited ? ' · edited' : ''}</span></summary>
+          <div className="grid gap-3 px-4 pb-4 md:grid-cols-2">
+            {PLAN_PARTS.map(part => <label key={part.key} className="block text-xs font-semibold" style={{ color: part.color }}>{part.title}
+              <LinesField value={plan[part.key]} rows={4} onChange={items => updatePlan(item.area.id, { ...plan, [part.key]: items })} placeholder="One point per line" /></label>)}
+            {edited && <button type="button" onClick={() => updatePlan(item.area.id, null)} className="inline-flex items-center gap-1.5 justify-self-start text-xs font-semibold text-green-mid underline underline-offset-2"><ArrowCounterClockwiseIcon size={14} />Restore the standard plan</button>}
           </div>
         </details>
-      })}</div>
+      })}{!analysis.plan.length && <p className="text-sm text-text-mid">No improvement area reached 50%.</p>}</div>
     </Card>
 
-    <Card title="Prioritised clinical recommendations" subtitle="Shown four to a page, in this order."
+    <Card title="Priority actions" subtitle="Shown six to a page, in this order. Left empty, the report lists the key actions from each improvement area."
       action={<button type="button" className="secondary" onClick={() => update({ recommendations: [...narrative.recommendations, { priority: 'moderate', title: '', items: [] }] })}><PlusIcon size={16} />Recommendation</button>}>
       <div className="space-y-3">{narrative.recommendations.map((item, index) => <div key={index} className="grid gap-2 rounded-xl bg-cream/30 p-3 sm:grid-cols-[8rem_1fr_2rem]">
         <PrioritySelect value={item.priority} onChange={priority => update({ recommendations: narrative.recommendations.map((r, i) => i === index ? { ...r, priority } : r) })} />
         <div className="space-y-2"><input value={item.title} placeholder="e.g. Stage 3A CKD — Nephrology referral" onChange={event => update({ recommendations: narrative.recommendations.map((r, i) => i === index ? { ...r, title: event.target.value } : r) })} className={`${inputClass} font-semibold`} />
           <LinesField value={item.items} rows={4} onChange={items => update({ recommendations: narrative.recommendations.map((r, i) => i === index ? { ...r, items } : r) })} placeholder="One action per line" /></div>
         <button type="button" aria-label="Remove recommendation" onClick={() => update({ recommendations: narrative.recommendations.filter((_, i) => i !== index) })} className="flex h-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"><TrashIcon size={16} /></button>
-      </div>)}</div>
+      </div>)}{!narrative.recommendations.length && <p className="text-sm text-text-mid">None written — the report will use {defaultRecommendations(analysis).length} standard priority actions.</p>}</div>
     </Card>
 
-    <Card title="Recommended next steps" subtitle="Up to three, on the last page."
+    <Card title="Next steps" subtitle="Up to three. Left empty, the report uses standard next steps: clinician review, follow-up tests and the foundations."
       action={narrative.nextSteps.length < 3 ? <button type="button" className="secondary" onClick={() => update({ nextSteps: [...narrative.nextSteps, { title: '', text: '', items: [] }] })}><PlusIcon size={16} />Next step</button> : undefined}>
       <div className="space-y-3">{narrative.nextSteps.map((item, index) => <div key={index} className="grid gap-2 rounded-xl bg-cream/30 p-3 sm:grid-cols-[1fr_2rem]">
         <div className="space-y-2"><input value={item.title} placeholder="e.g. Schedule an urgent appointment with your physician" onChange={event => update({ nextSteps: narrative.nextSteps.map((s, i) => i === index ? { ...s, title: event.target.value } : s) })} className={`${inputClass} font-semibold`} />

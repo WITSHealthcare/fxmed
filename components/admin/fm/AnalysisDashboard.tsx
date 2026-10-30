@@ -2,13 +2,16 @@
 
 import { useMemo, useState } from 'react'
 import { CheckCircleIcon, FileTextIcon, MagnifyingGlassIcon, TrendDownIcon, TrendUpIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
+import { AREA_GROUPS, PLAN_PARTS, analyse, planFor, priorityOf, type AreaGroup, type AreaResult } from '@/lib/fmAssessment'
 import {
-  FM_STATUS_LABEL, LAB_STATUS_LABEL, STATUS_COLOR, deviation, panelById, summarize,
-  type AssessedEntry, type FmEntry, type FmNarrative,
+  FM_STATUS_LABEL, LAB_STATUS_LABEL, PRIORITY_COLOR, STATUS_COLOR, deviation, panelById,
+  type AssessedEntry, type FmEntry, type FmNarrative, type Sex,
 } from '@/lib/fmBiomarkers'
+import { markerExplanation } from '@/lib/fmMarkerInfo'
 import { inputClass } from './ResultsEntry'
 
-// The analysis as a clinician reads it on screen: headline counts, the
+// The analysis as a clinician reads it on screen: headline counts, the health
+// improvement plan, likelihood scores for each body system and nutrient, the
 // out-of-range results ranked by how far out they are, panel scores, and a
 // searchable table where any marker opens its detail.
 
@@ -19,9 +22,22 @@ function Stat({ label, value, sub, color, Icon }: { label: string; value: number
 }
 
 const pct = (part: number, total: number) => total ? `${Math.round((part / total) * 100)}%` : ''
+const GRADIENT = 'linear-gradient(90deg, #3CC48A 0%, #9CCB5E 32%, #F5C04A 55%, #F59A4F 76%, #EF6F5E 100%)'
+const markers = (item: AreaResult) => item.contributors.map(({ entry, direction }) => `${entry.name} ${direction === 'low' ? '↓' : '↑'}`).join(', ')
 
-export default function AnalysisDashboard({ entries, narrative }: { entries: FmEntry[]; narrative: FmNarrative }) {
-  const summary = useMemo(() => summarize(entries), [entries])
+/** A likelihood bar coloured from green to red along its full length, as on the report. */
+function Likelihood({ score }: { score: number }) {
+  return <div className="relative h-3 overflow-hidden rounded-full bg-gray-200">
+    {score > 0 && <div className="absolute inset-y-0 left-0 overflow-hidden rounded-full" style={{ width: `${score}%` }}><div className="h-full" style={{ width: `${10000 / score}%`, background: GRADIENT }} /></div>}
+  </div>
+}
+
+const SCORE_GROUPS: Array<[Exclude<AreaGroup, 'plan'>, string]> = [['system', 'Body systems'], ['accessory', 'Accessory'], ['nutrient', 'Nutrient status'], ['deficiency', 'Nutrient needs']]
+
+export default function AnalysisDashboard({ entries, narrative, sex }: { entries: FmEntry[]; narrative: FmNarrative; sex: Sex }) {
+  const analysis = useMemo(() => analyse(entries, sex), [entries, sex])
+  const summary = analysis.summary
+  const [group, setGroup] = useState<Exclude<AreaGroup, 'plan'>>('system')
   const [search, setSearch] = useState('')
   const [panel, setPanel] = useState('all')
   const [basis, setBasis] = useState<'fm' | 'lab'>('fm')
@@ -48,6 +64,42 @@ export default function AnalysisDashboard({ entries, narrative }: { entries: FmE
       <Stat label="High (FM)" value={summary.high} sub={pct(summary.high, summary.total)} color="#C53030" Icon={TrendUpIcon} />
       <Stat label="Low (FM)" value={summary.low} sub={pct(summary.low, summary.total)} color="#1D64C8" Icon={TrendDownIcon} />
       <Stat label="Urgent markers" value={summary.urgent.length} color="#B5102B" Icon={WarningIcon} />
+    </section>
+
+    <section className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
+      <div className="rounded-[20px] border border-green-deep/10 bg-white p-5">
+        <h4 className="font-bold text-green-deep">Health improvement plan ({analysis.plan.length})</h4>
+        <p className="mt-1 text-xs text-text-mid">Areas at 50% likelihood or more, worked out from the results. Each has a plan on the report, which you can edit on the Report step.</p>
+        <div className="mt-4 space-y-2.5">{analysis.plan.length ? analysis.plan.map(item => {
+          const priority = priorityOf(item)
+          const plan = planFor(item.area, narrative)
+          return <details key={item.area.id} className="group rounded-xl border border-green-deep/10 p-3">
+            <summary className="cursor-pointer list-none">
+              <div className="flex items-center justify-between gap-3 text-sm"><span className="font-bold text-green-deep">{item.area.name}</span>
+                <span className="flex items-center gap-2"><span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase text-white" style={{ background: PRIORITY_COLOR[priority] }}>{priority}</span><span className="font-bold">{item.score}%</span></span></div>
+              <div className="mt-2"><Likelihood score={item.score} /></div>
+              <p className="mt-1.5 text-[11px] text-text-mid">{markers(item)} · <span className="font-semibold text-green-mid group-open:hidden">Show plan</span><span className="hidden font-semibold text-green-mid group-open:inline">Hide plan</span></p>
+            </summary>
+            <p className="mt-3 text-sm text-text-mid">{item.area.finding}</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">{PLAN_PARTS.filter(part => plan[part.key].length).map(part => <div key={part.key} className="rounded-lg bg-cream/40 p-3">
+              <p className="text-xs font-bold" style={{ color: part.color }}>{part.title}</p>
+              <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs text-text-dark">{plan[part.key].map(point => <li key={point}>{point}</li>)}</ul>
+            </div>)}</div>
+            {item.missing.length > 0 && <p className="mt-2 text-[11px] text-text-mid"><span className="font-semibold">Consider testing:</span> {item.missing.join(', ')}</p>}
+          </details>
+        }) : <p className="py-6 text-center text-sm text-text-mid">No improvement area reached 50%.</p>}</div>
+      </div>
+
+      <div className="rounded-[20px] border border-green-deep/10 bg-white p-5">
+        <h4 className="font-bold text-green-deep">Likelihood of dysfunction</h4>
+        <div className="mt-3 flex flex-wrap gap-1 rounded-full bg-cream/60 p-1 text-xs font-bold">{SCORE_GROUPS.map(([id, label]) => <button key={id} type="button" onClick={() => setGroup(id)} className={`rounded-full px-3 py-1.5 ${group === id ? 'bg-green-deep text-white' : 'text-text-mid'}`}>{label}</button>)}</div>
+        <p className="mt-3 text-xs text-text-mid">{AREA_GROUPS[group].intro}</p>
+        <div className="mt-4 space-y-3">{analysis.group(group).map(item => <div key={item.area.id} title={markers(item)}>
+          <div className="flex justify-between text-sm"><span className="font-semibold text-green-deep">{item.area.name}</span><span className="font-bold">{item.score}%</span></div>
+          <div className="mt-1"><Likelihood score={item.score} /></div>
+          {item.contributors.length > 0 && <p className="mt-1 text-[11px] text-text-mid">{markers(item)}</p>}
+        </div>)}{!analysis.group(group).length && <p className="text-sm text-text-mid">No results for these areas.</p>}</div>
+      </div>
     </section>
 
     <section className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
@@ -96,7 +148,7 @@ export default function AnalysisDashboard({ entries, narrative }: { entries: FmE
         <thead><tr className="bg-green-deep text-left text-xs uppercase tracking-wide text-white"><th className="px-3 py-2.5">Panel</th><th className="px-3 py-2.5">Biomarker</th><th className="px-3 py-2.5 text-right">Result</th><th className="px-3 py-2.5">Lab range</th><th className="px-3 py-2.5">FM optimal</th><th className="px-3 py-2.5">Lab</th><th className="px-3 py-2.5">FM</th></tr></thead>
         <tbody>{rows.map((entry, index) => <tr key={`${entry.panel}:${entry.name}:${index}`} onClick={() => setSelected(entry)} className={`cursor-pointer border-b border-green-deep/5 hover:bg-cream/40 ${index % 2 ? 'bg-[#F7FAF8]' : ''}`}>
           <td className="px-3 py-2 text-xs text-text-mid">{panelById(entry.panel).short}</td>
-          <td className="px-3 py-2 font-semibold text-green-deep">{entry.name}</td>
+          <td className="px-3 py-2 font-semibold text-green-deep">{entry.name}{entry.calculated && <span className="ml-1.5 text-[10px] font-normal text-text-mid">calculated</span>}</td>
           <td className="px-3 py-2 text-right font-bold" style={{ color: STATUS_COLOR[entry.fm] }}>{entry.value} <span className="text-xs font-normal text-text-mid">{entry.unit}</span></td>
           <td className="px-3 py-2 text-xs text-text-mid">{entry.labRange || '—'}</td>
           <td className="px-3 py-2 text-xs font-semibold text-green-mid">{entry.fmRange || '—'}</td>
@@ -114,7 +166,8 @@ export default function AnalysisDashboard({ entries, narrative }: { entries: FmE
           <div className="rounded-xl bg-cream/50 p-3"><p className="text-xs text-text-mid">Lab range</p><p className="font-bold">{selected.labRange || '—'}</p><p className="mt-1 text-xs font-bold" style={{ color: STATUS_COLOR[selected.lab] }}>{LAB_STATUS_LABEL[selected.lab]}{deviation(selected.numeric, selected.labRangeParsed) >= 1 ? ` · ${deviation(selected.numeric, selected.labRangeParsed).toFixed(0)}% out` : ''}</p></div>
           <div className="rounded-xl bg-green-deep/5 p-3"><p className="text-xs text-text-mid">FM optimal</p><p className="font-bold">{selected.fmRange || '—'}</p><p className="mt-1 text-xs font-bold" style={{ color: STATUS_COLOR[selected.fm] }}>{FM_STATUS_LABEL[selected.fm]}{deviation(selected.numeric, selected.fmRangeParsed) >= 1 ? ` · ${deviation(selected.numeric, selected.fmRangeParsed).toFixed(0)}% out` : ''}</p></div>
         </div>
-        <div className="mt-4 rounded-xl bg-blue-50 p-3 text-sm text-blue-900"><strong>Clinical implication:</strong> {selected.note || 'Generate the interpretation, or add a note to this marker in the results table.'}</div>
+        {markerExplanation(selected.markerId, selected.fm === 'low' || selected.lab === 'low' ? 'low' : 'high') && <p className="mt-4 text-sm leading-6 text-text-mid">{markerExplanation(selected.markerId, selected.fm === 'low' || selected.lab === 'low' ? 'low' : 'high')}</p>}
+        <div className="mt-4 rounded-xl bg-blue-50 p-3 text-sm text-blue-900"><strong>Clinical implication:</strong> {selected.note || 'Write the interpretation with AI, or add a note to this marker in the results table.'}</div>
       </div>
     </div>}
   </div>

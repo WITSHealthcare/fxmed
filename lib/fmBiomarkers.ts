@@ -63,6 +63,7 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('apob', 'Apolipoprotein B', 'cardio', 'g/L', [0.6, 1.1], [0.5, 0.9], { aliases: ['apo b', 'apob'] }),
   m('non_hdl', 'Non-HDL Cholesterol', 'cardio', 'mmol/L', [0, 4.2], [0, 3.4], { aliases: ['non hdl', 'non-hdl-c'] }),
   m('chol_hdl_ratio', 'Chol./HDL Ratio', 'cardio', 'ratio', [0, 5], [0, 4], { aliases: ['cholesterol/hdl ratio', 'tc/hdl', 'chol/hdl'] }),
+  m('tg_hdl_ratio', 'Triglyceride/HDL Ratio', 'cardio', 'ratio', [0, 1.7], [0, 0.9], { aliases: ['tg/hdl', 'triglyceride/hdl ratio', 'tg:hdl'] }),
   // Glucose
   m('fasting_glucose', 'Fasting Glucose', 'glucose', 'mmol/L', [3.9, 6], [4.4, 5.5], { aliases: ['glucose', 'fbs', 'fbg', 'fasting blood sugar', 'fasting blood glucose', 'fasting plasma glucose'], critical: { low: 3, high: 11 } }),
   m('hba1c', 'HbA1c', 'glucose', '%', [4, 5.6], [4, 5.4], { aliases: ['hba1c (ngsp)', 'glycated haemoglobin', 'glycated hemoglobin', 'a1c'], critical: { high: 9 } }),
@@ -81,12 +82,14 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('anti_tg', 'Anti-TG Ab', 'thyroid', 'IU/mL', [0, 40], [0, 2], { aliases: ['tg antibodies', 'anti-thyroglobulin', 'thyroglobulin antibodies', 'thyroglobulin antibody'] }),
   // Adrenal & hormones
   m('dhea_s', 'DHEA-S', 'adrenal', 'µmol/L', [2.68, 9.23], [5, 9.23], { aliases: ['dheas', 'dhea sulphate', 'dhea sulfate'] }),
-  m('cortisol_am', 'Cortisol AM', 'adrenal', 'nmol/L', [6.3, 29.2], [13, 24], { aliases: ['cortisol', 'morning cortisol', 'cortisol (am)', 'cortisol 8am'], critical: { low: 5 } }),
-  m('cortisol_pm', 'Cortisol PM', 'adrenal', 'nmol/L', [1.4, 11.6], [2.8, 8.5], { aliases: ['evening cortisol', 'cortisol (pm)'] }),
+  m('cortisol_am', 'Cortisol AM', 'adrenal', 'µg/dL', [6.2, 19.4], [10, 15], { aliases: ['cortisol', 'morning cortisol', 'cortisol (am)', 'cortisol 8am'], critical: { low: 3 } }),
+  m('cortisol_pm', 'Cortisol PM', 'adrenal', 'µg/dL', [2.3, 11.9], [3, 8], { aliases: ['evening cortisol', 'cortisol (pm)'] }),
   m('testosterone', 'Testosterone', 'adrenal', 'nmol/L', [0.5, 2.6], [1, 2], { aliases: ['total testosterone'], male: { lab: [8.6, 29], fm: [17, 28] } }),
   m('shbg', 'SHBG', 'adrenal', 'nmol/L', [18, 114], [18, 80], { aliases: ['sex hormone binding globulin'], male: { lab: [18, 54], fm: [20, 50] } }),
   m('free_testosterone', 'Free Testosterone', 'adrenal', 'pmol/L', [0, 26], [5, 18], { male: { lab: [174, 729], fm: [350, 700] } }),
   m('free_testosterone_index', 'Free Testosterone Index', 'adrenal', 'ratio', [0.5, 5], [1, 3.5], { aliases: ['fai', 'free androgen index'], male: { lab: [35, 92], fm: [50, 90] } }),
+  m('estradiol', 'Estradiol (E2)', 'adrenal', 'pmol/L', [45, 1460], [180, 1000], { aliases: ['oestradiol', 'e2', 'estradiol'], male: { lab: [40, 160], fm: [70, 150] } }),
+  m('progesterone', 'Progesterone', 'adrenal', 'nmol/L', [0.2, 90], [0.6, 90], { aliases: ['serum progesterone'], male: { lab: [0.2, 1.3], fm: [0.3, 1.3] } }),
   // Kidney
   m('creatinine', 'Creatinine', 'kidney', 'µmol/L', [44, 80], [50, 85], { aliases: ['serum creatinine', 'creat'], male: { lab: [62, 106], fm: [65, 100] } }),
   m('egfr', 'eGFR', 'kidney', 'mL/min/1.73 m²', [90, 120], [90, 120], { aliases: ['gfr', 'estimated gfr'], critical: { low: 60 } }),
@@ -105,6 +108,9 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('bilirubin_conj', 'Bilirubin (Conj.)', 'liver', 'µmol/L', [0, 5], [0, 4], { aliases: ['direct bilirubin', 'conjugated bilirubin', 'd. bilirubin', 'dbil'] }),
   m('albumin', 'Albumin', 'liver', 'g/L', [35, 50], [40, 50], { aliases: ['serum albumin', 'alb'] }),
   m('total_protein', 'Total Protein', 'liver', 'g/L', [60, 80], [65, 80], { aliases: ['serum protein', 'tp'] }),
+  m('globulin', 'Globulin', 'liver', 'g/L', [20, 35], [24, 30], { aliases: ['total globulin', 'serum globulin'] }),
+  m('ast_alt_ratio', 'AST/ALT Ratio', 'liver', 'ratio', [0.4, 1.5], [0.6, 1.2], { aliases: ['ast/alt', 'de ritis ratio', 'ast:alt'] }),
+  m('ldh', 'LDH', 'liver', 'IU/L', [120, 246], [140, 200], { aliases: ['lactate dehydrogenase', 'ld'] }),
   m('a1at', 'Alpha-1 Antitrypsin', 'liver', 'mg/dL', [90, 200], [100, 180], { aliases: ['a1at', 'alpha 1 antitrypsin'] }),
   // Methylation
   m('b12', 'Vitamin B12', 'methylation', 'pmol/L', [133, 675], [400, 675], { aliases: ['b12', 'cobalamin', 'cyanocobalamin'], alsoIn: ['vitamins'] }),
@@ -120,12 +126,19 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('rdw', 'RDW', 'hematology', '%', [11.5, 14.5], [11.5, 13], { aliases: ['red cell distribution width', 'rdw-cv'] }),
   m('platelets', 'Platelets', 'hematology', '×10⁹/L', [150, 450], [175, 350], { aliases: ['platelet count', 'plt'], critical: { low: 50, high: 1000 } }),
   m('wbc', 'WBC Count', 'hematology', '×10⁹/L', [4, 11], [4.5, 7.5], { aliases: ['wbc', 'white blood cell count', 'white cell count', 'leucocytes', 'leukocytes', 'total wbc'], critical: { low: 2, high: 25 } }),
+  m('neutrophils', 'Neutrophils', 'hematology', '×10⁹/L', [1.5, 7.5], [1.9, 4.2], { aliases: ['neutrophil count', 'absolute neutrophils', 'neutrophils absolute', 'neut', 'anc'], critical: { low: 0.5 } }),
+  m('lymphocytes', 'Lymphocytes', 'hematology', '×10⁹/L', [1, 4], [1.5, 3.1], { aliases: ['lymphocyte count', 'absolute lymphocytes', 'lymphocytes absolute', 'lymph'] }),
+  m('monocytes', 'Monocytes', 'hematology', '×10⁹/L', [0.2, 1], [0.2, 0.6], { aliases: ['monocyte count', 'absolute monocytes', 'monocytes absolute', 'mono'] }),
+  m('eosinophils', 'Eosinophils', 'hematology', '×10⁹/L', [0, 0.5], [0, 0.3], { aliases: ['eosinophil count', 'absolute eosinophils', 'eosinophils absolute', 'eos'] }),
+  m('basophils', 'Basophils', 'hematology', '×10⁹/L', [0, 0.1], [0, 0.1], { aliases: ['basophil count', 'absolute basophils', 'basophils absolute', 'baso'] }),
+  m('nlr', 'Neutrophil/Lymphocyte Ratio', 'hematology', 'ratio', [0.8, 3.5], [1.2, 2.2], { aliases: ['nlr', 'neutrophil:lymphocyte', 'neutrophil/lymphocyte'] }),
   m('esr', 'ESR (Westergren)', 'hematology', 'mm/hr', [0, 20], [0, 15], { aliases: ['esr', 'erythrocyte sedimentation rate'] }),
   // Electrolytes & minerals
   m('sodium', 'Sodium', 'electrolytes', 'mmol/L', [136, 145], [138, 142], { aliases: ['na', 'na+', 'serum sodium'], critical: { low: 125, high: 155 } }),
   m('potassium', 'Potassium', 'electrolytes', 'mmol/L', [3.5, 5.1], [4, 4.5], { aliases: ['k', 'k+', 'serum potassium'], critical: { low: 3, high: 6 } }),
   m('chloride', 'Chloride', 'electrolytes', 'mmol/L', [98, 107], [100, 106], { aliases: ['cl', 'cl-'] }),
   m('bicarbonate', 'Bicarbonate', 'electrolytes', 'mmol/L', [22, 29], [24, 28], { aliases: ['hco3', 'co2', 'total co2', 'bicarb'] }),
+  m('anion_gap', 'Anion Gap', 'electrolytes', 'mmol/L', [7, 16], [7, 12], { aliases: ['ag'] }),
   m('calcium', 'Calcium', 'electrolytes', 'mmol/L', [2.15, 2.55], [2.25, 2.45], { aliases: ['ca', 'serum calcium', 'total calcium'], critical: { low: 1.9, high: 3 } }),
   m('ca_phos_ratio', 'Ca/Phos. Ratio', 'electrolytes', 'ratio', [1.5, 2.5], [1.8, 2.5], { aliases: ['calcium/phosphate ratio'] }),
   m('na_k_ratio', 'Na/K Ratio', 'electrolytes', 'ratio', [27, 40], [30, 40], { aliases: ['sodium/potassium ratio'] }),
@@ -174,15 +187,15 @@ export function matchBiomarker(name: string): Biomarker | null {
 
 const UNIT_SYNONYMS: Record<string, string> = {
   'meq/l': 'mmol/l', 'uiu/ml': 'miu/l', 'mu/l': 'miu/l', 'uu/ml': 'miu/l', 'ulu/ml': 'miu/l', 'uiu/l': 'miu/l', 'miu/ml': 'iu/l',
-  'u/l': 'iu/l', 'mm/h': 'mm/hr', 'x10^9/l': '×10⁹/l', 'x109/l': '×10⁹/l', '10^9/l': '×10⁹/l', 'k/ul': '×10⁹/l', 'k/cumm': '×10⁹/l', 'x10^3/ul': '×10⁹/l', '×10³/µl': '×10⁹/l', '10^3/ul': '×10⁹/l',
-  'x10^12/l': '×10¹²/l', 'x1012/l': '×10¹²/l', 'm/ul': '×10¹²/l', 'm/cumm': '×10¹²/l', 'x10^6/ul': '×10¹²/l', '×10⁶/µl': '×10¹²/l',
-  'ml/min': 'ml/min/1.73m²', 'ml/min/1.73m2': 'ml/min/1.73m²', 'ml/min/1.73 m²': 'ml/min/1.73m²',
-  'umol/l': 'µmol/l', 'μmol/l': 'µmol/l', 'ug/l': 'µg/l', 'ug/dl': 'µg/dl', 'mcg/l': 'µg/l',
-  'l/l': 'l/l', 'fl': 'fl', 'pg': 'pg',
+  'u/l': 'iu/l', 'mm/h': 'mm/hr', 'x10^9/l': '×10⁹/l', 'x109/l': '×10⁹/l', '10^9/l': '×10⁹/l', 'k/ul': '×10⁹/l', 'x10^3/ul': '×10⁹/l', '×10³/ul': '×10⁹/l', '10^3/ul': '×10⁹/l',
+  'x10^12/l': '×10¹²/l', 'x1012/l': '×10¹²/l', 'm/ul': '×10¹²/l', 'x10^6/ul': '×10¹²/l', '×10⁶/ul': '×10¹²/l',
+  'ml/min': 'ml/min/1.73m²', 'ml/min/1.73m2': 'ml/min/1.73m²',
+  'mcg/l': 'ug/l', 'mcg/dl': 'ug/dl', 'mcg/ml': 'ug/ml',
 }
 
+/** A unit in one spelling, so "µIU/mL", "uIU/ml" and "mIU/L" compare equal. */
 export function normalizeUnit(unit: string) {
-  const base = unit.trim().toLowerCase().replace(/\s+/g, '').replace(/μ/g, 'µ').replace(/cumm|mm3/g, 'ul')
+  const base = unit.trim().toLowerCase().replace(/\s+/g, '').replace(/[μµ]/g, 'u').replace(/cumm|mm3/g, 'ul')
   return UNIT_SYNONYMS[base] || base
 }
 
@@ -198,11 +211,13 @@ const CONVERSIONS: Record<string, Record<string, number>> = {
   uric_acid: { 'mg/dl': 16.81, 'µmol/l': 1000 },
   bilirubin_total: { 'mg/dl': 1 / 17.1 }, bilirubin_conj: { 'mg/dl': 1 / 17.1 },
   albumin: { 'g/dl': 0.1 }, total_protein: { 'g/dl': 0.1 },
-  cortisol_am: { 'µg/dl': 1 / 27.59 }, cortisol_pm: { 'µg/dl': 1 / 27.59 },
+  cortisol_am: { 'nmol/l': 27.59 }, cortisol_pm: { 'nmol/l': 27.59 },
   testosterone: { 'ng/dl': 28.84, 'ng/ml': 0.2884 },
   dhea_s: { 'µg/dl': 36.8 },
   free_t3: { 'pg/ml': 0.651 }, free_t4: { 'ng/dl': 0.0777 },
   b12: { 'pg/ml': 1.355 }, folate: { 'ng/ml': 0.441 },
+  estradiol: { 'pg/ml': 0.2724 }, progesterone: { 'ng/ml': 0.3145 },
+  globulin: { 'g/dl': 0.1 },
   hemoglobin: { 'g/l': 10 }, mchc: { 'g/l': 10 },
   hematocrit: { 'l/l': 0.01 },
   calcium: { 'mg/dl': 4.008 }, magnesium: { 'mg/dl': 2.43 }, phosphate: { 'mg/dl': 3.097 },
@@ -213,6 +228,12 @@ const CONVERSIONS: Record<string, Record<string, number>> = {
   fasting_insulin: { 'pmol/l': 6.945 },
   c_peptide: { 'ng/ml': 1 / 331 },
   tsh: { 'miu/l': 1 },
+}
+
+/** The factor from a marker's catalogue unit to `unit`, already normalised. */
+function conversion(markerId: string, unit: string) {
+  const match = Object.entries(CONVERSIONS[markerId] || {}).find(([key]) => normalizeUnit(key) === unit)
+  return match?.[1]
 }
 
 export type Sex = 'female' | 'male' | ''
@@ -232,10 +253,21 @@ export function defaultRanges(marker: Biomarker, unit: string, sex: Sex) {
   const { lab, fm } = rangesFor(marker, sex)
   const target = normalizeUnit(unit || marker.unit)
   if (!unit.trim() || target === normalizeUnit(marker.unit)) return { lab: formatRange(lab), fm: formatRange(fm), converted: false }
-  const factor = CONVERSIONS[marker.id]?.[target]
+  const factor = conversion(marker.id, target)
   if (!factor) return null
   const scale = (pair: Pair): Pair => [pair[0] === null ? null : round(pair[0] * factor), pair[1] === null ? null : round(pair[1] * factor)]
   return { lab: formatRange(scale(lab)), fm: formatRange(scale(fm)), converted: true }
+}
+
+/** A result in its marker's catalogue unit, converting where a factor is known. */
+export function canonicalValue(entry: { markerId: string | null; value: string; unit: string }): number | null {
+  const marker = markerById(entry.markerId)
+  const value = parseValue(entry.value)
+  if (!marker || value === null) return null
+  const unit = normalizeUnit(entry.unit || marker.unit)
+  if (unit === normalizeUnit(marker.unit)) return value
+  const factor = conversion(marker.id, unit)
+  return factor ? value / factor : null
 }
 
 function round(value: number) {
@@ -329,9 +361,14 @@ export type FmEntry = {
   labRange: string
   fmRange: string
   note: string
+  /** Worked out from other results rather than reported by the lab. */
+  calculated?: boolean
 }
 
 export type Priority = 'urgent' | 'high' | 'moderate' | 'low'
+
+/** A health improvement area's plan, as the clinician edited it. */
+export type AreaPlan = { nutrition: string[]; lifestyle: string[]; supplements: string[]; tests: string[] }
 
 export type FmNarrative = {
   summary: string
@@ -339,6 +376,8 @@ export type FmNarrative = {
   panels: Partial<Record<PanelId, { summary: string; understanding: { title: string; text: string }[]; actions: string[] }>>
   recommendations: { priority: Priority; title: string; items: string[] }[]
   nextSteps: { title: string; text: string; items: string[] }[]
+  /** Edits to the standard plan of a health improvement area, by area id. */
+  areaPlans?: Record<string, AreaPlan>
 }
 
 export type FmPatient = {
@@ -386,7 +425,8 @@ export function assessEntry(entry: FmEntry): AssessedEntry {
   const fm = fmStatus(numeric, fmRangeParsed)
   const marker = markerById(entry.markerId)
   let urgent = false
-  if (numeric !== null) {
+  // A calculated ratio is only as urgent as the results it comes from.
+  if (numeric !== null && !entry.calculated) {
     // Critical cut-offs are in the catalogue unit, so only apply them there.
     const sameUnit = marker && normalizeUnit(entry.unit || marker.unit) === normalizeUnit(marker.unit)
     if (marker?.critical && sameUnit) {
