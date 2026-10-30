@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
     if (resource === 'dashboard') {
       const today = new Date().toISOString().slice(0, 10)
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString()
-      const [appointments, encounters, patients, newPatients, recentlySeen, orders, results, notes, tasks] = await Promise.all([
+      const [appointments, encounters, patients, newPatients, recentlySeen, orders, results, notes, tasks, referrals] = await Promise.all([
         database.from('appointments').select('id,patient_id,first_name,last_name,preferred_date,preferred_time,status,consultation_type').eq('preferred_date', today).order('preferred_time'),
         database.from('emr_encounters').select('id,patient_id,status,started_at,completed_at,created_at,patient:emr_patients(id,mrn,first_name,last_name)').gte('created_at', `${today}T00:00:00`).lte('created_at', `${today}T23:59:59.999`),
         database.from('emr_patients').select('id,mrn,first_name,last_name,created_at,updated_at,status').order('updated_at', { ascending: false }).limit(8),
@@ -146,9 +146,12 @@ export async function GET(request: NextRequest) {
         database.from('emr_investigation_results').select('id,reviewed_at').is('reviewed_at', null),
         database.from('emr_clinical_notes').select('id,status').eq('status', 'draft'),
         database.from('emr_clinical_tasks').select('id,status,due_at').in('status', ['pending','in_progress']),
+        database.from('emr_referrals').select('id', { count: 'exact', head: true }).in('status', ['sent','accepted']).lt('expected_by', lagosDate()),
       ])
       const error = appointments.error || encounters.error || patients.error || newPatients.error || recentlySeen.error || results.error || notes.error || tasks.error
       if (orders.error) investigationLoadError(orders.error)
+      // Referrals arrive with migration 038; the dashboard does not depend on them.
+      if (referrals.error) console.error('EMR: referrals could not be counted:', referrals.error.message)
       if (error) throw error
       await writeEmrAudit(database, user, { action: 'view', entityType: 'emr_dashboard' })
       return NextResponse.json({
@@ -164,6 +167,7 @@ export async function GET(request: NextRequest) {
           incompleteNotes: notes.data?.length || 0,
           followUpsDue: (tasks.data || []).filter((item: any) => item.due_at && lagosDate(item.due_at) <= lagosDate()).length,
           pendingTasks: tasks.data?.length || 0,
+          overdueReferrals: referrals.count || 0,
         },
       })
     }
