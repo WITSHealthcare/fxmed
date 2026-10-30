@@ -23,6 +23,14 @@ const allowedTags = [
   'img',
   'span',
   'div',
+  'figure',
+  'figcaption',
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'th',
+  'td',
 ]
 
 export function sanitizeRichText(content: string = '') {
@@ -30,7 +38,7 @@ export function sanitizeRichText(content: string = '') {
     allowedTags,
     allowedAttributes: {
       a: ['href', 'name', 'target', 'rel'],
-      img: ['src', 'alt', 'title', 'width', 'height'],
+      img: ['src', 'alt', 'title', 'width', 'height', 'class'],
       span: ['class'],
       div: ['class'],
       p: ['class'],
@@ -40,6 +48,15 @@ export function sanitizeRichText(content: string = '') {
       h4: ['class'],
       h5: ['class'],
       h6: ['class'],
+      // Classes on these let blog posts use the .fx-* visual components in globals.css.
+      ul: ['class'],
+      ol: ['class'],
+      li: ['class'],
+      figure: ['class'],
+      figcaption: ['class'],
+      table: ['class'],
+      th: ['class', 'scope'],
+      td: ['class'],
     },
     allowedSchemes: ['http', 'https', 'mailto', 'tel'],
     allowedSchemesByTag: {

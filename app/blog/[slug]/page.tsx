@@ -142,6 +142,7 @@ const getCategoryColor = (category: string) => {
     'Functional Medicine': 'bg-green-500 text-white',
     'Mobile Health': 'bg-red-500 text-white',
     'Hormonal Health': 'bg-pink-500 text-white',
+    Autism: 'bg-indigo-500 text-white',
   }
 
   return colors[category] || 'bg-gray-500 text-white'

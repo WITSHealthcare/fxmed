@@ -58,3 +58,127 @@ h1, h2, h3 {
   font-weight: 700;
   letter-spacing: -0.02em;
 }
+
+/*
+ * Blog visual components. Post HTML is stored in Supabase, where Tailwind cannot
+ * see it, so these are plain CSS outside @layer and are never purged. Each block
+ * also carries `not-prose` so the typography plugin leaves it alone.
+ */
+.fx-block { margin: 2.25rem 0; font-family: 'DM Sans', sans-serif; }
+.fx-block-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #2d6a4f; margin: 0 0 0.9rem; }
+.fx-source { font-size: 0.72rem; color: #4a5e52; opacity: 0.75; margin-top: 0.75rem; }
+
+/* Stat cards */
+.fx-stats { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.fx-stat { background: #1a3d2e; color: #f8f3ea; border-radius: 18px; padding: 1.4rem 1.25rem; position: relative; overflow: hidden; }
+.fx-stat::after { content: ''; position: absolute; width: 110px; height: 110px; border-radius: 9999px; background: rgba(201, 226, 101, 0.12); top: -40px; right: -40px; }
+.fx-stat-value { font-size: 2.2rem; font-weight: 800; line-height: 1; color: #C9E265; margin-bottom: 0.5rem; }
+.fx-stat-label { font-size: 0.92rem; line-height: 1.45; color: rgba(248, 243, 234, 0.92); }
+.fx-stat-source { font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(248, 243, 234, 0.55); margin-top: 0.8rem; }
+
+/* Callouts */
+.fx-callout { border-radius: 16px; padding: 1.2rem 1.35rem; border-left: 5px solid #C9E265; background: rgba(201, 226, 101, 0.18); color: #1c2b22; line-height: 1.6; }
+.fx-callout-title { font-weight: 700; color: #1a3d2e; margin-bottom: 0.3rem; }
+.fx-callout-warn { border-left-color: #e8833a; background: #fff4ea; }
+.fx-callout-warn .fx-callout-title { color: #a14b0e; }
+.fx-callout-info { border-left-color: #52b788; background: rgba(82, 183, 136, 0.12); }
+
+/* Key takeaways */
+.fx-takeaways { background: #f8f3ea; border: 1px solid rgba(26, 61, 46, 0.1); border-radius: 18px; padding: 1.4rem 1.5rem; }
+.fx-takeaways ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.7rem; }
+.fx-takeaways li { position: relative; padding-left: 2rem; color: #1c2b22; line-height: 1.55; }
+.fx-takeaways li::before { content: '✓'; position: absolute; left: 0; top: 0.05rem; width: 1.35rem; height: 1.35rem; border-radius: 9999px; background: #C9E265; color: #1a3d2e; font-size: 0.75rem; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+
+/* Two-column comparison */
+.fx-compare { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.fx-compare-col { border-radius: 18px; padding: 1.3rem 1.35rem; border: 1px solid rgba(26, 61, 46, 0.1); background: #fff; }
+.fx-compare-title { font-weight: 700; font-size: 1.05rem; color: #1a3d2e; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.55rem; }
+.fx-compare-title::before { content: '●'; color: #52b788; font-size: 0.8rem; }
+.fx-compare-col ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.55rem; }
+.fx-compare-col li { position: relative; padding-left: 1.35rem; color: #4a5e52; line-height: 1.5; font-size: 0.95rem; }
+.fx-compare-col li::before { content: '→'; position: absolute; left: 0; color: #2d6a4f; font-weight: 700; }
+.fx-compare-good { background: rgba(82, 183, 136, 0.1); border-color: rgba(82, 183, 136, 0.35); }
+.fx-compare-good li::before { content: '✓'; color: #2d6a4f; }
+.fx-compare-caution { background: #fff4ea; border-color: #f3c9a3; }
+.fx-compare-caution .fx-compare-title::before { color: #e8833a; }
+.fx-compare-caution li::before { content: '✕'; color: #c0612a; }
+.fx-compare-dark { background: #1a3d2e; border-color: #1a3d2e; }
+.fx-compare-dark .fx-compare-title { color: #C9E265; }
+.fx-compare-dark li { color: rgba(248, 243, 234, 0.9); }
+.fx-compare-dark li::before { color: #C9E265; }
+
+/* Numbered step flow */
+.fx-steps { display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); counter-reset: fx-step; }
+.fx-step { counter-increment: fx-step; background: #fff; border: 1px solid rgba(26, 61, 46, 0.1); border-radius: 16px; padding: 1.1rem 1rem; position: relative; }
+.fx-step::before { content: counter(fx-step); display: flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem; border-radius: 9999px; background: #1a3d2e; color: #C9E265; font-weight: 800; margin-bottom: 0.7rem; }
+.fx-step-title { font-weight: 700; color: #1a3d2e; margin-bottom: 0.3rem; line-height: 1.3; }
+.fx-step-text { font-size: 0.86rem; color: #4a5e52; line-height: 1.5; }
+
+/* Vertical timeline */
+.fx-timeline { position: relative; padding-left: 1.75rem; }
+.fx-timeline::before { content: ''; position: absolute; left: 0.45rem; top: 0.4rem; bottom: 0.4rem; width: 3px; border-radius: 3px; background: linear-gradient(#C9E265, #52b788, #2d6a4f); }
+.fx-timeline-item { position: relative; padding-bottom: 1.3rem; }
+.fx-timeline-item:last-child { padding-bottom: 0; }
+.fx-timeline-item::before { content: ''; position: absolute; left: -1.75rem; top: 0.2rem; width: 1.2rem; height: 1.2rem; border-radius: 9999px; background: #fff; border: 4px solid #2d6a4f; }
+.fx-timeline-age { display: inline-block; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #1a3d2e; background: #C9E265; border-radius: 9999px; padding: 0.2rem 0.7rem; margin-bottom: 0.45rem; }
+.fx-timeline-body { color: #4a5e52; line-height: 1.55; }
+.fx-timeline-alert::before { border-color: #e8833a; }
+.fx-timeline-alert .fx-timeline-age { background: #e8833a; color: #fff; }
+
+/* Horizontal bar chart: width comes from an .fx-w-* class */
+.fx-bars { background: #fff; border: 1px solid rgba(26, 61, 46, 0.1); border-radius: 18px; padding: 1.3rem 1.35rem; display: grid; gap: 0.9rem; }
+.fx-bar-label { font-size: 0.9rem; font-weight: 600; color: #1c2b22; margin-bottom: 0.35rem; display: flex; justify-content: space-between; gap: 1rem; }
+.fx-bar-value { color: #2d6a4f; font-weight: 800; white-space: nowrap; }
+.fx-bar-track { height: 0.9rem; border-radius: 9999px; background: rgba(26, 61, 46, 0.08); overflow: hidden; }
+.fx-bar-fill { height: 100%; border-radius: 9999px; background: linear-gradient(90deg, #2d6a4f, #52b788); }
+.fx-bar-fill.fx-bar-accent { background: linear-gradient(90deg, #9fb83a, #C9E265); }
+.fx-bar-fill.fx-bar-muted { background: rgba(26, 61, 46, 0.25); }
+.fx-w-5 { width: 5%; } .fx-w-10 { width: 10%; } .fx-w-15 { width: 15%; } .fx-w-20 { width: 20%; }
+.fx-w-25 { width: 25%; } .fx-w-30 { width: 30%; } .fx-w-35 { width: 35%; } .fx-w-40 { width: 40%; }
+.fx-w-45 { width: 45%; } .fx-w-50 { width: 50%; } .fx-w-55 { width: 55%; } .fx-w-60 { width: 60%; }
+.fx-w-65 { width: 65%; } .fx-w-70 { width: 70%; } .fx-w-75 { width: 75%; } .fx-w-80 { width: 80%; }
+.fx-w-85 { width: 85%; } .fx-w-90 { width: 90%; } .fx-w-95 { width: 95%; } .fx-w-100 { width: 100%; }
+
+/* Chips */
+.fx-chips { display: flex; flex-wrap: wrap; gap: 0.55rem; }
+.fx-chip { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 9999px; padding: 0.45rem 0.95rem; background: #fff; border: 1px solid rgba(26, 61, 46, 0.15); color: #1a3d2e; font-size: 0.88rem; font-weight: 600; }
+.fx-chip-strong { background: #1a3d2e; border-color: #1a3d2e; color: #C9E265; }
+
+/* Evidence ratings: green / amber / red / dark */
+.fx-ratings { display: grid; gap: 0.8rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.fx-rating { border-radius: 16px; padding: 1.1rem 1.15rem; border-top: 6px solid; background: #fff; box-shadow: 0 4px 18px rgba(26, 61, 46, 0.07); }
+.fx-rating-label { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.35rem; }
+.fx-rating-title { font-weight: 700; color: #1c2b22; margin-bottom: 0.3rem; line-height: 1.3; }
+.fx-rating-text { font-size: 0.86rem; color: #4a5e52; line-height: 1.5; }
+.fx-rating-green { border-color: #52b788; } .fx-rating-green .fx-rating-label { color: #2d6a4f; }
+.fx-rating-amber { border-color: #e9b949; } .fx-rating-amber .fx-rating-label { color: #9a6a00; }
+.fx-rating-red { border-color: #e8833a; } .fx-rating-red .fx-rating-label { color: #b4531a; }
+.fx-rating-dark { border-color: #b42318; background: #fff1f0; } .fx-rating-dark .fx-rating-label { color: #b42318; }
+
+/* Figures (SVG diagrams) */
+.fx-figure { background: #fff; border: 1px solid rgba(26, 61, 46, 0.1); border-radius: 18px; padding: 1.25rem; text-align: center; }
+.fx-figure img { width: 100%; max-width: 640px; height: auto; margin: 0 auto; display: block; }
+.fx-figure figcaption { font-size: 0.85rem; color: #4a5e52; margin-top: 0.8rem; line-height: 1.5; }
+/* Diagrams ship a wide and a tall (phone) version; only one shows at a time */
+.fx-figure .fx-img-narrow { display: none; }
+@media (max-width: 640px) {
+  .fx-figure { padding: 0.75rem 0.5rem; }
+  .fx-figure .fx-img-wide { display: none; }
+  .fx-figure .fx-img-narrow { display: block; max-width: 420px; }
+}
+
+/* Tables */
+.fx-table-wrap { overflow-x: auto; border-radius: 18px; border: 1px solid rgba(26, 61, 46, 0.12); }
+.fx-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 560px; }
+.fx-table th { background: #1a3d2e; color: #C9E265; text-align: left; font-weight: 700; padding: 0.8rem 0.9rem; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.fx-table td { padding: 0.75rem 0.9rem; border-top: 1px solid rgba(26, 61, 46, 0.08); color: #4a5e52; vertical-align: top; line-height: 1.5; }
+.fx-table tr:nth-child(even) td { background: rgba(248, 243, 234, 0.6); }
+.fx-table td:first-child { font-weight: 700; color: #1a3d2e; white-space: nowrap; }
+
+/* Printing the autism development check summary shows only that section */
+@media print {
+  body.print-dev-check * { visibility: hidden; }
+  body.print-dev-check #development-check,
+  body.print-dev-check #development-check * { visibility: visible; }
+  body.print-dev-check #development-check { position: absolute; left: 0; top: 0; width: 100%; }
+}

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 470" font-family="'DM Sans', Arial, sans-serif">
+<polygon points="320.0,188.8 351.4,206.9 351.4,243.1 320.0,261.2 288.6,243.1 288.6,206.9" fill="none" stroke="#1a3d2e" stroke-opacity="0.15" stroke-width="1.5"/>
+<polygon points="320.0,152.5 382.8,188.8 382.8,261.2 320.0,297.5 257.2,261.2 257.2,188.8" fill="none" stroke="#1a3d2e" stroke-opacity="0.15" stroke-width="1.5"/>
+<polygon points="320.0,116.2 414.2,170.6 414.2,279.4 320.0,333.8 225.8,279.4 225.8,170.6" fill="none" stroke="#1a3d2e" stroke-opacity="0.15" stroke-width="1.5"/>
+<polygon points="320.0,80.0 445.6,152.5 445.6,297.5 320.0,370.0 194.4,297.5 194.4,152.5" fill="none" stroke="#1a3d2e" stroke-opacity="0.15" stroke-width="1.5"/>
+<line x1="320" y1="225" x2="320.0" y2="80.0" stroke="#1a3d2e" stroke-opacity="0.15"/>
+<text x="320.0" y="54.0" text-anchor="middle" font-size="14" font-weight="700" fill="#1a3d2e">Communication</text>
+<line x1="320" y1="225" x2="445.6" y2="152.5" stroke="#1a3d2e" stroke-opacity="0.15"/>
+<text x="464.6" y="146.5" text-anchor="start" font-size="14" font-weight="700" fill="#1a3d2e">Social interaction</text>
+<line x1="320" y1="225" x2="445.6" y2="297.5" stroke="#1a3d2e" stroke-opacity="0.15"/>
+<text x="464.6" y="313.5" text-anchor="start" font-size="14" font-weight="700" fill="#1a3d2e">Sensory</text>
+<line x1="320" y1="225" x2="320.0" y2="370.0" stroke="#1a3d2e" stroke-opacity="0.15"/>
+<text x="320.0" y="406.0" text-anchor="middle" font-size="14" font-weight="700" fill="#1a3d2e">Routine &amp; change</text>
+<line x1="320" y1="225" x2="194.4" y2="297.5" stroke="#1a3d2e" stroke-opacity="0.15"/>
+<text x="175.4" y="313.5" text-anchor="end" font-size="14" font-weight="700" fill="#1a3d2e">Focused interests</text>
+<line x1="320" y1="225" x2="194.4" y2="152.5" stroke="#1a3d2e" stroke-opacity="0.15"/>
+<text x="175.4" y="146.5" text-anchor="end" font-size="14" font-weight="700" fill="#1a3d2e">Movement &amp; coordination</text>
+<polygon points="320.0,101.8 395.3,181.5 357.7,246.8 320.0,290.2 207.0,290.2 294.9,210.5" fill="#52b788" fill-opacity="0.35" stroke="#2d6a4f" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="320.0" cy="101.8" r="4.5" fill="#2d6a4f"/>
+<circle cx="395.3" cy="181.5" r="4.5" fill="#2d6a4f"/>
+<circle cx="357.7" cy="246.8" r="4.5" fill="#2d6a4f"/>
+<circle cx="320.0" cy="290.2" r="4.5" fill="#2d6a4f"/>
+<circle cx="207.0" cy="290.2" r="4.5" fill="#2d6a4f"/>
+<circle cx="294.9" cy="210.5" r="4.5" fill="#2d6a4f"/>
+<polygon points="320.0,181.5 382.8,188.8 433.0,290.2 320.0,348.2 276.0,250.4 232.1,174.2" fill="#C9E265" fill-opacity="0.35" stroke="#8aa12a" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="320.0" cy="181.5" r="4.5" fill="#8aa12a"/>
+<circle cx="382.8" cy="188.8" r="4.5" fill="#8aa12a"/>
+<circle cx="433.0" cy="290.2" r="4.5" fill="#8aa12a"/>
+<circle cx="320.0" cy="348.2" r="4.5" fill="#8aa12a"/>
+<circle cx="276.0" cy="250.4" r="4.5" fill="#8aa12a"/>
+<circle cx="232.1" cy="174.2" r="4.5" fill="#8aa12a"/>
+<g font-size="14" fill="#4a5e52"><rect x="20" y="440" width="16" height="16" rx="4" fill="#52b788" fill-opacity="0.6" stroke="#2d6a4f" stroke-width="2"/><text x="44" y="453">Child A</text><rect x="120" y="440" width="16" height="16" rx="4" fill="#C9E265" fill-opacity="0.6" stroke="#8aa12a" stroke-width="2"/><text x="144" y="453">Child B</text><text x="620" y="453" text-anchor="end" font-size="12" opacity="0.8">Further from the centre = more support needed</text></g>
+</svg>

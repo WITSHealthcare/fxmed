@@ -41,6 +41,12 @@ const programs = [
     title: "Immune Support",
     description: "Frequent infections, autoimmune flares, or just chronically run-down? Our Immune Support program identifies and addresses the root causes of immune dysregulation.",
     link: "/programs/immune-support"
+  },
+  {
+    icon: <Image src="/Brain.svg" alt="" width={32} height={32} />,
+    title: "Autism Support",
+    description: "Tummy troubles, a very limited diet or restless nights? Our Autism Support program helps autistic children feel their best through gut health, nutrition and sleep support.",
+    link: "/programs/autism-support"
   }
 ]
 

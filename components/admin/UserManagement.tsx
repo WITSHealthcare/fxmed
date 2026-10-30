@@ -60,6 +60,7 @@ const tabLabels: Record<AdminTab, string> = {
   zara: 'Zara Conversations',
   contacts: 'Outreach Contacts',
   healthcare: 'Healthcare / EMR + Health Analysis',
+  fm_analysis: 'FM Lab Analysis',
 }
 
 const roleOptions: Array<{

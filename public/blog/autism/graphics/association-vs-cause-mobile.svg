@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 440" font-family="'DM Sans', Arial, sans-serif">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2d6a4f"/></marker></defs>
+<rect x="50" y="8" width="260" height="78" rx="16" fill="#1a3d2e"/><text x="180.0" y="40" text-anchor="middle" font-size="20" font-weight="800" fill="#C9E265">Shared factor</text><text x="180.0" y="64" text-anchor="middle" font-size="15" fill="#f8f3ea">e.g. genes or health</text>
+<path d="M120 86 L88 196" stroke="#2d6a4f" stroke-width="3.5" marker-end="url(#ar)"/>
+<path d="M240 86 L272 196" stroke="#2d6a4f" stroke-width="3.5" marker-end="url(#ar)"/>
+<text x="180" y="138" text-anchor="middle" font-size="15" font-weight="700" fill="#2d6a4f">makes both</text>
+<text x="180" y="157" text-anchor="middle" font-size="15" font-weight="700" fill="#2d6a4f">more likely</text>
+<rect x="4" y="202" width="170" height="100" rx="16" fill="#f8f3ea"/><text x="89.0" y="234" text-anchor="middle" font-size="20" font-weight="800" fill="#1a3d2e">Exposure</text><text x="89.0" y="258" text-anchor="middle" font-size="15" fill="#4a5e52">e.g. a medicine</text><text x="89.0" y="278" text-anchor="middle" font-size="15" fill="#4a5e52">in pregnancy</text>
+<rect x="186" y="202" width="170" height="100" rx="16" fill="#f8f3ea"/><text x="271.0" y="234" text-anchor="middle" font-size="20" font-weight="800" fill="#1a3d2e">Autism</text><text x="271.0" y="258" text-anchor="middle" font-size="15" fill="#4a5e52">more likely to</text><text x="271.0" y="278" text-anchor="middle" font-size="15" fill="#4a5e52">be diagnosed</text>
+<path d="M89 302 V330 H271 V302" fill="none" stroke="#e8833a" stroke-width="3.5" stroke-dasharray="8 7"/>
+<rect x="112" y="316" width="136" height="30" rx="15" fill="#fff4ea" stroke="#e8833a"/>
+<text x="180" y="337" text-anchor="middle" font-size="16" font-weight="800" fill="#b4531a">Looks linked</text>
+<text x="180" y="385" text-anchor="middle" font-size="16" fill="#4a5e52">They appear together, but the</text>
+<text x="180" y="407" text-anchor="middle" font-size="16" fill="#4a5e52">shared factor is driving both.</text>
+</svg>
