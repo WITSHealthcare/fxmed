@@ -72,7 +72,7 @@ function parseCsv(text: string, sex: Sex): FmEntry[] {
   })
 }
 
-export function ImportPanel({ sex, onImported }: { sex: Sex; onImported: (entries: FmEntry[], patient: Partial<FmPatient>, source: string) => void }) {
+export function ImportPanel({ sex, onImported, another = false }: { sex: Sex; onImported: (entries: FmEntry[], patient: Partial<FmPatient>, source: string) => void; another?: boolean }) {
   const [mode, setMode] = useState<'upload' | 'paste'>('upload')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -129,7 +129,7 @@ export function ImportPanel({ sex, onImported }: { sex: Sex; onImported: (entrie
 
   return <div className="rounded-[20px] border border-green-deep/10 bg-white p-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h4 className="font-bold text-green-deep">Import lab results</h4><p className="mt-1 text-xs text-text-mid">Read the results from the lab&apos;s report, then check them in the table below.</p></div>
+      <div><h4 className="font-bold text-green-deep">{another ? 'Import another lab report' : 'Import lab results'}</h4><p className="mt-1 text-xs text-text-mid">{another ? 'Only needed for results that are not in the table below yet.' : 'Read the results from the lab\u2019s report, then check them in the table below.'}</p></div>
       <div className="flex rounded-full bg-cream/60 p-1 text-xs font-bold">
         {(['upload', 'paste'] as const).map(item => <button key={item} type="button" onClick={() => setMode(item)} className={`rounded-full px-3 py-1.5 ${mode === item ? 'bg-green-deep text-white' : 'text-text-mid'}`}>{item === 'upload' ? 'Upload file' : 'Paste text'}</button>)}
       </div>

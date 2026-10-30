@@ -246,7 +246,7 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
 
     {step === 'results' && <div className="space-y-6">
       {emrPatientId && <RecordResults key={emrPatientId} patientId={emrPatientId} patientName={patient.name} sex={patient.sex} empty={entries.length === 0} onImported={imported} />}
-      <ImportPanel sex={patient.sex} onImported={imported} />
+      <ImportPanel sex={patient.sex} onImported={imported} another={entries.length > 0} />
       <ResultsTable entries={entries} sex={patient.sex} onChange={setEntries} />
       {summary.total > 0 && <div className="flex justify-end"><button type="button" className="primary" onClick={() => setStep('analysis')}><ChartBarIcon size={16} />See the analysis</button></div>}
     </div>}
