@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { BOOKING_TIMES, displayDate, displayTime, firstOpenDate, openTimes } from '@/lib/bookingTimes'
 
 interface MaternalBookingModalProps {
   isOpen: boolean
@@ -30,6 +31,9 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
   const [selectedPackage, setSelectedPackage] = useState(initialPackage)
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Open times depend on the time now; refreshed on each step.
+  const [now, setNow] = useState(() => Date.now())
+  const [scheduleError, setScheduleError] = useState('')
   const [bookingData, setBookingData] = useState<BookingData>({
     firstName: '',
     lastName: '',
@@ -48,22 +52,30 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
   const update = (field: keyof BookingData, value: string) =>
     setBookingData(prev => ({ ...prev, [field]: value }))
 
-  const getMinDate = () => {
-    const d = new Date()
-    d.setDate(d.getDate() + 1)
-    return d.toISOString().split('T')[0]
+  const times = bookingData.preferredDate ? openTimes('home-visit', bookingData.preferredDate, now) : BOOKING_TIMES['home-visit']
+  const earliestDate = firstOpenDate('home-visit', now)
+
+  const chooseDate = (preferredDate: string) => {
+    setScheduleError('')
+    setBookingData(prev => ({
+      ...prev,
+      preferredDate,
+      // Clear a time that is not open on the new date.
+      preferredTime: openTimes('home-visit', preferredDate, now).includes(prev.preferredTime) ? prev.preferredTime : '',
+    }))
   }
 
   const isStepValid = () => {
     switch (currentStep) {
       case 1: return !!(bookingData.firstName && bookingData.lastName && bookingData.email && bookingData.phone && bookingData.homeAddress)
-      case 2: return !!(bookingData.preferredDate && bookingData.preferredTime)
+      case 2: return !!(bookingData.preferredDate && bookingData.preferredTime && times.includes(bookingData.preferredTime))
       case 3: return true
       default: return true
     }
   }
 
   const handleNext = () => {
+    setNow(Date.now())
     if (currentStep < 4) setCurrentStep(currentStep + 1)
   }
 
@@ -94,7 +106,18 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
         }),
       })
 
-      if (!response.ok) throw new Error('Failed to save appointment')
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}))
+        // The time is no longer open, say after a long wait: pick another.
+        if (result.field === 'schedule' && result.error) {
+          setScheduleError(result.error)
+          setBookingData(prev => ({ ...prev, preferredTime: '' }))
+          setNow(Date.now())
+          setCurrentStep(2)
+          return
+        }
+        throw new Error(result.error || 'Failed to save appointment')
+      }
 
       window.open('https://paystack.shop/pay/pxog7uys-t', '_blank')
       onClose()
@@ -200,25 +223,25 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
               <h3 className="font-dm-sans font-semibold text-green-deep text-lg mb-2">Schedule Your Consultation</h3>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Date *</label>
-                <input type="date" value={bookingData.preferredDate} onChange={(e) => update('preferredDate', e.target.value)}
-                  min={getMinDate()} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent" />
-                <p className="text-xs text-gray-500 mt-1">Bookings must be made at least 24 hours in advance</p>
+                <input type="date" value={bookingData.preferredDate} onChange={(e) => chooseDate(e.target.value)}
+                  min={earliestDate} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent" />
+                <p className="text-xs text-gray-500 mt-1">Visits must be booked at least 24 hours ahead. Times are Lagos time (WAT).</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Time *</label>
-                <select value={bookingData.preferredTime} onChange={(e) => update('preferredTime', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent">
+                <select value={bookingData.preferredTime} onChange={(e) => { setScheduleError(''); update('preferredTime', e.target.value) }}
+                  disabled={!times.length}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent disabled:bg-gray-50">
                   <option value="">Select a time</option>
-                  <option value="09:00">9:00 AM</option>
-                  <option value="10:00">10:00 AM</option>
-                  <option value="11:00">11:00 AM</option>
-                  <option value="12:00">12:00 PM</option>
-                  <option value="14:00">2:00 PM</option>
-                  <option value="15:00">3:00 PM</option>
-                  <option value="16:00">4:00 PM</option>
-                  <option value="17:00">5:00 PM</option>
+                  {times.map(time => <option key={time} value={time}>{displayTime(time)}</option>)}
                 </select>
+                {bookingData.preferredDate && !times.length && (
+                  <p className="text-xs text-amber-700 mt-1">No visit times are left on this date. The earliest date you can book is {displayDate(earliestDate)}.</p>
+                )}
               </div>
+              {scheduleError && (
+                <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{scheduleError}</p>
+              )}
               <div className="bg-green-deep/10 border border-green-mid/20 rounded-lg p-4 space-y-1">
                 <p className="text-sm text-green-deep"><strong>Package:</strong> {pkg.name}</p>
                 <p className="text-sm text-green-deep"><strong>Price:</strong> {pkg.price} ({pkg.priceUSD})</p>
@@ -286,7 +309,7 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
                   </div>
                   <div className="flex justify-between mt-2">
                     <span className="text-gray-600">Time:</span>
-                    <span className="font-medium">{bookingData.preferredTime}</span>
+                    <span className="font-medium">{displayTime(bookingData.preferredTime)} (Lagos time)</span>
                   </div>
                 </div>
               </div>

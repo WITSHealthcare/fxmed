@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { BOOKING_TIMES, displayDate, displayTime, firstOpenDate, openTimes } from '@/lib/bookingTimes'
 
 interface BookingModalProps {
   isOpen: boolean
@@ -26,6 +27,9 @@ interface BookingData {
 export default function BookingModal({ isOpen, onClose, consultationType }: BookingModalProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Open times depend on the time now; refreshed on each step.
+  const [now, setNow] = useState(() => Date.now())
+  const [scheduleError, setScheduleError] = useState('')
   const [bookingData, setBookingData] = useState<BookingData>({
     firstName: '',
     lastName: '',
@@ -43,7 +47,10 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
 
   if (!isOpen) return null
 
+  const telemedicine = consultationType === 'telemedicine'
+
   const handleNext = () => {
+    setNow(Date.now())
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1)
     }
@@ -87,7 +94,16 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
       })
 
       if (!response.ok) {
-        throw new Error('Failed to save appointment')
+        const result = await response.json().catch(() => ({}))
+        // The time is no longer open, say after a long wait: pick another.
+        if (result.field === 'schedule' && result.error) {
+          setScheduleError(result.error)
+          setBookingData(prev => ({ ...prev, preferredTime: '' }))
+          setNow(Date.now())
+          setCurrentStep(2)
+          return
+        }
+        throw new Error(result.error || 'Failed to save appointment')
       }
 
       await response.json()
@@ -129,10 +145,17 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
     setBookingData(prev => ({ ...prev, [field]: value }))
   }
 
-  const getMinDate = () => {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    return tomorrow.toISOString().split('T')[0]
+  const times = bookingData.preferredDate ? openTimes(consultationType, bookingData.preferredDate, now) : BOOKING_TIMES[consultationType]
+  const earliestDate = firstOpenDate(consultationType, now)
+
+  const chooseDate = (preferredDate: string) => {
+    setScheduleError('')
+    setBookingData(prev => ({
+      ...prev,
+      preferredDate,
+      // Clear a time that is not open on the new date.
+      preferredTime: openTimes(consultationType, preferredDate, now).includes(prev.preferredTime) ? prev.preferredTime : '',
+    }))
   }
 
   const isStepValid = () => {
@@ -140,7 +163,7 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
       case 1:
         return bookingData.firstName && bookingData.lastName && bookingData.email && bookingData.phone && bookingData.dateOfBirth && bookingData.sex && bookingData.homeAddress && bookingData.consentConfirmed
       case 2:
-        return bookingData.preferredDate && bookingData.preferredTime
+        return bookingData.preferredDate && bookingData.preferredTime && times.includes(bookingData.preferredTime)
       case 3:
         return bookingData.symptoms
       default:
@@ -321,12 +344,14 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
                 <input
                   type="date"
                   value={bookingData.preferredDate}
-                  onChange={(e) => updateBookingData('preferredDate', e.target.value)}
-                  min={getMinDate()}
+                  onChange={(e) => chooseDate(e.target.value)}
+                  min={earliestDate}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Bookings must be made at least 24 hours in advance
+                  {telemedicine
+                    ? 'Calls run from 9am to 5pm every day, Lagos time (WAT), and must be booked at least 24 hours ahead.'
+                    : 'Visits must be booked at least 24 hours ahead. Times are Lagos time (WAT).'}
                 </p>
               </div>
               
@@ -336,20 +361,23 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
                 </label>
                 <select
                   value={bookingData.preferredTime}
-                  onChange={(e) => updateBookingData('preferredTime', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent"
+                  onChange={(e) => { setScheduleError(''); updateBookingData('preferredTime', e.target.value) }}
+                  disabled={!times.length}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent disabled:bg-gray-50"
                 >
                   <option value="">Select a time</option>
-                  <option value="09:00">9:00 AM</option>
-                  <option value="10:00">10:00 AM</option>
-                  <option value="11:00">11:00 AM</option>
-                  <option value="12:00">12:00 PM</option>
-                  <option value="14:00">2:00 PM</option>
-                  <option value="15:00">3:00 PM</option>
-                  <option value="16:00">4:00 PM</option>
-                  <option value="17:00">5:00 PM</option>
+                  {times.map(time => <option key={time} value={time}>{displayTime(time)}</option>)}
                 </select>
+                {bookingData.preferredDate && !times.length && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    No {telemedicine ? 'call' : 'visit'} times are left on this date. The earliest date you can book is {displayDate(earliestDate)}.
+                  </p>
+                )}
               </div>
+
+              {scheduleError && (
+                <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{scheduleError}</p>
+              )}
               
               <div className="bg-green-deep/10 border border-green-mid/20 rounded-lg p-4">
                 <p className="text-sm text-green-deep">
@@ -593,7 +621,7 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Time:</span>
-                  <span className="font-medium">{bookingData.preferredTime}</span>
+                  <span className="font-medium">{displayTime(bookingData.preferredTime)} (Lagos time)</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Type:</span>
