@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 import { writeRequestAdminActivity } from '@/lib/admin-activity'
 import { checkRateLimit, cleanPublicString, isEmail } from '@/lib/request-security'
+import { bookingProblem, clockTime, parseTime, type ConsultationType } from '@/lib/bookingTimes'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -106,6 +107,9 @@ export async function POST(request: NextRequest) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate) || Number.isNaN(Date.parse(`${preferredDate}T00:00:00Z`))) {
       return NextResponse.json({ error: 'A valid appointment date is required.' }, { status: 400 })
     }
+    const problem = bookingProblem(consultationType as ConsultationType, preferredDate, preferredTime)
+    if (problem) return NextResponse.json({ error: problem, field: 'schedule' }, { status: 400 })
+    const startMinutes = parseTime(preferredTime)
 
     const hasRegistrationDetails = Boolean(dateOfBirth || sex)
     if (hasRegistrationDetails && (!dateOfBirth || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth) || dateOfBirth > new Date().toISOString().slice(0, 10) || !sex || !['female','male','intersex','unknown'].includes(sex))) {
@@ -154,7 +158,7 @@ export async function POST(request: NextRequest) {
         home_address: cleanPublicString(body.homeAddress, 500),
         consultation_type: consultationType,
         preferred_date: preferredDate,
-        preferred_time: preferredTime,
+        preferred_time: startMinutes === null ? preferredTime : clockTime(startMinutes),
         symptoms: cleanPublicString(body.symptoms, 3000),
         status: 'pending',
         payment_status: 'pending',

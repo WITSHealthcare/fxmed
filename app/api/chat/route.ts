@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { sendZaraMessage, type ZaraMessage } from '@/lib/ai/zara-providers'
 import { getRequestAmbassador } from '@/lib/ambassador-portal'
 import { checkRateLimit } from '@/lib/request-security'
+import { bookingProblem, bookingRulesForZara, clockTime, parseTime, type ConsultationType } from '@/lib/bookingTimes'
 
 function getSupabase() {
   return createClient(
@@ -25,17 +26,21 @@ async function createChatAppointment(input: Record<string, string>) {
   const preferredDate = chatString(input.preferredDate, 10)
   const preferredTime = chatString(input.preferredTime, 80)
   if (!firstName || !lastName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !phone || !['telemedicine', 'home-visit'].includes(consultationType) || !/^\d{4}-\d{2}-\d{2}$/.test(preferredDate) || !preferredTime) {
-    return { appointment: null, success: false }
+    return { appointment: null, success: false, problem: null }
   }
+  // Zara is told the rules, but the booking is checked here too.
+  const problem = bookingProblem(consultationType as ConsultationType, preferredDate, preferredTime)
+  if (problem) return { appointment: null, success: false, problem }
+  const startMinutes = parseTime(preferredTime)
   const now = new Date().toISOString()
   const { data, error } = await getSupabase().from('appointments').insert({
     first_name: firstName, last_name: lastName, email, phone,
     home_address: chatString(input.homeAddress, 500) || null,
     consultation_type: consultationType, preferred_date: preferredDate,
-    preferred_time: preferredTime, symptoms: chatString(input.symptoms, 3000) || null,
+    preferred_time: startMinutes === null ? preferredTime : clockTime(startMinutes), symptoms: chatString(input.symptoms, 3000) || null,
     status: 'pending', payment_status: 'pending', created_at: now, updated_at: now,
   }).select().single()
-  return { appointment: data, success: !error }
+  return { appointment: data, success: !error, problem: null }
 }
 
 async function createChatEnquiry(input: Record<string, string>) {
@@ -122,7 +127,7 @@ When a user wants to book an appointment, collect the following information conv
 4. Phone number
 5. Home/office address (required for home visits, optional for telemedicine)
 6. Preferred date (ask for a specific date)
-7. Preferred time (ask for morning, afternoon, or a specific time)
+7. Preferred start time (a specific time, such as 10:00 AM)
 8. Symptoms or health concerns they'd like to discuss
 
 Once you have all required information, use the book_appointment tool to complete the booking.
@@ -179,7 +184,9 @@ export async function POST(request: NextRequest) {
     const safeSessionId = typeof sessionId === 'string' && /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(sessionId) ? sessionId : null
     const userMessage = messages[messages.length - 1].content
 
-    let systemPrompt = SYSTEM_PROMPT
+    // The booking rules depend on the time now, so they are added per request.
+    const publicPrompt = `${SYSTEM_PROMPT}\n\n${bookingRulesForZara()}`
+    let systemPrompt = publicPrompt
     if (context === 'ambassador') {
       const ambassador = await getRequestAmbassador(request, true)
       if (!ambassador) return NextResponse.json({ message: 'Please sign in to the Ambassador Portal to chat with Zara.' }, { status: 403 })
@@ -201,10 +208,13 @@ export async function POST(request: NextRequest) {
     if (result.bookingData) {
       const bookingResult = await createChatAppointment(result.bookingData)
       const bookingSuccess = bookingResult.success
+      const problem = bookingResult.problem
 
       const confirmationMsg = bookingSuccess
         ? 'Your appointment has been booked! You will receive a confirmation shortly.'
-        : "I wasn't able to complete the booking right now. Please contact us at fxmed@wellnesswits.com or call us directly."
+        : problem
+          ? `${problem} What date and time would suit you?`
+          : "I wasn't able to complete the booking right now. Please contact us at fxmed@wellnesswits.com or call us directly."
 
       // Get a confirmation message from the AI
       const confirmMessages: ZaraMessage[] = [
@@ -213,19 +223,23 @@ export async function POST(request: NextRequest) {
           role: 'assistant',
           content: bookingSuccess
             ? `I have successfully booked the appointment. Appointment ID: ${bookingResult.appointment?.id}`
-            : 'The booking attempt failed.',
+            : problem
+              ? `The booking was not made: ${problem}`
+              : 'The booking attempt failed.',
         },
         {
           role: 'user',
           content: bookingSuccess
             ? 'Please give me a warm confirmation of the booking.'
-            : 'Please apologise and tell me to contact FXMed directly.',
+            : problem
+              ? 'Please explain this kindly and ask me for a date and time that works.'
+              : 'Please apologise and tell me to contact FXMed directly.',
         },
       ]
 
       let replyText = confirmationMsg
       try {
-        const confirmResult = await sendZaraMessage(confirmMessages, SYSTEM_PROMPT)
+        const confirmResult = await sendZaraMessage(confirmMessages, publicPrompt)
         if (confirmResult.message) replyText = confirmResult.message
       } catch {
         // keep the default confirmationMsg
