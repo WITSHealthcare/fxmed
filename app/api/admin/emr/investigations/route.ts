@@ -20,6 +20,7 @@ const MAX_FILE_BYTES = 15 * 1024 * 1024
 const MAX_READ_BYTES = 15 * 1024 * 1024
 const MAX_PDF_BASE64_CHARS = 30 * 1024 * 1024
 const FILE_COLUMNS = 'id,investigation_form_id,title,original_name,mime_type,file_size,created_at'
+const INVESTIGATION_FILE_CATEGORIES = ['laboratory', 'imaging']
 
 function fail(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
@@ -129,16 +130,36 @@ export async function PATCH(request: NextRequest) {
   return fail('Unknown investigation action.')
 }
 
+const DELETE_PERMISSIONS = { order: 'order_investigations', report: 'record_results', file: 'upload_documents' } as const
+
 export async function DELETE(request: NextRequest) {
   const params = new URL(request.url).searchParams
   const kind = params.get('kind')
   const id = params.get('id')
-  if (!isUuid(id) || (kind !== 'order' && kind !== 'report')) return fail('A valid investigation record is required.')
-  const context = await getEmrContext(request, kind === 'order' ? 'order_investigations' : 'record_results')
+  if (!isUuid(id) || (kind !== 'order' && kind !== 'report' && kind !== 'file')) return fail('A valid investigation record is required.')
+  const context = await getEmrContext(request, DELETE_PERMISSIONS[kind])
   if (!context) return fail('Clinical access required.', 403)
   const { database, user } = context
 
   try {
+    // An uploaded lab report or investigation attachment. Only laboratory and
+    // imaging documents can be removed here; other documents are not shown
+    // under Investigations. Results already saved from the file are kept.
+    if (kind === 'file') {
+      const { data, error } = await database.from('emr_documents').delete()
+        .eq('id', id)
+        .in('category', INVESTIGATION_FILE_CATEGORIES)
+        .select('id,patient_id,storage_path,original_name,category,investigation_form_id')
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return fail('File not found.', 404)
+      // The record is gone, so a storage failure only leaves an unreachable file.
+      const { error: storageError } = await database.storage.from('emr-documents').remove([data.storage_path])
+      if (storageError) console.error('Removed lab report could not be deleted from storage:', storageError)
+      await writeEmrAudit(database, user, { action: 'delete_lab_report', entityType: 'emr_document', entityId: id, patientId: data.patient_id, metadata: { orderId: data.investigation_form_id, originalName: data.original_name, category: data.category } })
+      return NextResponse.json({ success: true })
+    }
+
     if (kind === 'order') {
       // Results and lab files stay on the patient record, no longer linked.
       const { data, error } = await database.from('investigation_forms').delete().eq('id', id).select('id,emr_patient_id,panel_title').maybeSingle()
