@@ -66,6 +66,18 @@ async function openLabReport(id: string) {
   window.open(result.url, '_blank', 'noopener,noreferrer')
 }
 
+/** Asks before removing an uploaded lab report or investigation attachment. */
+export function confirmRemoveFile(name: string) {
+  return window.confirm(`Remove "${name}" from the patient's record? The file will be deleted. Any results already saved from it are kept.`)
+}
+
+/** Deletes an uploaded lab report or investigation attachment, and its stored file. */
+export async function removeInvestigationFile(id: string) {
+  const response = await fetch(`${INVESTIGATIONS_API}?kind=file&id=${id}`, { method: 'DELETE' })
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(result.error || 'The file could not be removed.')
+}
+
 // Order and report actions shared by the patient record and the worklist.
 function useActions(onChanged: () => void) {
   const [error, setError] = useState('')
@@ -102,6 +114,9 @@ function useActions(onChanged: () => void) {
     deleteReport: (report: InvestigationReport) => {
       if (window.confirm('Delete these results and their FXMed PDF? Uploaded lab reports are kept, and the order goes back to waiting for results.')) run(() => send('DELETE', undefined, `?kind=report&id=${report.id}`))
     },
+    removeFile: (file: LabReportFile) => {
+      if (confirmRemoveFile(file.originalName)) run(() => removeInvestigationFile(file.id))
+    },
   }
 }
 
@@ -117,13 +132,16 @@ function SubTabs<T extends string>({ value, onChange, items }: { value: T; onCha
   </div>
 }
 
-function FileLinks({ files, onOpen }: { files: LabReportFile[]; onOpen: (id: string) => void }) {
+function FileLinks({ files, onOpen, onRemove, disabled }: { files: LabReportFile[]; onOpen: (id: string) => void; onRemove?: (file: LabReportFile) => void; disabled?: boolean }) {
   if (!files.length) return null
   return <div className="mt-3 flex flex-wrap gap-2">{files.map(file => {
     const Icon = file.mimeType?.startsWith('image/') ? ImageIcon : FileTextIcon
-    return <button key={file.id} type="button" onClick={() => onOpen(file.id)} title="Open the lab's report" className="inline-flex max-w-full items-center gap-2 rounded-full border border-green-deep/10 bg-white px-3 py-1.5 text-xs font-semibold text-green-deep hover:border-green-mid">
-      <Icon size={16} weight="duotone" className="shrink-0 text-green-mid" /><span className="truncate">{file.originalName}</span>{file.fileSize ? <span className="shrink-0 font-normal text-text-mid">{formatFileSize(file.fileSize)}</span> : null}
-    </button>
+    return <span key={file.id} className="inline-flex max-w-full items-center rounded-full border border-green-deep/10 bg-white text-xs font-semibold text-green-deep hover:border-green-mid">
+      <button type="button" onClick={() => onOpen(file.id)} title="Open the lab's report" className={`inline-flex min-w-0 items-center gap-2 py-1.5 pl-3 ${onRemove ? 'pr-1.5' : 'pr-3'}`}>
+        <Icon size={16} weight="duotone" className="shrink-0 text-green-mid" /><span className="truncate">{file.originalName}</span>{file.fileSize ? <span className="shrink-0 font-normal text-text-mid">{formatFileSize(file.fileSize)}</span> : null}
+      </button>
+      {onRemove && <button type="button" onClick={() => onRemove(file)} disabled={disabled} aria-label={`Remove ${file.originalName}`} title="Remove this file" className="mr-1 shrink-0 rounded-full p-1 text-text-mid hover:bg-red-50 hover:text-red-700 disabled:opacity-50"><XIcon size={14} weight="bold" /></button>}
+    </span>
   })}</div>
 }
 
@@ -175,7 +193,7 @@ function AwaitingOrderCard({ order, report, files, showPatient, onEnter, onUploa
     </div>
     <TestChips tests={order.tests} />
     {report && <p className="mt-3 text-xs font-semibold text-green-deep">{report.results.length} result{report.results.length === 1 ? '' : 's'} saved on {formatDay(report.updatedAt || report.createdAt)}. Waiting for the rest.</p>}
-    <FileLinks files={files} onOpen={actions.openFile} />
+    <FileLinks files={files} onOpen={actions.openFile} onRemove={actions.removeFile} />
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <button type="button" onClick={onEnter} disabled={!order.patientId} className="primary disabled:opacity-50"><PencilSimpleIcon size={18} weight="bold" />{report ? 'Add remaining results' : 'Enter results'}</button>
       <UploadButton onFiles={onUpload} disabled={!order.patientId} />
@@ -198,7 +216,7 @@ function ReportCard({ report, order, files, onView, onEdit, actions }: { report:
       <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${flagged.length ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{flagged.length ? `${flagged.length} flagged` : 'None flagged'}</span>
     </div>
     {flagged.length > 0 && <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Flagged results">{flagged.slice(0, 6).map((row, index) => <li key={`${row.test}-${index}`} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-red-700 ring-1 ring-red-200">{row.test}: {row.result}{row.unit ? ` ${row.unit}` : ''} ({row.flag})</li>)}{flagged.length > 6 && <li className="px-2 py-1 text-[11px] font-semibold text-text-mid">+{flagged.length - 6} more</li>}</ul>}
-    <FileLinks files={files} onOpen={actions.openFile} />
+    <FileLinks files={files} onOpen={actions.openFile} onRemove={actions.removeFile} />
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <button type="button" onClick={onView} className="primary"><EyeIcon size={18} weight="bold" />View results</button>
       <button type="button" onClick={() => actions.download('report', report.id)} className="secondary"><DownloadSimpleIcon size={18} weight="bold" />Download FXMed PDF</button>
@@ -523,6 +541,7 @@ function ResultsEntry({ entry, onClose, onSaved }: { entry: Entry; onClose: (cha
   const rowsRef = useRef(rows)
   const initial = useRef(JSON.stringify({ rows, meta }))
   const uploaded = useRef(false)
+  const removed = useRef(false)
   const started = useRef(false)
   const busy = phase !== 'idle'
 
@@ -596,6 +615,18 @@ function ResultsEntry({ entry, onClose, onSaved }: { entry: Entry; onClose: (cha
     await read(saved.map(file => file.id), warning)
   }
 
+  async function removeFile(file: LabReportFile) {
+    if (!confirmRemoveFile(file.originalName)) return
+    setError('')
+    try {
+      await removeInvestigationFile(file.id)
+      removed.current = true
+      setFiles(current => current.filter(item => item.id !== file.id))
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'The file could not be removed.')
+    }
+  }
+
   // Files chosen on an order card are uploaded as soon as the window opens.
   useEffect(() => {
     if (started.current || !entry.pendingUpload?.length) return
@@ -640,7 +671,7 @@ function ResultsEntry({ entry, onClose, onSaved }: { entry: Entry; onClose: (cha
     if (busy) return
     const edited = JSON.stringify({ rows, meta }) !== initial.current
     if (edited && !window.confirm(`Close without saving? The results you have entered will be lost${uploaded.current ? '. The uploaded lab report stays on the order' : ''}.`)) return
-    onClose(uploaded.current)
+    onClose(uploaded.current || removed.current)
   }
 
   const blank = rows.filter(row => row.test.trim() && !row.result.trim()).length
@@ -666,7 +697,7 @@ function ResultsEntry({ entry, onClose, onSaved }: { entry: Entry; onClose: (cha
               <UploadButton onFiles={uploadAndRead} disabled={busy} className="primary" label={files.length ? 'Upload more' : 'Upload lab report'} />
             </div>
           </div>
-          <FileLinks files={files} onOpen={id => openLabReport(id).catch(openError => setError(openError.message))} />
+          <FileLinks files={files} onOpen={id => openLabReport(id).catch(openError => setError(openError.message))} onRemove={removeFile} disabled={busy} />
           {notice && <p role="status" className="mt-3 flex items-start gap-2 text-sm font-semibold text-green-deep">{busy && <CircleNotchIcon size={18} className="mt-0.5 shrink-0 animate-spin" />}{notice}</p>}
           {missing.length > 0 && <p className="mt-2 text-xs leading-5 text-amber-800"><span className="font-bold">Not found in the report:</span> {listNames(missing)}. Add any that were reported elsewhere from the catalogue below.</p>}
         </section>

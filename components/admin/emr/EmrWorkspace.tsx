@@ -12,7 +12,7 @@ import FollowUps, { FollowUpDateInput, FollowUpList, NoteFollowUp } from '@/comp
 import { Alert, Empty, Field, Loading, Panel, Status, fullName, label } from '@/components/admin/emr/ui'
 import { daysUntilDue, followUpTypes } from '@/lib/follow-ups'
 import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysis'
-import { InvestigationWorklist, PatientInvestigations } from '@/components/admin/emr/Investigations'
+import { InvestigationWorklist, PatientInvestigations, confirmRemoveFile, removeInvestigationFile } from '@/components/admin/emr/Investigations'
 import PatientAssistant from '@/components/admin/emr/PatientAssistant'
 import { REPORT_ACCENT, REPORT_INK, REPORT_LEADING, printType, reportPrintCss } from '@/lib/reportTheme'
 
@@ -213,7 +213,7 @@ function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }:
     {tab === 'diagnoses' && <RecordList records={chart.diagnoses} kind="diagnosis" onUpdate={load} />}
     {tab === 'allergies' && <RecordList records={chart.allergies} kind="allergy" onUpdate={load} action={<button onClick={() => setModal('allergy')} className="primary"><WarningCircleIcon size={18} weight="duotone" />Add allergy</button>} />}
     {tab === 'medications' && <RecordList records={chart.medications} kind="medication" patient={patient} chart={chart} prescriptions={chart.prescriptions} onUpdate={load} action={<button onClick={() => setModal('medication')} className="primary"><PillIcon size={18} weight="duotone" />Create prescription</button>} />}
-    {tab === 'investigations' && <PatientInvestigations patient={patient} chart={chart} onChanged={load} attachments={<InvestigationAttachments chart={chart} onAdd={() => setModal('investigation_document')} />} />}
+    {tab === 'investigations' && <PatientInvestigations patient={patient} chart={chart} onChanged={load} attachments={<InvestigationAttachments chart={chart} onAdd={() => setModal('investigation_document')} onChanged={load} />} />}
     {tab === 'financial' && <FinancialRecords chart={chart} onUpdate={load} onAdd={() => setModal('financial_record')} />}
     {tab === 'documents' && <Panel title="Documents" subtitle={`${chart.documents.length} document${chart.documents.length === 1 ? '' : 's'}`} action={<button onClick={() => setModal('document')} className="primary"><FileArrowUpIcon size={18} weight="duotone" />Upload document</button>}><PatientDocuments chart={chart} onChanged={load} /></Panel>}
     {tab === 'care_plans' && <CarePlanList chart={chart} patient={patient} onUpdate={load} onCreate={() => setModal('care_plan')} />}
@@ -322,10 +322,22 @@ function RecordList({ records, kind, patient, chart, prescriptions = [], onUpdat
 const investigationCategories = ['laboratory', 'imaging']
 
 // Lab reports uploaded for an order are shown on that order instead.
-function InvestigationAttachments({ chart, onAdd }: { chart: Chart; onAdd: () => void }) {
+function InvestigationAttachments({ chart, onAdd, onChanged }: { chart: Chart; onAdd: () => void; onChanged: () => void }) {
+  const [error, setError] = useState('')
   const files = (chart.documents || []).filter((item: any) => investigationCategories.includes(item.category) && !item.investigation_form_id)
+  async function remove(item: any) {
+    if (!confirmRemoveFile(item.title)) return
+    setError('')
+    try {
+      await removeInvestigationFile(item.id)
+      onChanged()
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'The file could not be removed.')
+    }
+  }
   return <Panel title="Investigation attachments" subtitle={`${files.length} laboratory or imaging document${files.length === 1 ? '' : 's'}`} action={<button onClick={onAdd} className="primary"><FileArrowUpIcon size={18} weight="duotone" />Add attachment</button>}>
-    {files.length ? <Attachments files={files} showHeading={false} /> : <div className="mt-5"><Empty text="No laboratory or imaging documents uploaded." /></div>}
+    {error && <div className="mt-5"><Alert tone="error">{error}</Alert></div>}
+    {files.length ? <Attachments files={files} showHeading={false} onRemove={remove} /> : <div className="mt-5"><Empty text="No laboratory or imaging documents uploaded." /></div>}
   </Panel>
 }
 
@@ -341,7 +353,7 @@ function NoteAmendments({ amendments }: { amendments: any[] }) {
   </div>
 }
 
-function Attachments({ files, showHeading = true }: { files: any[]; showHeading?: boolean }) {
+function Attachments({ files, showHeading = true, onRemove }: { files: any[]; showHeading?: boolean; onRemove?: (item: any) => void }) {
   async function open(id: string) {
     const response = await fetch(`${api}?resource=document_url&id=${id}`)
     const result = await response.json()
@@ -350,10 +362,13 @@ function Attachments({ files, showHeading = true }: { files: any[]; showHeading?
   if (!files.length) return null
   return <div className={showHeading ? 'mt-3 border-t border-green-deep/10 pt-3' : 'mt-5'}>
     {showHeading && <p className="text-[10px] font-bold uppercase tracking-wide text-green-mid">{files.length} attachment{files.length === 1 ? '' : 's'}</p>}
-    <div className="mt-2 grid gap-2 sm:grid-cols-2">{files.map((item: any) => <button key={item.id} onClick={() => open(item.id)} className="flex items-center gap-3 rounded-[12px] border border-green-deep/10 bg-white p-3 text-left hover:border-green-mid">
-      <FileTextIcon size={20} weight="duotone" className="shrink-0 text-green-mid" />
-      <span className="min-w-0"><span className="block truncate text-sm font-bold">{item.title}</span><span className="block text-[11px] text-text-mid">{label(item.category)} · {formatBytes(item.file_size)}</span></span>
-    </button>)}</div>
+    <div className="mt-2 grid gap-2 sm:grid-cols-2">{files.map((item: any) => <div key={item.id} className="flex items-center rounded-[12px] border border-green-deep/10 bg-white hover:border-green-mid">
+      <button type="button" onClick={() => open(item.id)} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left">
+        <FileTextIcon size={20} weight="duotone" className="shrink-0 text-green-mid" />
+        <span className="min-w-0"><span className="block truncate text-sm font-bold">{item.title}</span><span className="block text-[11px] text-text-mid">{label(item.category)} · {formatBytes(item.file_size)}</span></span>
+      </button>
+      {onRemove && <button type="button" onClick={() => onRemove(item)} aria-label={`Remove ${item.title}`} title="Remove this file" className="mr-2 shrink-0 rounded-lg p-2 text-text-mid hover:bg-red-50 hover:text-red-700"><XIcon size={16} weight="bold" /></button>}
+    </div>)}</div>
   </div>
 }
 
