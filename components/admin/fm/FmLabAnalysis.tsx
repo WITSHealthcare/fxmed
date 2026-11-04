@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeftIcon, ChartBarIcon, FileTextIcon, FlaskIcon, FloppyDiskIcon, MagnifyingGlassIcon, PlusIcon, TrashIcon, UserIcon } from '@phosphor-icons/react'
 import { ageFromDateOfBirth } from '@/lib/age'
-import { defaultRanges, emptyNarrative, markerById, summarize, type FmEntry, type FmNarrative, type FmPatient, type Sex } from '@/lib/fmBiomarkers'
+import { defaultRanges, emptyNarrative, markerById, refreshRanges, summarize, type FmEntry, type FmNarrative, type FmPatient, type Sex } from '@/lib/fmBiomarkers'
 import AnalysisDashboard from './AnalysisDashboard'
 import RecordResults from './RecordResults'
 import ReportBuilder from './ReportBuilder'
@@ -146,6 +146,13 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
   const canAutosave = !!patient.name.trim() && (!!analysisId || entries.length > 0)
 
   const summary = useMemo(() => summarize(entries), [entries])
+  // Results saved before the ranges were last reviewed can be brought up to date.
+  const outdated = useMemo(() => refreshRanges(entries, patient.sex).changed, [entries, patient.sex])
+  function updateRanges() {
+    const result = refreshRanges(entries, patient.sex)
+    setEntries(result.entries)
+    setMessage({ tone: 'ok', text: `Updated the reference ranges of ${result.changed} result${result.changed === 1 ? '' : 's'} to the current clinical ranges.` })
+  }
   const setField = (field: keyof FmPatient, value: string) => setPatient(current => ({ ...current, [field]: value }))
 
   // A change of sex moves catalogue ranges that have not been edited by hand.
@@ -288,6 +295,11 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
     </section>
 
     {message && <p className={`rounded-[14px] border px-4 py-3 text-sm ${message.tone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>{message.text}</p>}
+
+    {outdated > 0 && <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <span>{outdated} result{outdated === 1 ? ' uses' : 's use'} reference ranges that have since been reviewed and updated. Update them before issuing the report.</span>
+      <button type="button" onClick={updateRanges} className="secondary">Update to current ranges</button>
+    </div>}
 
     <nav className="flex gap-2 overflow-x-auto rounded-[20px] border border-green-deep/10 bg-white p-2" aria-label="Analysis steps">
       {steps.map(item => <button key={item.id} type="button" onClick={() => setStep(item.id)} className={`flex shrink-0 items-center gap-2 rounded-[14px] px-4 py-3 text-sm font-bold transition ${step === item.id ? 'bg-green-deep text-white shadow-md' : 'text-text-mid hover:bg-green-deep/5 hover:text-green-deep'}`}><item.Icon size={20} weight={step === item.id ? 'fill' : 'duotone'} className={step === item.id ? 'text-gold' : 'text-green-mid'} />{item.label}</button>)}

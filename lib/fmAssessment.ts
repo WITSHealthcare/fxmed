@@ -455,15 +455,20 @@ export type AreaResult = {
 }
 
 /** Markers that are the same test reported another way, so one stands in for the other. */
-const SAME_TEST: Record<string, string> = { hba1c: 'hba1c_ifcc', hba1c_ifcc: 'hba1c' }
+const SAME_TEST: Record<string, string> = { hba1c: 'hba1c_ifcc', hba1c_ifcc: 'hba1c', urea: 'bun', bun: 'urea' }
 
-/** How strongly a result supports a rule: 1 outside the lab range, 0.8 outside optimal, 0.25 borderline. */
+/**
+ * How strongly a result supports a rule: 1 outside the lab's standard range,
+ * 0.6 outside optimal only, and nothing within optimal. One key marker
+ * outside optimal alone therefore reads as "possible" (about 50%), and it takes
+ * results outside the standard range, or several outside optimal, to reach
+ * "likely" or "highly likely".
+ */
 function strength(entry: AssessedEntry, dir: Rule['dir']): { value: number; direction: 'low' | 'high' } | null {
   const band = bandOf(entry)
-  const side = isLowBand(band) ? 'low' : isHighBand(band) ? 'high' : entry.fm === 'borderline' ? lean(entry) : null
+  const side = isLowBand(band) ? 'low' : isHighBand(band) ? 'high' : null
   if (!side || (dir !== 'any' && dir !== side)) return null
-  if (band === 'optimal') return { value: 0.25, direction: side }
-  if (band === 'below_optimal' || band === 'above_optimal') return { value: 0.8, direction: side }
+  if (band === 'below_optimal' || band === 'above_optimal') return { value: 0.6, direction: side }
   return { value: 1, direction: side }
 }
 
@@ -483,7 +488,7 @@ function scoreArea(area: Area, byMarker: Map<string, AssessedEntry>, sex: Sex): 
     considered.push(entry)
     const found = strength(entry, rule.dir)
     if (!found) continue
-    healthy *= 1 - 0.9 * found.value * (rule.weight / 3)
+    healthy *= 1 - 0.85 * found.value * (rule.weight / 3)
     contributors.push({ entry, direction: found.direction, weight: rule.weight })
   }
   if (!considered.length) return null
@@ -507,6 +512,9 @@ export function analyse(entries: FmEntry[], sex: Sex) {
   const summary = summarize(all)
   const byMarker = new Map<string, AssessedEntry>()
   for (const entry of summary.assessed) if (entry.markerId && entry.numeric !== null && !byMarker.has(entry.markerId)) byMarker.set(entry.markerId, entry)
+  // Labs report urea or BUN; either answers for the other in the assessment.
+  const bun = byMarker.get('bun')
+  if (bun && !byMarker.has('urea')) byMarker.set('urea', bun)
   const areas = AREAS.map(area => scoreArea(area, byMarker, sex)).filter((item): item is AreaResult => !!item)
   const group = (name: AreaGroup) => areas.filter(item => item.area.group === name).sort((a, b) => b.score - a.score)
   const bands = Object.fromEntries([...BANDS, 'unknown'].map(band => [band, 0])) as Record<Band, number>

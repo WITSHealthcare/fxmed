@@ -43,8 +43,14 @@ export type Biomarker = {
   aliases?: string[]
   female?: SexRanges
   male?: SexRanges
-  /** Values past these are urgent regardless of how far outside range they are. */
+  /** Action values, in the catalogue unit: a result past one needs prompt medical review. */
   critical?: { low?: number; high?: number }
+  /**
+   * The optimal range is the laboratory's own: for assays whose cut-offs
+   * differ between manufacturers (thyroid antibodies), where a fixed FM range
+   * would flag a result the lab calls negative.
+   */
+  fmFromLab?: boolean
   /** Also shown on these panels' pages, as in the template (e.g. B12, hs-CRP). */
   alsoIn?: PanelId[]
 }
@@ -55,67 +61,68 @@ const m = (id: string, name: string, panel: PanelId, unit: string, lab: Pair, fm
 export const FM_BIOMARKERS: Biomarker[] = [
   // Cardio-metabolic
   m('total_cholesterol', 'Total Cholesterol', 'cardio', 'mmol/L', [3, 5.2], [3.6, 5.2], { aliases: ['cholesterol', 'chol', 'tc'] }),
-  m('ldl', 'LDL Cholesterol', 'cardio', 'mmol/L', [0, 3.37], [0, 2.59], { aliases: ['ldl', 'ldl-c', 'low density lipoprotein'] }),
-  m('hdl', 'HDL Cholesterol', 'cardio', 'mmol/L', [1, 1.5], [1.55, 3], { aliases: ['hdl', 'hdl-c', 'high density lipoprotein'] }),
-  m('triglycerides', 'Triglycerides', 'cardio', 'mmol/L', [0, 1.7], [0, 0.9], { aliases: ['tg', 'trigs', 'triglyceride'] }),
-  m('lpa', 'Lipoprotein (a)', 'cardio', 'mg/dL', [0, 30], [0, 30], { aliases: ['lp(a)', 'lpa', 'lipoprotein a'], critical: { high: 50 } }),
+  m('ldl', 'LDL Cholesterol', 'cardio', 'mmol/L', [0, 3.4], [0, 2.6], { aliases: ['ldl', 'ldl-c', 'low density lipoprotein'], critical: { high: 4.9 } }),
+  m('hdl', 'HDL Cholesterol', 'cardio', 'mmol/L', [1, null], [1.2, 2.3], { aliases: ['hdl', 'hdl-c', 'high density lipoprotein'], female: { lab: [1.2, null], fm: [1.3, 2.5] } }),
+  m('triglycerides', 'Triglycerides', 'cardio', 'mmol/L', [0, 1.7], [0.5, 1.1], { aliases: ['tg', 'trigs', 'triglyceride'], critical: { high: 5.6 } }),
+  m('lpa', 'Lipoprotein (a)', 'cardio', 'mg/dL', [0, 30], [0, 30], { aliases: ['lp(a)', 'lpa', 'lipoprotein a'] }),
   m('apoa1', 'Apolipoprotein A1', 'cardio', 'g/L', [1.2, 2.4], [1.4, 2.2], { aliases: ['apo a1', 'apoa1', 'apo a-1'] }),
-  m('apob', 'Apolipoprotein B', 'cardio', 'g/L', [0.6, 1.1], [0.5, 0.9], { aliases: ['apo b', 'apob'] }),
-  m('non_hdl', 'Non-HDL Cholesterol', 'cardio', 'mmol/L', [0, 4.2], [0, 3.4], { aliases: ['non hdl', 'non-hdl-c'] }),
+  m('apob', 'Apolipoprotein B', 'cardio', 'g/L', [0, 1.2], [0, 0.9], { aliases: ['apo b', 'apob'] }),
+  m('non_hdl', 'Non-HDL Cholesterol', 'cardio', 'mmol/L', [0, 4.1], [0, 3.4], { aliases: ['non hdl', 'non-hdl-c'] }),
   m('chol_hdl_ratio', 'Chol./HDL Ratio', 'cardio', 'ratio', [0, 5], [0, 4], { aliases: ['cholesterol/hdl ratio', 'tc/hdl', 'chol/hdl'] }),
   m('tg_hdl_ratio', 'Triglyceride/HDL Ratio', 'cardio', 'ratio', [0, 1.7], [0, 0.9], { aliases: ['tg/hdl', 'triglyceride/hdl ratio', 'tg:hdl'] }),
   // Glucose
-  m('fasting_glucose', 'Fasting Glucose', 'glucose', 'mmol/L', [3.9, 6], [4.4, 5.5], { aliases: ['glucose', 'fbs', 'fbg', 'fasting blood sugar', 'fasting blood glucose', 'fasting plasma glucose'], critical: { low: 3, high: 11 } }),
+  m('fasting_glucose', 'Fasting Glucose', 'glucose', 'mmol/L', [3.9, 6], [4.4, 5.5], { aliases: ['glucose', 'fbs', 'fbg', 'fasting blood sugar', 'fasting blood glucose', 'fasting plasma glucose'], critical: { low: 3, high: 11.1 } }),
   m('hba1c', 'HbA1c', 'glucose', '%', [4, 5.6], [4, 5.4], { aliases: ['hba1c (ngsp)', 'glycated haemoglobin', 'glycated hemoglobin', 'a1c'], critical: { high: 9 } }),
   m('hba1c_ifcc', 'HbA1c (IFCC)', 'glucose', 'mmol/mol', [20, 38], [20, 36], { aliases: ['hba1c ifcc'] }),
   m('fasting_insulin', 'Fasting Insulin', 'glucose', 'µIU/mL', [2.6, 24.9], [2.6, 8], { aliases: ['insulin', 'insulin fasting'] }),
   m('c_peptide', 'C-Peptide', 'glucose', 'pmol/L', [298, 1324], [298, 900], { aliases: ['c peptide'] }),
-  m('homa_ir', 'HOMA-IR', 'glucose', 'index', [0.5, 1.4], [0.5, 1], { aliases: ['homa ir', 'homa'] }),
-  m('glucose_insulin_ratio', 'Glucose/Insulin Ratio', 'glucose', 'ratio', [0.5, 2], [0.8, 2], { aliases: ['glucose/insulin'] }),
+  m('homa_ir', 'HOMA-IR', 'glucose', 'index', [0, 2.5], [0, 1.5], { aliases: ['homa ir', 'homa'] }),
+  m('glucose_insulin_ratio', 'Glucose/Insulin Ratio', 'glucose', 'ratio', [4.5, null], [4.5, null], { aliases: ['glucose/insulin'] }),
   m('quicki', 'QUICKI Index', 'glucose', 'index', [0.33, 0.45], [0.35, 0.45], { aliases: ['quicki'] }),
   // Thyroid
-  m('tsh', 'TSH', 'thyroid', 'µIU/mL', [0.4, 4], [1, 2.5], { aliases: ['thyroid stimulating hormone', 'thyrotropin'], critical: { high: 10 } }),
-  m('free_t3', 'Free T3', 'thyroid', 'pmol/L', [3.5, 6.5], [5, 6.5], { aliases: ['ft3', 'free triiodothyronine'] }),
-  m('free_t4', 'Free T4', 'thyroid', 'pmol/L', [10, 23], [15, 23], { aliases: ['ft4', 'free thyroxine'] }),
+  m('tsh', 'TSH', 'thyroid', 'µIU/mL', [0.4, 4], [1, 2.5], { aliases: ['thyroid stimulating hormone', 'thyrotropin'], critical: { low: 0.1, high: 10 } }),
+  m('free_t3', 'Free T3', 'thyroid', 'pmol/L', [3.5, 6.5], [4.6, 6.2], { aliases: ['ft3', 'free triiodothyronine'] }),
+  m('free_t4', 'Free T4', 'thyroid', 'pmol/L', [10, 23], [13, 20], { aliases: ['ft4', 'free thyroxine'] }),
   m('reverse_t3', 'Reverse T3', 'thyroid', 'ng/mL', [0.09, 0.35], [0.09, 0.2], { aliases: ['rt3', 'reverse triiodothyronine'] }),
-  m('anti_tpo', 'Anti-TPO Ab', 'thyroid', 'IU/mL', [0, 35], [0, 2], { aliases: ['tpo', 'tpo antibodies', 'anti-thyroid peroxidase', 'thyroid peroxidase antibodies', 'thyroid peroxidase antibody'] }),
-  m('anti_tg', 'Anti-TG Ab', 'thyroid', 'IU/mL', [0, 40], [0, 2], { aliases: ['tg antibodies', 'anti-thyroglobulin', 'thyroglobulin antibodies', 'thyroglobulin antibody'] }),
+  m('anti_tpo', 'Anti-TPO Ab', 'thyroid', 'IU/mL', [0, 34], [0, 34], { aliases: ['tpo', 'tpo antibodies', 'anti-thyroid peroxidase', 'thyroid peroxidase antibodies', 'thyroid peroxidase antibody'], fmFromLab: true }),
+  m('anti_tg', 'Anti-TG Ab', 'thyroid', 'IU/mL', [0, 40], [0, 40], { aliases: ['tg antibodies', 'anti-thyroglobulin', 'thyroglobulin antibodies', 'thyroglobulin antibody'], fmFromLab: true }),
   // Adrenal & hormones
-  m('dhea_s', 'DHEA-S', 'adrenal', 'µmol/L', [2.68, 9.23], [5, 9.23], { aliases: ['dheas', 'dhea sulphate', 'dhea sulfate'] }),
+  m('dhea_s', 'DHEA-S', 'adrenal', 'µmol/L', [2.68, 9.23], [3.5, 9.2], { aliases: ['dheas', 'dhea sulphate', 'dhea sulfate'], male: { lab: [4.3, 12.2], fm: [6, 12] } }),
   m('cortisol_am', 'Cortisol AM', 'adrenal', 'µg/dL', [6.2, 19.4], [10, 15], { aliases: ['cortisol', 'morning cortisol', 'cortisol (am)', 'cortisol 8am'], critical: { low: 3 } }),
   m('cortisol_pm', 'Cortisol PM', 'adrenal', 'µg/dL', [2.3, 11.9], [3, 8], { aliases: ['evening cortisol', 'cortisol (pm)'] }),
-  m('testosterone', 'Testosterone', 'adrenal', 'nmol/L', [0.5, 2.6], [1, 2], { aliases: ['total testosterone'], male: { lab: [8.6, 29], fm: [17, 28] } }),
+  m('testosterone', 'Testosterone', 'adrenal', 'nmol/L', [0.5, 2.6], [0.7, 2], { aliases: ['total testosterone'], male: { lab: [8.6, 29], fm: [15, 28] } }),
   m('shbg', 'SHBG', 'adrenal', 'nmol/L', [18, 114], [18, 80], { aliases: ['sex hormone binding globulin'], male: { lab: [18, 54], fm: [20, 50] } }),
   m('free_testosterone', 'Free Testosterone', 'adrenal', 'pmol/L', [0, 26], [5, 18], { male: { lab: [174, 729], fm: [350, 700] } }),
   m('free_testosterone_index', 'Free Testosterone Index', 'adrenal', 'ratio', [0.5, 5], [1, 3.5], { aliases: ['fai', 'free androgen index'], male: { lab: [35, 92], fm: [50, 90] } }),
-  m('estradiol', 'Estradiol (E2)', 'adrenal', 'pmol/L', [45, 1460], [180, 1000], { aliases: ['oestradiol', 'e2', 'estradiol'], male: { lab: [40, 160], fm: [70, 150] } }),
-  m('progesterone', 'Progesterone', 'adrenal', 'nmol/L', [0.2, 90], [0.6, 90], { aliases: ['serum progesterone'], male: { lab: [0.2, 1.3], fm: [0.3, 1.3] } }),
+  m('estradiol', 'Estradiol (E2)', 'adrenal', 'pmol/L', [45, 1460], [45, 1460], { aliases: ['oestradiol', 'e2', 'estradiol'], male: { lab: [40, 160], fm: [70, 150] } }),
+  m('progesterone', 'Progesterone', 'adrenal', 'nmol/L', [0.2, 90], [0.2, 90], { aliases: ['serum progesterone'], male: { lab: [0.2, 1.3], fm: [0.3, 1.3] } }),
   // Kidney
-  m('creatinine', 'Creatinine', 'kidney', 'µmol/L', [44, 80], [50, 85], { aliases: ['serum creatinine', 'creat'], male: { lab: [62, 106], fm: [65, 100] } }),
-  m('egfr', 'eGFR', 'kidney', 'mL/min/1.73 m²', [90, 120], [90, 120], { aliases: ['gfr', 'estimated gfr'], critical: { low: 60 } }),
-  m('urea', 'Urea', 'kidney', 'mmol/L', [2.5, 7.8], [3, 6.5], { aliases: ['bun', 'blood urea'] }),
-  m('uric_acid', 'Uric Acid', 'kidney', 'mmol/L', [0.15, 0.36], [0.18, 0.3], { aliases: ['urate'], male: { lab: [0.2, 0.43], fm: [0.21, 0.33] } }),
+  m('creatinine', 'Creatinine', 'kidney', 'µmol/L', [44, 80], [50, 80], { aliases: ['serum creatinine', 'creat'], male: { lab: [62, 106], fm: [65, 100] } }),
+  m('egfr', 'eGFR', 'kidney', 'mL/min/1.73 m²', [60, null], [90, null], { aliases: ['gfr', 'estimated gfr'], critical: { low: 30 } }),
+  m('urea', 'Urea', 'kidney', 'mmol/L', [2.5, 7.8], [3, 6.5], { aliases: ['blood urea', 'serum urea'] }),
+  m('bun', 'BUN', 'kidney', 'mg/dL', [7, 20], [10, 16], { aliases: ['bun', 'blood urea nitrogen', 'urea nitrogen'] }),
+  m('uric_acid', 'Uric Acid', 'kidney', 'mmol/L', [0.15, 0.36], [0.18, 0.3], { aliases: ['urate'], male: { lab: [0.2, 0.43], fm: [0.21, 0.33] }, critical: { high: 0.6 } }),
   m('protein_creatinine', 'Protein/Creatinine Ratio', 'kidney', 'g/g', [0, 0.2], [0, 0.15], { aliases: ['protein/creatinine', 'upcr', 'urine protein creatinine ratio'] }),
   m('amylase', 'Amylase', 'kidney', 'IU/L', [30, 110], [30, 100], { aliases: ['serum amylase'] }),
   m('u_creatinine', 'U-Creatinine', 'kidney', 'g/L', [0.15, 1.5], [0.3, 1.2], { aliases: ['urine creatinine'] }),
   m('u_protein', 'U-Protein', 'kidney', 'g/L', [0, 0.15], [0, 0.08], { aliases: ['urine protein'] }),
   // Liver
-  m('alt', 'ALT (SGPT)', 'liver', 'IU/L', [7, 55], [7, 35], { aliases: ['alt', 'sgpt', 'alanine aminotransferase'] }),
-  m('ast', 'AST (SGOT)', 'liver', 'IU/L', [10, 40], [10, 26], { aliases: ['ast', 'sgot', 'aspartate aminotransferase'] }),
-  m('ggt', 'GGT', 'liver', 'IU/L', [5, 55], [5, 30], { aliases: ['gamma gt', 'gamma-glutamyl transferase'] }),
-  m('alp', 'Alk. Phosphatase', 'liver', 'IU/L', [30, 120], [30, 90], { aliases: ['alp', 'alkaline phosphatase'] }),
-  m('bilirubin_total', 'Bilirubin (Total)', 'liver', 'µmol/L', [5, 21], [5, 17], { aliases: ['total bilirubin', 't. bilirubin', 'tbil'] }),
+  m('alt', 'ALT (SGPT)', 'liver', 'IU/L', [7, 55], [7, 35], { aliases: ['alt', 'sgpt', 'alanine aminotransferase'], critical: { high: 200 } }),
+  m('ast', 'AST (SGOT)', 'liver', 'IU/L', [10, 40], [10, 26], { aliases: ['ast', 'sgot', 'aspartate aminotransferase'], critical: { high: 200 } }),
+  m('ggt', 'GGT', 'liver', 'IU/L', [0, 55], [0, 30], { aliases: ['gamma gt', 'gamma-glutamyl transferase'], female: { lab: [0, 38] } }),
+  m('alp', 'Alk. Phosphatase', 'liver', 'IU/L', [30, 120], [40, 100], { aliases: ['alp', 'alkaline phosphatase'] }),
+  m('bilirubin_total', 'Bilirubin (Total)', 'liver', 'µmol/L', [3, 21], [5, 17], { aliases: ['total bilirubin', 't. bilirubin', 'tbil'], critical: { high: 50 } }),
   m('bilirubin_conj', 'Bilirubin (Conj.)', 'liver', 'µmol/L', [0, 5], [0, 4], { aliases: ['direct bilirubin', 'conjugated bilirubin', 'd. bilirubin', 'dbil'] }),
-  m('albumin', 'Albumin', 'liver', 'g/L', [35, 50], [40, 50], { aliases: ['serum albumin', 'alb'] }),
+  m('albumin', 'Albumin', 'liver', 'g/L', [35, 50], [40, 50], { aliases: ['serum albumin', 'alb'], critical: { low: 25 } }),
   m('total_protein', 'Total Protein', 'liver', 'g/L', [60, 80], [65, 80], { aliases: ['serum protein', 'tp'] }),
   m('globulin', 'Globulin', 'liver', 'g/L', [20, 35], [24, 30], { aliases: ['total globulin', 'serum globulin'] }),
-  m('ast_alt_ratio', 'AST/ALT Ratio', 'liver', 'ratio', [0.4, 1.5], [0.6, 1.2], { aliases: ['ast/alt', 'de ritis ratio', 'ast:alt'] }),
+  m('ast_alt_ratio', 'AST/ALT Ratio', 'liver', 'ratio', [0, 2], [0.6, 1.2], { aliases: ['ast/alt', 'de ritis ratio', 'ast:alt'] }),
   m('ldh', 'LDH', 'liver', 'IU/L', [120, 246], [140, 200], { aliases: ['lactate dehydrogenase', 'ld'] }),
   m('a1at', 'Alpha-1 Antitrypsin', 'liver', 'mg/dL', [90, 200], [100, 180], { aliases: ['a1at', 'alpha 1 antitrypsin'] }),
   // Methylation
-  m('b12', 'Vitamin B12', 'methylation', 'pmol/L', [133, 675], [400, 675], { aliases: ['b12', 'cobalamin', 'cyanocobalamin'], alsoIn: ['vitamins'] }),
-  m('folate', 'Folate (Serum)', 'methylation', 'nmol/L', [7, 46], [20, 46], { aliases: ['folate', 'folic acid', 'serum folate'] }),
-  m('homocysteine', 'Homocysteine', 'methylation', 'µmol/L', [0, 15.4], [0, 9], { aliases: ['hcy', 'plasma homocysteine'], alsoIn: ['inflammation'] }),
+  m('b12', 'Vitamin B12', 'methylation', 'pmol/L', [133, 675], [370, 1000], { aliases: ['b12', 'cobalamin', 'cyanocobalamin'], alsoIn: ['vitamins'], critical: { low: 110 } }),
+  m('folate', 'Folate (Serum)', 'methylation', 'nmol/L', [7, 46], [15, null], { aliases: ['folate', 'folic acid', 'serum folate'] }),
+  m('homocysteine', 'Homocysteine', 'methylation', 'µmol/L', [0, 15], [0, 10], { aliases: ['hcy', 'plasma homocysteine'], alsoIn: ['inflammation'], critical: { high: 30 } }),
   // Hematology
   m('rbc', 'RBC Count', 'hematology', '×10¹²/L', [3.8, 5.8], [4, 5], { aliases: ['rbc', 'red blood cell count', 'red cell count', 'erythrocytes'], male: { lab: [4.5, 5.9], fm: [4.4, 5.4] } }),
   m('hemoglobin', 'Hemoglobin', 'hematology', 'g/dL', [11.5, 16.5], [12, 14.5], { aliases: ['haemoglobin', 'hb', 'hgb'], male: { lab: [13, 17.5], fm: [14, 16] }, critical: { low: 8 } }),
@@ -123,38 +130,38 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('mcv', 'MCV', 'hematology', 'fL', [76, 99], [82, 92], { aliases: ['mean corpuscular volume', 'mean cell volume'] }),
   m('mch', 'MCH', 'hematology', 'pg', [26, 34], [27, 32], { aliases: ['mean corpuscular haemoglobin', 'mean corpuscular hemoglobin'] }),
   m('mchc', 'MCHC', 'hematology', 'g/dL', [30, 37], [32, 36], { aliases: ['mean corpuscular haemoglobin concentration', 'mean corpuscular hemoglobin concentration'] }),
-  m('rdw', 'RDW', 'hematology', '%', [11.5, 14.5], [11.5, 13], { aliases: ['red cell distribution width', 'rdw-cv'] }),
+  m('rdw', 'RDW', 'hematology', '%', [10, 14.5], [10.5, 13.5], { aliases: ['red cell distribution width', 'rdw-cv'] }),
   m('platelets', 'Platelets', 'hematology', '×10⁹/L', [150, 450], [175, 350], { aliases: ['platelet count', 'plt'], critical: { low: 50, high: 1000 } }),
-  m('wbc', 'WBC Count', 'hematology', '×10⁹/L', [4, 11], [4.5, 7.5], { aliases: ['wbc', 'white blood cell count', 'white cell count', 'leucocytes', 'leukocytes', 'total wbc'], critical: { low: 2, high: 25 } }),
-  m('neutrophils', 'Neutrophils', 'hematology', '×10⁹/L', [1.5, 7.5], [1.9, 4.2], { aliases: ['neutrophil count', 'absolute neutrophils', 'neutrophils absolute', 'neut', 'anc'], critical: { low: 0.5 } }),
+  m('wbc', 'WBC Count', 'hematology', '×10⁹/L', [3, 10.5], [3.5, 7.5], { aliases: ['wbc', 'white blood cell count', 'white cell count', 'leucocytes', 'leukocytes', 'total wbc'], critical: { low: 2, high: 25 } }),
+  m('neutrophils', 'Neutrophils', 'hematology', '×10⁹/L', [1, 7], [1.4, 4.5], { aliases: ['neutrophil count', 'absolute neutrophils', 'neutrophils absolute', 'neut', 'anc'], critical: { low: 0.5 } }),
   m('lymphocytes', 'Lymphocytes', 'hematology', '×10⁹/L', [1, 4], [1.5, 3.1], { aliases: ['lymphocyte count', 'absolute lymphocytes', 'lymphocytes absolute', 'lymph'] }),
   m('monocytes', 'Monocytes', 'hematology', '×10⁹/L', [0.2, 1], [0.2, 0.6], { aliases: ['monocyte count', 'absolute monocytes', 'monocytes absolute', 'mono'] }),
   m('eosinophils', 'Eosinophils', 'hematology', '×10⁹/L', [0, 0.5], [0, 0.3], { aliases: ['eosinophil count', 'absolute eosinophils', 'eosinophils absolute', 'eos'] }),
   m('basophils', 'Basophils', 'hematology', '×10⁹/L', [0, 0.1], [0, 0.1], { aliases: ['basophil count', 'absolute basophils', 'basophils absolute', 'baso'] }),
-  m('nlr', 'Neutrophil/Lymphocyte Ratio', 'hematology', 'ratio', [0.8, 3.5], [1.2, 2.2], { aliases: ['nlr', 'neutrophil:lymphocyte', 'neutrophil/lymphocyte'] }),
-  m('esr', 'ESR (Westergren)', 'hematology', 'mm/hr', [0, 20], [0, 15], { aliases: ['esr', 'erythrocyte sedimentation rate'] }),
+  m('nlr', 'Neutrophil/Lymphocyte Ratio', 'hematology', 'ratio', [0.7, 3.5], [0.7, 2.5], { aliases: ['nlr', 'neutrophil:lymphocyte', 'neutrophil/lymphocyte'] }),
+  m('esr', 'ESR (Westergren)', 'hematology', 'mm/hr', [0, 20], [0, 15], { aliases: ['esr', 'erythrocyte sedimentation rate'], male: { lab: [0, 15], fm: [0, 10] } }),
   // Electrolytes & minerals
-  m('sodium', 'Sodium', 'electrolytes', 'mmol/L', [136, 145], [138, 142], { aliases: ['na', 'na+', 'serum sodium'], critical: { low: 125, high: 155 } }),
-  m('potassium', 'Potassium', 'electrolytes', 'mmol/L', [3.5, 5.1], [4, 4.5], { aliases: ['k', 'k+', 'serum potassium'], critical: { low: 3, high: 6 } }),
+  m('sodium', 'Sodium', 'electrolytes', 'mmol/L', [136, 145], [137, 143], { aliases: ['na', 'na+', 'serum sodium'], critical: { low: 125, high: 155 } }),
+  m('potassium', 'Potassium', 'electrolytes', 'mmol/L', [3.5, 5.1], [4, 4.8], { aliases: ['k', 'k+', 'serum potassium'], critical: { low: 3, high: 6 } }),
   m('chloride', 'Chloride', 'electrolytes', 'mmol/L', [98, 107], [100, 106], { aliases: ['cl', 'cl-'] }),
   m('bicarbonate', 'Bicarbonate', 'electrolytes', 'mmol/L', [22, 29], [24, 28], { aliases: ['hco3', 'co2', 'total co2', 'bicarb'] }),
-  m('anion_gap', 'Anion Gap', 'electrolytes', 'mmol/L', [7, 16], [7, 12], { aliases: ['ag'] }),
-  m('calcium', 'Calcium', 'electrolytes', 'mmol/L', [2.15, 2.55], [2.25, 2.45], { aliases: ['ca', 'serum calcium', 'total calcium'], critical: { low: 1.9, high: 3 } }),
+  m('anion_gap', 'Anion Gap', 'electrolytes', 'mmol/L', [7, 16], [6, 14], { aliases: ['ag'] }),
+  m('calcium', 'Calcium', 'electrolytes', 'mmol/L', [2.15, 2.55], [2.25, 2.45], { aliases: ['ca', 'serum calcium', 'total calcium'], critical: { low: 1.9, high: 2.9 } }),
   m('ca_phos_ratio', 'Ca/Phos. Ratio', 'electrolytes', 'ratio', [1.5, 2.5], [1.8, 2.5], { aliases: ['calcium/phosphate ratio'] }),
   m('na_k_ratio', 'Na/K Ratio', 'electrolytes', 'ratio', [27, 40], [30, 40], { aliases: ['sodium/potassium ratio'] }),
   m('rbc_magnesium', 'RBC Magnesium', 'electrolytes', 'mmol/L', [1.65, 2.65], [1.8, 2.5], { aliases: ['rbc mg', 'red cell magnesium'] }),
-  m('magnesium', 'Magnesium (Serum)', 'electrolytes', 'mmol/L', [0.66, 1.07], [0.85, 1], { aliases: ['magnesium', 'mg', 'serum magnesium'] }),
+  m('magnesium', 'Magnesium (Serum)', 'electrolytes', 'mmol/L', [0.66, 1.07], [0.8, 1], { aliases: ['magnesium', 'mg', 'serum magnesium'], critical: { low: 0.5 } }),
   m('phosphate', 'Phosphate', 'electrolytes', 'mmol/L', [0.74, 1.52], [0.9, 1.3], { aliases: ['s-phosphate inorg.', 'phosphorus', 'inorganic phosphate', 'serum phosphate'] }),
   // Vitamins & micronutrients
-  m('vitamin_d', 'Vitamin D (25-OH)', 'vitamins', 'ng/mL', [30, 100], [50, 80], { aliases: ['vitamin d', '25-oh vitamin d', '25(oh)d', '25-hydroxy vitamin d', 'vit d'] }),
+  m('vitamin_d', 'Vitamin D (25-OH)', 'vitamins', 'ng/mL', [30, 100], [40, 80], { aliases: ['vitamin d', '25-oh vitamin d', '25(oh)d', '25-hydroxy vitamin d', 'vit d'], critical: { low: 10 } }),
   m('serum_iron', 'Serum Iron', 'vitamins', 'µmol/L', [9, 30.4], [12, 25], { aliases: ['iron', 'fe'] }),
   m('transferrin', 'Transferrin', 'vitamins', 'µmol/L', [24, 45], [26, 42]),
   m('tibc', 'TIBC', 'vitamins', 'µmol/L', [45, 72], [50, 65], { aliases: ['total iron binding capacity'] }),
-  m('tsat', 'Transferrin Saturation', 'vitamins', '%', [20, 50], [25, 45], { aliases: ['tsat', 'iron saturation'] }),
-  m('ferritin', 'Ferritin', 'vitamins', 'ng/mL', [20, 300], [50, 200], { aliases: ['serum ferritin'], female: { lab: [13, 150], fm: [50, 120] } }),
+  m('tsat', 'Transferrin Saturation', 'vitamins', '%', [20, 50], [25, 45], { aliases: ['tsat', 'iron saturation'], critical: { high: 60 } }),
+  m('ferritin', 'Ferritin', 'vitamins', 'ng/mL', [20, 300], [50, 200], { aliases: ['serum ferritin'], female: { lab: [13, 150], fm: [50, 120] }, critical: { high: 1000 } }),
   m('zinc', 'Serum Zinc', 'vitamins', 'µmol/L', [10.7, 18.4], [14, 18], { aliases: ['zinc', 'zn'] }),
   // Inflammation & bone
-  m('hs_crp', 'hs-CRP', 'inflammation', 'mg/L', [0, 1], [0, 0.5], { aliases: ['crp', 'high sensitivity crp', 'high-sensitivity crp', 'c-reactive protein', 'hscrp'], alsoIn: ['methylation'] }),
+  m('hs_crp', 'hs-CRP', 'inflammation', 'mg/L', [0, 3], [0, 1], { aliases: ['crp', 'high sensitivity crp', 'high-sensitivity crp', 'c-reactive protein', 'hscrp'], alsoIn: ['methylation'], critical: { high: 10 } }),
   m('pth', 'PTH', 'inflammation', 'pg/mL', [15, 65], [15, 45], { aliases: ['parathyroid hormone', 'intact pth'] }),
   m('ck', 'Creatine Kinase', 'inflammation', 'IU/L', [26, 140], [26, 90], { aliases: ['ck', 'cpk', 'creatine phosphokinase'] }),
 ]
@@ -207,7 +214,8 @@ const CONVERSIONS: Record<string, Record<string, number>> = {
   lpa: { 'nmol/l': 2.15 },
   apoa1: { 'mg/dl': 100 }, apob: { 'mg/dl': 100 },
   creatinine: { 'mg/dl': 1 / 88.4 },
-  urea: { 'mg/dl': 2.8 },
+  urea: { 'mg/dl': 6.006 },
+  bun: { 'mmol/l': 0.357 },
   uric_acid: { 'mg/dl': 16.81, 'µmol/l': 1000 },
   bilirubin_total: { 'mg/dl': 1 / 17.1 }, bilirubin_conj: { 'mg/dl': 1 / 17.1 },
   albumin: { 'g/dl': 0.1 }, total_protein: { 'g/dl': 0.1 },
@@ -221,7 +229,7 @@ const CONVERSIONS: Record<string, Record<string, number>> = {
   hemoglobin: { 'g/l': 10 }, mchc: { 'g/l': 10 },
   hematocrit: { 'l/l': 0.01 },
   calcium: { 'mg/dl': 4.008 }, magnesium: { 'mg/dl': 2.43 }, phosphate: { 'mg/dl': 3.097 },
-  serum_iron: { 'µg/dl': 5.585 }, tibc: { 'µg/dl': 5.585 },
+  serum_iron: { 'µg/dl': 5.585 }, tibc: { 'µg/dl': 5.585 }, transferrin: { 'g/l': 0.0795, 'mg/dl': 7.95 },
   zinc: { 'µg/dl': 6.54 },
   vitamin_d: { 'nmol/l': 2.496 },
   hs_crp: { 'mg/dl': 0.1 },
@@ -252,11 +260,13 @@ function rangesFor(marker: Biomarker, sex: Sex) {
 export function defaultRanges(marker: Biomarker, unit: string, sex: Sex) {
   const { lab, fm } = rangesFor(marker, sex)
   const target = normalizeUnit(unit || marker.unit)
-  if (!unit.trim() || target === normalizeUnit(marker.unit)) return { lab: formatRange(lab), fm: formatRange(fm), converted: false }
+  // An empty FM range means the lab's range is used for both.
+  const fmText = (pair: Pair) => marker.fmFromLab ? '' : formatRange(pair)
+  if (!unit.trim() || target === normalizeUnit(marker.unit)) return { lab: formatRange(lab), fm: fmText(fm), converted: false }
   const factor = conversion(marker.id, target)
   if (!factor) return null
   const scale = (pair: Pair): Pair => [pair[0] === null ? null : round(pair[0] * factor), pair[1] === null ? null : round(pair[1] * factor)]
-  return { lab: formatRange(scale(lab)), fm: formatRange(scale(fm)), converted: true }
+  return { lab: formatRange(scale(lab)), fm: fmText(scale(fm)), converted: true }
 }
 
 /** A result in its marker's catalogue unit, converting where a factor is known. */
@@ -408,6 +418,40 @@ export function createEntry(marker: Biomarker | null, sex: Sex, overrides: Parti
   }
 }
 
+// Catalogue lab ranges that were wrong in earlier versions, in the catalogue
+// unit. A saved result still carrying one of these was filled in from the
+// catalogue rather than printed by the lab, so updating it is safe.
+const LEGACY_LAB_DEFAULTS: Record<string, string[]> = {
+  hdl: ['1–1.5'], hs_crp: ['0–1'], egfr: ['90–120'], homa_ir: ['0.5–1.4'], apob: ['0.6–1.1'],
+  glucose_insulin_ratio: ['0.5–2'], ggt: ['5–55'], wbc: ['4–11'], neutrophils: ['1.5–7.5'], nlr: ['0.8–3.5'],
+  rdw: ['11.5–14.5'], bilirubin_total: ['5–21'], ast_alt_ratio: ['0.4–1.5'], anti_tpo: ['0–35'], ldl: ['0–3.37'], non_hdl: ['0–4.2'],
+  homocysteine: ['0–15.4'], dhea_s: ['2.68–9.23'],
+}
+
+/**
+ * Brings saved results up to the current catalogue: optimal ranges are reset
+ * to the current defaults, and lab ranges only where they are a known wrong
+ * default (a lab's own printed range is kept). Returns the updated entries and
+ * how many changed.
+ */
+export function refreshRanges(entries: FmEntry[], sex: Sex) {
+  let changed = 0
+  const next = entries.map(entry => {
+    let markerId = entry.markerId
+    // BUN was once filed under urea; it is its own test now.
+    if (markerId === 'urea' && /\bbun\b|urea nitrogen/i.test(entry.name)) markerId = 'bun'
+    const marker = markerById(markerId)
+    if (!marker || entry.calculated) return entry
+    const ranges = defaultRanges(marker, entry.unit, sex)
+    if (!ranges) return markerId === entry.markerId ? entry : { ...entry, markerId, panel: marker.panel }
+    const legacy = (LEGACY_LAB_DEFAULTS[marker.id] || []).includes(entry.labRange) && normalizeUnit(entry.unit || marker.unit) === normalizeUnit(marker.unit)
+    const updated = { ...entry, markerId, panel: marker.panel, fmRange: ranges.fm, labRange: legacy ? ranges.lab : entry.labRange }
+    if (updated.fmRange !== entry.fmRange || updated.labRange !== entry.labRange || markerId !== entry.markerId) { changed++; return updated }
+    return entry
+  })
+  return { entries: next, changed }
+}
+
 export type AssessedEntry = FmEntry & {
   numeric: number | null
   lab: LabStatus
@@ -424,20 +468,13 @@ export function assessEntry(entry: FmEntry): AssessedEntry {
   const lab = labStatus(numeric, labRangeParsed)
   const fm = fmStatus(numeric, fmRangeParsed)
   const marker = markerById(entry.markerId)
-  let urgent = false
+  // Urgent only past a clinical action value, compared in the catalogue unit.
   // A calculated ratio is only as urgent as the results it comes from.
-  if (numeric !== null && !entry.calculated) {
-    // Critical cut-offs are in the catalogue unit, so only apply them there.
-    const sameUnit = marker && normalizeUnit(entry.unit || marker.unit) === normalizeUnit(marker.unit)
-    if (marker?.critical && sameUnit) {
-      if (marker.critical.low !== undefined && numeric < marker.critical.low) urgent = true
-      if (marker.critical.high !== undefined && numeric > marker.critical.high) urgent = true
-    }
-    // Far outside the laboratory's own range: more than a third beyond a limit.
-    // Only when the FM range agrees it is out, so a protective high (HDL) is not flagged.
-    const fmOut = fm === 'high' || fm === 'low'
-    if (fmOut && labRangeParsed && lab === 'high' && labRangeParsed.high !== null && labRangeParsed.high > 0 && numeric > labRangeParsed.high * 1.33) urgent = true
-    if (fmOut && labRangeParsed && lab === 'low' && labRangeParsed.low !== null && labRangeParsed.low > 0 && numeric < labRangeParsed.low * 0.67) urgent = true
+  let urgent = false
+  const canonical = entry.calculated ? null : canonicalValue(entry)
+  if (canonical !== null && marker?.critical) {
+    if (marker.critical.low !== undefined && canonical < marker.critical.low) urgent = true
+    if (marker.critical.high !== undefined && canonical > marker.critical.high) urgent = true
   }
   return { ...entry, numeric, lab, fm, labRangeParsed, fmRangeParsed, urgent }
 }
