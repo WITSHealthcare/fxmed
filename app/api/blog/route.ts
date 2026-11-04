@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { sanitizeRichText } from '@/lib/content-sanitizer'
 import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
+import { onBlogPostsChanged } from '@/lib/blog-publish'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
       .single()
     
     if (error) throw error
+    onBlogPostsChanged([data])
     
     return NextResponse.json({ post: data })
   } catch (error) {
@@ -135,12 +137,14 @@ export async function DELETE(request: NextRequest) {
     }
     const supabase = requireSupabase()
     
-    const { error } = await supabase
+    const { data: deleted, error } = await supabase
       .from('blog_posts')
       .delete()
       .eq('id', id)
+      .select('slug,category,status')
     
     if (error) throw error
+    onBlogPostsChanged(deleted || [])
     
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -180,6 +184,7 @@ export async function PATCH(request: NextRequest) {
       .single()
     
     if (error) throw error
+    onBlogPostsChanged([data])
     
     return NextResponse.json({ post: data })
   } catch (error) {

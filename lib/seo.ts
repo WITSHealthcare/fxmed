@@ -36,6 +36,13 @@ type SeoConfig = {
   image?: string
   keywords?: string[]
   noIndex?: boolean
+  // Marks the page as an article for Open Graph, with its publish dates.
+  article?: {
+    publishedTime: string
+    modifiedTime?: string
+    section?: string
+    authors?: string[]
+  }
 }
 
 export function absoluteUrl(path = '/') {
@@ -50,6 +57,7 @@ export function createMetadata({
   image = defaultImage,
   keywords = [],
   noIndex = false,
+  article,
 }: SeoConfig): Metadata {
   const url = absoluteUrl(path)
   const imageUrl = absoluteUrl(image)
@@ -76,7 +84,16 @@ export function createMetadata({
       ],
       locale: 'en_NG',
       alternateLocale: ['en_US'],
-      type: 'website',
+      ...(article
+        ? {
+            type: 'article',
+            publishedTime: article.publishedTime,
+            modifiedTime: article.modifiedTime,
+            section: article.section,
+            authors: article.authors,
+            tags: keywords,
+          }
+        : { type: 'website' }),
     },
     twitter: {
       card: 'summary_large_image',

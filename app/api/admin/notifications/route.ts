@@ -19,7 +19,7 @@ const MAX_AGE_DAYS = 60
 // Per source, so one busy stream cannot bury the others.
 const PER_SOURCE_LIMIT = 20
 
-export type NotificationKind = 'message' | 'appointment' | 'festive' | 'registration' | 'contact' | 'assessment' | 'follow_up'
+export type NotificationKind = 'message' | 'appointment' | 'festive' | 'registration' | 'contact' | 'assessment' | 'follow_up' | 'portal_message' | 'portal_upload'
 
 type Notification = {
   id: string
@@ -41,9 +41,13 @@ const sources: Array<{
   table: string
   // One status, or any of several.
   status: string | string[]
+  // The column `status` is read from, when it is not called status.
+  statusField?: string
   timeField: string
   select: string
   link: string
+  // A link that depends on the row, such as one patient's chart.
+  linkFor?: (row: any) => string
   dismissable: boolean
   describe: (row: any) => { title: string; detail: string }
   // Rows this source should not raise a notification for, because another
@@ -193,6 +197,39 @@ const sources: Array<{
       }
     },
   },
+  {
+    kind: 'portal_message',
+    tab: 'healthcare',
+    table: 'patient_portal_messages',
+    status: 'unread',
+    // Only what patients send; the clinic's own replies are not news to it.
+    filter: query => query.eq('sender', 'patient'),
+    timeField: 'created_at',
+    select: 'id, patient_id, sender_name, body, created_at',
+    link: '/admin?tab=healthcare',
+    linkFor: row => `/admin?tab=healthcare&patient=${row.patient_id}&chart=portal`,
+    dismissable: false,
+    describe: row => ({
+      title: `Portal message from ${row.sender_name || 'a patient'}`,
+      detail: String(row.body || '').trim(),
+    }),
+  },
+  {
+    kind: 'portal_upload',
+    tab: 'healthcare',
+    table: 'emr_documents',
+    status: 'new',
+    statusField: 'portal_status',
+    timeField: 'created_at',
+    select: 'id, patient_id, title, category, created_at, patient:emr_patients(first_name, last_name)',
+    link: '/admin?tab=healthcare',
+    linkFor: row => `/admin?tab=healthcare&patient=${row.patient_id}&chart=portal`,
+    dismissable: false,
+    describe: row => ({
+      title: `${[row.patient?.first_name, row.patient?.last_name].filter(Boolean).join(' ') || 'A patient'} uploaded a document`,
+      detail: String(row.title || '').trim(),
+    }),
+  },
 ]
 
 export async function GET(request: NextRequest) {
@@ -213,7 +250,8 @@ export async function GET(request: NextRequest) {
         .from(source.table)
         .select(source.select)
         .gte(source.timeField, since)
-      query = Array.isArray(source.status) ? query.in('status', source.status) : query.eq('status', source.status)
+      const statusField = source.statusField || 'status'
+      query = Array.isArray(source.status) ? query.in(statusField, source.status) : query.eq(statusField, source.status)
       if (source.filter) query = source.filter(query)
       return (narrowed && source.narrow ? source.narrow(query) : query)
         .order(source.timeField, { ascending: false })
@@ -241,7 +279,7 @@ export async function GET(request: NextRequest) {
         title,
         detail: detail.length > 140 ? `${detail.slice(0, 140)}…` : detail,
         timestamp: row[source.timeField],
-        link: source.link,
+        link: source.linkFor ? source.linkFor(row) : source.link,
         dismissable: source.dismissable,
       }
     })

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { sanitizeRichText } from '@/lib/content-sanitizer'
 import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
+import { onBlogPostsChanged } from '@/lib/blog-publish'
 
 // Server-only client; route authorization is enforced before every operation.
 const supabaseAdmin = createClient(
@@ -70,6 +71,9 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       throw insertError
     }
+
+    // The post is live from here, even if draft cleanup below fails.
+    onBlogPostsChanged([publishedPost])
     
     // Delete from drafts after successful publish
     const { error: deleteError } = await supabaseAdmin

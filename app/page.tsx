@@ -18,6 +18,7 @@ import HealthCTA from '@/components/HealthCTA'
 import FXMedElite from '@/components/FXMedElite'
 import Footer from '@/components/Footer'
 import ChatAssistant from '@/components/AIChat'
+import AuthLinkRedirect from '@/components/AuthLinkRedirect'
 import { createMetadata } from '@/lib/seo'
 
 // The page is prerendered, so rebuild it every few minutes to show or hide the
@@ -41,6 +42,7 @@ export const metadata = createMetadata({
 export default function Home() {
   return (
     <main className="min-h-screen">
+      <AuthLinkRedirect />
       <Navigation />
       <Hero />
       <Partners />

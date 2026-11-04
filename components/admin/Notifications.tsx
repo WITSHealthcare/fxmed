@@ -7,13 +7,14 @@ import {
   GiftIcon,
   ChatCircleDotsIcon,
   ClipboardTextIcon,
+  FileArrowUpIcon,
   HeartbeatIcon,
   PhoneCallIcon,
   UserPlusIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 
-type NotificationKind = 'message' | 'appointment' | 'festive' | 'registration' | 'contact' | 'assessment' | 'follow_up'
+type NotificationKind = 'message' | 'appointment' | 'festive' | 'registration' | 'contact' | 'assessment' | 'follow_up' | 'portal_message' | 'portal_upload'
 
 type Notification = {
   id: string
@@ -33,6 +34,8 @@ const kindIcons: Record<NotificationKind, typeof BellIcon> = {
   contact: ClipboardTextIcon,
   assessment: HeartbeatIcon,
   follow_up: PhoneCallIcon,
+  portal_message: ChatCircleDotsIcon,
+  portal_upload: FileArrowUpIcon,
 }
 
 const kindLabels: Record<NotificationKind, string> = {
@@ -43,6 +46,8 @@ const kindLabels: Record<NotificationKind, string> = {
   contact: 'Enquiry',
   assessment: 'Functional health analysis',
   follow_up: 'Follow-up',
+  portal_message: 'Patient portal message',
+  portal_upload: 'Patient upload',
 }
 
 export default function Notifications() {
