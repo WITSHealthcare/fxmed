@@ -137,6 +137,9 @@ const heading = (text: string) => `<div style="font-size:1.05em;font-weight:800;
 // Charts
 
 
+/** The gauge arc's length in SVG units (a half circle of radius 46). Safari ignores pathLength when it draws an SVG as an image, so the dash is measured in real units. */
+const ARC_LENGTH = Math.PI * 46
+
 /** A half-circle gauge of a likelihood, green to red. */
 function gauge(score: number, size = 9) {
   const id = `fmg${svgId++}`
@@ -144,7 +147,7 @@ function gauge(score: number, size = 9) {
   return `<svg width="${size}em" height="${size * 0.62}em" viewBox="0 0 120 74" style="display:block;margin:0 auto">
     <defs><linearGradient id="${id}" x1="14" y1="0" x2="106" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#52B788"/><stop offset=".35" stop-color="${LIME}"/><stop offset=".65" stop-color="#F2C14E"/><stop offset="1" stop-color="#D9534F"/></linearGradient></defs>
     <path d="${arc}" fill="none" stroke="${TRACK}" stroke-width="13" stroke-linecap="round"/>
-    ${score > 0 ? `<path d="${arc}" fill="none" stroke="url(#${id})" stroke-width="13" stroke-linecap="round" pathLength="100" stroke-dasharray="${Math.min(score, 100)} 200"/>` : ''}
+    ${score > 0 ? `<path d="${arc}" fill="none" stroke="url(#${id})" stroke-width="13" stroke-linecap="round" stroke-dasharray="${(Math.min(score, 100) / 100) * ARC_LENGTH} 400"/>` : ''}
     <text x="60" y="62" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="${INK}">${score}%</text>
   </svg>`
 }
@@ -164,18 +167,23 @@ function disc(color: string, lines: Array<[string, number, number?]>, size: numb
 
 function likelihoodBar(score: number, grow = true, labelled = true) {
   const width = Math.max(0, Math.min(score, 100))
-  const label = !labelled ? '' : width >= 9
-    ? `<div style="position:absolute;top:0;right:${100 - width}%;padding-right:.7em;height:100%;line-height:1.7em;font-size:.76em;font-weight:800;color:#fff">${score}%</div>`
-    : `<div style="position:absolute;top:0;left:${width}%;padding-left:.6em;height:100%;line-height:1.7em;font-size:.76em;font-weight:800;color:${INK}">${score}%</div>`
-  return `<div style="position:relative;${grow ? 'flex:1;' : ''}height:1.3em;background:${TRACK};border-radius:1em;overflow:hidden">
-    ${width ? `<div style="position:absolute;left:0;top:0;bottom:0;width:${width}%;overflow:hidden;border-radius:1em"><div style="width:${10000 / width}%;height:100%;background:${GRADIENT}"></div></div>` : ''}${label}
+  // The percentage is SVG text outside the clipped track: html2canvas draws
+  // HTML text a few pixels low, which a clipped bar would cut off.
+  const inside = width >= 12
+  // html2canvas skips an SVG that is itself absolutely positioned, so a span carries the position.
+  const label = !labelled ? '' : `<span style="position:absolute;top:0;${inside ? `right:${100 - width}%` : `left:${width}%`}"><svg width="3.6em" height="1.3em" viewBox="0 0 36 13" style="display:block">
+    <text x="${inside ? 31 : 5}" y="9.4" text-anchor="${inside ? 'end' : 'start'}" font-family="Arial, Helvetica, sans-serif" font-size="7.6" font-weight="700" fill="${inside ? '#fff' : INK}">${score}%</text></svg></span>`
+  return `<div style="position:relative;${grow ? 'flex:1;' : ''}height:1.3em">
+    <div style="position:absolute;inset:0;background:${TRACK};border-radius:1em;overflow:hidden">
+      ${width ? `<div style="position:absolute;left:0;top:0;bottom:0;width:${width}%;overflow:hidden;border-radius:1em"><div style="width:${10000 / width}%;height:100%;background:${GRADIENT}"></div></div>` : ''}
+    </div>${label}
   </div>`
 }
 
 function likelihoodChart(items: AreaResult[], label = 'Probability of dysfunction') {
   const row = (item: AreaResult) => `<div style="display:flex;align-items:center;margin-bottom:.75em">
     <div style="width:16.5em;flex:none;text-align:right;padding-right:1.3em;font-size:.98em;line-height:1.3;color:${INK}">${esc(item.area.name)}</div>${likelihoodBar(item.score)}</div>`
-  const tick = (left: number, text: string) => `<div style="position:absolute;left:${left}%;top:0;font-size:.82em;line-height:1.35;color:${BODY}">${text}<div style="width:1px;height:.7em;background:${FAINT};margin-top:.15em"></div></div>`
+  const tick = (left: number, text: string) => `<div style="position:absolute;left:${left}%;top:0;font-size:.82em;line-height:1.35;color:${BODY}">${text}<div style="width:1px;height:.6em;background:${FAINT};margin-top:.5em"></div></div>`
   const high = items.filter(needsDetail)
   const low = items.filter(item => !needsDetail(item))
   return `<div style="margin-top:2.2em">
@@ -184,7 +192,7 @@ function likelihoodChart(items: AreaResult[], label = 'Probability of dysfunctio
       <div style="position:relative;height:3.6em;margin-top:.6em">${tick(50, 'Possible<br/>50–70%')}${tick(70, 'Likely<br/>70–90%')}${tick(88, 'Highly<br/>likely 90%+')}</div>
     </div></div>
     ${high.map(row).join('')}
-    ${low.length ? `<div style="display:flex;margin:${high.length ? '1em' : '0'} 0 .6em"><div style="width:16.5em;flex:none"></div><div style="font-size:.82em;line-height:1.35;color:${BODY}">Less likely<br/>under 50%<div style="width:1px;height:.7em;background:${FAINT};margin-top:.15em"></div></div></div>${low.map(row).join('')}` : ''}
+    ${low.length ? `<div style="display:flex;margin:${high.length ? '1em' : '0'} 0 .6em"><div style="width:16.5em;flex:none"></div><div style="font-size:.82em;line-height:1.35;color:${BODY}">Less likely<br/>under 50%<div style="width:1px;height:.6em;background:${FAINT};margin-top:.5em"></div></div></div>${low.map(row).join('')}` : ''}
   </div>`
 }
 
@@ -580,13 +588,13 @@ export function fitPage(root: HTMLElement) {
   }
 }
 
-// The PDF is issued to the EMR through a request capped at 4.5 MB, so the
-// pages share a size budget: each is encoded at the best quality that keeps
-// the running total on budget — first by easing the JPEG quality, then, for a
-// dense page, the resolution — so sparse pages stay crisp.
-const RENDER_SCALE = 1.6
-const PDF_BUDGET = 3.3 * 1024 * 1024
-const ENCODINGS: Array<[scale: number, quality: number]> = [[1, 0.8], [1, 0.68], [1, 0.56], [0.8, 0.6], [0.8, 0.48], [0.65, 0.5]]
+// Rendered at about 230 dpi so text stays sharp on screen and in print. The
+// pages share a size budget, kept under the EMR's 15 MB document limit: each
+// is encoded at the best JPEG quality that keeps the running total on budget.
+// Resolution is only reduced as a last resort for an unusually long report.
+const RENDER_SCALE = 2.4
+const PDF_BUDGET = 11.5 * 1024 * 1024
+const ENCODINGS: Array<[scale: number, quality: number]> = [[1, 0.92], [1, 0.86], [1, 0.8], [1, 0.72], [0.8, 0.8], [0.7, 0.72]]
 
 function encode(canvas: HTMLCanvasElement, budget: number) {
   let image = ''

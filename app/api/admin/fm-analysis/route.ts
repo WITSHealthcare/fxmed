@@ -96,7 +96,74 @@ export async function POST(request: NextRequest) {
   if (body.action === 'extract') return readPasted(request, body)
   if (body.action === 'read_record') return readRecordFiles(request, body)
   if (body.action === 'interpret') return interpret(request, body)
+  if (body.action === 'report_upload_url') return reportUploadUrl(request, body)
+  if (body.action === 'register_report') return registerReport(request, body)
   return save(request, body)
+}
+
+// Issuing the report to the patient's record. The PDF goes straight from the
+// browser to storage through a signed upload URL, because a high-resolution
+// report is larger than the 4.5 MB a request to this server may carry; the
+// server then checks the file and records it as an EMR document.
+
+const DOCUMENT_BUCKET = 'emr-documents'
+const MAX_REPORT_BYTES = 15 * 1024 * 1024
+
+async function patientExists(database: any, id: unknown) {
+  if (!isUuid(id)) return false
+  const { data, error } = await database.from('emr_patients').select('id').eq('id', id).maybeSingle()
+  if (error) throw error
+  return !!data
+}
+
+async function reportUploadUrl(request: NextRequest, body: Record<string, any>) {
+  const context = await getEmrContext(request, 'upload_documents')
+  if (!context) return fail('Document upload access required.', 403)
+  const { database } = context
+  try {
+    if (!await patientExists(database, body.patient_id)) return fail('Link the analysis to a registered patient first.')
+    if (!(Number(body.size) > 0) || Number(body.size) > MAX_REPORT_BYTES) return fail('The report must be smaller than 15 MB.')
+    const name = (str(body.file_name, 160) || 'Functional-Health-Report.pdf').replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${body.patient_id}/${crypto.randomUUID()}-${name.endsWith('.pdf') ? name : `${name}.pdf`}`
+    const { data, error } = await database.storage.from(DOCUMENT_BUCKET).createSignedUploadUrl(path)
+    if (error) throw error
+    return NextResponse.json({ path, signedUrl: data.signedUrl })
+  } catch (error) {
+    return serverError(error)
+  }
+}
+
+async function registerReport(request: NextRequest, body: Record<string, any>) {
+  const context = await getEmrContext(request, 'upload_documents')
+  if (!context) return fail('Document upload access required.', 403)
+  const { database, user } = context
+  try {
+    const patientId = body.patient_id
+    const path = str(body.path, 400)
+    if (!await patientExists(database, patientId) || !path.startsWith(`${patientId}/`) || path.includes('..')) return fail('The report upload could not be matched to the patient.')
+    // Only record a file that really arrived, and take its size from storage.
+    const folder = path.slice(0, path.lastIndexOf('/'))
+    const fileName = path.slice(path.lastIndexOf('/') + 1)
+    const { data: found, error: listError } = await database.storage.from(DOCUMENT_BUCKET).list(folder, { search: fileName, limit: 1 })
+    if (listError) throw listError
+    const object = (found || []).find((item: { name: string }) => item.name === fileName)
+    if (!object) return fail('The report did not finish uploading. Try again.')
+    const size = Number(object.metadata?.size) || null
+    if (size && size > MAX_REPORT_BYTES) {
+      await database.storage.from(DOCUMENT_BUCKET).remove([path])
+      return fail('The report must be smaller than 15 MB.')
+    }
+    const { data, error } = await database.from('emr_documents').insert({
+      patient_id: patientId, category: 'laboratory', title: cleanText(body.title, 240) || 'Functional Health Report',
+      storage_path: path, original_name: fileName.replace(/^[0-9a-f-]{36}-/, ''), mime_type: 'application/pdf', file_size: size,
+      notes: cleanText(body.notes, 2000), uploaded_by: user.id,
+    }).select('*').single()
+    if (error) { await database.storage.from(DOCUMENT_BUCKET).remove([path]); throw error }
+    await writeEmrAudit(database, user, { action: 'upload_document', entityType: 'emr_document', entityId: data.id, patientId: String(patientId), metadata: { mimeType: 'application/pdf', size, source: 'fm_lab_analysis' } })
+    return NextResponse.json({ record: data }, { status: 201 })
+  } catch (error) {
+    return serverError(error)
+  }
 }
 
 export async function DELETE(request: NextRequest) {

@@ -120,15 +120,25 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
     try {
       if (!await onSaveAnalysis('final')) throw new Error('Save the analysis first.')
       const blob = await renderFmReportPdf({ patient, entries, narrative })
-      const form = new FormData()
-      form.append('file', new File([blob], fileName, { type: 'application/pdf' }))
-      form.append('patient_id', emrPatientId)
-      form.append('category', 'laboratory')
-      form.append('title', `Functional Health Report${patient.collectedAt ? ` — ${patient.collectedAt}` : ''}`)
-      form.append('notes', `${summary.total} biomarkers analysed against functional medicine optimal ranges.`)
-      const response = await fetch('/api/admin/emr', { method: 'POST', body: form })
-      const result = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(result.error || 'The report could not be saved to the patient record.')
+      // The PDF goes straight to storage: a sharp report is larger than this
+      // server will accept in one request. The server then records it.
+      const post = async (body: Record<string, unknown>) => {
+        const response = await fetch('/api/admin/fm-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        const result = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(result.error || 'The report could not be saved to the patient record.')
+        return result
+      }
+      const { path, signedUrl } = await post({ action: 'report_upload_url', patient_id: emrPatientId, file_name: fileName, size: blob.size })
+      const upload = new FormData()
+      upload.append('cacheControl', '3600')
+      upload.append('', new File([blob], fileName, { type: 'application/pdf' }))
+      const stored = await fetch(signedUrl, { method: 'PUT', headers: { 'x-upsert': 'false', ...(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY } : {}) }, body: upload })
+      if (!stored.ok) throw new Error('The report could not be uploaded. Check your connection and try again.')
+      await post({
+        action: 'register_report', patient_id: emrPatientId, path,
+        title: `Functional Health Report${patient.collectedAt ? ` — ${patient.collectedAt}` : ''}`,
+        notes: `${summary.total} biomarkers analysed against functional medicine optimal ranges.`,
+      })
       setNotice('Report saved to the patient\'s documents and the analysis marked final.')
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'The report could not be saved.')
