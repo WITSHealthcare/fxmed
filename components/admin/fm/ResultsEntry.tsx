@@ -220,7 +220,8 @@ export function ResultsTable({ entries, sex, onChange }: { entries: FmEntry[]; s
         const assessed = assessEntry(row)
         const editing = open.has(index)
         const marker = markerById(row.markerId)
-        const unitWarning = marker && row.unit && !row.fmRange
+        // Antibody assays use the lab's own cut-off as optimal, so an empty FM range is expected there.
+        const unitWarning = marker && !marker.fmFromLab && row.unit && !row.fmRange
         return <div key={index} className={`grid gap-2 p-3 lg:items-start ${columns} ${assessed.urgent ? 'bg-red-50/60' : ''}`}>
           <div className="min-w-0 pt-1.5">
             <p className="text-sm font-semibold text-green-deep">{row.name || 'Unnamed marker'}{assessed.urgent && <span className="ml-2 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-bold text-white">URGENT</span>}</p>
