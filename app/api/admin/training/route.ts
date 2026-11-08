@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRequestAdminUser } from '@/lib/admin-api-auth'
 import { getUserAdminRole } from '@/lib/admin-auth'
-import { cleanTrainingText, getTrainingDatabase, type TrainingLesson, type TrainingModule } from '@/lib/training'
+import { cleanTrainingForm, cleanTrainingText, getTrainingDatabase, hasForm, type TrainingLesson, type TrainingModule } from '@/lib/training'
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -24,6 +24,7 @@ function cleanModules(value: unknown): TrainingModule[] {
         content: cleanTrainingText(lesson.content, 20000),
         resourceUrl: cleanTrainingText(lesson.resourceUrl, 2000),
         durationMinutes: Math.max(0, Math.min(1440, Math.trunc(Number(lesson.durationMinutes) || 0))),
+        form: cleanTrainingForm(lesson.form),
       } satisfies TrainingLesson]
     }) : []
     return [{ id: cleanTrainingText(item.id, 80) || `module-${moduleIndex + 1}`, title, lessons }]
@@ -55,10 +56,13 @@ export async function GET(request: NextRequest) {
     if (role === 'admin' || !programs.length) return NextResponse.json({ programs })
     const { data: progress, error: progressError } = await database.from('training_progress').select('program_id,completed_lesson_ids').eq('user_id', user.id)
     if (progressError) throw progressError
+    // Responses are optional so training still loads before migration 040 is applied.
+    const { data: responses, error: responsesError } = await database.from('training_form_responses').select('*').eq('user_id', user.id)
+    if (responsesError) console.error('Error loading training form responses:', responsesError.message)
     const byProgram = new Map((progress || []).map((item) => [item.program_id, item.completed_lesson_ids || []]))
     return NextResponse.json({ programs: programs.map((program) => {
       const completed = byProgram.get(program.id) || []; const total = (program.modules || []).reduce((sum: number, module: TrainingModule) => sum + module.lessons.length, 0)
-      return { ...program, completed_lesson_ids: completed, progress_percent: total ? Math.round(completed.length / total * 100) : 0 }
+      return { ...program, completed_lesson_ids: completed, progress_percent: total ? Math.round(completed.length / total * 100) : 0, form_responses: (responses || []).filter((response) => response.program_id === program.id) }
     }) })
   } catch (error) { console.error('Error loading training:', error); return NextResponse.json({ error: 'Failed to load training programs. Has migration 028 been applied?' }, { status: 500 }) }
 }
@@ -87,8 +91,9 @@ export async function PATCH(request: NextRequest) {
       const lessonId = cleanTrainingText(body.lessonId, 80); if (!lessonId) return NextResponse.json({ error: 'A lesson is required.' }, { status: 400 })
       const { data: program } = await database.from('training_programs').select('status,audience_roles,assigned_emails,modules').eq('id', body.id).single()
       const allowed = program?.status === 'published' && (program.audience_roles?.includes(role) || program.assigned_emails?.includes(user.email?.toLowerCase() || ''))
-      const lessonIds = (program?.modules || []).flatMap((module: TrainingModule) => module.lessons.map((lesson) => lesson.id))
+      const lessons: TrainingLesson[] = (program?.modules || []).flatMap((module: TrainingModule) => module.lessons); const lessonIds = lessons.map((lesson) => lesson.id)
       if (!allowed || !lessonIds.includes(lessonId)) return NextResponse.json({ error: 'Training access denied.' }, { status: 403 })
+      if (hasForm(lessons.find((lesson) => lesson.id === lessonId)!)) return NextResponse.json({ error: 'Submit the lesson form to complete this lesson.' }, { status: 400 })
       const { data: existing } = await database.from('training_progress').select('completed_lesson_ids').eq('program_id', body.id).eq('user_id', user.id).maybeSingle()
       const set = new Set<string>(existing?.completed_lesson_ids || []); body.completed === false ? set.delete(lessonId) : set.add(lessonId)
       const completed = Array.from(set).filter((id) => lessonIds.includes(id))
