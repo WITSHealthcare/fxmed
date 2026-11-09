@@ -8,6 +8,7 @@ import {
   ChatCircleDotsIcon,
   CheckCircleIcon,
   CircleIcon,
+  ClipboardTextIcon,
   FileArrowUpIcon,
   FileTextIcon,
   HeartbeatIcon,
@@ -17,8 +18,9 @@ import {
   XIcon,
 } from '@phosphor-icons/react'
 import { signOut } from '@/lib/supabase-auth'
+import PatientForms from '@/components/forms/PatientForms'
 
-type PortalSection = 'overview' | 'care_plan' | 'documents' | 'messages'
+type PortalSection = 'overview' | 'care_plan' | 'documents' | 'messages' | 'forms'
 type PortalData = {
   account: { status: string; activated_at: string | null }
   patient: Record<string, any>
@@ -35,6 +37,7 @@ const nav: Array<{ id: PortalSection; label: string; Icon: typeof HouseIcon }> =
   { id: 'care_plan', label: 'Care plan', Icon: HeartbeatIcon },
   { id: 'documents', label: 'Documents', Icon: FileTextIcon },
   { id: 'messages', label: 'Messages', Icon: ChatCircleDotsIcon },
+  { id: 'forms', label: 'Forms', Icon: ClipboardTextIcon },
 ]
 
 function label(value?: string) { return (value || '—').replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase()) }
@@ -155,6 +158,7 @@ export default function PatientPortal() {
           {active === 'overview' && <Overview data={data} unreadMessages={unreadMessages} goTo={setActive} />}
           {active === 'care_plan' && <CarePlans plans={data.carePlans} onChanged={() => load(true)} onError={setError} />}
           {active === 'documents' && <Documents documents={data.documents} onUpload={() => setShowUpload(true)} onError={setError} />}
+          {active === 'forms' && <PatientForms />}
           {active === 'messages' && <Messages messages={data.messages} onSent={message => setData(current => current && { ...current, messages: [...current.messages, message] })} />}
         </div>
       </main>
