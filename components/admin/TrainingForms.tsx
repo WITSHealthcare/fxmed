@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ResponseSummary, formatAnswer } from '@/components/forms/FormKit'
+import { ResponseSummary, answerColumns } from '@/components/forms/FormKit'
 import type { TrainingFormResponse, TrainingProgram } from '@/lib/training'
 
 export { FormBuilder, FormFill, newForm as newTrainingForm } from '@/components/forms/FormKit'
@@ -19,8 +19,9 @@ export function ResponsesModal({ program, onClose }: { program: TrainingProgram;
   function exportCsv() {
     if (!form) return
     const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const header = ['Respondent', 'Submitted', ...(form.kind === 'quiz' ? ['Score %', 'Passed'] : []), ...form.questions.map((q) => q.label)]
-    const body = rows.map((r) => [r.respondent, new Date(r.submitted_at).toISOString(), ...(form.kind === 'quiz' ? [r.score ?? '', r.passed === null ? '' : r.passed ? 'Yes' : 'No'] : []), ...form.questions.map((q) => formatAnswer(r.answers[q.id]))])
+    const columns = answerColumns(form.questions)
+    const header = ['Respondent', 'Submitted', ...(form.kind === 'quiz' ? ['Score %', 'Passed'] : []), ...columns.map((c) => c.header)]
+    const body = rows.map((r) => [r.respondent, new Date(r.submitted_at).toISOString(), ...(form.kind === 'quiz' ? [r.score ?? '', r.passed === null ? '' : r.passed ? 'Yes' : 'No'] : []), ...columns.map((c) => c.value(r.answers))])
     const url = URL.createObjectURL(new Blob([[header, ...body].map((line) => line.map(cell).join(',')).join('\n')], { type: 'text/csv' }))
     const a = document.createElement('a'); a.href = url; a.download = `${program.title}-${lesson!.title}-responses.csv`.replace(/[^\w.-]+/g, '-'); a.click(); URL.revokeObjectURL(url)
   }

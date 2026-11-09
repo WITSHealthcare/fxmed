@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { FormBuilder, FormFill, ResponseSummary, formatAnswer, newForm } from '@/components/forms/FormKit'
+import { FormBuilder, FormFill, ResponseSummary, answerColumns, newForm } from '@/components/forms/FormKit'
 import type { AdminRole } from '@/lib/admin-auth'
 import type { FormAnswers, FormDefinition, FormResponseView } from '@/lib/forms'
 import { audienceLabels, type FormAudience, type FormRecord, type FormStatus, type PublicFormRecord, type StoredFormResponse } from '@/lib/forms-types'
@@ -62,7 +62,7 @@ function AdminForms({ forms, onNew, onEdit, onResponses, onDelete, onDuplicate, 
       {!shown.length ? <p className="p-16 text-center text-text-mid">{forms.length ? 'No forms for this audience yet.' : 'No forms yet. Create a survey or quiz for customers, employees or patients.'}</p> : <div className="divide-y">{shown.map((form) => <div key={form.id} className="flex flex-wrap items-start justify-between gap-4 p-6">
         <div className="min-w-[240px] flex-1"><div className="flex flex-wrap items-center gap-2"><h4 className="text-lg font-bold text-green-deep">{form.title}</h4><Badge tone="audience">{audienceLabels[form.audience].label}</Badge><Badge tone={form.status}>{form.status}</Badge>{form.definition.kind === 'quiz' && <Badge tone="audience">quiz</Badge>}</div>
           {form.description && <p className="mt-1 line-clamp-2 text-sm text-text-mid">{form.description}</p>}
-          <p className="mt-2 text-xs text-gray-500">{form.definition.questions.length} question(s) · {form.response_count || 0} response(s) · updated {new Date(form.updated_at).toLocaleDateString()}{shareSummary(form)}</p>
+          <p className="mt-2 text-xs text-gray-500">{form.definition.questions.filter((q) => q.type !== 'section').length} question(s) · {form.response_count || 0} response(s) · updated {new Date(form.updated_at).toLocaleDateString()}{shareSummary(form)}</p>
           {form.status !== 'draft' && <div className="mt-3 flex max-w-xl items-center gap-2 rounded-full bg-gray-50 py-1 pl-4 pr-1 text-xs"><span className="min-w-0 flex-1 truncate text-text-mid">{formLink(form.slug)}</span><button onClick={() => copy(form)} className="rounded-full bg-white px-3 py-1 font-bold text-green-deep shadow-sm">{copied === form.id ? 'Copied' : 'Copy link'}</button><a href={`/forms/${form.slug}`} target="_blank" rel="noopener noreferrer" className="rounded-full px-2 py-1 font-bold text-green-mid">Open ↗</a></div>}
         </div>
         <div className="flex flex-wrap gap-2"><button onClick={() => onResponses(form)} className="rounded-full border px-4 py-2 text-xs font-bold text-green-deep">Responses</button><button onClick={() => onEdit(form)} className="rounded-full border px-4 py-2 text-xs font-bold text-green-deep">Edit</button>
@@ -130,8 +130,9 @@ function ResponsesModal({ form, onClose }: { form: FormRecord; onClose: () => vo
   const customers = form.audience === 'customers' && form.collect_contact !== 'none'; const quiz = form.definition.kind === 'quiz'
   function exportCsv() {
     const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const header = ['Respondent', ...(customers ? ['Email', 'Phone'] : []), 'Submitted', ...(quiz ? ['Score %', 'Passed'] : []), ...form.definition.questions.map((q) => q.label)]
-    const body = rows.map((r) => [r.respondent, ...(customers ? [r.contact_email, r.contact_phone] : []), new Date(r.submitted_at).toISOString(), ...(quiz ? [r.score ?? '', r.passed === null ? '' : r.passed ? 'Yes' : 'No'] : []), ...form.definition.questions.map((q) => formatAnswer(r.answers[q.id]))])
+    const columns = answerColumns(form.definition.questions)
+    const header = ['Respondent', ...(customers ? ['Email', 'Phone'] : []), 'Submitted', ...(quiz ? ['Score %', 'Passed'] : []), ...columns.map((c) => c.header)]
+    const body = rows.map((r) => [r.respondent, ...(customers ? [r.contact_email, r.contact_phone] : []), new Date(r.submitted_at).toISOString(), ...(quiz ? [r.score ?? '', r.passed === null ? '' : r.passed ? 'Yes' : 'No'] : []), ...columns.map((c) => c.value(r.answers))])
     const url = URL.createObjectURL(new Blob([[header, ...body].map((line) => line.map(cell).join(',')).join('\n')], { type: 'text/csv' }))
     const a = document.createElement('a'); a.href = url; a.download = `${form.title}-responses.csv`.replace(/[^\w.-]+/g, '-'); a.click(); URL.revokeObjectURL(url)
   }
