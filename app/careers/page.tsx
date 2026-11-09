@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import CareersContent from '@/components/careers/CareersContent'
+import CareerApplicationForm from '@/components/admin/hr/recruiting/CareerApplicationForm'
 import JsonLd from '@/components/JsonLd'
-import { createJobPostingJsonLd, type CareerOpening } from '@/lib/careers'
+import { createJobPostingJsonLd, defaultCareersEmail, type CareerOpening } from '@/lib/careers'
 
 // Fetch openings at request time so publishing from the admin dashboard shows
 // up immediately and deploy builds do not depend on Supabase reachability.
@@ -39,6 +40,8 @@ export default async function CareersPage() {
       {/* Emitted server-side so every published role is eligible for Google Jobs. */}
       {openings.length > 0 && <JsonLd data={openings.map(createJobPostingJsonLd)} />}
       <CareersContent openings={openings} />
+      {/* Tracked online application with the candidate privacy notice (HR recruiting). */}
+      <CareerApplicationForm openings={openings.map(({ id, title, location, employment_type }) => ({ id, title, location, employment_type }))} contactEmail={defaultCareersEmail} />
     </>
   )
 }
