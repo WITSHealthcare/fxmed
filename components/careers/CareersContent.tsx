@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Link from 'next/link'
-import { buildApplyLink, defaultCareersEmail, type CareerOpening } from '@/lib/careers'
+import { defaultCareersEmail, type CareerOpening } from '@/lib/careers'
 
 const values = [
   {
@@ -219,7 +219,7 @@ export default function CareersContent({ openings }: { openings: CareerOpening[]
                             )}
                           </div>
                           <a
-                            href={buildApplyLink(role.title, role.apply_email)}
+                            href={`#apply-${role.id}`}
                             className="font-dm-sans bg-green-deep text-cream px-6 py-3 rounded-[30px] font-semibold text-[0.95rem] no-underline transition-all hover:bg-green-mid inline-block mt-7"
                           >
                           Apply for this role →
