@@ -2,8 +2,8 @@
 
 // Building, filling in and summarising survey and quiz forms. Used by training
 // lessons and by standalone forms for customers, staff and patients.
-import { useEffect, useState } from 'react'
-import { choiceTypes, gradeFormResponse, isGradable, isOtherAnswer, optionListTypes, otherPrefix, questionNumbers, questionOptions, questionTypes, type FormAnswer, type FormAnswers, type FormDefinition, type FormQuestion, type FormQuestionType, type FormResponseView } from '@/lib/forms'
+import { useEffect, useRef, useState } from 'react'
+import { choiceTypes, formPages, gradeFormResponse, isGradable, isOtherAnswer, optionListTypes, otherPrefix, questionNumbers, questionOptions, questionTypes, type FormAnswer, type FormAnswers, type FormDefinition, type FormQuestion, type FormQuestionType, type FormResponseView } from '@/lib/forms'
 
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 const newQuestion = (type: FormQuestionType = 'single_choice'): FormQuestion => ({ id: makeId('question'), type, label: '', help: '', required: true, options: choiceTypes.includes(type) ? ['Option 1', 'Option 2'] : [], correct: [], scaleMax: 5 })
@@ -45,6 +45,7 @@ export function FormBuilder({ form, onChange, onRemove, heading = 'Lesson form',
       {(showDetails || quiz) && <div className={`mt-3 grid gap-3 ${showDetails ? 'sm:grid-cols-[1fr_140px]' : 'sm:grid-cols-[140px]'}`}>{showDetails && <input value={form.title} maxLength={160} onChange={(e) => onChange({ ...form, title: e.target.value })} placeholder={quiz ? 'Quiz title (optional)' : 'Survey title (optional)'} className="input" />}{quiz && <label className="text-xs font-bold text-green-deep">Pass mark %<input type="number" min="0" max="100" value={form.passPercent} onChange={(e) => onChange({ ...form, passPercent: Number(e.target.value) })} className="input mt-1" /></label>}</div>}
       {showDetails && <textarea rows={2} maxLength={3000} value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} placeholder="Instructions (optional)" className="input mt-3" />}
       {quiz && <p className="mt-2 text-xs text-text-mid">{gradable ? `${gradable} graded question(s). Pass mark ${form.passPercent}%${passNote ? `; ${passNote}` : ''}.` : 'Mark the correct answers on choice questions to grade this quiz.'}</p>}
+      {form.questions.some((q) => q.type === 'section') && <label className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold text-green-deep"><input type="checkbox" checked={!!form.paged} onChange={(e) => onChange({ ...form, paged: e.target.checked })} className="accent-green-deep" />Show one section per page<span className="font-normal text-text-mid">respondents move between sections with Back and Next</span></label>}
       <div className="mt-4 space-y-3">{form.questions.map((question, index) => <QuestionEditor key={question.id} question={question} index={index} number={numbers.get(question.id)} quiz={quiz} total={form.questions.length} onChange={(q) => setQuestion(index, q)} onMove={(by) => move(index, by)}
         onDuplicate={() => onChange({ ...form, questions: [...form.questions.slice(0, index + 1), { ...question, id: makeId('question') }, ...form.questions.slice(index + 1)] })}
         onDelete={() => onChange({ ...form, questions: form.questions.filter((_, i) => i !== index) })} />)}</div>
@@ -103,35 +104,62 @@ export function FormFill({ form, response, preview, onSubmit, children }: { form
   const [editing, setEditing] = useState(!response); const [saving, setSaving] = useState(false)
   // A problem the browser's own validation can't catch, e.g. an unranked list; shown on that question.
   const [problem, setProblem] = useState<{ error: string; questionId?: string } | null>(null)
+  // Paged forms show one section at a time; `top` is where each new page scrolls to.
+  const [page, setPage] = useState(0); const top = useRef<HTMLDivElement>(null)
   useEffect(() => { if (response) { setAnswers(response.answers); setEditing(false) } }, [response])
   const quiz = form.kind === 'quiz'
   const numbers = questionNumbers(form.questions)
+  const pages = form.paged ? formPages(form.questions) : [form.questions]
+  const paged = pages.length > 1; const at = Math.min(page, pages.length - 1); const last = at === pages.length - 1
   const set = (id: string, value: FormAnswer) => { setAnswers((a) => ({ ...a, [id]: value })); setProblem((p) => p?.questionId === id ? null : p) }
 
   if (response && !editing) return <div className="rounded-xl border border-green-mid/20 bg-green-50/50 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold text-green-deep">{quiz ? (response.passed === false ? 'Not passed yet' : 'Quiz passed') : 'Response submitted'}{response.score !== null && <span className="ml-2 font-normal text-text-mid">Score {response.score}%{quiz && ` · pass mark ${form.passPercent}%`}</span>}</p><p className="text-xs text-text-mid">Submitted {new Date(response.submitted_at).toLocaleString()}</p></div>
-      <button type="button" onClick={() => { setEditing(true); if (quiz) setAnswers({}) }} className="rounded-full border bg-white px-4 py-2 text-xs font-bold text-green-deep">{quiz ? 'Retake quiz' : 'Edit response'}</button></div>
+      <button type="button" onClick={() => { setEditing(true); setPage(0); if (quiz) setAnswers({}) }} className="rounded-full border bg-white px-4 py-2 text-xs font-bold text-green-deep">{quiz ? 'Retake quiz' : 'Edit response'}</button></div>
     {!quiz && <dl className="mt-3 space-y-2 text-sm">{form.questions.filter((q) => response.answers[q.id] !== undefined).map((q) => <div key={q.id}><dt className="font-bold text-green-deep">{q.label}</dt><dd className="whitespace-pre-wrap text-text-mid">{formatAnswer(response.answers[q.id], q)}</dd></div>)}</dl>}
   </div>
 
+  // Points to the question that needs attention, moving to its page first.
+  function showProblem(found: { error: string; questionId?: string }) {
+    setProblem(found); if (!found.questionId) return
+    const onPage = pages.findIndex((p) => p.some((q) => q.id === found.questionId)); if (onPage >= 0) setPage(onPage)
+    setTimeout(() => document.getElementById(`field-${found.questionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+  }
+  function goTo(next: number) {
+    setPage(next); setProblem(null)
+    setTimeout(() => { top.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); top.current?.focus({ preventScroll: true }) }, 50)
+  }
+  // Checks only this page's questions before moving on; the browser checks its own required fields first.
+  function next() {
+    if (!preview) {
+      if (top.current?.closest('form')?.reportValidity() === false) return
+      const check = gradeFormResponse({ ...form, kind: 'survey', questions: pages[at] }, answers)
+      if ('error' in check) return showProblem(check)
+    }
+    goTo(at + 1)
+  }
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); if (!onSubmit) return
+    e.preventDefault()
+    if (paged && !last) return next()
+    if (!onSubmit) return
     const check = gradeFormResponse(form, answers)
-    if ('error' in check) { setProblem(check); if (check.questionId) document.getElementById(`field-${check.questionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return }
+    if ('error' in check) return showProblem(check)
     setProblem(null); setSaving(true); await onSubmit(answers); setSaving(false)
   }
 
   // The preview sits inside the program editor's <form>, so it must not be a form or carry required fields itself.
   const Wrapper = preview ? 'div' : 'form'
   return <Wrapper onSubmit={submit} className="space-y-4">
-    {(form.title || form.description) && <div>{form.title && <h6 className="font-bold text-green-deep">{form.title}</h6>}{form.description && <p className="mt-1 whitespace-pre-wrap text-sm text-text-mid">{form.description}</p>}</div>}
-    {children}
-    {form.questions.map((q) => q.type === 'section'
+    <div ref={top} tabIndex={-1} className="scroll-mt-6 outline-none">{paged && <div><div className="flex justify-between text-xs font-bold text-green-mid"><span>Step {at + 1} of {pages.length}</span><span>{Math.round(at / pages.length * 100)}% complete</span></div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-green-deep transition-all" style={{ width: `${(at + 1) / pages.length * 100}%` }} /></div></div>}</div>
+    {at === 0 && (form.title || form.description) && <div>{form.title && <h6 className="font-bold text-green-deep">{form.title}</h6>}{form.description && <p className="mt-1 whitespace-pre-wrap text-sm text-text-mid">{form.description}</p>}</div>}
+    {at === 0 && children}
+    {pages[at].map((q) => q.type === 'section'
       ? <div key={q.id} className="border-b border-green-deep/15 pb-2 pt-4"><h3 className="text-lg font-bold text-green-deep">{q.label}</h3>{q.help && <p className="mt-1 whitespace-pre-wrap text-sm text-text-mid">{q.help}</p>}</div>
       : <fieldset key={q.id} id={`field-${q.id}`} className={`min-w-0 scroll-mt-24 rounded-xl border bg-white p-4 ${problem?.questionId === q.id ? 'border-red-300 ring-1 ring-red-200' : ''}`}><legend className="sr-only">{q.label}</legend><p className="text-sm font-bold text-green-deep">{numbers.get(q.id)}. {q.label}{q.required && <span className="text-red-600"> *</span>}</p>{q.help && <p className="mt-0.5 text-xs text-text-mid">{q.help}</p>}<div className="mt-3"><QuestionInput question={preview ? { ...q, required: false } : q} value={answers[q.id]} onChange={(v) => set(q.id, v)} /></div>
         {problem?.questionId === q.id && <p role="alert" className="mt-3 text-sm font-bold text-red-600">{problem.error}</p>}</fieldset>)}
     {problem && !problem.questionId && <p role="alert" className="text-sm font-bold text-red-600">{problem.error}</p>}
-    <div className="flex items-center justify-end gap-3">{response && <button type="button" onClick={() => { setAnswers(response.answers); setEditing(false) }} className="rounded-full border px-4 py-2 text-xs font-bold">Cancel</button>}<button type={preview ? 'button' : 'submit'} disabled={preview || saving} className="rounded-full bg-green-deep px-5 py-2 text-xs font-bold text-white disabled:opacity-50">{preview ? 'Submit (preview)' : saving ? 'Submitting…' : quiz ? 'Submit quiz' : 'Submit'}</button></div>
+    <div className="flex items-center justify-end gap-3">{paged && at > 0 && <button type="button" onClick={() => goTo(at - 1)} className="mr-auto rounded-full border px-5 py-2 text-xs font-bold text-green-deep">← Back</button>}{response && <button type="button" onClick={() => { setAnswers(response.answers); setEditing(false) }} className="rounded-full border px-4 py-2 text-xs font-bold">Cancel</button>}{paged && !last ? <button type="button" onClick={next} className="rounded-full bg-green-deep px-5 py-2 text-xs font-bold text-white">Next →</button> : <button type={preview ? 'button' : 'submit'} disabled={preview || saving} className="rounded-full bg-green-deep px-5 py-2 text-xs font-bold text-white disabled:opacity-50">{preview ? 'Submit (preview)' : saving ? 'Submitting…' : quiz ? 'Submit quiz' : 'Submit'}</button>}</div>
   </Wrapper>
 }
 

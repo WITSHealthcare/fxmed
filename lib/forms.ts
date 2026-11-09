@@ -11,7 +11,8 @@ export type FormQuestion = {
   id: string; type: FormQuestionType; label: string; help: string; required: boolean; options: string[]; correct: string[]; scaleMax: number
   rows?: string[]; maxChoices?: number; allowOther?: boolean
 }
-export type FormDefinition = { kind: 'survey' | 'quiz'; title: string; description: string; passPercent: number; questions: FormQuestion[] }
+// `paged` shows each section heading and its questions on a screen of its own.
+export type FormDefinition = { kind: 'survey' | 'quiz'; title: string; description: string; passPercent: number; questions: FormQuestion[]; paged?: boolean }
 // Rating grids answer with { row: column }; rankings with the options in ranked order.
 export type FormAnswer = string | string[] | number | Record<string, string>
 export type FormAnswers = Record<string, FormAnswer>
@@ -36,6 +37,14 @@ export function questionOptions(question: FormQuestion) {
 }
 export const isGradable = (question: FormQuestion) => questionOptions(question).length > 0 && question.correct.length > 0
 export const isOtherAnswer = (value: string) => value.startsWith(otherPrefix)
+
+// The screens of a paged form: a new one starts at each section heading.
+export function formPages(questions: FormQuestion[]) {
+  return questions.reduce<FormQuestion[][]>((pages, q) => {
+    if (q.type === 'section' && pages[pages.length - 1].length) pages.push([])
+    pages[pages.length - 1].push(q); return pages
+  }, [[]]).filter((page) => page.length)
+}
 
 // Question numbers shown to respondents; section headings are not numbered.
 export function questionNumbers(questions: FormQuestion[]) {
@@ -81,6 +90,7 @@ export function cleanFormDefinition(value: unknown): FormDefinition | null {
   return {
     kind: raw.kind === 'quiz' ? 'quiz' : 'survey', title: cleanFormText(raw.title, 160), description: cleanFormText(raw.description, 3000),
     passPercent: Math.max(0, Math.min(100, Math.trunc(Number(raw.passPercent) || 0))), questions,
+    ...(raw.paged === true && questions.some((q) => q.type === 'section') ? { paged: true } : {}),
   }
 }
 
