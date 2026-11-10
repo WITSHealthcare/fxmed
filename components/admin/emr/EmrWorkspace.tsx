@@ -204,16 +204,18 @@ function RegistrationRequests({ onPatient, onChanged }: { onPatient: (id: string
 }
 
 function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }: { patientId: string; initialTab?: string; onBack: () => void; onChanged: () => void }) {
-  const [chart, setChart] = useState<Chart | null>(null), [tab, setTab] = useState(initialTab), [modal, setModal] = useState<string | null>(null), [error, setError] = useState('')
+  const [chart, setChart] = useState<Chart | null>(null), [tab, setTab] = useState(initialTab === 'encounters' ? 'appointments' : initialTab), [modal, setModal] = useState<string | null>(null), [error, setError] = useState('')
   const load = useCallback(async () => { const response = await fetch(`${api}?resource=patient&patientId=${patientId}`); const result = await response.json(); if (response.ok) setChart(result); else setError(result.error) }, [patientId])
   useEffect(() => { load() }, [load])
   const [scheduling, setScheduling] = useState(false)
   const closeScheduling = useCallback(() => setScheduling(false), [])
+  // The appointment an encounter is being started for.
+  const [encounterFor, setEncounterFor] = useState<any>(null)
   const coverage = useCoverage(patientId)
   if (error) return <Alert tone="error">{error}</Alert>
   if (!chart) return <Loading />
   const patient = chart.patient
-  const tabs = ['overview','coverage','follow_ups','timeline','encounters','notes','diagnoses','allergies','medications','investigations','referrals','financial','documents','care_plans','portal']
+  const tabs = ['overview','coverage','follow_ups','timeline','appointments','notes','diagnoses','allergies','medications','investigations','referrals','financial','documents','care_plans','portal']
   // Recording against an encounter starts on the most recent one.
   const latestEncounterId = chart.encounters[0]?.id
   return <div className="space-y-6">
@@ -230,7 +232,8 @@ function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }:
     {tab === 'referrals' && <PatientReferrals patient={patient} chart={chart} coverage={coverage} onChanged={load} />}
     {tab === 'follow_ups' && <FollowUpList key={chart.tasks.map((task: any) => `${task.id}:${task.status}:${task.due_at}`).join()} patientId={patientId} onChanged={load} onCreate={() => setModal('task')} />}
     {tab === 'timeline' && <Timeline chart={chart} />}
-    {tab === 'encounters' && <RecordList records={chart.encounters} kind="encounter" patient={patient} chart={chart} onUpdate={load} action={<div className="flex flex-wrap gap-2"><button disabled={!latestEncounterId} title={latestEncounterId ? undefined : 'Start an encounter first'} onClick={() => setModal(`encounter_vitals:${latestEncounterId}`)} className="secondary disabled:opacity-40"><PulseIcon size={18} weight="duotone" />Record vitals</button><button onClick={() => setModal(latestEncounterId ? `diagnosis:${latestEncounterId}` : 'diagnosis')} className="secondary"><FirstAidKitIcon size={18} weight="duotone" />Diagnosis</button><button onClick={() => setModal('encounter')} className="primary"><StethoscopeIcon size={18} weight="duotone" />Start encounter</button></div>} />}
+    {tab === 'appointments' && <PatientAppointments chart={chart} onUpdate={load} onSchedule={() => setScheduling(true)} onStartEncounter={setEncounterFor} />}
+    {tab === 'appointments' && <RecordList records={chart.encounters} kind="encounter" patient={patient} chart={chart} onUpdate={load} action={<div className="flex flex-wrap gap-2"><button disabled={!latestEncounterId} title={latestEncounterId ? undefined : 'Start an encounter first'} onClick={() => setModal(`encounter_vitals:${latestEncounterId}`)} className="secondary disabled:opacity-40"><PulseIcon size={18} weight="duotone" />Record vitals</button><button onClick={() => setModal(latestEncounterId ? `diagnosis:${latestEncounterId}` : 'diagnosis')} className="secondary"><FirstAidKitIcon size={18} weight="duotone" />Diagnosis</button><button onClick={() => setModal('encounter')} className="primary"><StethoscopeIcon size={18} weight="duotone" />Start encounter</button></div>} />}
     {tab === 'notes' && <div className="space-y-6"><RecordList records={chart.encounters} kind="encounter" patient={patient} chart={chart} onUpdate={load} /><RecordList records={chart.notes} kind="note" patient={patient} chart={chart} onUpdate={load} action={<div className="flex flex-wrap gap-2"><button onClick={() => setModal('standalone_vitals')} className="secondary"><PulseIcon size={18} weight="duotone" />Record vitals</button><button onClick={() => setModal('note')} className="primary"><NotePencilIcon size={18} weight="duotone" />Add clinical note</button></div>} /><StandaloneVitals chart={chart} patient={patient} onUpdate={load} /></div>}
     {tab === 'diagnoses' && <RecordList records={chart.diagnoses} kind="diagnosis" onUpdate={load} />}
     {tab === 'allergies' && <RecordList records={chart.allergies} kind="allergy" onUpdate={load} action={<button onClick={() => setModal('allergy')} className="primary"><WarningCircleIcon size={18} weight="duotone" />Add allergy</button>} />}
@@ -244,6 +247,7 @@ function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }:
     {modal === 'financial_report' && <PatientReportModal patient={patient} mode="financial" onClose={() => setModal(null)} />}
     <PatientAssistant key={patientId} patientId={patientId} patientName={fullName(patient)} />
     <AddBookingDialog open={scheduling} patient={patient as any} onClose={closeScheduling} onAdded={() => load()} />
+    {encounterFor && <ClinicalModal type="encounter" patient={patient} chart={chart} fixed={{ appointment_id: encounterFor.id, encounter_type: encounterFor.consultation_type === 'home-visit' ? 'home_visit' : 'telemedicine', chief_complaint: encounterFor.symptoms || '' }} patients={[patient]} onClose={() => setEncounterFor(null)} onSaved={() => { setEncounterFor(null); load(); onChanged() }} />}
     {modal && !['report','financial_report'].includes(modal) && <ClinicalModal type={modal.split(':')[0]} patient={patient} chart={chart} fixed={modal.startsWith('result:') ? { order_id: modal.split(':')[1] } : modal.includes(':') ? { encounter_id: modal.split(':')[1] } : {}} patients={[patient]} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); onChanged() }} />}
   </div>
 }
@@ -524,6 +528,55 @@ function CarePlanList({ chart, patient, onUpdate, onCreate }: { chart: Chart; pa
   const [plan, setPlan] = useState<any>(null)
   async function complete(item: any) { await fetch(api, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: 'care_plan_items', id: item.id, status: 'completed', completed_at: new Date().toISOString() }) }); onUpdate() }
   return <><Panel title="Care plans" subtitle={`${chart.carePlans.length} coordinated plan${chart.carePlans.length === 1 ? '' : 's'}`} action={<button onClick={onCreate} className="primary"><HeartbeatIcon size={18} weight="duotone" />Create care plan</button>}><div className="mt-5 space-y-4">{chart.carePlans.length ? chart.carePlans.map((item: any) => <div key={item.id} className="rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold">{item.title}</p><p className="mt-1 text-sm text-text-mid">{item.goals || item.description}</p>{item.shared_with_patient && <p className="mt-1 text-xs font-bold text-green-mid">Shared with patient</p>}</div><Status value={item.status} /></div><div className="mt-4 space-y-2">{item.items?.map((step: any) => <div key={step.id} className="flex items-center gap-3 rounded-xl bg-white p-3 text-sm"><CheckCircleIcon className={step.status === 'completed' ? 'text-green-mid' : 'text-text-mid/35'} weight={step.status === 'completed' ? 'fill' : 'regular'} /><span className="flex-1 font-semibold">{step.title}{step.completed_by_patient && <span className="ml-2 text-xs font-bold text-green-mid">Done by patient</span>}</span>{step.status !== 'completed' && <button onClick={() => complete(step)} className="text-xs font-bold text-green-mid">Complete</button>}</div>)}</div><button onClick={() => setPlan(item)} className="secondary mt-4"><PlusIcon />Add plan item</button></div>) : <Empty text="No care plans yet." />}</div></Panel>{plan && <ClinicalModal type="care_plan_item" patient={patient} chart={chart} fixed={{ care_plan_id: plan.id }} patients={[patient]} onClose={() => setPlan(null)} onSaved={() => { setPlan(null); onUpdate() }} />}</>
+}
+
+// The patient's appointments, however they were booked: on the website, by
+// Zara or by staff. Scheduling here adds the booking to the Requests calendar
+// and the financial CRM too, and an encounter can be started from each one.
+function PatientAppointments({ chart, onUpdate, onSchedule, onStartEncounter }: { chart: Chart; onUpdate: () => void; onSchedule: () => void; onStartEncounter: (appointment: any) => void }) {
+  const appointments: any[] = chart.appointments || []
+  const [saving, setSaving] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const today = toDateInput(new Date())
+  const isUpcoming = (item: any) => item.preferred_date >= today && !['completed', 'cancelled'].includes(item.status)
+  const at = (item: any) => `${item.preferred_date}T${item.preferred_time || '00:00'}`
+  const upcoming = appointments.filter(isUpcoming).sort((a, b) => at(a).localeCompare(at(b)))
+  const earlier = appointments.filter(item => !isUpcoming(item)).sort((a, b) => at(b).localeCompare(at(a)))
+  const encounterNumber = (item: any) => (chart.encounters || []).find((encounter: any) => encounter.id === item.encounter_id)?.encounter_number
+
+  async function setStatus(item: any, status: string) {
+    setSaving(item.id)
+    setError('')
+    const response = await fetch(api, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: 'appointments', id: item.id, status }) })
+    if (response.ok) onUpdate()
+    else setError((await response.json().catch(() => ({}))).error || 'Unable to update the appointment.')
+    setSaving(null)
+  }
+
+  const row = (item: any) => <div key={item.id} className="flex flex-wrap items-center gap-4 rounded-[16px] border border-green-deep/10 bg-white p-4">
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px] bg-[#EAF2FE] text-[#3374A8]"><CalendarCheckIcon size={22} weight="fill" /></span>
+    <div className="min-w-48 flex-1">
+      <p className="font-bold">{date.format(new Date(`${item.preferred_date}T00:00:00`))} · {formatTime(item.preferred_time)}</p>
+      <p className="mt-1 text-xs text-text-mid">{item.consultation_type === 'telemedicine' ? 'Telemedicine' : 'Home visit'} · Payment {label(item.payment_status || 'pending').toLowerCase()}{item.symptoms ? ` · ${clinicalPlainText(item.symptoms).slice(0, 90)}${item.symptoms.length > 90 ? '…' : ''}` : ''}</p>
+    </div>
+    <select aria-label={`Status of the appointment on ${date.format(new Date(`${item.preferred_date}T00:00:00`))}`} value={item.status} disabled={saving === item.id} onChange={event => setStatus(item, event.target.value)} className="input w-auto py-2 disabled:opacity-50">
+      <option value="pending">Pending</option>
+      <option value="confirmed">Confirmed</option>
+      <option value="completed">Completed</option>
+      <option value="cancelled">Cancelled</option>
+    </select>
+    {item.encounter_id
+      ? <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700"><CheckCircleIcon size={15} weight="fill" />{encounterNumber(item) ? `Encounter ${encounterNumber(item)}` : 'Encounter recorded'}</span>
+      : item.status !== 'cancelled' && <button onClick={() => onStartEncounter(item)} className="secondary"><StethoscopeIcon size={18} weight="duotone" />Start encounter</button>}
+  </div>
+
+  return <Panel title="Appointments" subtitle="Calls and visits booked for this patient. Appointments scheduled here also show in the Requests calendar." action={<button onClick={onSchedule} className="primary"><CalendarCheckIcon size={18} weight="duotone" />Schedule appointment</button>}>
+    {error && <Alert tone="error">{error}</Alert>}
+    {appointments.length ? <div className="mt-6 space-y-6">
+      <div><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-green-mid">Upcoming</p><div className="mt-3 space-y-3">{upcoming.length ? upcoming.map(row) : <p className="text-sm text-text-mid">No upcoming appointments.</p>}</div></div>
+      {earlier.length > 0 && <div><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-green-mid">Earlier, completed and cancelled</p><div className="mt-3 space-y-3">{earlier.map(row)}</div></div>}
+    </div> : <Empty text="No appointments yet. Schedule one and it will also show in the Requests calendar." />}
+  </Panel>
 }
 
 // Telemedicine calls and home visits booked for the patient, with what each
