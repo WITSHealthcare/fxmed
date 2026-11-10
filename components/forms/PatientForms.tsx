@@ -37,7 +37,7 @@ export default function PatientForms() {
             <span className={`mt-2 inline-block rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide ${form.my_response ? 'bg-green-50 text-green-700' : 'bg-gold/30 text-green-deep'}`}>{form.my_response ? `Sent ${new Date(form.my_response.submitted_at).toLocaleDateString('en-NG')}` : 'To do'}</span></span>
           <span className="text-2xl text-green-deep">{open === form.id ? '−' : '+'}</span>
         </button>
-        {thanks[form.id] && <p className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-bold text-green-800">{thanks[form.id]}</p>}
+        {thanks[form.id] && <p className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-bold text-green-800">{thanks[form.id]}{form.definition.thankYouLink && <a href={form.definition.thankYouLink.url} target="_blank" rel="noopener noreferrer" className="ml-3 underline">{form.definition.thankYouLink.label} ↗</a>}</p>}
         {open === form.id && <div className="mt-4 rounded-2xl bg-cream/60 p-4"><FormFill form={form.definition} response={form.one_response_per_person ? form.my_response : null} onSubmit={(answers) => submit(form, answers)} /></div>}
       </div>)}</div>}
   </section>
