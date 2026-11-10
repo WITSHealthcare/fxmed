@@ -1,12 +1,12 @@
 'use client'
 
+import Image from 'next/image'
+
 export default function MobileCare() {
   return (
     <section className="relative h-[420px] overflow-hidden flex items-center justify-center">
       {/* Background Image */}
-      <div className="absolute inset-0 bg-cover bg-center brightness-[0.45]" 
-           style={{backgroundImage: "url('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80')"}}>
-      </div>
+      <Image src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80" alt="" fill sizes="100vw" className="object-cover object-center brightness-[0.45]" />
       
       {/* Overlay Gradient */}
       <div className="absolute inset-0 bg-gradient-to-r from-[rgba(15,36,25,0.85)] to-[rgba(26,61,46,0.5)]"></div>

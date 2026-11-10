@@ -5,6 +5,7 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Link from 'next/link'
 import { defaultCareersEmail, type CareerOpening } from '@/lib/careers'
+import Image from 'next/image'
 
 const values = [
   {
@@ -54,10 +55,7 @@ export default function CareersContent({ openings }: { openings: CareerOpening[]
 
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-green-deep to-green-mid text-white pt-52 pb-20 px-[5%] overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat brightness-[0.4]"
-          style={{ backgroundImage: "url('/Equipment.jpg')" }}
-        ></div>
+        <Image src="/Equipment.jpg" alt="" fill sizes="100vw" loading="eager" fetchPriority="high" className="object-cover object-center brightness-[0.4]" />
         <div className="absolute inset-0 bg-gradient-to-r from-[rgba(15,36,25,0.3)] via-[rgba(15,36,25,0.7)] to-[rgba(15,36,25,0.97)]"></div>
         <div className="relative z-10 max-w-4xl mx-auto text-center">
           <div className="inline-block text-gold bg-gold/20 px-4 py-1.5 rounded-[20px] text-[0.75rem] font-dm-sans font-semibold tracking-[0.14em] uppercase mb-6">

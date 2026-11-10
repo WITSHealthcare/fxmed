@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
   AddressBookIcon,
@@ -21,28 +22,34 @@ import {
   ToolboxIcon,
   UsersThreeIcon,
 } from '@phosphor-icons/react'
-import BlogManagement from '@/components/admin/BlogManagement'
-import CrmDashboard from '@/components/admin/CrmDashboard'
-import SeoAnalytics from '@/components/admin/SeoAnalytics'
-import Messages from '@/components/admin/Messages'
-import AppointmentCalendar from '@/components/admin/AppointmentCalendar'
-import FestiveBookings from '@/components/admin/FestiveBookings'
 import Notifications from '@/components/admin/Notifications'
-import UserManagement from '@/components/admin/UserManagement'
-import ZaraDashboard from '@/components/admin/ZaraDashboard'
-import AdminTools from '@/components/admin/AdminTools'
-import Contacts from '@/components/admin/Contacts'
-import AmbassadorProgram from '@/components/admin/AmbassadorProgram'
-import CareersManagement from '@/components/admin/CareersManagement'
-import EmrWorkspace from '@/components/admin/emr/EmrWorkspace'
-import FmLabAnalysis from '@/components/admin/fm/FmLabAnalysis'
-import Training from '@/components/admin/Training'
-import Forms from '@/components/admin/Forms'
-import HrWorkspace from '@/components/admin/hr/HrWorkspace'
 import AdminAccountMenu from '@/components/admin/AdminAccountMenu'
 import { getCurrentAdminRole, signOut, supabase } from '@/lib/supabase-auth'
 import { adminRoleLabels, adminRolePermissions, canAccessCrmView, canAccessTab, type AdminRole, type AdminTab } from '@/lib/admin-auth'
-import blogContentData from '@/app/blog/fxmed-content (1).json'
+
+// Each tab's code loads the first time the tab is opened, so the portal opens
+// without downloading every tab at once.
+function TabLoading() {
+  return <div className="flex min-h-64 items-center justify-center rounded-[20px] bg-white shadow-lg"><span className="h-9 w-9 animate-spin rounded-full border-2 border-green-deep/15 border-t-green-deep" aria-label="Loading" /></div>
+}
+
+const BlogManagement = dynamic(() => import('@/components/admin/BlogManagement'), { loading: TabLoading })
+const CrmDashboard = dynamic(() => import('@/components/admin/CrmDashboard'), { loading: TabLoading })
+const SeoAnalytics = dynamic(() => import('@/components/admin/SeoAnalytics'), { loading: TabLoading })
+const Messages = dynamic(() => import('@/components/admin/Messages'), { loading: TabLoading })
+const AppointmentCalendar = dynamic(() => import('@/components/admin/AppointmentCalendar'), { loading: TabLoading })
+const FestiveBookings = dynamic(() => import('@/components/admin/FestiveBookings'), { loading: TabLoading })
+const UserManagement = dynamic(() => import('@/components/admin/UserManagement'), { loading: TabLoading })
+const ZaraDashboard = dynamic(() => import('@/components/admin/ZaraDashboard'), { loading: TabLoading })
+const AdminTools = dynamic(() => import('@/components/admin/AdminTools'), { loading: TabLoading })
+const Contacts = dynamic(() => import('@/components/admin/Contacts'), { loading: TabLoading })
+const AmbassadorProgram = dynamic(() => import('@/components/admin/AmbassadorProgram'), { loading: TabLoading })
+const CareersManagement = dynamic(() => import('@/components/admin/CareersManagement'), { loading: TabLoading })
+const EmrWorkspace = dynamic(() => import('@/components/admin/emr/EmrWorkspace'), { loading: TabLoading })
+const FmLabAnalysis = dynamic(() => import('@/components/admin/fm/FmLabAnalysis'), { loading: TabLoading })
+const Training = dynamic(() => import('@/components/admin/Training'), { loading: TabLoading })
+const Forms = dynamic(() => import('@/components/admin/Forms'), { loading: TabLoading })
+const HrWorkspace = dynamic(() => import('@/components/admin/hr/HrWorkspace'), { loading: TabLoading })
 
 interface BlogPost {
   id: string
@@ -324,7 +331,7 @@ export default function AdminPanel() {
 
   // Import JSON content as drafts in batches
   const importDraftsFromJSON = async () => {
-    const contentItems = blogContentData as BlogContentItem[]
+    const contentItems = (await import('@/app/blog/fxmed-content (1).json')).default as BlogContentItem[]
     const importedPosts: BlogPost[] = []
     const batchSize = 50
 
@@ -484,7 +491,7 @@ export default function AdminPanel() {
   const handleDirectSupabaseImport = async () => {
     setImporting(true)
     try {
-      const contentItems = blogContentData as BlogContentItem[]
+      const contentItems = (await import('@/app/blog/fxmed-content (1).json')).default as BlogContentItem[]
       
       const importedPosts: BlogPost[] = []
       const batchSize = 10 // Smaller batches for direct DB

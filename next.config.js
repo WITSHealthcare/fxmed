@@ -8,6 +8,11 @@ const nextConfig = {
         hostname: 'images.unsplash.com',
       },
       {
+        // YouTube video thumbnails, for the click-to-play video on the home page.
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+      },
+      {
         protocol: 'https',
         hostname: 'lxnrfgruczkooypqyomj.supabase.co',
       },

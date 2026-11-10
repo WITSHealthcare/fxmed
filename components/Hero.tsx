@@ -9,9 +9,7 @@ export default function Hero() {
   return (
     <section className="relative min-h-screen overflow-hidden flex items-center px-[5%] pt-[140px] pb-[60px] md:pt-[180px]">
       {/* Background Image */}
-      <div className="absolute inset-0 bg-cover bg-center brightness-[0.35]" 
-           style={{backgroundImage: "url('/Hero Background.jpeg')"}}>
-      </div>
+      <Image src="/Hero Background.jpeg" alt="" fill sizes="100vw" loading="eager" fetchPriority="high" className="object-cover object-center brightness-[0.35]" />
       
       {/* Overlay Gradient */}
       <div className="absolute inset-0 bg-gradient-to-r from-[rgba(15,36,25,0.92)] via-[rgba(26,61,46,0.7)] to-[rgba(30,74,53,0.4)]"></div>

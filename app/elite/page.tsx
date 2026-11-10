@@ -86,9 +86,7 @@ export default function Elite() {
       {/* Hero Section */}
       <section className="relative min-h-[60vh] overflow-hidden flex items-center px-[5%] pt-[180px] pb-[100px]">
         {/* Background Image */}
-        <div className="absolute inset-0 bg-cover bg-center brightness-[0.35]" 
-             style={{backgroundImage: "url('/Hero Background.jpeg')"}}>
-        </div>
+        <Image src="/Hero Background.jpeg" alt="" fill sizes="100vw" loading="eager" fetchPriority="high" className="object-cover object-center brightness-[0.35]" />
         
         {/* Overlay Gradient */}
         <div className="absolute inset-0 bg-gradient-to-r from-[rgba(15,36,25,0.92)] via-[rgba(26,61,46,0.7)] to-[rgba(30,74,53,0.4)]"></div>
@@ -416,9 +414,7 @@ export default function Elite() {
       {/* CTA Section */}
       <section className="relative py-[90px] px-[5%] overflow-hidden">
         {/* Background Image */}
-        <div className="absolute inset-0 bg-cover bg-top brightness-[0.5]"
-             style={{backgroundImage: "url('/fxmed-website-picture.png')"}}>
-        </div>
+        <Image src="/fxmed-website-picture.png" alt="" fill sizes="100vw" className="object-cover object-top brightness-[0.5]" />
 
         {/* Overlay Gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-green-deep/80 to-green-mid/80"></div>
