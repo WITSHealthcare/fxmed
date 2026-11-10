@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { CheckCircleIcon, MagnifyingGlassIcon, XIcon } from '@phosphor-icons/react'
-import { BOOKING_PRICES, displayDate, displayTime } from '@/lib/bookingTimes'
+import { BOOKING_PRICES, displayDate, displayTime, type BookingType } from '@/lib/bookingTimes'
 
 // Staff add a booking taken by phone, WhatsApp or in person, for a registered
 // EMR patient or a new one, so it shows on that patient's chart. Used in the
@@ -17,7 +17,9 @@ export type AddedAppointment = {
   email: string
   phone: string
   home_address: string
-  consultation_type: 'telemedicine' | 'home-visit'
+  consultation_type: BookingType
+  service_name?: string | null
+  amount?: number | null
   preferred_date: string
   preferred_time: string
   symptoms: string
@@ -54,7 +56,10 @@ const emptyForm = (date = '') => ({
   sex: '',
   consent: false,
   homeAddress: '',
-  consultationType: 'telemedicine' as 'telemedicine' | 'home-visit',
+  consultationType: 'telemedicine' as BookingType,
+  // For an "other" booking or payment: what it is for, and its amount in naira.
+  serviceName: '',
+  amount: '',
   preferredDate: date,
   preferredTime: '',
   notes: '',
@@ -136,6 +141,8 @@ export default function AddBookingDialog({ open, initialDate, patient: fixedPati
 
   const update = <K extends keyof Form>(field: K, value: Form[K]) => setForm((current) => ({ ...current, [field]: value }))
   const homeVisit = form.consultationType === 'home-visit'
+  const other = form.consultationType === 'other'
+  const price = other ? Number(form.amount) || 0 : BOOKING_PRICES[form.consultationType as 'telemedicine' | 'home-visit']
   const newPatient = !fixedPatient && patientMode === 'new'
 
   const choosePatient = (patient: BookingPatient) => {
@@ -337,8 +344,8 @@ export default function AddBookingDialog({ open, initialDate, patient: fixedPati
 
               <fieldset>
                 <legend className={labelClass}>Type</legend>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['telemedicine', 'home-visit'] as const).map((type) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {(['telemedicine', 'home-visit', 'other'] as const).map((type) => (
                     <label
                       key={type}
                       className={`cursor-pointer rounded-lg border px-3 py-2.5 text-sm font-semibold transition focus-within:ring-2 focus-within:ring-green-mid/30 ${
@@ -346,11 +353,23 @@ export default function AddBookingDialog({ open, initialDate, patient: fixedPati
                       }`}
                     >
                       <input type="radio" name="consultationType" value={type} checked={form.consultationType === type} onChange={() => update('consultationType', type)} className="sr-only" />
-                      <span className="block">{type === 'telemedicine' ? 'Telemedicine' : 'Home visit'}</span>
-                      <span className="block text-xs font-normal text-gray-500">{naira(BOOKING_PRICES[type])}</span>
+                      <span className="block">{type === 'telemedicine' ? 'Telemedicine' : type === 'home-visit' ? 'Home visit' : 'Other'}</span>
+                      <span className="block text-xs font-normal text-gray-500">{type === 'other' ? 'Your own amount' : naira(BOOKING_PRICES[type])}</span>
                     </label>
                   ))}
                 </div>
+                {other && (
+                  <div className="mt-3 grid gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="add-booking-service" className={labelClass}>Type of payment *</label>
+                      <input id="add-booking-service" required maxLength={120} placeholder="e.g. Lab test, Supplements" value={form.serviceName} onChange={(event) => update('serviceName', event.target.value)} className={inputClass} />
+                    </div>
+                    <div>
+                      <label htmlFor="add-booking-amount" className={labelClass}>Amount (₦) *</label>
+                      <input id="add-booking-amount" type="number" required min={1} step="any" inputMode="decimal" placeholder="0" value={form.amount} onChange={(event) => update('amount', event.target.value)} className={inputClass} />
+                    </div>
+                  </div>
+                )}
               </fieldset>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -390,7 +409,7 @@ export default function AddBookingDialog({ open, initialDate, patient: fixedPati
               </div>
 
               <p className="text-xs text-gray-500">
-                Counted as {naira(BOOKING_PRICES[form.consultationType])} in the financial CRM and on the patient’s chart. Website rules (24 hours’ notice and closed days or times) do not apply to bookings added here.
+                Counted as {naira(price)} in the financial CRM and on the patient’s chart. Website rules (24 hours’ notice and closed days or times) do not apply to bookings added here.
               </p>
               {error && <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
             </div>

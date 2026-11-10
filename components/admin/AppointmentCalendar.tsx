@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CalendarXIcon, MagnifyingGlassIcon, XIcon } from '@phosphor-icons/react'
-import { CLOSABLE_TIMES } from '@/lib/bookingTimes'
+import { CLOSABLE_TIMES, bookingTypeName, type BookingType } from '@/lib/bookingTimes'
 import AddBookingDialog from '@/components/admin/AddBookingDialog'
 
 type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
@@ -26,7 +26,9 @@ type WebsiteAppointment = {
   email: string
   phone: string
   home_address: string
-  consultation_type: 'telemedicine' | 'home-visit'
+  consultation_type: BookingType
+  service_name?: string | null
+  amount?: number | null
   preferred_date: string
   preferred_time: string
   symptoms: string
@@ -534,7 +536,7 @@ export default function AppointmentCalendar() {
                       {appointment.first_name} {appointment.last_name}
                     </span>
                     <span className="mt-0.5 block truncate text-sm text-gray-500">
-                      {appointment.consultation_type === 'telemedicine' ? 'Telemedicine' : 'Home visit'} · {appointment.phone}
+                      {bookingTypeName(appointment)} · {appointment.phone}
                     </span>
                   </span>
                   <span className={`w-fit rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${statusStyles[appointment.status]}`}>
@@ -709,7 +711,7 @@ export default function AppointmentCalendar() {
                           </div>
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
                             <span className="font-semibold text-green-deep">{formatTime(appointment.preferred_time)}</span>
-                            <span>{appointment.consultation_type === 'telemedicine' ? 'Telemedicine' : 'Home visit'}</span>
+                            <span>{bookingTypeName(appointment)}</span>
                             <span>45 mins</span>
                             <span className={appointment.payment_status === 'paid' ? 'font-medium text-green-600' : 'font-medium text-amber-600'}>
                               Payment: {appointment.payment_status}

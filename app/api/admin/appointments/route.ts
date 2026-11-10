@@ -85,7 +85,13 @@ export async function POST(request: NextRequest) {
   const paymentStatus = body.paymentStatus
   let homeAddress = cleanPublicString(body.homeAddress, 500) || ''
 
-  if (consultationType !== 'telemedicine' && consultationType !== 'home-visit') return bad('Choose telemedicine or home visit.')
+  if (consultationType !== 'telemedicine' && consultationType !== 'home-visit' && consultationType !== 'other') return bad('Choose telemedicine, home visit or other.')
+  // An "other" booking or payment names what it is for and its amount.
+  const other = consultationType === 'other'
+  const serviceName = other ? cleanPublicString(body.serviceName, 120) : null
+  const amount = other ? Number(body.amount) : null
+  if (other && !serviceName) return bad('Enter the type of payment, such as Lab test or Supplements.')
+  if (other && (!Number.isFinite(amount) || amount! <= 0 || amount! > 100_000_000)) return bad('Enter the amount in naira.')
   if (!isDate(preferredDate)) return bad('Choose a date for the booking.')
   if (startMinutes === null) return bad('Choose a time for the booking.')
   if (typeof status !== 'string' || !['pending', 'confirmed', 'completed', 'cancelled'].includes(status)) return bad('Choose a booking status.')
@@ -151,6 +157,7 @@ export async function POST(request: NextRequest) {
         phone,
         home_address: homeAddress,
         consultation_type: consultationType,
+        ...(other ? { service_name: serviceName, amount: Math.round(amount! * 100) / 100 } : {}),
         preferred_date: preferredDate,
         preferred_time: clockTime(startMinutes),
         symptoms: cleanPublicString(body.notes, 3000),
@@ -165,6 +172,8 @@ export async function POST(request: NextRequest) {
     if (error) {
       // Do not leave behind a patient registered only for this booking.
       if (newPatient && patient) await database.from('emr_patients').delete().eq('id', patient.id)
+      // Before migration 047 the columns, or the rule allowing "other", are missing.
+      if (other && (error.code === 'PGRST204' || error.code === '23514' || error.code === '42703')) return bad('Other payments need database migration 047 to be run first.', 503)
       throw error
     }
 

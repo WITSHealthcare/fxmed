@@ -193,16 +193,19 @@ You can turn these emails off in your portal, under Notifications.`
  * Tells a patient their appointment was booked, confirmed or cancelled.
  * Only for upcoming appointments linked to a patient record.
  */
-export async function notifyAppointment(database: SupabaseClient, appointment: { patient_id?: string | null; preferred_date: string; preferred_time: string; consultation_type: string }, change: 'booked' | 'confirmed' | 'cancelled') {
+export async function notifyAppointment(database: SupabaseClient, appointment: { patient_id?: string | null; preferred_date: string; preferred_time: string; consultation_type: string; service_name?: string | null }, change: 'booked' | 'confirmed' | 'cancelled') {
   if (!appointment.patient_id || appointment.preferred_date < lagosToday()) return
-  const what = appointment.consultation_type === 'telemedicine' ? 'telemedicine call' : 'home visit'
+  // An "other" booking's own name (a lab test, say) is shown only in the portal, never in the email.
+  const inEmail = appointment.consultation_type === 'telemedicine' ? 'telemedicine call' : appointment.consultation_type === 'home-visit' ? 'home visit' : 'appointment'
+  const inPortal = appointment.consultation_type === 'other' && appointment.service_name ? `${appointment.service_name} appointment` : inEmail
   const when = `${displayDate(appointment.preferred_date)} at ${displayTime(appointment.preferred_time)} (Lagos time)`
-  const copy = {
-    booked: { title: `Your ${what} is booked for ${when}`, subject: 'Your FXMed appointment is booked', summary: `Your ${what} is booked for ${when}.` },
-    confirmed: { title: `Your ${what} on ${when} is confirmed`, subject: 'Your FXMed appointment is confirmed', summary: `Your ${what} on ${when} is confirmed.` },
-    cancelled: { title: `Your ${what} on ${when} was cancelled`, subject: 'Your FXMed appointment has been cancelled', summary: `Your ${what} on ${when} has been cancelled. If you did not expect this, reply to this email to rebook.` },
+  const title = { booked: `Your ${inPortal} is booked for ${when}`, confirmed: `Your ${inPortal} on ${when} is confirmed`, cancelled: `Your ${inPortal} on ${when} was cancelled` }[change]
+  const email = {
+    booked: { subject: 'Your FXMed appointment is booked', summary: `Your ${inEmail} is booked for ${when}.` },
+    confirmed: { subject: 'Your FXMed appointment is confirmed', summary: `Your ${inEmail} on ${when} is confirmed.` },
+    cancelled: { subject: 'Your FXMed appointment has been cancelled', summary: `Your ${inEmail} on ${when} has been cancelled. If you did not expect this, reply to this email to rebook.` },
   }[change]
-  await notifyPatient(database, appointment.patient_id, { kind: 'appointment', title: copy.title, section: 'overview', email: { subject: copy.subject, summary: copy.summary } })
+  await notifyPatient(database, appointment.patient_id, { kind: 'appointment', title, section: 'overview', email })
 }
 
 /** Tells a patient their shared care plan changed. Plans they cannot see stay quiet. */

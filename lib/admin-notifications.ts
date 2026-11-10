@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AdminTab } from '@/lib/admin-auth'
 import { dueLabel, lagosDate } from '@/lib/follow-ups'
+import { bookingTypeName } from '@/lib/bookingTimes'
 
 // What the admin dashboard's notification bell shows, worked out from each
 // inbound stream each time. Shared by the bell, the emails to the clinic
@@ -91,7 +92,7 @@ export const notificationSources: Array<{
     dismissable: false,
     describe: row => ({
       title: `New booking from ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'a patient'}`,
-      detail: [row.consultation_type, row.preferred_date && `requested for ${row.preferred_date}`, row.preferred_time]
+      detail: [bookingTypeName(row), row.preferred_date && `requested for ${row.preferred_date}`, row.preferred_time]
         .filter(Boolean).join(' · '),
     }),
   },
