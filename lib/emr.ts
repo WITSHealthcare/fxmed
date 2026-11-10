@@ -103,6 +103,12 @@ export function ageFromDob(value?: string | null) {
 
 export function emrErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : typeof error === 'object' && error && 'message' in error ? String(error.message) : ''
-  if (message.includes('Could not find the table') || message.includes('schema cache')) return 'The EMR database migration has not been applied yet.'
+  if (message.includes('Could not find the table') || message.includes('schema cache')) {
+    // Name what is missing, so staff can tell which migration to run.
+    const column = message.match(/'(\w+)' column of '(\w+)'/)
+    const table = message.match(/table '(?:public\.)?(\w+)'/)
+    const missing = column ? ` (the ${column[2]} table has no ${column[1]} column)` : table ? ` (there is no ${table[1]} table)` : ''
+    return `The EMR database migration has not been applied yet${missing}.`
+  }
   return message || 'The clinical request could not be completed.'
 }
