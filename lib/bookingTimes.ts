@@ -7,6 +7,26 @@ export type ConsultationType = 'telemedicine' | 'home-visit'
 /** What a booking costs in naira, as counted in the financial CRM and the patient's chart. */
 export const BOOKING_PRICES: Record<ConsultationType, number> = { telemedicine: 25000, 'home-visit': 85000 }
 
+/**
+ * Bookings staff add can also be "other": a lab test, supplements or any other
+ * payment, with its own name and amount (migration 047).
+ */
+export type BookingType = ConsultationType | 'other'
+type PricedBooking = { consultation_type?: string | null; service_name?: string | null; amount?: number | string | null }
+
+/** What a booking costs: an "other" booking's own amount, or the standard price. */
+export function bookingAmount(booking: PricedBooking) {
+  if (booking.amount !== null && booking.amount !== undefined && booking.amount !== '') return Number(booking.amount) || 0
+  return BOOKING_PRICES[booking.consultation_type as ConsultationType] || 0
+}
+
+/** "Telemedicine", "Home visit", or what an "other" booking is for. */
+export function bookingTypeName(booking: PricedBooking) {
+  if (booking.consultation_type === 'telemedicine') return 'Telemedicine'
+  if (booking.consultation_type === 'home-visit') return 'Home visit'
+  return booking.service_name?.trim() || 'Other'
+}
+
 /** A day, or the hour starting at `time` on a day, that staff have closed to bookings. */
 export type BookingClosure = { date: string; time: string | null }
 

@@ -24,7 +24,7 @@ import { REPORT_ACCENT, REPORT_INK, REPORT_LEADING, printType, reportPrintCss } 
 import AddBookingDialog from '@/components/admin/AddBookingDialog'
 import { ClinicalText, RichTextEditor } from '@/components/admin/emr/RichText'
 import { clinicalPlainText } from '@/lib/clinicalText'
-import { BOOKING_PRICES, type ConsultationType } from '@/lib/bookingTimes'
+import { bookingAmount, bookingTypeName } from '@/lib/bookingTimes'
 
 type EmrView = 'dashboard' | 'follow_ups' | 'referrals' | 'health_analysis' | 'patients' | 'appointments' | 'encounters' | 'records' | 'investigations' | 'medications' | 'care_plans' | 'documents'
 type Patient = Record<string, any>
@@ -247,7 +247,7 @@ function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }:
     {modal === 'financial_report' && <PatientReportModal patient={patient} mode="financial" onClose={() => setModal(null)} />}
     <PatientAssistant key={patientId} patientId={patientId} patientName={fullName(patient)} />
     <AddBookingDialog open={scheduling} patient={patient as any} onClose={closeScheduling} onAdded={() => load()} />
-    {encounterFor && <ClinicalModal type="encounter" patient={patient} chart={chart} fixed={{ appointment_id: encounterFor.id, encounter_type: encounterFor.consultation_type === 'home-visit' ? 'home_visit' : 'telemedicine', chief_complaint: encounterFor.symptoms || '' }} patients={[patient]} onClose={() => setEncounterFor(null)} onSaved={() => { setEncounterFor(null); load(); onChanged() }} />}
+    {encounterFor && <ClinicalModal type="encounter" patient={patient} chart={chart} fixed={{ appointment_id: encounterFor.id, encounter_type: encounterFor.consultation_type === 'home-visit' ? 'home_visit' : encounterFor.consultation_type === 'telemedicine' ? 'telemedicine' : 'consultation', chief_complaint: encounterFor.symptoms || '' }} patients={[patient]} onClose={() => setEncounterFor(null)} onSaved={() => { setEncounterFor(null); load(); onChanged() }} />}
     {modal && !['report','financial_report'].includes(modal) && <ClinicalModal type={modal.split(':')[0]} patient={patient} chart={chart} fixed={modal.startsWith('result:') ? { order_id: modal.split(':')[1] } : modal.includes(':') ? { encounter_id: modal.split(':')[1] } : {}} patients={[patient]} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); onChanged() }} />}
   </div>
 }
@@ -557,7 +557,7 @@ function PatientAppointments({ chart, onUpdate, onSchedule, onStartEncounter }: 
     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px] bg-[#EAF2FE] text-[#3374A8]"><CalendarCheckIcon size={22} weight="fill" /></span>
     <div className="min-w-48 flex-1">
       <p className="font-bold">{date.format(new Date(`${item.preferred_date}T00:00:00`))} · {formatTime(item.preferred_time)}</p>
-      <p className="mt-1 text-xs text-text-mid">{item.consultation_type === 'telemedicine' ? 'Telemedicine' : 'Home visit'} · Payment {label(item.payment_status || 'pending').toLowerCase()}{item.symptoms ? ` · ${clinicalPlainText(item.symptoms).slice(0, 90)}${item.symptoms.length > 90 ? '…' : ''}` : ''}</p>
+      <p className="mt-1 text-xs text-text-mid">{bookingTypeName(item)} · Payment {label(item.payment_status || 'pending').toLowerCase()}{item.symptoms ? ` · ${clinicalPlainText(item.symptoms).slice(0, 90)}${item.symptoms.length > 90 ? '…' : ''}` : ''}</p>
     </div>
     <select aria-label={`Status of the appointment on ${date.format(new Date(`${item.preferred_date}T00:00:00`))}`} value={item.status} disabled={saving === item.id} onChange={event => setStatus(item, event.target.value)} className="input w-auto py-2 disabled:opacity-50">
       <option value="pending">Pending</option>
@@ -587,11 +587,11 @@ function BookingPayments({ chart, onUpdate, onSchedule }: { chart: Chart; onUpda
   const suggestions: any[] = chart.unlinkedAppointments || []
   const [saving, setSaving] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const amount = (booking: any) => BOOKING_PRICES[booking.consultation_type as ConsultationType] || 0
+  const amount = (booking: any) => bookingAmount(booking)
   const counted = bookings.filter(booking => booking.status !== 'cancelled')
   const paid = counted.filter(booking => booking.payment_status === 'paid').reduce((sum, booking) => sum + amount(booking), 0)
   const unpaid = counted.filter(booking => booking.payment_status !== 'paid').reduce((sum, booking) => sum + amount(booking), 0)
-  const typeName = (booking: any) => booking.consultation_type === 'telemedicine' ? 'Telemedicine' : 'Home visit'
+  const typeName = (booking: any) => bookingTypeName(booking)
   const when = (booking: any) => `${date.format(new Date(`${booking.preferred_date}T00:00:00`))} · ${formatTime(booking.preferred_time)}`
 
   async function update(booking: any, changes: Record<string, unknown>) {

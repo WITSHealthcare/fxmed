@@ -23,6 +23,7 @@ import {
   FileTextIcon, RobotIcon, UserCircleIcon, UsersThreeIcon, XIcon,
 } from '@phosphor-icons/react'
 import AddBookingDialog from '@/components/admin/AddBookingDialog'
+import { bookingAmount, bookingTypeName, type BookingType } from '@/lib/bookingTimes'
 
 type Stage = "Outreach" | "Follow Up" | "Enrolment" | "Onboarding" | "Active"
 type NavItem = "overview" | "pipeline" | "coordinator" | "documents" | "reporting" | "ai-agent"
@@ -86,7 +87,9 @@ type WebsiteAppointment = {
   email: string
   phone: string
   home_address: string
-  consultation_type: 'telemedicine' | 'home-visit'
+  consultation_type: BookingType
+  service_name?: string | null
+  amount?: number | null
   preferred_date: string
   preferred_time: string
   symptoms: string
@@ -907,11 +910,11 @@ export default function CrmDashboard({
     const homeVisitCount = appointments.filter((appointment) => appointment.consultation_type === 'home-visit').length
 
     const estimatedRevenue = paidAppointments.reduce((sum, appointment) => {
-      return sum + (appointment.consultation_type === 'telemedicine' ? 25000 : 85000)
+      return sum + bookingAmount(appointment)
     }, 0)
 
     const outstandingRevenue = pendingAppointments.reduce((sum, appointment) => {
-      return sum + (appointment.consultation_type === 'telemedicine' ? 25000 : 85000)
+      return sum + bookingAmount(appointment)
     }, 0)
 
     return {
@@ -1856,14 +1859,14 @@ export default function CrmDashboard({
                           {appointment.first_name} {appointment.last_name}
                         </p>
                         <span className="text-sm font-dm-sans text-gray-600">
-                          ₦{(appointment.consultation_type === 'telemedicine' ? 25000 : 85000).toLocaleString()}
+                          ₦{bookingAmount(appointment).toLocaleString()}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 mt-2 text-xs font-dm-sans">
                         <span className={`px-2 py-1 rounded ${
-                          appointment.consultation_type === 'telemedicine' ? 'bg-green-100 text-green-800' : 'bg-gold text-green-deep'
+                          appointment.consultation_type === 'telemedicine' ? 'bg-green-100 text-green-800' : appointment.consultation_type === 'home-visit' ? 'bg-gold text-green-deep' : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {appointment.consultation_type === 'telemedicine' ? 'Telemedicine' : 'Home Visit'}
+                          {bookingTypeName(appointment)}
                         </span>
                         <select
                           value={appointment.payment_status || 'pending'}

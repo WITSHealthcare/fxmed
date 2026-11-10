@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getEmrContext, writeEmrAudit } from '@/lib/emr'
-import { BOOKING_PRICES, displayTime, type ConsultationType } from '@/lib/bookingTimes'
+import { bookingAmount, bookingTypeName, displayTime } from '@/lib/bookingTimes'
 import { clinicalPlainText } from '@/lib/clinicalText'
 import { extractDocumentText, generateClinicalReport, isReadable, isTextExtractable, type ReportAttachment } from '@/lib/ai/clinical-report'
 import { ORDER_COLUMNS, REPORT_COLUMNS, mapOrderRow, mapReportRow, type InvestigationOrder, type InvestigationReport } from '@/lib/investigations'
@@ -92,13 +92,13 @@ function buildFinancialReport(records: any[], bookings: any[], from: string, to:
   const booked = bookings.filter(booking => booking.preferred_date >= from && booking.preferred_date <= to)
   if (!booked.length) lines.push('No bookings fall in the selected period.')
   else {
-    const amount = (booking: any) => BOOKING_PRICES[booking.consultation_type as ConsultationType] || 0
+    const amount = (booking: any) => bookingAmount(booking)
     const active = booked.filter(booking => booking.status !== 'cancelled')
     const paid = active.filter(booking => booking.payment_status === 'paid').reduce((sum, booking) => sum + amount(booking), 0)
     const unpaid = active.filter(booking => booking.payment_status !== 'paid').reduce((sum, booking) => sum + amount(booking), 0)
     lines.push(`Paid: ${money(paid)}. Not yet paid: ${money(unpaid)} (cancelled bookings are not counted).`, '')
     lines.push('| Date | Time | Type | Booking status | Amount | Payment |', '| --- | --- | --- | --- | ---: | --- |')
-    for (const booking of booked) lines.push(`| ${tableCell(fmt(booking.preferred_date))} | ${tableCell(displayTime(booking.preferred_time || ''))} | ${booking.consultation_type === 'telemedicine' ? 'Telemedicine' : 'Home visit'} | ${tableCell(booking.status)} | ${money(amount(booking))} | ${tableCell(booking.payment_status)} |`)
+    for (const booking of booked) lines.push(`| ${tableCell(fmt(booking.preferred_date))} | ${tableCell(displayTime(booking.preferred_time || ''))} | ${tableCell(bookingTypeName(booking))} | ${tableCell(booking.status)} | ${money(amount(booking))} | ${tableCell(booking.payment_status)} |`)
   }
   lines.push('', '## Status Notes')
   const outstanding = selected.filter(record => ['pending','partial','overdue'].includes(record.status))
@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
       database.from('emr_care_plans').select('*').eq('patient_id', patientId),
       database.from('emr_financial_records').select('*').eq('patient_id', patientId).order('service_date'),
       database.from('emr_financial_payments').select('*').eq('patient_id', patientId).order('payment_date'),
-      database.from('appointments').select('preferred_date,preferred_time,consultation_type,status,payment_status').eq('patient_id', patientId).order('preferred_date'),
+      database.from('appointments').select('*').eq('patient_id', patientId).order('preferred_date'),
     ])
     if (patient.error || !patient.data) return NextResponse.json({ error: 'Patient not found.' }, { status: 404 })
     if (financialRecords.error) throw financialRecords.error
