@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { clinicalPlainText } from '@/lib/clinicalText'
 import type { InvestigationOrder, InvestigationReport } from '@/lib/investigations'
 
 // The Health Analysis details for a patient the team added, filled in from
@@ -70,7 +71,7 @@ export function RecordView({ chart, onOpenRecord }: { chart: Record<string, any>
   // The most recent encounter that recorded this field, with when it was.
   const latest = (field: string) => {
     const encounter = encounters.find(item => String(item[field] || '').trim())
-    return encounter ? `${encounter[field]}\n(${capital(encounter.encounter_type)}, ${when(encounter.started_at || encounter.created_at)})` : ''
+    return encounter ? `${clinicalPlainText(encounter[field])}\n(${capital(encounter.encounter_type)}, ${when(encounter.started_at || encounter.created_at)})` : ''
   }
   const vitals = (chart.vitals || [])[0]
   const vitalsText = vitals ? `${[

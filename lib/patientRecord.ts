@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ORDER_COLUMNS, REPORT_COLUMNS, mapOrderRow, mapReportRow, type InvestigationOrder, type InvestigationReport } from '@/lib/investigations'
+import { clinicalPlainText } from '@/lib/clinicalText'
 
 const MAX_FIELD_CHARS = 6000
 const MAX_RECORD_CHARS = 150_000
@@ -145,14 +146,14 @@ export function patientRecordText(record: PatientRecord) {
       ['Past medical history', e.past_medical_history], ['Surgical history', e.surgical_history], ['Family history', e.family_history],
       ['Social history', e.social_history], ['Review of systems', e.review_of_systems], ['Examination', e.examination],
       ['Assessment', e.clinical_assessment], ['Plan', e.treatment_plan], ['Follow-up', e.follow_up_plan],
-    ].filter(([, value]) => value).map(([label, value]) => `${label}: ${clip(value)}`)
+    ].filter(([, value]) => value).map(([label, value]) => `${label}: ${clip(clinicalPlainText(value))}`)
     return `### ${when(e.started_at || e.created_at, true)}: ${words(e.encounter_type)} (${words(e.status)})${by(e.provider_id)} [${e.encounter_number}]\n${fields.join('\n') || 'No details recorded.'}`
   })))
 
   const amendments = record.notes.filter(n => n.parent_note_id)
   out.push(section('Clinical notes (newest first)', record.notes.filter(n => !n.parent_note_id).map(n => {
     const added = amendments.filter(a => a.parent_note_id === n.id).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-    return `### ${when(n.created_at, true)}: ${words(n.note_type)} note (${words(n.status)})${by(n.author_id)}\n${clip(n.content)}${added.map(a => `\nAmendment ${when(a.created_at, true)}${by(a.author_id)}: ${clip(a.content, 3000)}`).join('')}`
+    return `### ${when(n.created_at, true)}: ${words(n.note_type)} note (${words(n.status)})${by(n.author_id)}\n${clip(clinicalPlainText(n.content))}${added.map(a => `\nAmendment ${when(a.created_at, true)}${by(a.author_id)}: ${clip(clinicalPlainText(a.content), 3000)}`).join('')}`
   })))
 
   out.push(section('Vital signs (newest first)', record.vitals.map(v => {
