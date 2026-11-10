@@ -1,9 +1,9 @@
-// Loading the days and times staff have closed to bookings (migration 038).
+// Loading the days and times staff have closed to bookings (migration 044).
 // Server only: the table is read with the service role.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { lagosToday, type BookingClosure } from '@/lib/bookingTimes'
 
-/** The table does not exist until migration 038 has been run. */
+/** The table does not exist until migration 044 has been run. */
 export const isMissingTable = (error: { code?: string } | null) => error?.code === '42P01' || error?.code === 'PGRST205'
 
 /** Closures from today on, Lagos time. Until the table exists nothing is closed. */

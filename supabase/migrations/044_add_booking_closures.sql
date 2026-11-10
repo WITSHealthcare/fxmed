@@ -2,6 +2,9 @@
 -- Requests calendar. A row with no closed_time closes the whole day; a row
 -- with a time (Lagos time, as "09:00") closes the hour that starts then.
 -- Closing a day or time does not cancel bookings already made.
+--
+-- First numbered 038, which coverage and referrals also used. Already run on
+-- the live database; running it again changes nothing.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.booking_closures (
