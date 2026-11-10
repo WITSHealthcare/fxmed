@@ -17,7 +17,7 @@ import {
   SignOutIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { signOut } from '@/lib/supabase-auth'
+import { patientAuth } from '@/lib/patient-auth'
 import PatientForms from '@/components/forms/PatientForms'
 
 type PortalSection = 'overview' | 'care_plan' | 'documents' | 'messages' | 'forms'
@@ -98,7 +98,7 @@ export default function PatientPortal() {
   }
 
   async function logout() {
-    await signOut()
+    await patientAuth().signOut()
     router.replace('/patient-portal/login')
   }
 

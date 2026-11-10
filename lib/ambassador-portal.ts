@@ -32,12 +32,14 @@ export function getAmbassadorDatabase() {
     : null
 }
 
-export async function getRequestUser(request: NextRequest): Promise<User | null> {
+/** The signed-in user, from the default sign-in cookie or, for the patient portal, its own. */
+export async function getRequestUser(request: NextRequest, cookieName?: string): Promise<User | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) return null
 
   const client = createServerClient(url, key, {
+    ...(cookieName ? { cookieOptions: { name: cookieName } } : {}),
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll() {
