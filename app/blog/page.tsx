@@ -4,7 +4,9 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import { sanitizeRichText, stripHtml } from '@/lib/content-sanitizer'
 import JsonLd from '@/components/JsonLd'
+import Link from 'next/link'
 import { createBreadcrumbJsonLd, createMetadata } from '@/lib/seo'
+import { groupTopics, topicPath } from '@/lib/blog'
 
 // Fetch blog content at request time so deploy builds do not depend on Supabase reachability.
 export const dynamic = 'force-dynamic'
@@ -71,6 +73,7 @@ const breadcrumbJsonLd = createBreadcrumbJsonLd([
 export default async function BlogPage() {
   // Fetch data on server before page loads
   const blogPosts = await getBlogPosts()
+  const topics = groupTopics(blogPosts)
 
   return (
     <main className="min-h-screen bg-[#FCFFF0]">
@@ -91,6 +94,25 @@ export default async function BlogPage() {
           </p>
         </div>
       </section>
+
+      {/* Plain links to every topic hub. The grid's category filter below is
+          client-side state, which crawlers cannot follow. */}
+      {topics.length > 0 && (
+        <nav aria-label="Browse by topic" className="px-[5%] pt-10">
+          <ul className="max-w-7xl mx-auto flex flex-wrap justify-center gap-3 list-none p-0">
+            {topics.map((topic) => (
+              <li key={topic.slug}>
+                <Link
+                  href={topicPath(topic.name)}
+                  className="inline-block font-dm-sans text-green-deep bg-white border border-green-deep/15 px-4 py-2 rounded-[50px] text-[0.9rem] no-underline hover:bg-green-deep hover:text-white transition-all"
+                >
+                  {topic.name} ({topic.count})
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
 
       {/* Blog Posts Grid with Search/Filter - Client Component */}
       <BlogPostsGrid initialPosts={blogPosts} />

@@ -4,9 +4,10 @@
 // never by the model, so the numbers on the report are always reproducible.
 
 import { generateClinicalReport, type ReportAttachment } from '@/lib/ai/clinical-report'
+import { analyse, BAND_LABEL, bandOf, directionOf } from '@/lib/fmAssessment'
 import {
-  FM_BIOMARKERS, FM_PANELS, createEntry, defaultRanges, matchBiomarker, summarize,
-  type FmEntry, type FmNarrative, type FmPatient, type PanelId, type Priority, type Sex,
+  FM_BIOMARKERS, createEntry, defaultRanges, matchBiomarker,
+  type FmEntry, type FmNarrative, type FmPatient, type Priority, type Sex,
 } from '@/lib/fmBiomarkers'
 
 function parseJson(output: string) {
@@ -19,7 +20,6 @@ const text = (value: unknown, max = 600) => typeof value === 'string' ? value.tr
 const list = (value: unknown, max = 12) => Array.isArray(value) ? value.map(item => text(item, 300)).filter(Boolean).slice(0, max) : []
 const PRIORITIES: Priority[] = ['urgent', 'high', 'moderate', 'low']
 const priority = (value: unknown): Priority => PRIORITIES.includes(value as Priority) ? value as Priority : 'moderate'
-const PANEL_IDS = new Set(FM_PANELS.map(panel => panel.id))
 
 // ---------------------------------------------------------------------------
 // Reading a lab report
@@ -91,37 +91,39 @@ export async function extractLabResults(files: ReportAttachment[], pastedText: s
 // Interpretation
 
 function interpretationPrompt(patient: FmPatient, entries: FmEntry[], context: string) {
-  const summary = summarize(entries)
-  const lines = summary.assessed.map(entry =>
-    `- [${entry.panel}] ${entry.name}: ${entry.value} ${entry.unit} | lab range ${entry.labRange || 'n/a'} (${entry.lab}) | FM optimal ${entry.fmRange || 'n/a'} (${entry.fm})${entry.urgent ? ' | CRITICAL' : ''}`)
-  const panels = summary.panels.map(item => `${item.panel.id} (${item.panel.name}): ${item.score ?? 'n/a'}%`).join('\n')
-  return `You are a functional medicine physician writing the interpretation for a patient's lab report at WITS FxMed Nigeria. The statuses below were calculated by the clinic's software; do not re-classify them. Write for a patient who will read this with their doctor: plain English, specific to these numbers, clinically sound, never alarmist and never dismissive. Do not invent results that are not listed.
+  const analysis = analyse(entries, patient.sex)
+  const outOfOptimal = analysis.summary.assessed.filter(entry => directionOf(entry))
+  const lines = outOfOptimal.map(entry =>
+    `- ${entry.name}: ${entry.value} ${entry.unit} | ${BAND_LABEL[bandOf(entry)]} | lab range ${entry.labRange || 'n/a'} | FM optimal ${entry.fmRange || 'n/a'}${entry.urgent ? ' | ALARM' : ''}${entry.calculated ? ' | calculated' : ''}`)
+  const optimal = analysis.summary.assessed.filter(entry => !directionOf(entry)).map(entry => `${entry.name} ${entry.value} ${entry.unit}`.trim())
+  const areas = analysis.plan.map(item => `- ${item.area.name}: ${item.score}%${item.urgent ? ' (alarm marker)' : ''} | markers: ${item.contributors.map(({ entry, direction }) => `${entry.name} ${direction === 'low' ? '↓' : '↑'}`).join(', ')}`)
+  return `You are a functional medicine physician writing the interpretation for a patient's Functional Health Report at WITS FxMed Nigeria. The statuses and likelihood scores below were calculated by the clinic's software; do not re-classify them. Write for a patient who will read this with their doctor: plain English, specific to these numbers, clinically sound, never alarmist and never dismissive. Do not invent results that are not listed. Practical advice should suit a Nigerian patient (local foods, availability).
 
 PATIENT: ${patient.age || 'unknown age'} years, ${patient.sex || 'sex not recorded'}
 ${context ? `CLINICAL CONTEXT FROM THE CLINICIAN:\n${context.slice(0, 3000)}\n` : ''}
-PANEL SCORES (share of markers within FM optimal):
-${panels}
+HEALTH IMPROVEMENT AREAS FLAGGED (likelihood of dysfunction):
+${areas.join('\n') || 'None above 50%.'}
 
-RESULTS:
-${lines.join('\n')}
+RESULTS OUTSIDE OPTIMAL:
+${lines.join('\n') || 'None.'}
+
+RESULTS WITHIN OPTIMAL: ${optimal.join('; ') || 'None.'}
 
 Return valid JSON only, with no commentary, in exactly this shape:
 {
-  "summary": "2-3 sentence overview of the whole picture",
+  "summary": "3-4 sentences: the overall picture, the main patterns and what matters most",
   "findings": [{"priority":"urgent|high|moderate","title":"short headline with the key value","detail":"1-2 sentences: what it means and the immediate action"}],
-  "markerNotes": [{"name":"exact result name as listed","note":"clinical implication, max 12 words"}],
-  "panels": {"<panel id>": {"summary":"one line, max 8 words","understanding":[{"title":"","text":"2-3 sentences"}],"actions":["specific action"]}},
-  "recommendations": [{"priority":"urgent|high|moderate|low","title":"condition or theme — referral or focus","items":["specific action"]}],
+  "markerNotes": [{"name":"exact result name as listed","note":"clinical implication for this patient, max 18 words"}],
+  "recommendations": [{"priority":"urgent|high|moderate|low","title":"theme, e.g. Reverse insulin resistance","items":["specific, actionable step"]}],
   "nextSteps": [{"title":"","text":"1-2 sentences","items":[""]}]
 }
 
 Rules:
-- findings: the 3-6 most important patterns, most serious first. Connect related markers (e.g. low MCV + high ferritin) rather than listing each alone.
-- markerNotes: one for every result listed.
-- panels: one entry for each panel id in PANEL SCORES, with exactly 3 understanding items and 5-8 actions.
-- recommendations: 4-8 groups, ordered by priority, each with 3-6 items.
-- nextSteps: exactly 3 groups: seeing their physician, confirmatory or follow-up tests, and supplementation or lifestyle to discuss with their doctor.
-- Use the units given. Doses only where they are standard and always "discuss with your doctor" for medicines.`
+- findings: the 3-5 most important patterns, most serious first. Connect related markers (e.g. high insulin + high triglycerides + low HDL) rather than listing each alone. Any ALARM result is an urgent finding.
+- markerNotes: one for every result outside optimal, and none for the others.
+- recommendations: 4-6 groups ordered by priority, each with 3-5 items covering food, lifestyle, supplements to discuss and follow-up tests as relevant. Put any medical referral first.
+- nextSteps: exactly 3 groups: seeing their clinician, follow-up tests with timing, and the foundations to start now.
+- Use the units given. Give typical adult supplement doses and always say to agree medicines and supplements with their doctor.`
 }
 
 export async function interpretLabResults(patient: FmPatient, entries: FmEntry[], context: string) {
@@ -134,27 +136,16 @@ export async function interpretLabResults(patient: FmPatient, entries: FmEntry[]
   }
 
   const narrative: FmNarrative = {
-    summary: text(parsed.summary, 1200),
-    findings: (Array.isArray(parsed.findings) ? parsed.findings : []).slice(0, 8).map((item: any) => ({ priority: priority(item?.priority), title: text(item?.title, 140), detail: text(item?.detail, 500) })).filter((item: any) => item.title),
+    summary: text(parsed.summary, 1500),
+    findings: (Array.isArray(parsed.findings) ? parsed.findings : []).slice(0, 6).map((item: any) => ({ priority: priority(item?.priority), title: text(item?.title, 140), detail: text(item?.detail, 500) })).filter((item: any) => item.title),
     panels: {},
     recommendations: (Array.isArray(parsed.recommendations) ? parsed.recommendations : []).slice(0, 10).map((item: any) => ({ priority: priority(item?.priority), title: text(item?.title, 140), items: list(item?.items, 8) })).filter((item: any) => item.title),
     nextSteps: (Array.isArray(parsed.nextSteps) ? parsed.nextSteps : []).slice(0, 3).map((item: any) => ({ title: text(item?.title, 120), text: text(item?.text, 500), items: list(item?.items, 6) })).filter((item: any) => item.title),
   }
-  const panels = parsed.panels && typeof parsed.panels === 'object' ? parsed.panels : {}
-  for (const [id, value] of Object.entries(panels)) {
-    if (!PANEL_IDS.has(id as PanelId) || !value || typeof value !== 'object') continue
-    const panel = value as Record<string, any>
-    narrative.panels[id as PanelId] = {
-      summary: text(panel.summary, 120),
-      understanding: (Array.isArray(panel.understanding) ? panel.understanding : []).slice(0, 4).map((item: any) => ({ title: text(item?.title, 100), text: text(item?.text, 600) })).filter((item: any) => item.title || item.text),
-      actions: list(panel.actions, 8),
-    }
-  }
-
   const notes = new Map<string, string>()
   for (const item of Array.isArray(parsed.markerNotes) ? parsed.markerNotes : []) {
     const name = text(item?.name, 120).toLowerCase()
-    if (name) notes.set(name, text(item?.note, 160))
+    if (name) notes.set(name, text(item?.note, 200))
   }
   return { narrative, notes: Object.fromEntries(notes), provider }
 }

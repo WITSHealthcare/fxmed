@@ -55,12 +55,14 @@ const tabLabels: Record<AdminTab, string> = {
   ambassador: 'Ambassador Program',
   careers: 'Careers',
   training: 'Staff Training',
+  forms: 'Forms & Surveys',
   tools: 'Admin Tools',
   users: 'Users & Roles',
   zara: 'Zara Conversations',
   contacts: 'Outreach Contacts',
   healthcare: 'Healthcare / EMR + Health Analysis',
   fm_analysis: 'FM Lab Analysis',
+  hr: 'HR',
 }
 
 const roleOptions: Array<{

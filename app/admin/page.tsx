@@ -8,9 +8,11 @@ import {
   CalendarCheckIcon,
   ChartLineUpIcon,
   ChatCircleDotsIcon,
+  ClipboardTextIcon,
   BriefcaseIcon,
   HandshakeIcon,
   HospitalIcon,
+  IdentificationCardIcon,
   FlaskIcon,
   GraduationCapIcon,
   RobotIcon,
@@ -35,6 +37,8 @@ import CareersManagement from '@/components/admin/CareersManagement'
 import EmrWorkspace from '@/components/admin/emr/EmrWorkspace'
 import FmLabAnalysis from '@/components/admin/fm/FmLabAnalysis'
 import Training from '@/components/admin/Training'
+import Forms from '@/components/admin/Forms'
+import HrWorkspace from '@/components/admin/hr/HrWorkspace'
 import AdminAccountMenu from '@/components/admin/AdminAccountMenu'
 import { getCurrentAdminRole, signOut, supabase } from '@/lib/supabase-auth'
 import { adminRoleLabels, adminRolePermissions, canAccessCrmView, canAccessTab, type AdminRole, type AdminTab } from '@/lib/admin-auth'
@@ -67,7 +71,9 @@ const adminNavItems: Array<{ id: AdminTab; label: string; Icon: typeof ArticleIc
   { id: 'requests', label: 'Requests', Icon: CalendarCheckIcon, title: 'Requests', description: 'Manage appointment bookings and consultation requests' },
   { id: 'ambassador', label: 'Ambassador Program', Icon: HandshakeIcon, title: 'Ambassador Program', description: 'Track ambassadors, referrals, and program performance' },
   { id: 'careers', label: 'Careers', Icon: BriefcaseIcon, title: 'Careers', description: 'Publish and manage the job openings shown on the public careers page' },
-  { id: 'training', label: 'Training', Icon: GraduationCapIcon, title: 'Staff Training', description: 'Build role-based training programs, complete assigned lessons, and track your progress' },
+  { id: 'training', label: 'Training', Icon: GraduationCapIcon, title: 'Staff Training', description: 'Build role-based training programs with surveys and quizzes, complete assigned lessons, and track your progress' },
+  { id: 'forms', label: 'Forms', Icon: ClipboardTextIcon, title: 'Forms & Surveys', description: 'Build surveys and quizzes for customers, employees and patients, share them and review responses' },
+  { id: 'hr', label: 'HR', Icon: IdentificationCardIcon, title: 'HR', description: 'Recruiting, staff records and onboarding, performance, leave, pay and offboarding' },
   { id: 'tools', label: 'Tools', Icon: ToolboxIcon, title: 'Tools', description: 'Quick access to admin workflows and operational utilities' },
   { id: 'users', label: 'Users & Roles', Icon: ShieldCheckIcon, title: 'Users & Roles', description: 'Create dashboard users and assign role-based access' },
   { id: 'zara', label: 'Zara', Icon: RobotIcon, title: 'Zara Conversations', description: 'View all interactions people have had with Zara, the AI assistant' },
@@ -719,6 +725,10 @@ export default function AdminPanel() {
             {activeTab === 'careers' && canAccessTab(currentRole, 'careers') && <CareersManagement />}
 
             {activeTab === 'training' && currentRole && canAccessTab(currentRole, 'training') && <Training role={currentRole} />}
+
+            {activeTab === 'forms' && currentRole && canAccessTab(currentRole, 'forms') && <Forms role={currentRole} />}
+
+            {activeTab === 'hr' && currentRole && canAccessTab(currentRole, 'hr') && <HrWorkspace role={currentRole} />}
 
             {activeTab === 'tools' && canAccessTab(currentRole, 'tools') && <AdminTools />}
 

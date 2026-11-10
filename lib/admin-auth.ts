@@ -1,7 +1,7 @@
 import type { User } from '@supabase/supabase-js'
 
 export type AdminRole = 'admin' | 'clinical' | 'sales'
-export type AdminTab = 'blog' | 'crm' | 'seo' | 'messages' | 'requests' | 'ambassador' | 'careers' | 'training' | 'tools' | 'users' | 'zara' | 'contacts' | 'healthcare' | 'fm_analysis'
+export type AdminTab = 'blog' | 'crm' | 'seo' | 'messages' | 'requests' | 'ambassador' | 'careers' | 'training' | 'tools' | 'users' | 'zara' | 'contacts' | 'healthcare' | 'fm_analysis' | 'hr' | 'forms'
 export type CrmAccess = 'clinical' | 'financial'
 
 export const adminRoleLabels: Record<AdminRole, string> = {
@@ -10,17 +10,21 @@ export const adminRoleLabels: Record<AdminRole, string> = {
   sales: 'Sales Rep',
 }
 
+// 'hr' is open to every role: admin manages all HR records including pay;
+// clinical and sales get self-service (own file, onboarding, leave, goals and
+// reviews), line-manager views of direct reports, and the scorecards they are
+// assigned as interviewers. Record-level rules live in lib/hr.ts canHr.
 export const adminRolePermissions: Record<AdminRole, { tabs: AdminTab[]; crmViews: CrmAccess[] }> = {
   admin: {
-    tabs: ['blog', 'crm', 'seo', 'messages', 'requests', 'ambassador', 'careers', 'training', 'tools', 'users', 'zara', 'contacts', 'healthcare', 'fm_analysis'],
+    tabs: ['blog', 'crm', 'seo', 'messages', 'requests', 'ambassador', 'careers', 'training', 'forms', 'hr', 'tools', 'users', 'zara', 'contacts', 'healthcare', 'fm_analysis'],
     crmViews: ['clinical', 'financial'],
   },
   clinical: {
-    tabs: ['blog', 'crm', 'requests', 'training', 'tools', 'contacts', 'healthcare', 'fm_analysis'],
+    tabs: ['blog', 'crm', 'requests', 'training', 'forms', 'hr', 'tools', 'contacts', 'healthcare', 'fm_analysis'],
     crmViews: ['clinical'],
   },
   sales: {
-    tabs: ['crm', 'seo', 'messages', 'requests', 'training', 'tools', 'contacts'],
+    tabs: ['crm', 'seo', 'messages', 'requests', 'training', 'forms', 'hr', 'tools', 'contacts'],
     crmViews: ['financial'],
   },
 }
