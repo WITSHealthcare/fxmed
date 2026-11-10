@@ -88,9 +88,7 @@ export default function Programs() {
       
       {/* Hero Section */}
       <section className="relative pt-52 pb-20 px-[5%] bg-gradient-to-br from-green-deep to-green-mid">
-        <div className="absolute inset-0 bg-cover bg-center brightness-[0.35]"
-          style={{ backgroundImage: "url('/3d-medical-background-with-virus-cells-dna-strand.jpg')" }}>
-        </div>
+        <Image src="/3d-medical-background-with-virus-cells-dna-strand.jpg" alt="" fill sizes="100vw" loading="eager" fetchPriority="high" className="object-cover object-center brightness-[0.35]" />
         <div className="absolute inset-0 bg-gradient-to-r from-[rgba(15,36,25,0.92)] via-[rgba(26,61,46,0.7)] to-[rgba(30,74,53,0.4)]"></div>
         <div className="relative z-10 max-w-4xl mx-auto text-center text-white">
           <h1 className="font-dm-sans font-bold text-4xl md:text-5xl mb-6">

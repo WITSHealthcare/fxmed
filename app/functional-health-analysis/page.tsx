@@ -13,7 +13,7 @@ export default function FunctionalHealthAnalysis() {
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-green-deep via-green-mid to-gold py-40 px-[5%] overflow-hidden">
         <div className="absolute inset-0 bg-black/10"></div>
-        <div className="absolute inset-0 bg-[url('/team-young-nurses-learning-practice-from-doctor-expert-cabinet.jpg')] bg-cover bg-center opacity-30"></div>
+        <Image src="/team-young-nurses-learning-practice-from-doctor-expert-cabinet.jpg" alt="" fill sizes="100vw" loading="eager" fetchPriority="high" className="object-cover object-center opacity-30" />
         <div className="absolute inset-0 bg-gradient-to-br from-green-deep/80 via-green-mid/70 to-gold/60"></div>
         <div className="relative max-w-7xl mx-auto mt-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-stretch">
@@ -455,7 +455,7 @@ export default function FunctionalHealthAnalysis() {
       {/* Final CTA Section */}
       <section className="relative py-20 px-[5%] bg-gradient-to-br from-green-deep to-green-mid overflow-hidden">
         <div className="absolute inset-0 bg-black/10"></div>
-        <div className="absolute inset-0 bg-[url('/fxmed-website-picture.png')] bg-cover bg-bottom opacity-30"></div>
+        <Image src="/fxmed-website-picture.png" alt="" fill sizes="100vw" className="object-cover object-bottom opacity-30" />
         <div className="absolute inset-0 bg-gradient-to-br from-green-deep/80 via-green-mid/70 to-green-deep/60"></div>
         <div className="relative max-w-4xl mx-auto text-center text-white">
           <h2 className="font-dm-sans font-bold text-[clamp(2rem,4vw,3rem)] leading-[1.15] mb-6">

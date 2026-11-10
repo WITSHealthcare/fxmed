@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import MaternalBookingModal from '@/components/MaternalBookingModal'
+import Image from 'next/image'
 
 const packages = [
   {
@@ -142,10 +143,7 @@ export default function MaternalWellnessPage() {
 
       {/* Hero Section */}
       <section className="relative pt-52 pb-24 px-[5%] overflow-hidden bg-gradient-to-br from-green-deep to-green-mid">
-        <div
-          className="absolute inset-0 bg-cover bg-center brightness-[0.35]"
-          style={{ backgroundImage: "url('/black-pregnant-women-posing.jpg')" }}
-        ></div>
+        <Image src="/black-pregnant-women-posing.jpg" alt="" fill sizes="100vw" loading="eager" fetchPriority="high" className="object-cover object-center brightness-[0.35]" />
         <div className="absolute inset-0 bg-gradient-to-r from-[rgba(15,36,25,0.92)] via-[rgba(26,61,46,0.7)] to-[rgba(30,74,53,0.4)]"></div>
         <div className="relative z-10 max-w-4xl mx-auto text-center text-white">
           <div className="inline-block text-gold bg-gold/20 px-4 py-1.5 rounded-[20px] text-[0.75rem] font-dm-sans font-semibold tracking-[0.14em] uppercase mb-6">

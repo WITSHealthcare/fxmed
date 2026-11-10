@@ -7,9 +7,7 @@ export default function FXMedElite() {
   return (
     <section className="relative py-[90px] px-[5%] overflow-hidden">
         {/* Background Image */}
-        <div className="absolute inset-0 bg-cover bg-center brightness-[0.6]"
-             style={{backgroundImage: "url('/fxmed-van/IMG_0300.jpeg')"}}>
-        </div>
+        <Image src="/fxmed-van/IMG_0300.jpeg" alt="" fill sizes="100vw" className="object-cover object-center brightness-[0.6]" />
 
         {/* Black Overlay */}
         <div className="absolute inset-0 bg-black/50"></div>
