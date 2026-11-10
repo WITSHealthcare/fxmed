@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     await database.from('patient_portal_accounts').update({ last_seen_at: new Date().toISOString() }).eq('id', account.id)
     return NextResponse.json({
-      account: { status: account.status, activated_at: account.activated_at },
+      account: { status: account.status, activated_at: account.activated_at, email_notifications: account.email_notifications !== false },
       patient: patient.data,
       carePlans: (carePlans.data || []).map((plan: any) => ({
         ...plan,
@@ -59,6 +59,13 @@ export async function PATCH(request: NextRequest) {
           await writeEmrAudit(database, user, { action: 'activate_patient_portal', entityType: 'patient_portal_account', entityId: account.id, patientId })
         }
         return NextResponse.json({ ok: true })
+      }
+      case 'email_notifications': {
+        // The patient's choice of whether portal notifications also come by email.
+        const enabled = body.enabled === true
+        const { error } = await database.from('patient_portal_accounts').update({ email_notifications: enabled }).eq('id', account.id)
+        if (error) throw error
+        return NextResponse.json({ email_notifications: enabled })
       }
       case 'read_notifications': {
         const { error } = await database.from('patient_portal_notifications').update({ read_at: now }).eq('patient_id', patientId).is('read_at', null)

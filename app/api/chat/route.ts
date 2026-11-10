@@ -5,6 +5,7 @@ import { getRequestAmbassador } from '@/lib/ambassador-portal'
 import { checkRateLimit } from '@/lib/request-security'
 import { bookingProblem, bookingRulesForZara, clockTime, parseTime, type ConsultationType } from '@/lib/bookingTimes'
 import { upcomingClosures } from '@/lib/bookingClosures'
+import { alertStaff } from '@/lib/staff-alerts'
 
 function getSupabase() {
   return createClient(
@@ -43,6 +44,7 @@ async function createChatAppointment(input: Record<string, string>) {
     preferred_time: startMinutes === null ? preferredTime : clockTime(startMinutes), symptoms: chatString(input.symptoms, 3000) || null,
     status: 'pending', payment_status: 'pending', created_at: now, updated_at: now,
   }).select().single()
+  if (!error && data) alertStaff('appointment', data)
   return { appointment: data, success: !error, problem: null }
 }
 
@@ -56,6 +58,7 @@ async function createChatEnquiry(input: Record<string, string>) {
     name, email, phone: chatString(input.phone, 40) || null,
     subject: 'Enquiry via Zara', message, status: 'unread', created_at: now, updated_at: now,
   })
+  if (!error) alertStaff('message', { name, email, subject: 'Enquiry via Zara', message })
   return !error
 }
 

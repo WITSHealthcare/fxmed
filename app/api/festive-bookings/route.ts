@@ -6,6 +6,7 @@ import { festiveOffer, festiveOfferPhase, visitTimes, wellnessPackages } from '@
 import { checkRateLimit, cleanPublicString, isEmail } from '@/lib/request-security'
 import { upcomingClosures } from '@/lib/bookingClosures'
 import { displayDate, displayTime, isClosed, parseTime } from '@/lib/bookingTimes'
+import { alertStaff } from '@/lib/staff-alerts'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -123,6 +124,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Your booking could not be saved. Please try again, or contact FXMed on WhatsApp.' }, { status: 500 })
   }
 
+  alertStaff('festive', { package_name: pkg.name, booked_for: bookedFor, buyer_first_name: buyerFirstName, buyer_last_name: buyerLastName, recipient_name: recipientName, preferred_date: preferredDate || null })
   return NextResponse.json({ booking: data, paymentUrl: pkg.paymentUrl || null }, { status: 201 })
 }
 

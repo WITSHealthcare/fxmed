@@ -174,6 +174,7 @@ export async function POST(request: NextRequest) {
           .update({ portal_status: 'reviewed', reviewed_by: user.id, reviewed_at: now })
           .eq('id', body.id).eq('source', 'patient').select('*').single()
         if (error) throw error
+        await notifyPatient(database, data.patient_id, { kind: 'document', title: 'Your care team reviewed a document you uploaded', detail: data.title, section: 'documents', email: { subject: 'Your FXMed care team reviewed your document', summary: 'Your care team has reviewed a document you uploaded to your Patient Portal.' } })
         await writeEmrAudit(database, user, { action: 'review_patient_upload', entityType: 'emr_document', entityId: data.id, patientId: data.patient_id })
         return NextResponse.json({ document: data })
       }

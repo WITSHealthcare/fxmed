@@ -1,0 +1,287 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { AdminTab } from '@/lib/admin-auth'
+import { dueLabel, lagosDate } from '@/lib/follow-ups'
+
+// What the admin dashboard's notification bell shows, worked out from each
+// inbound stream each time. Shared by the bell, the emails to the clinic
+// inbox (lib/staff-alerts) and the morning summary, so all three use the same
+// wording.
+
+// Nothing here is older than this. A booking left pending for months is a
+// workflow problem, not a notification, and it would otherwise crowd out
+// everything recent.
+export const MAX_AGE_DAYS = 60
+// Per source, so one busy stream cannot bury the others.
+const PER_SOURCE_LIMIT = 20
+
+export type NotificationKind = 'message' | 'appointment' | 'festive' | 'registration' | 'contact' | 'assessment' | 'follow_up' | 'portal_message' | 'portal_upload'
+
+export type Notification = {
+  id: string
+  kind: NotificationKind
+  title: string
+  detail: string
+  timestamp: string
+  link: string
+  // Messages carry real read state. The rest are open work items that clear
+  // when someone actions them, so they cannot be dismissed from the bell.
+  dismissable: boolean
+}
+
+// Each inbound stream, the tab that governs who may see it, and the status
+// that means "nobody has dealt with this yet".
+export const notificationSources: Array<{
+  kind: NotificationKind
+  tab: AdminTab
+  table: string
+  // One status, or any of several.
+  status: string | string[]
+  // The column `status` is read from, when it is not called status.
+  statusField?: string
+  timeField: string
+  select: string
+  link: string
+  // A link that depends on the row, such as one patient's chart.
+  linkFor?: (row: any) => string
+  dismissable: boolean
+  describe: (row: any) => { title: string; detail: string }
+  // Rows this source should not raise a notification for, because another
+  // source already covers the same event.
+  skip?: (row: any) => boolean
+  // Further conditions that define which rows belong to this source.
+  filter?: (query: any) => any
+  // The same exclusion applied in the query, for a source where the excluded
+  // rows could otherwise fill the per-source limit and hide the rest.
+  narrow?: (query: any) => any
+}> = [
+  {
+    kind: 'message',
+    tab: 'messages',
+    table: 'messages',
+    status: 'unread',
+    timeField: 'created_at',
+    // `subject` rather than `source`, so this keeps working before migration
+    // 029 adds the column.
+    select: 'id, name, email, subject, message, created_at',
+    link: '/admin?tab=messages',
+    dismissable: true,
+    describe: row => {
+      const fromAssessment = /^health assessment:/i.test(String(row.subject || ''))
+      return {
+        title: fromAssessment
+          ? `Health assessment completed by ${row.name || 'a visitor'}`
+          : `New message from ${row.name || 'a visitor'}`,
+        detail: String(row.subject || row.message || '').trim(),
+      }
+    },
+    // A functional health analysis writes both a clinical record and a contact
+    // message. The assessment source below already announces it, and links to
+    // the full submission, so counting the message too would notify twice for
+    // one event. The message itself still appears in the inbox.
+    skip: row => /^functional health analysis:/i.test(String(row.subject || '')),
+  },
+  {
+    kind: 'appointment',
+    tab: 'requests',
+    table: 'appointments',
+    status: 'pending',
+    timeField: 'created_at',
+    select: 'id, first_name, last_name, consultation_type, preferred_date, preferred_time, created_at',
+    link: '/admin?tab=requests',
+    dismissable: false,
+    describe: row => ({
+      title: `New booking from ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'a patient'}`,
+      detail: [row.consultation_type, row.preferred_date && `requested for ${row.preferred_date}`, row.preferred_time]
+        .filter(Boolean).join(' · '),
+    }),
+  },
+  {
+    kind: 'festive',
+    tab: 'requests',
+    table: 'festive_bookings',
+    status: 'pending',
+    timeField: 'created_at',
+    select: 'id, package_name, booked_for, buyer_first_name, buyer_last_name, recipient_name, preferred_date, created_at',
+    link: '/admin?tab=requests',
+    dismissable: false,
+    describe: row => ({
+      title: `Festive package booked by ${[row.buyer_first_name, row.buyer_last_name].filter(Boolean).join(' ') || 'a visitor'}`,
+      detail: [row.package_name, row.booked_for === 'gift' && `gift for ${row.recipient_name}`, row.preferred_date ? `requested for ${row.preferred_date}` : 'date to arrange']
+        .filter(Boolean).join(' · '),
+    }),
+  },
+  {
+    kind: 'registration',
+    tab: 'requests',
+    table: 'emr_patient_registration_requests',
+    status: 'pending',
+    timeField: 'submitted_at',
+    select: 'id, first_name, last_name, phone, source, submitted_at',
+    link: '/admin?tab=requests',
+    dismissable: false,
+    describe: row => ({
+      title: `Registration awaiting review — ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'unnamed'}`,
+      detail: [row.phone, row.source === 'appointment_booking' ? 'from a booking' : 'from the public form']
+        .filter(Boolean).join(' · '),
+    }),
+  },
+  {
+    kind: 'contact',
+    tab: 'contacts',
+    table: 'contacts',
+    status: 'new',
+    timeField: 'created_at',
+    select: 'id, full_name, phone, health_concern, outreach_event, created_at',
+    link: '/admin?tab=contacts',
+    dismissable: false,
+    describe: row => ({
+      title: `New enquiry from ${row.full_name || 'a contact'}`,
+      detail: [row.health_concern, row.outreach_event, row.phone].filter(Boolean).join(' · '),
+    }),
+    // Migrations 031, 032 and 033 copy every booking, message, registration,
+    // health analysis, ambassador submission, festive booking and CRM or EMR
+    // patient into contacts. Each of those is worked from its own tab, and most are
+    // announced by a source above, so only people entered directly through
+    // the outreach form notify here.
+    narrow: query => query
+      .is('patient_registration_id', null)
+      .is('appointment_id', null)
+      .is('message_id', null)
+      .is('health_assessment_id', null)
+      .is('ambassador_application_id', null)
+      .is('ambassador_referral_id', null)
+      .is('crm_patient_id', null)
+      .is('emr_patient_id', null)
+      .is('festive_booking_id', null),
+  },
+  {
+    kind: 'follow_up',
+    tab: 'healthcare',
+    table: 'emr_clinical_tasks',
+    status: ['pending', 'in_progress'],
+    // Only follow-ups that are due: today or overdue, up to MAX_AGE_DAYS back.
+    timeField: 'due_at',
+    filter: query => query.lte('due_at', `${lagosDate()}T23:59:59.999+01:00`),
+    select: 'id, title, due_at, patient:emr_patients(first_name, last_name)',
+    link: '/admin?tab=healthcare&view=follow_ups',
+    dismissable: false,
+    describe: row => ({
+      title: `Follow up with ${[row.patient?.first_name, row.patient?.last_name].filter(Boolean).join(' ') || 'a patient'}`,
+      detail: [row.title, dueLabel(row.due_at)].filter(Boolean).join(' · '),
+    }),
+  },
+  {
+    kind: 'assessment',
+    tab: 'healthcare',
+    table: 'emr_health_assessments',
+    status: 'new',
+    // Patients the team added themselves need no alert.
+    filter: query => query.neq('source', 'clinic'),
+    timeField: 'submitted_at',
+    select: 'id, assessment_data, submitted_at',
+    link: '/admin?tab=healthcare',
+    dismissable: false,
+    describe: row => {
+      const person = row.assessment_data?.personalInfo || {}
+      const concerns = row.assessment_data?.healthConcerns || {}
+      return {
+        // Named in full to distinguish it from the homepage risk quiz, which
+        // arrives as a message titled "Health assessment completed by ...".
+        title: `Functional health analysis from ${[person.firstName, person.lastName].filter(Boolean).join(' ') || 'a visitor'}`,
+        detail: String(concerns.primaryConcern || '').trim(),
+      }
+    },
+  },
+  {
+    kind: 'portal_message',
+    tab: 'healthcare',
+    table: 'patient_portal_messages',
+    status: 'unread',
+    // Only what patients send; the clinic's own replies are not news to it.
+    filter: query => query.eq('sender', 'patient'),
+    timeField: 'created_at',
+    select: 'id, patient_id, sender_name, body, created_at',
+    link: '/admin?tab=healthcare',
+    linkFor: row => `/admin?tab=healthcare&patient=${row.patient_id}&chart=portal`,
+    dismissable: false,
+    describe: row => ({
+      title: `Portal message from ${row.sender_name || 'a patient'}`,
+      detail: String(row.body || '').trim(),
+    }),
+  },
+  {
+    kind: 'portal_upload',
+    tab: 'healthcare',
+    table: 'emr_documents',
+    status: 'new',
+    statusField: 'portal_status',
+    timeField: 'created_at',
+    select: 'id, patient_id, title, category, created_at, patient:emr_patients(first_name, last_name)',
+    link: '/admin?tab=healthcare',
+    linkFor: row => `/admin?tab=healthcare&patient=${row.patient_id}&chart=portal`,
+    dismissable: false,
+    describe: row => ({
+      title: `${[row.patient?.first_name, row.patient?.last_name].filter(Boolean).join(' ') || 'A patient'} uploaded a document`,
+      detail: String(row.title || '').trim(),
+    }),
+  },
+]
+
+/**
+ * The open notifications from the chosen sources, newest first. A missing
+ * table or one failed query never blanks the rest: that source is reported in
+ * `degraded` instead.
+ */
+export async function loadNotifications(supabase: SupabaseClient, chosen: typeof notificationSources) {
+  const since = new Date(Date.now() - MAX_AGE_DAYS * 86400000).toISOString()
+  // A missing table or a single failed query must not blank the whole bell, so
+  // each source is settled independently and its failure reported separately.
+  const settled = await Promise.all(chosen.map(async source => {
+    const build = (narrowed: boolean) => {
+      let query = supabase
+        .from(source.table)
+        .select(source.select)
+        .gte(source.timeField, since)
+      const statusField = source.statusField || 'status'
+      query = Array.isArray(source.status) ? query.in(statusField, source.status) : query.eq(statusField, source.status)
+      if (source.filter) query = source.filter(query)
+      return (narrowed && source.narrow ? source.narrow(query) : query)
+        .order(source.timeField, { ascending: false })
+        .limit(PER_SOURCE_LIMIT)
+    }
+
+    let { data, error } = await build(true)
+    // The columns a source narrows on may come from a migration that has not
+    // been applied yet (undefined_column). Nothing can be excluded by them
+    // then, so the plain query is the right answer rather than a failure.
+    if (error?.code === '42703' && source.narrow) {
+      ({ data, error } = await build(false))
+    }
+
+    if (error) {
+      console.error(`Notifications: ${source.table} query failed:`, error.message)
+      return { kind: source.kind, failed: true, items: [] as Notification[] }
+    }
+
+    const items = (data || []).filter((row: any) => !source.skip?.(row)).map((row: any) => {
+      const { title, detail } = source.describe(row)
+      return {
+        id: `${source.kind}:${row.id}`,
+        kind: source.kind,
+        title,
+        detail: detail.length > 140 ? `${detail.slice(0, 140)}…` : detail,
+        timestamp: row[source.timeField],
+        link: source.linkFor ? source.linkFor(row) : source.link,
+        dismissable: source.dismissable,
+      }
+    })
+    return { kind: source.kind, failed: false, items }
+  }))
+
+  const notifications = settled
+    .flatMap(result => result.items)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  const counts = Object.fromEntries(settled.map(result => [result.kind, result.items.length])) as Partial<Record<NotificationKind, number>>
+  const degraded = settled.filter(result => result.failed).map(result => result.kind)
+  return { notifications, counts, degraded }
+}

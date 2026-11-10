@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { RICH_ENCOUNTER_FIELDS, cleanClinicalText } from '@/lib/clinicalText'
+import { notifyAppointment, notifyCarePlanChange } from '@/lib/patient-portal'
 import {
   calculateBmi,
   cleanDate,
@@ -365,6 +366,7 @@ export async function POST(request: NextRequest) {
       if (followUpError) { console.error('EMR: note follow-up not created:', followUpError); warning = 'The note was saved, but its follow-up could not be created. Use "Set follow-up" on the note to add it.' }
     }
     if (resource === 'results' && body.order_id) await database.from('emr_investigation_orders').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', body.order_id)
+    if (resource === 'care_plan_items') await notifyCarePlanChange(database, data.care_plan_id, 'Your care team added a step to your care plan')
     if (resource === 'medications' && body.sign_prescription !== false) {
       const { error: prescriptionError } = await database.from('emr_prescriptions').insert({ patient_id: patientId, encounter_id: record.encounter_id, medication_id: data.id, prescriber_id: user.id, status: 'signed', signed_at: new Date().toISOString() })
       if (prescriptionError) throw prescriptionError
@@ -414,8 +416,10 @@ export async function PATCH(request: NextRequest) {
       }
       if (!Object.keys(updates).length) return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 })
       updates.updated_at = new Date().toISOString()
+      const { data: before } = await database.from('appointments').select('status').eq('id', id).maybeSingle()
       const { data, error } = await database.from('appointments').update(updates).eq('id', id).select('*').single()
       if (error) throw error
+      if (before && data.status !== before.status && (data.status === 'confirmed' || data.status === 'cancelled')) await notifyAppointment(database, data, data.status)
       await writeEmrAudit(database, user, { action: 'payment_status' in updates ? 'update_appointment_payment' : 'link_appointment', entityType: 'appointment', entityId: id, patientId: data.patient_id, metadata: 'payment_status' in updates ? { payment_status: updates.payment_status } : undefined })
       return NextResponse.json({ record: data })
     }
@@ -477,6 +481,8 @@ export async function PATCH(request: NextRequest) {
     }
     // An encounter's date or status decides when a patient was last seen.
     if (resource === 'encounters') await syncReviewFollowUps(database, { force: true })
+    if (resource === 'care_plan_items') await notifyCarePlanChange(database, data.care_plan_id, 'Your care team updated your care plan')
+    if (resource === 'care_plans') await notifyCarePlanChange(database, data.id, 'Your care team updated your care plan')
     await writeEmrAudit(database, user, { action: `update_${resource}`, entityType: config.table, entityId: id, patientId: data.patient_id || null, metadata: { status: data.status } })
     return NextResponse.json({ record: data })
   } catch (error) {
