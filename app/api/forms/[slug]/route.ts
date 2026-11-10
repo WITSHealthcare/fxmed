@@ -74,7 +74,9 @@ export async function POST(request: NextRequest, { params }: Context) {
     if (who.kind === 'public') {
       const contact = body?.contact && typeof body.contact === 'object' ? body.contact as Record<string, unknown> : {}
       const name = cleanFormText(contact.name, 160); const email = cleanFormText(contact.email, 254).toLowerCase(); const phone = cleanFormText(contact.phone, 40)
-      if (form.collect_contact === 'required' && (!name || !email)) return NextResponse.json({ error: 'Please enter your name and email.' }, { status: 400 })
+      // Required contact details are a name and a phone number: the team follows up by phone, and many people have no email to hand.
+      if (form.collect_contact === 'required' && (!name || !phone)) return NextResponse.json({ error: 'Please enter your name and phone number.' }, { status: 400 })
+      if (phone && phone.replace(/\D/g, '').length < 7) return NextResponse.json({ error: 'Please enter a valid phone number.' }, { status: 400 })
       if (email && !isEmail(email)) return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 })
       row = { ...row, respondent_type: 'public', ...(form.collect_contact === 'none' ? {} : { contact_name: name || null, contact_email: email || null, contact_phone: phone || null }) }
     } else if (who.kind === 'staff') {
