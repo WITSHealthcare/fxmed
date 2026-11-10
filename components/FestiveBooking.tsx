@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { visitTimes, wellnessPackages, type WellnessPackage } from '@/lib/festive-offer'
+import { isClosed, parseTime, type BookingClosure } from '@/lib/bookingTimes'
+import { useBookingClosures } from '@/lib/useBookingClosures'
 
 // One booking dialog is mounted in the root layout, and every "Book" button on
 // the site opens it through this event, optionally with a package chosen.
@@ -41,6 +43,10 @@ function tomorrow() {
 
 const labelClass = 'mb-1.5 block text-sm font-semibold text-green-deep'
 
+/** The visit times staff have not closed on a date. */
+const openVisitTimes = (closures: BookingClosure[], date: string) =>
+  visitTimes.filter((slot) => !isClosed(closures, date, parseTime(slot.value) ?? 0))
+
 export default function FestiveBooking() {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const previousOverflow = useRef<string | null>(null)
@@ -48,6 +54,9 @@ export default function FestiveBooking() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [booked, setBooked] = useState<Booked | null>(null)
+  // The dialog lives on every page, so closed days and times load only when it opens.
+  const [timesOpened, setTimesOpened] = useState(0)
+  const { closures } = useBookingClosures(timesOpened)
 
   useEffect(() => {
     const open = (event: Event) => {
@@ -63,6 +72,7 @@ export default function FestiveBooking() {
         setForm((current) => ({ ...current, packageName }))
       }
       setError('')
+      setTimesOpened((count) => count + 1)
       dialog.showModal()
       previousOverflow.current = document.body.style.overflow
       document.body.style.overflow = 'hidden'
@@ -76,6 +86,14 @@ export default function FestiveBooking() {
 
   const gift = form.bookedFor === 'gift'
   const selected = wellnessPackages.find((pkg) => pkg.name === form.packageName) || wellnessPackages[0]
+  const times = form.preferredDate ? openVisitTimes(closures, form.preferredDate) : visitTimes
+
+  const chooseDate = (preferredDate: string) => setForm((current) => ({
+    ...current,
+    preferredDate,
+    // Clear a time that is closed on the new date.
+    preferredTime: openVisitTimes(closures, preferredDate).some((slot) => slot.value === current.preferredTime) ? current.preferredTime : '',
+  }))
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -221,15 +239,18 @@ export default function FestiveBooking() {
               <>
                 <div>
                   <label htmlFor="festive-date" className={labelClass}>Preferred date</label>
-                  <input id="festive-date" type="date" required min={tomorrow()} value={form.preferredDate} onChange={(event) => update('preferredDate', event.target.value)} className="input" />
+                  <input id="festive-date" type="date" required min={tomorrow()} value={form.preferredDate} onChange={(event) => chooseDate(event.target.value)} className="input" />
                 </div>
                 <div>
                   <label htmlFor="festive-time" className={labelClass}>Preferred time</label>
-                  <select id="festive-time" required value={form.preferredTime} onChange={(event) => update('preferredTime', event.target.value)} className="input">
+                  <select id="festive-time" required value={form.preferredTime} onChange={(event) => update('preferredTime', event.target.value)} disabled={!times.length} className="input">
                     <option value="">Select a time</option>
-                    {visitTimes.map((slot) => <option key={slot.value} value={slot.value}>{slot.label}</option>)}
+                    {times.map((slot) => <option key={slot.value} value={slot.value}>{slot.label}</option>)}
                   </select>
                 </div>
+                {!times.length && (
+                  <p className="text-sm text-amber-700 sm:col-span-2">We are not taking visits on this date. Please choose another date.</p>
+                )}
               </>
             )}
           </div>
