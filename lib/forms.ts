@@ -2,15 +2,16 @@
 // standalone forms (customers, staff, patients) and training lesson forms.
 // Client-safe: no server imports.
 
-export type FormQuestionType = 'short_text' | 'long_text' | 'single_choice' | 'multi_choice' | 'dropdown' | 'yes_no' | 'rating' | 'matrix' | 'ranking' | 'section'
+export type FormQuestionType = 'short_text' | 'long_text' | 'single_choice' | 'multi_choice' | 'dropdown' | 'yes_no' | 'rating' | 'matrix' | 'ranking' | 'section' | 'date'
 // `correct` holds option text for gradable questions; it is only used when the form is a quiz.
 // `options` are the choices, the columns of a rating grid, or the items to rank. `rows` are a rating grid's rows.
 // `maxChoices` caps checkbox picks (0 = no cap). `allowOther` adds an "Other (please specify)" choice.
 // `icon` decorates a section heading when the form uses the playful style.
+// `patientField` says which EMR patient detail an outreach form's answer fills in.
 // The optional fields are optional because forms saved before they existed don't carry them.
 export type FormQuestion = {
   id: string; type: FormQuestionType; label: string; help: string; required: boolean; options: string[]; correct: string[]; scaleMax: number
-  rows?: string[]; maxChoices?: number; allowOther?: boolean; icon?: SectionIcon
+  rows?: string[]; maxChoices?: number; allowOther?: boolean; icon?: SectionIcon; patientField?: PatientField
 }
 // `paged` shows each section heading and its questions on a screen of its own.
 // `playful` adds section icons, animations and a celebration when the form is sent.
@@ -22,6 +23,20 @@ export type FormDefinition = {
 
 export const sectionIcons = ['wave', 'heartbeat', 'clipboard', 'smiley', 'house', 'video', 'calendar', 'leaf', 'brain', 'baby', 'drop', 'star'] as const
 export type SectionIcon = typeof sectionIcons[number]
+
+export type PatientField = 'date_of_birth' | 'sex' | 'address'
+// The question types each patient detail can come from.
+export const patientFieldTypes: Record<PatientField, FormQuestionType[]> = {
+  date_of_birth: ['date'], sex: ['single_choice', 'dropdown'], address: ['short_text', 'long_text'],
+}
+export const patientFieldLabels: Record<PatientField, string> = { date_of_birth: 'Date of birth', sex: 'Sex', address: 'Address' }
+
+// A date answer is YYYY-MM-DD, a real calendar date, from 1900 up to today.
+export function isValidDateAnswer(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const date = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value && value >= '1900-01-01' && value <= new Date().toISOString().slice(0, 10)
+}
 // Rating grids answer with { row: column }; rankings with the options in ranked order.
 export type FormAnswer = string | string[] | number | Record<string, string>
 export type FormAnswers = Record<string, FormAnswer>
@@ -33,7 +48,7 @@ export const questionTypes: { value: FormQuestionType; label: string }[] = [
   { value: 'short_text', label: 'Short answer' }, { value: 'long_text', label: 'Paragraph' },
   { value: 'single_choice', label: 'Multiple choice' }, { value: 'multi_choice', label: 'Checkboxes' },
   { value: 'dropdown', label: 'Dropdown' }, { value: 'yes_no', label: 'Yes / No' }, { value: 'rating', label: 'Rating scale' },
-  { value: 'matrix', label: 'Rating grid' }, { value: 'ranking', label: 'Ranking' }, { value: 'section', label: 'Section heading' },
+  { value: 'matrix', label: 'Rating grid' }, { value: 'ranking', label: 'Ranking' }, { value: 'date', label: 'Date' }, { value: 'section', label: 'Section heading' },
 ]
 export const choiceTypes: FormQuestionType[] = ['single_choice', 'multi_choice', 'dropdown']
 // Types whose `options` list is edited in the builder.
@@ -59,6 +74,15 @@ export function formPages(questions: FormQuestion[]) {
 export function questionNumbers(questions: FormQuestion[]) {
   let n = 0
   return new Map(questions.filter((q) => q.type !== 'section').map((q) => [q.id, ++n]))
+}
+
+// An answer as plain text, for summaries, CSV exports and chart notes.
+export function formatAnswerText(answer: FormAnswer | undefined, question?: FormQuestion) {
+  if (answer === undefined) return ''
+  if (question?.type === 'ranking' && Array.isArray(answer)) return answer.map((item, i) => `${i + 1}. ${item}`).join('; ')
+  if (Array.isArray(answer)) return answer.join(', ')
+  if (typeof answer === 'object') return Object.entries(answer).map(([row, value]) => `${row}: ${value}`).join('; ')
+  return String(answer)
 }
 
 export function cleanFormText(value: unknown, max: number) {
@@ -94,6 +118,7 @@ export function cleanFormDefinition(value: unknown): FormDefinition | null {
       ...(maxChoices && maxChoices < options.length + (allowOther ? 1 : 0) ? { maxChoices } : {}),
       ...(allowOther ? { allowOther } : {}),
       ...(type === 'section' && sectionIcons.includes(q.icon as SectionIcon) ? { icon: q.icon as SectionIcon } : {}),
+      ...(patientFieldTypes[q.patientField as PatientField]?.includes(type) ? { patientField: q.patientField as PatientField } : {}),
     } satisfies FormQuestion]
   }) : []
   if (!questions.some((q) => q.type !== 'section')) return null
@@ -148,6 +173,10 @@ export function gradeFormResponse(form: FormDefinition, value: unknown): GradedR
       if (picked.length) answer = picked
     } else if (options.length) {
       answer = cleanChoice(question, input)
+    } else if (question.type === 'date') {
+      const text = cleanFormText(input, 10)
+      if (text && !isValidDateAnswer(text)) return fail(`Please enter a valid date for “${question.label}”.`)
+      if (text) answer = text
     } else {
       const text = cleanFormText(input, question.type === 'long_text' ? 10000 : 1000); if (text) answer = text
     }

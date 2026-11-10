@@ -4,19 +4,13 @@
 // lessons and by standalone forms for customers, staff and patients.
 import { useEffect, useRef, useState } from 'react'
 import { PlayfulSection, StepTracker, sectionIconOptions } from '@/components/forms/FormFun'
-import { choiceTypes, formPages, gradeFormResponse, isGradable, isOtherAnswer, optionListTypes, otherPrefix, questionNumbers, questionOptions, questionTypes, type FormAnswer, type FormAnswers, type FormDefinition, type FormQuestion, type FormQuestionType, type FormResponseView, type SectionIcon } from '@/lib/forms'
+import { choiceTypes, formPages, gradeFormResponse, isGradable, isOtherAnswer, optionListTypes, otherPrefix, questionNumbers, questionOptions, questionTypes, type FormAnswer, type FormAnswers, type FormDefinition, type FormQuestion, type FormQuestionType, type FormResponseView, type PatientField, type SectionIcon, formatAnswerText, patientFieldLabels, patientFieldTypes } from '@/lib/forms'
 
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 const newQuestion = (type: FormQuestionType = 'single_choice'): FormQuestion => ({ id: makeId('question'), type, label: '', help: '', required: true, options: choiceTypes.includes(type) ? ['Option 1', 'Option 2'] : [], correct: [], scaleMax: 5 })
 export const newForm = (): FormDefinition => ({ kind: 'survey', title: '', description: '', passPercent: 70, questions: [newQuestion()] })
 const gridAnswer = (answer: FormAnswer | undefined) => (answer && typeof answer === 'object' && !Array.isArray(answer) ? answer : {}) as Record<string, string>
-export const formatAnswer = (answer: FormAnswer | undefined, question?: FormQuestion) => {
-  if (answer === undefined) return ''
-  if (question?.type === 'ranking' && Array.isArray(answer)) return answer.map((item, i) => `${i + 1}. ${item}`).join('; ')
-  if (Array.isArray(answer)) return answer.join(', ')
-  if (typeof answer === 'object') return Object.entries(answer).map(([row, value]) => `${row}: ${value}`).join('; ')
-  return String(answer)
-}
+export const formatAnswer = formatAnswerText
 
 // Spreadsheet columns for a form's answers: one per question, one per row of a
 // rating grid, and one rank per ranked item, so each can be sorted and averaged.
@@ -32,7 +26,8 @@ export function answerColumns(questions: FormQuestion[]) {
 // ---------- Builder (admin) ----------
 
 // `showDetails` adds the form's own title and instructions; standalone forms keep those on the form record instead.
-export function FormBuilder({ form, onChange, onRemove, heading = 'Lesson form', showDetails = true, passNote = '' }: { form: FormDefinition; onChange: (form: FormDefinition) => void; onRemove?: () => void; heading?: string; showDetails?: boolean; passNote?: string }) {
+// `patientMapping` lets an outreach form say which answers fill in the EMR patient record.
+export function FormBuilder({ form, onChange, onRemove, heading = 'Lesson form', showDetails = true, passNote = '', patientMapping = false }: { form: FormDefinition; onChange: (form: FormDefinition) => void; onRemove?: () => void; heading?: string; showDetails?: boolean; passNote?: string; patientMapping?: boolean }) {
   const [preview, setPreview] = useState(false)
   const quiz = form.kind === 'quiz'
   const gradable = form.questions.filter(isGradable).length
@@ -48,7 +43,7 @@ export function FormBuilder({ form, onChange, onRemove, heading = 'Lesson form',
       {quiz && <p className="mt-2 text-xs text-text-mid">{gradable ? `${gradable} graded question(s). Pass mark ${form.passPercent}%${passNote ? `; ${passNote}` : ''}.` : 'Mark the correct answers on choice questions to grade this quiz.'}</p>}
       {form.questions.some((q) => q.type === 'section') && <label className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold text-green-deep"><input type="checkbox" checked={!!form.paged} onChange={(e) => onChange({ ...form, paged: e.target.checked })} className="accent-green-deep" />Show one section per page<span className="font-normal text-text-mid">respondents move between sections with Back and Next</span></label>}
       <label className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold text-green-deep"><input type="checkbox" checked={!!form.playful} onChange={(e) => onChange({ ...form, playful: e.target.checked })} className="accent-green-deep" />Playful style<span className="font-normal text-text-mid">section icons, animations and a celebration when the form is sent</span></label>
-      <div className="mt-4 space-y-3">{form.questions.map((question, index) => <QuestionEditor key={question.id} question={question} index={index} number={numbers.get(question.id)} quiz={quiz} total={form.questions.length} onChange={(q) => setQuestion(index, q)} onMove={(by) => move(index, by)}
+      <div className="mt-4 space-y-3">{form.questions.map((question, index) => <QuestionEditor key={question.id} question={question} index={index} number={numbers.get(question.id)} quiz={quiz} patientMapping={patientMapping} total={form.questions.length} onChange={(q) => setQuestion(index, q)} onMove={(by) => move(index, by)}
         onDuplicate={() => onChange({ ...form, questions: [...form.questions.slice(0, index + 1), { ...question, id: makeId('question') }, ...form.questions.slice(index + 1)] })}
         onDelete={() => onChange({ ...form, questions: form.questions.filter((_, i) => i !== index) })} />)}</div>
       <div className="mt-3 flex gap-4"><button type="button" onClick={() => onChange({ ...form, questions: [...form.questions, newQuestion()] })} className="text-xs font-bold text-green-mid">+ Add question</button><button type="button" onClick={() => onChange({ ...form, questions: [...form.questions, { ...newQuestion('section'), required: false }] })} className="text-xs font-bold text-green-mid">+ Add section heading</button></div>
@@ -56,7 +51,7 @@ export function FormBuilder({ form, onChange, onRemove, heading = 'Lesson form',
   </div>
 }
 
-function QuestionEditor({ question, index, number, total, quiz, onChange, onMove, onDuplicate, onDelete }: { question: FormQuestion; index: number; number?: number; total: number; quiz: boolean; onChange: (q: FormQuestion) => void; onMove: (by: number) => void; onDuplicate: () => void; onDelete: () => void }) {
+function QuestionEditor({ question, index, number, total, quiz, patientMapping, onChange, onMove, onDuplicate, onDelete }: { question: FormQuestion; index: number; number?: number; total: number; quiz: boolean; patientMapping: boolean; onChange: (q: FormQuestion) => void; onMove: (by: number) => void; onDuplicate: () => void; onDelete: () => void }) {
   const options = questionOptions(question); const multi = question.type === 'multi_choice'; const section = question.type === 'section'
   const rows = question.rows || []; const choices = question.options.length + (question.allowOther ? 1 : 0)
   const changeType = (type: FormQuestionType) => onChange({
@@ -73,6 +68,7 @@ function QuestionEditor({ question, index, number, total, quiz, onChange, onMove
     <div className="flex flex-wrap gap-2"><span className="pt-3 text-xs font-bold text-gray-400">{section ? '§' : `Q${number}`}</span><input required value={question.label} maxLength={500} onChange={(e) => onChange({ ...question, label: e.target.value })} placeholder={section ? 'Section title' : 'Question'} className="input mt-0 min-w-[200px] flex-1" />
       <select aria-label="Question type" value={question.type} onChange={(e) => changeType(e.target.value as FormQuestionType)} className="input mt-0 w-auto">{questionTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></div>
     <input value={question.help} maxLength={1000} onChange={(e) => onChange({ ...question, help: e.target.value })} placeholder={section ? 'Introduction (optional)' : 'Help text (optional)'} className="input mt-2 py-2 text-xs" />
+    {patientMapping && !section && (Object.keys(patientFieldTypes) as PatientField[]).some((field) => patientFieldTypes[field].includes(question.type)) && <label className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold text-green-deep">Save to patient record as<select value={question.patientField || ''} onChange={(e) => onChange({ ...question, patientField: (e.target.value || undefined) as PatientField | undefined })} className="input mt-0 w-auto py-1.5"><option value="">Nothing</option>{(Object.keys(patientFieldTypes) as PatientField[]).filter((field) => patientFieldTypes[field].includes(question.type)).map((field) => <option key={field} value={field}>{patientFieldLabels[field]}</option>)}</select><span className="font-normal text-text-mid">used when staff book a follow-up</span></label>}
     {section && <label className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold text-green-deep">Icon<select value={question.icon || ''} onChange={(e) => onChange({ ...question, icon: (e.target.value || undefined) as SectionIcon | undefined })} className="input mt-0 w-auto py-1.5"><option value="">Automatic</option>{sectionIconOptions.map((icon) => <option key={icon.value} value={icon.value}>{icon.label}</option>)}</select><span className="font-normal text-text-mid">shown with the playful style</span></label>}
     {optionListTypes.includes(question.type) && <div className="mt-3 space-y-2">
       {question.type === 'matrix' && <p className="text-xs font-bold text-green-deep">Columns (the rating scale)</p>}
@@ -170,6 +166,7 @@ export function FormFill({ form, response, preview, onSubmit, children }: { form
 function QuestionInput({ question, value, onChange }: { question: FormQuestion; value: FormAnswer | undefined; onChange: (value: FormAnswer) => void }) {
   const options = questionOptions(question); const name = `q-${question.id}`
   if (question.type === 'short_text') return <input required={question.required} maxLength={1000} value={formatAnswer(value)} onChange={(e) => onChange(e.target.value)} className="input mt-0" />
+  if (question.type === 'date') return <input type="date" required={question.required} min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={formatAnswer(value)} onChange={(e) => onChange(e.target.value)} className="input mt-0 sm:max-w-xs" />
   if (question.type === 'long_text') return <textarea required={question.required} rows={4} maxLength={10000} value={formatAnswer(value)} onChange={(e) => onChange(e.target.value)} className="input mt-0" />
   if (question.type === 'dropdown') return <select required={question.required} value={formatAnswer(value)} onChange={(e) => onChange(e.target.value)} className="input mt-0"><option value="">Choose…</option>{options.map((o) => <option key={o}>{o}</option>)}</select>
   if (question.type === 'rating') return <div className="flex flex-wrap gap-2">{Array.from({ length: question.scaleMax }, (_, i) => i + 1).map((n) => <label key={n} className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border text-sm font-bold ${value === n ? 'border-green-deep bg-green-deep text-white' : 'text-green-deep'}`}><input type="radio" name={name} required={question.required} checked={value === n} onChange={() => onChange(n)} className="sr-only" />{n}</label>)}</div>

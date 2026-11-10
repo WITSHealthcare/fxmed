@@ -30,6 +30,7 @@ export function cleanFormPayload(body: Record<string, unknown>) {
   return {
     title, description: cleanFormText(body.description, 3000), audience, status, definition,
     collect_contact: audience === 'customers' ? collect : 'none',
+    outreach: audience === 'customers' && body.outreach === true,
     one_response_per_person: audience === 'customers' ? false : body.one_response_per_person !== false,
     audience_roles: audience === 'staff' && Array.isArray(body.audience_roles) ? Array.from(new Set(body.audience_roles.filter((role): role is AdminRole => staffRoles.includes(role as AdminRole)))) : [],
     assigned_emails: audience === 'customers' ? [] : cleanEmails(body.assigned_emails),

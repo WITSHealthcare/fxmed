@@ -6,9 +6,10 @@ import {
   CheckCircleIcon, ClipboardTextIcon, ClockIcon, FileArrowUpIcon, FileTextIcon, FirstAidKitIcon,
   FlaskIcon, HeartbeatIcon, MagnifyingGlassIcon, NotePencilIcon, PillIcon, PlusIcon, PulseIcon,
   PrinterIcon, PencilSimpleIcon, StethoscopeIcon, UserCirclePlusIcon,
-  UsersThreeIcon, WarningCircleIcon, XIcon, PhoneCallIcon, SignpostIcon,
+  UsersThreeIcon, WarningCircleIcon, XIcon, PhoneCallIcon, SignpostIcon, UsersFourIcon,
 } from '@phosphor-icons/react'
 import FollowUps, { FollowUpDateInput, FollowUpList, NoteFollowUp } from '@/components/admin/emr/FollowUps'
+import Outreaches from '@/components/admin/emr/Outreaches'
 import { Alert, Empty, Field, Loading, Panel, Status, fullName, label } from '@/components/admin/emr/ui'
 import { daysUntilDue, followUpTypes } from '@/lib/follow-ups'
 import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysis'
@@ -19,7 +20,7 @@ import { CoverageBanner, CoveragePanel, useCoverage } from '@/components/admin/e
 import ReferralWorklist, { PatientReferrals } from '@/components/admin/emr/Referrals'
 import { REPORT_ACCENT, REPORT_INK, REPORT_LEADING, printType, reportPrintCss } from '@/lib/reportTheme'
 
-type EmrView = 'dashboard' | 'follow_ups' | 'referrals' | 'health_analysis' | 'patients' | 'appointments' | 'encounters' | 'records' | 'investigations' | 'medications' | 'care_plans' | 'documents'
+type EmrView = 'dashboard' | 'outreaches' | 'follow_ups' | 'referrals' | 'health_analysis' | 'patients' | 'appointments' | 'encounters' | 'records' | 'investigations' | 'medications' | 'care_plans' | 'documents'
 type Patient = Record<string, any>
 type Chart = Record<string, any>
 
@@ -29,6 +30,7 @@ const dateTime = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'shor
 
 const nav: Array<{ id: EmrView; label: string; Icon: typeof ActivityIcon }> = [
   { id: 'dashboard', label: 'EMR Dashboard', Icon: ActivityIcon },
+  { id: 'outreaches', label: 'Outreaches', Icon: UsersFourIcon },
   { id: 'follow_ups', label: 'Follow-ups', Icon: PhoneCallIcon },
   { id: 'referrals', label: 'Referrals', Icon: SignpostIcon },
   { id: 'health_analysis', label: 'Health Analysis', Icon: FirstAidKitIcon },
@@ -82,6 +84,7 @@ export default function EmrWorkspace() {
 
       {error && <Alert tone="error">{error}</Alert>}
       {view === 'dashboard' && <Dashboard onNavigate={setView} onPatient={openPatient} />}
+      {view === 'outreaches' && <Outreaches onPatient={openPatient} />}
       {view === 'follow_ups' && <FollowUps onPatient={openPatient} />}
       {view === 'referrals' && <ReferralWorklist onPatient={openPatient} />}
       {view === 'health_analysis' && <FunctionalHealthAnalysis onPatient={openPatient} />}
