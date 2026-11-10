@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cleanText, isUuid, writeEmrAudit } from '@/lib/emr'
 import { PORTAL_MAX_UPLOAD_BYTES, getRequestPatient, portalDocumentColumns, portalDocumentTypes, portalErrorMessage } from '@/lib/patient-portal'
 import { checkRateLimit } from '@/lib/request-security'
+import { alertStaff } from '@/lib/staff-alerts'
 
 // A short-lived link to a document the patient may see: one the clinic
 // shared, or one they uploaded themselves.
@@ -62,6 +63,14 @@ export async function POST(request: NextRequest) {
       portal_status: 'new',
     }).select(portalDocumentColumns).single()
     if (error) { await database.storage.from('emr-documents').remove([path]); throw error }
+    const { data: patient } = await database.from('emr_patients').select('first_name,last_name').eq('id', patientId).maybeSingle()
+    alertStaff('portal_upload', { ...data, patient_id: patientId, patient }, {
+      quiet: async () => {
+        const since = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+        const { data: earlier } = await database.from('emr_documents').select('id').eq('patient_id', patientId).eq('source', 'patient').gte('created_at', since).neq('id', data.id).limit(1)
+        return Boolean(earlier?.length)
+      },
+    })
     await writeEmrAudit(database, user, { action: 'patient_uploaded_document', entityType: 'emr_document', entityId: data.id, patientId, metadata: { mimeType: file.type, size: file.size } })
     return NextResponse.json({ document: data }, { status: 201 })
   } catch (error) {

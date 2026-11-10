@@ -6,6 +6,8 @@ import { writeAdminActivity } from '@/lib/admin-activity'
 import { clockTime, displayDate, displayTime, isDate, lagosToday, parseTime } from '@/lib/bookingTimes'
 import { emrRolePermissions, getEmrDatabase, isUuid, writeEmrAudit } from '@/lib/emr'
 import { cleanPublicString, isEmail } from '@/lib/request-security'
+import { notifyAppointment } from '@/lib/patient-portal'
+import { alertStaff } from '@/lib/staff-alerts'
 
 // Staff add a booking taken by phone, WhatsApp or in person, from the Requests
 // calendar, the financial CRM or a patient's EMR chart. Every booking is for
@@ -177,7 +179,10 @@ export async function POST(request: NextRequest) {
         appointment_id: appointment.id,
       })
       if (registrationError) console.error('Error queueing patient registration for a staff booking:', registrationError)
-      else registration = 'pending'
+      else {
+        registration = 'pending'
+        alertStaff('registration', { ...newPatient, source: 'appointment_booking' })
+      }
     }
 
     const when = `${displayDate(preferredDate)} at ${displayTime(clockTime(startMinutes))}`
@@ -190,6 +195,7 @@ export async function POST(request: NextRequest) {
       metadata: { consultation_type: consultationType, status, payment_status: paymentStatus, patient_id: patient?.id || null, registration },
     })
     if (patient) {
+      if (status === 'pending' || status === 'confirmed') await notifyAppointment(database, appointment, 'booked')
       await writeEmrAudit(database, user, { action: 'schedule_appointment', entityType: 'appointment', entityId: appointment.id, patientId: patient.id, metadata: { preferred_date: preferredDate, consultation_type: consultationType } })
     }
 

@@ -22,7 +22,7 @@ import PatientForms from '@/components/forms/PatientForms'
 
 type PortalSection = 'overview' | 'care_plan' | 'documents' | 'messages' | 'forms'
 type PortalData = {
-  account: { status: string; activated_at: string | null }
+  account: { status: string; activated_at: string | null; email_notifications?: boolean }
   patient: Record<string, any>
   carePlans: any[]
   documents: any[]
@@ -45,7 +45,11 @@ function label(value?: string) { return (value || '—').replace(/_/g, ' ').repl
 export default function PatientPortal() {
   const router = useRouter()
   const [data, setData] = useState<PortalData | null>(null)
-  const [active, setActive] = useState<PortalSection>('overview')
+  // An emailed notification links straight to its section, as /patient-portal?section=messages.
+  const [active, setActive] = useState<PortalSection>(() => {
+    const requested = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('section')
+    return nav.some(item => item.id === requested) ? requested as PortalSection : 'overview'
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showNotifications, setShowNotifications] = useState(false)
@@ -57,7 +61,11 @@ export default function PatientPortal() {
     const response = await fetch('/api/patient-portal', { cache: 'no-store' })
     const result = await response.json().catch(() => ({}))
     if (!response.ok) {
-      if (response.status === 403) router.replace('/patient-portal/login')
+      if (response.status === 403) {
+        // Come back to the same section after signing in.
+        const section = new URLSearchParams(window.location.search).get('section')
+        router.replace(`/patient-portal/login${section ? `?section=${encodeURIComponent(section)}` : ''}`)
+      }
       else setError(result.error || 'Unable to load your portal.')
     } else setData(result)
     setLoading(false)
@@ -95,6 +103,15 @@ export default function PatientPortal() {
     const now = new Date().toISOString()
     // Keep them highlighted while the list is open; they read as seen next time.
     window.setTimeout(() => setData(current => current && { ...current, notifications: current.notifications.map(item => item.read_at ? item : { ...item, read_at: now }) }), 4000)
+  }
+
+  async function setEmailNotifications(enabled: boolean) {
+    setData(current => current && { ...current, account: { ...current.account, email_notifications: enabled } })
+    const response = await fetch('/api/patient-portal', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'email_notifications', enabled }) })
+    if (!response.ok) {
+      setData(current => current && { ...current, account: { ...current.account, email_notifications: !enabled } })
+      setError((await response.json().catch(() => ({}))).error || 'Your email setting could not be saved. Please try again.')
+    }
   }
 
   async function logout() {
@@ -149,6 +166,13 @@ export default function PatientPortal() {
                     {item.detail && <p className="mt-0.5 line-clamp-2 text-xs text-text-mid">{item.detail}</p>}
                     <p className="mt-1 text-[11px] text-text-mid">{dateTime.format(new Date(item.created_at))}</p>
                   </button>) : <p className="p-8 text-center text-sm text-text-mid">You’re all caught up.</p>}</div>
+                  <label className="flex cursor-pointer items-center justify-between gap-4 border-t border-gray-100 px-5 py-4">
+                    <span>
+                      <span className="block text-sm font-semibold">Email me about updates</span>
+                      <span className="mt-0.5 block text-xs leading-5 text-text-mid">We email you when something changes here, never with health details.</span>
+                    </span>
+                    <input type="checkbox" role="switch" checked={data.account.email_notifications !== false} onChange={event => setEmailNotifications(event.target.checked)} className="h-5 w-5 shrink-0 accent-green-deep" />
+                  </label>
                 </div>
               </>}
             </div>

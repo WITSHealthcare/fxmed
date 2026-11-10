@@ -34,7 +34,9 @@ export default function PatientPortalLogin() {
         await auth.signOut()
         throw new Error(result.error || 'Patient Portal access is unavailable. Contact the FXMed team.')
       }
-      router.replace('/patient-portal')
+      // Back to the section an email linked to, if any.
+      const section = new URLSearchParams(window.location.search).get('section')
+      router.replace(section && /^[a-z_]+$/.test(section) ? `/patient-portal?section=${section}` : '/patient-portal')
       router.refresh()
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : 'Unable to sign in.')

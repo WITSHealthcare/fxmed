@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { writeRequestAdminActivity } from '@/lib/admin-activity'
 import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 import { checkRateLimit, cleanPublicString, isEmail } from '@/lib/request-security'
+import { alertStaff } from '@/lib/staff-alerts'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) throw error
+    alertStaff('contact', data)
 
     return NextResponse.json({ contact: data }, { status: 201 })
   } catch (error: any) {

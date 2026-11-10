@@ -5,6 +5,8 @@ import { writeRequestAdminActivity } from '@/lib/admin-activity'
 import { checkRateLimit, cleanPublicString, isEmail } from '@/lib/request-security'
 import { bookingProblem, clockTime, parseTime, type ConsultationType } from '@/lib/bookingTimes'
 import { upcomingClosures } from '@/lib/bookingClosures'
+import { notifyAppointment } from '@/lib/patient-portal'
+import { alertStaff } from '@/lib/staff-alerts'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -173,6 +175,9 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error
 
+    // One email for the booking, saying when it also brought a registration to review.
+    alertStaff('appointment', data, { extraDetail: registrationQueued ? 'new patient registration awaiting review' : undefined })
+
     if (registrationRequestId && !existingPatientId) {
       const { error: linkError } = await supabase.from('emr_patient_registration_requests')
         .update({ appointment_id: data.id, updated_at: new Date().toISOString() })
@@ -228,6 +233,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
+    const { data: before } = updateData.status ? await supabase.from('appointments').select('status').eq('id', id).maybeSingle() : { data: null }
     const { data, error } = await supabase
       .from('appointments')
       .update(updateData)
@@ -236,6 +242,8 @@ export async function PATCH(request: NextRequest) {
       .single()
 
     if (error) throw error
+    // A patient with an activated portal hears when their booking is confirmed or cancelled.
+    if (before && data.status !== before.status && (data.status === 'confirmed' || data.status === 'cancelled')) await notifyAppointment(supabase, data, data.status)
 
     await writeRequestAdminActivity(supabase, request, {
       action: 'update_appointment',

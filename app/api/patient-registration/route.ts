@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getEmrDatabase } from '@/lib/emr'
 import { checkRateLimit, cleanPublicString, isEmail } from '@/lib/request-security'
+import { alertStaff } from '@/lib/staff-alerts'
 
 const allowedSex = new Set(['female','male','intersex','unknown'])
 
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
       status: 'pending',
     }).select('id,submitted_at').single()
     if (error) throw error
+    alertStaff('registration', { first_name: firstName, last_name: lastName, phone, source: 'public_form' })
 
     return NextResponse.json({ registration: data, message: 'Registration submitted for clinical review.' }, { status: 201 })
   } catch (error) {

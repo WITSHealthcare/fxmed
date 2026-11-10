@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { cleanText, getEmrDatabase } from '@/lib/emr'
 import { checkRateLimit } from '@/lib/request-security'
 import { displayAge, isPlausibleDateOfBirth } from '@/lib/age'
+import { alertStaff } from '@/lib/staff-alerts'
 
 export const runtime = 'nodejs'
 
@@ -90,6 +91,8 @@ export async function POST(request: NextRequest) {
 
     const { data, error } = await database.from('emr_health_assessments').insert({ assessment_data: assessmentData, status: 'new' }).select('id').single()
     if (error) throw error
+
+    alertStaff('assessment', { assessment_data: assessmentData })
 
     // The clinical record is already saved. Failing to mirror the contact into
     // the inbox must not turn a successful submission into an error for the

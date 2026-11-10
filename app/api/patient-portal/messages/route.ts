@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cleanText, writeEmrAudit } from '@/lib/emr'
 import { getRequestPatient, portalErrorMessage } from '@/lib/patient-portal'
 import { checkRateLimit } from '@/lib/request-security'
+import { alertStaff } from '@/lib/staff-alerts'
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,6 +25,13 @@ export async function POST(request: NextRequest) {
       body: text,
     }).select('id,sender,sender_name,body,status,created_at').single()
     if (error) throw error
+    alertStaff('portal_message', { ...data, patient_id: patientId }, {
+      quiet: async () => {
+        const since = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+        const { data: earlier } = await database.from('patient_portal_messages').select('id').eq('patient_id', patientId).eq('sender', 'patient').gte('created_at', since).neq('id', data.id).limit(1)
+        return Boolean(earlier?.length)
+      },
+    })
     await writeEmrAudit(database, user, { action: 'patient_sent_message', entityType: 'patient_portal_messages', entityId: data.id, patientId })
     return NextResponse.json({ message: data }, { status: 201 })
   } catch (error) {
