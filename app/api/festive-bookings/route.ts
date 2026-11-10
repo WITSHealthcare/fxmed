@@ -4,6 +4,8 @@ import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 import { writeRequestAdminActivity } from '@/lib/admin-activity'
 import { festiveOffer, festiveOfferPhase, visitTimes, wellnessPackages } from '@/lib/festive-offer'
 import { checkRateLimit, cleanPublicString, isEmail } from '@/lib/request-security'
+import { upcomingClosures } from '@/lib/bookingClosures'
+import { displayDate, displayTime, isClosed, parseTime } from '@/lib/bookingTimes'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -80,8 +82,18 @@ export async function POST(request: NextRequest) {
     if (preferredDate < earliestVisitDate()) {
       return NextResponse.json({ error: 'Visits must be booked at least a day in advance.' }, { status: 400 })
     }
-    if (!visitTimes.some((slot) => slot.value === preferredTime)) {
+    if (!preferredTime || !visitTimes.some((slot) => slot.value === preferredTime)) {
       return NextResponse.json({ error: 'Please choose a visit time.' }, { status: 400 })
+    }
+    let closures
+    try {
+      closures = await upcomingClosures(supabase)
+    } catch (error) {
+      console.error('Error loading booking closures:', error)
+      return NextResponse.json({ error: 'Your booking could not be saved. Please try again, or contact FXMed on WhatsApp.' }, { status: 500 })
+    }
+    if (isClosed(closures, preferredDate, parseTime(preferredTime) ?? 0)) {
+      return NextResponse.json({ error: `We are not taking visits at ${displayTime(preferredTime)} on ${displayDate(preferredDate)}. Please choose another date or time.` }, { status: 400 })
     }
   }
 

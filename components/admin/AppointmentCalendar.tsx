@@ -2,8 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CalendarXIcon, MagnifyingGlassIcon, XIcon } from '@phosphor-icons/react'
+import { CLOSABLE_TIMES } from '@/lib/bookingTimes'
 
 type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
+
+/** A day (no time) or one time on a day that is closed to new bookings. */
+type BookingClosureRow = {
+  id: string
+  closed_date: string
+  closed_time: string | null
+  reason: string | null
+  created_at: string
+}
+
+type DayClosures = { day: BookingClosureRow | null; times: Record<string, BookingClosureRow> }
+const noClosures: DayClosures = { day: null, times: {} }
 
 type WebsiteAppointment = {
   id: string
@@ -80,6 +93,25 @@ export default function AppointmentCalendar() {
   const [searchQuery, setSearchQuery] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [closures, setClosures] = useState<BookingClosureRow[]>([])
+  // Set when closures cannot be managed yet, such as before migration 038.
+  const [closuresNotice, setClosuresNotice] = useState('')
+  const [closureError, setClosureError] = useState('')
+  const [savingClosure, setSavingClosure] = useState<string | null>(null)
+  const [closureReason, setClosureReason] = useState('')
+
+  const fetchClosures = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/booking-closures')
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Failed to fetch booking closures')
+      setClosures(data.closures || [])
+      setClosuresNotice(data.needsMigration ? 'Closing days and times needs database migration 038 to be run first.' : '')
+    } catch (error) {
+      console.error('Error fetching booking closures:', error)
+      setClosuresNotice('Closed days and times could not be loaded. Refresh to try again.')
+    }
+  }, [])
 
   const fetchAppointments = useCallback(async () => {
     setAppointmentsLoading(true)
@@ -97,9 +129,14 @@ export default function AppointmentCalendar() {
     }
   }, [])
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     fetchAppointments()
-  }, [fetchAppointments])
+    fetchClosures()
+  }, [fetchAppointments, fetchClosures])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
 
   useEffect(() => {
     if (!selectedDate) return
@@ -119,8 +156,19 @@ export default function AppointmentCalendar() {
     }, {})
   }, [appointments])
 
+  const closuresByDate = useMemo(() => {
+    return closures.reduce<Record<string, DayClosures>>((groups, closure) => {
+      const group = groups[closure.closed_date] ||= { day: null, times: {} }
+      if (closure.closed_time) group.times[closure.closed_time] = closure
+      else group.day = closure
+      return groups
+    }, {})
+  }, [closures])
+
   const days = useMemo(() => calendarDays(visibleMonth), [visibleMonth])
   const selectedAppointments = selectedDate ? appointmentsByDate[selectedDate] || [] : []
+  const selectedClosures = selectedDate ? closuresByDate[selectedDate] || noClosures : noClosures
+  const closedTimesWithReasons = CLOSABLE_TIMES.filter((time) => selectedClosures.times[time]?.reason)
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     if (!query) return []
@@ -155,13 +203,48 @@ export default function AppointmentCalendar() {
     setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1))
   }
 
+  const openDay = (key: string) => {
+    setSelectedDate(key)
+    setClosureReason('')
+    setClosureError('')
+  }
+
   const openSearchResult = (appointment: WebsiteAppointment) => {
     const key = appointmentDateKey(appointment.preferred_date)
     const [year, month] = key.split('-').map(Number)
     setVisibleMonth(new Date(year, month - 1, 1))
-    setSelectedDate(key)
+    openDay(key)
     setSearchQuery('')
   }
+
+  // Each change returns the full, current list of closures.
+  const saveClosure = async (key: string, send: () => Promise<Response>) => {
+    setSavingClosure(key)
+    setClosureError('')
+    try {
+      const response = await send()
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Booking availability could not be saved. Please try again.')
+      setClosures(data.closures || [])
+    } catch (error) {
+      console.error('Error saving booking closure:', error)
+      setClosureError(error instanceof Error ? error.message : 'Booking availability could not be saved. Please try again.')
+    } finally {
+      setSavingClosure(null)
+    }
+  }
+
+  const closeForBookings = (date: string, time: string | null) => saveClosure(`${date}|${time ?? 'day'}`, () =>
+    fetch('/api/admin/booking-closures', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, time, reason: closureReason }),
+    })
+  )
+
+  const reopenForBookings = (closure: BookingClosureRow) => saveClosure(`${closure.closed_date}|${closure.closed_time ?? 'day'}`, () =>
+    fetch(`/api/admin/booking-closures?id=${encodeURIComponent(closure.id)}`, { method: 'DELETE' })
+  )
 
   const updateStatus = async (appointmentId: string, status: AppointmentStatus) => {
     setUpdatingId(appointmentId)
@@ -210,7 +293,7 @@ export default function AppointmentCalendar() {
         <div>
           <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-green-mid">Appointment calendar</p>
           <h2 className="font-dm-sans text-2xl font-bold text-green-deep">Schedule & Appointments</h2>
-          <p className="mt-1 text-sm text-text-mid">Select a day to view and manage its booking requests.</p>
+          <p className="mt-1 text-sm text-text-mid">Select a day to view its booking requests, or to close the day or some of its times to new bookings.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -222,7 +305,7 @@ export default function AppointmentCalendar() {
           </button>
           <button
             type="button"
-            onClick={fetchAppointments}
+            onClick={refresh}
             disabled={appointmentsLoading}
             className="rounded-lg bg-green-deep px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
           >
@@ -340,25 +423,40 @@ export default function AppointmentCalendar() {
               const dayAppointments = appointmentsByDate[key] || []
               const isCurrentMonth = day.getMonth() === visibleMonth.getMonth()
               const isToday = key === todayKey
+              const dayClosures = closuresByDate[key] || noClosures
+              const closedTimes = Object.keys(dayClosures.times).length
+              const closedLabel = dayClosures.day
+                ? ', closed to bookings'
+                : closedTimes ? `, ${closedTimes} time${closedTimes === 1 ? '' : 's'} closed to bookings` : ''
 
               return (
                 <button
                   type="button"
                   key={key}
-                  onClick={() => setSelectedDate(key)}
-                  aria-label={`${dayFormatter.format(day)}, ${dayAppointments.length} appointment${dayAppointments.length === 1 ? '' : 's'}`}
+                  onClick={() => openDay(key)}
+                  aria-label={`${dayFormatter.format(day)}, ${dayAppointments.length} appointment${dayAppointments.length === 1 ? '' : 's'}${closedLabel}`}
                   className={`group relative min-h-32 border-b border-r border-gray-200 p-3 text-left transition-colors hover:z-10 hover:bg-green-50 focus:z-10 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-mid ${
                     isCurrentMonth ? 'bg-white' : 'bg-gray-50/90'
                   }`}
+                  style={dayClosures.day ? { backgroundImage: 'repeating-linear-gradient(135deg, transparent 0 8px, rgba(15, 23, 42, 0.045) 8px 16px)' } : undefined}
                 >
-                  <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
-                    isToday
-                      ? 'bg-green-deep text-white'
-                      : isCurrentMonth
-                        ? 'text-gray-800 group-hover:text-green-deep'
-                        : 'text-gray-400'
-                  }`}>
-                    {day.getDate()}
+                  <span className="flex items-start justify-between gap-1">
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                      isToday
+                        ? 'bg-green-deep text-white'
+                        : isCurrentMonth
+                          ? 'text-gray-800 group-hover:text-green-deep'
+                          : 'text-gray-400'
+                    }`}>
+                      {day.getDate()}
+                    </span>
+                    {dayClosures.day ? (
+                      <span className="mt-1 rounded-full bg-gray-700 px-2 py-0.5 text-[11px] font-semibold text-white">Closed</span>
+                    ) : closedTimes > 0 && (
+                      <span className="mt-1 rounded-full border border-gray-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                        {closedTimes} closed
+                      </span>
+                    )}
                   </span>
                   {dayAppointments.length > 0 && (
                     <div className="mt-2 space-y-1.5">
@@ -483,6 +581,89 @@ export default function AppointmentCalendar() {
             </div>
 
             <div className="overflow-y-auto p-5 sm:p-7">
+              {selectedDate >= todayKey && (
+                <section aria-labelledby="availability-title" className="mb-6 rounded-xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h4 id="availability-title" className="font-dm-sans text-base font-bold text-green-deep">Booking availability</h4>
+                      <p className="mt-0.5 text-sm text-gray-500">
+                        {selectedClosures.day
+                          ? 'Closed all day. Patients cannot book any time on this day.'
+                          : 'Select a time to close it to new bookings, or close the whole day.'}
+                      </p>
+                      {selectedClosures.day?.reason && (
+                        <p className="mt-1 text-sm text-gray-700"><span className="font-semibold">Reason:</span> {selectedClosures.day.reason}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={savingClosure !== null || Boolean(closuresNotice)}
+                      onClick={() => selectedClosures.day ? reopenForBookings(selectedClosures.day) : closeForBookings(selectedDate, null)}
+                      className={`shrink-0 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                        selectedClosures.day
+                          ? 'border-green-deep bg-green-deep text-white hover:bg-green-700'
+                          : 'border-red-200 bg-white text-red-600 hover:bg-red-50'
+                      }`}
+                    >
+                      {savingClosure === `${selectedDate}|day` ? 'Saving…' : selectedClosures.day ? 'Reopen day' : 'Close whole day'}
+                    </button>
+                  </div>
+
+                  {closuresNotice ? (
+                    <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{closuresNotice}</p>
+                  ) : !selectedClosures.day && (
+                    <>
+                      <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Booking times">
+                        {CLOSABLE_TIMES.map((time) => {
+                          const closure = selectedClosures.times[time]
+                          const saving = savingClosure === `${selectedDate}|${time}`
+                          return (
+                            <button
+                              key={time}
+                              type="button"
+                              disabled={savingClosure !== null}
+                              onClick={() => closure ? reopenForBookings(closure) : closeForBookings(selectedDate, time)}
+                              aria-label={`${formatTime(time)}, ${closure ? 'closed. Select to reopen' : 'open. Select to close'}`}
+                              title={closure ? `Closed${closure.reason ? `: ${closure.reason}` : ''}. Select to reopen.` : 'Open. Select to close.'}
+                              className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-wait ${
+                                closure
+                                  ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+                                  : 'border-gray-200 bg-white text-gray-700 hover:border-green-mid hover:bg-green-50'
+                              } ${saving ? 'opacity-50' : ''}`}
+                            >
+                              <span className={closure ? 'line-through' : ''}>{formatTime(time)}</span>
+                              {closure && <span className="ml-1.5 text-xs font-medium">Closed</span>}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {closedTimesWithReasons.length > 0 && (
+                        <ul className="mt-3 space-y-0.5 text-sm text-gray-600">
+                          {closedTimesWithReasons.map((time) => (
+                            <li key={time}><span className="font-semibold">{formatTime(time)}:</span> {selectedClosures.times[time].reason}</li>
+                          ))}
+                        </ul>
+                      )}
+                      <label htmlFor="closure-reason" className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Reason for closing <span className="font-normal normal-case tracking-normal">(optional, staff only)</span>
+                      </label>
+                      <input
+                        id="closure-reason"
+                        type="text"
+                        value={closureReason}
+                        maxLength={200}
+                        onChange={(event) => setClosureReason(event.target.value)}
+                        placeholder="e.g. Public holiday, doctor on leave"
+                        className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-green-mid focus:ring-2 focus:ring-green-mid/15"
+                      />
+                    </>
+                  )}
+
+                  {closureError && <p role="alert" className="mt-3 text-sm text-red-600">{closureError}</p>}
+                  <p className="mt-3 text-xs text-gray-400">Closing stops new bookings only. Appointments already booked stay as they are.</p>
+                </section>
+              )}
+
               {selectedAppointments.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-12 text-center">
                   <CalendarXIcon size={42} weight="duotone" className="mx-auto mb-3 text-green-mid" />

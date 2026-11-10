@@ -4,6 +4,7 @@ import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
 import { writeRequestAdminActivity } from '@/lib/admin-activity'
 import { checkRateLimit, cleanPublicString, isEmail } from '@/lib/request-security'
 import { bookingProblem, clockTime, parseTime, type ConsultationType } from '@/lib/bookingTimes'
+import { upcomingClosures } from '@/lib/bookingClosures'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -107,7 +108,8 @@ export async function POST(request: NextRequest) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate) || Number.isNaN(Date.parse(`${preferredDate}T00:00:00Z`))) {
       return NextResponse.json({ error: 'A valid appointment date is required.' }, { status: 400 })
     }
-    const problem = bookingProblem(consultationType as ConsultationType, preferredDate, preferredTime)
+    const closures = await upcomingClosures(supabase)
+    const problem = bookingProblem(consultationType as ConsultationType, preferredDate, preferredTime, Date.now(), closures)
     if (problem) return NextResponse.json({ error: problem, field: 'schedule' }, { status: 400 })
     const startMinutes = parseTime(preferredTime)
 

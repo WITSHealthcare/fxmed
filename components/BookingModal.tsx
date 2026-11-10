@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { BOOKING_TIMES, displayDate, displayTime, firstOpenDate, openTimes } from '@/lib/bookingTimes'
+import { BOOKING_TIMES, displayDate, displayTime, firstOpenDate, nextOpenDate, openTimes } from '@/lib/bookingTimes'
+import { useBookingClosures } from '@/lib/useBookingClosures'
 
 interface BookingModalProps {
   isOpen: boolean
@@ -44,6 +45,8 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
     consultationType,
     consentConfirmed: false,
   })
+  // Days and times staff have closed, refreshed each time the form opens.
+  const { closures, reload: reloadClosures } = useBookingClosures(isOpen)
 
   if (!isOpen) return null
 
@@ -100,6 +103,7 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
           setScheduleError(result.error)
           setBookingData(prev => ({ ...prev, preferredTime: '' }))
           setNow(Date.now())
+          reloadClosures()
           setCurrentStep(2)
           return
         }
@@ -145,8 +149,9 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
     setBookingData(prev => ({ ...prev, [field]: value }))
   }
 
-  const times = bookingData.preferredDate ? openTimes(consultationType, bookingData.preferredDate, now) : BOOKING_TIMES[consultationType]
-  const earliestDate = firstOpenDate(consultationType, now)
+  const times = bookingData.preferredDate ? openTimes(consultationType, bookingData.preferredDate, now, closures) : BOOKING_TIMES[consultationType]
+  const earliestDate = firstOpenDate(consultationType, now, closures)
+  const nextDate = bookingData.preferredDate && !times.length ? nextOpenDate(consultationType, bookingData.preferredDate, now, closures) : null
 
   const chooseDate = (preferredDate: string) => {
     setScheduleError('')
@@ -154,7 +159,7 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
       ...prev,
       preferredDate,
       // Clear a time that is not open on the new date.
-      preferredTime: openTimes(consultationType, preferredDate, now).includes(prev.preferredTime) ? prev.preferredTime : '',
+      preferredTime: openTimes(consultationType, preferredDate, now, closures).includes(prev.preferredTime) ? prev.preferredTime : '',
     }))
   }
 
@@ -345,7 +350,7 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
                   type="date"
                   value={bookingData.preferredDate}
                   onChange={(e) => chooseDate(e.target.value)}
-                  min={earliestDate}
+                  min={earliestDate ?? undefined}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent"
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -370,7 +375,7 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
                 </select>
                 {bookingData.preferredDate && !times.length && (
                   <p className="text-xs text-amber-700 mt-1">
-                    No {telemedicine ? 'call' : 'visit'} times are left on this date. The earliest date you can book is {displayDate(earliestDate)}.
+                    No {telemedicine ? 'call' : 'visit'} times are open on this date.{nextDate && ` The next date you can book is ${displayDate(nextDate)}.`}
                   </p>
                 )}
               </div>

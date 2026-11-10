@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { BOOKING_TIMES, displayDate, displayTime, firstOpenDate, openTimes } from '@/lib/bookingTimes'
+import { BOOKING_TIMES, displayDate, displayTime, firstOpenDate, nextOpenDate, openTimes } from '@/lib/bookingTimes'
+import { useBookingClosures } from '@/lib/useBookingClosures'
 
 interface MaternalBookingModalProps {
   isOpen: boolean
@@ -44,6 +45,8 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
     preferredTime: '',
     notes: '',
   })
+  // Days and times staff have closed, refreshed each time the form opens.
+  const { closures, reload: reloadClosures } = useBookingClosures(isOpen)
 
   if (!isOpen) return null
 
@@ -52,8 +55,9 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
   const update = (field: keyof BookingData, value: string) =>
     setBookingData(prev => ({ ...prev, [field]: value }))
 
-  const times = bookingData.preferredDate ? openTimes('home-visit', bookingData.preferredDate, now) : BOOKING_TIMES['home-visit']
-  const earliestDate = firstOpenDate('home-visit', now)
+  const times = bookingData.preferredDate ? openTimes('home-visit', bookingData.preferredDate, now, closures) : BOOKING_TIMES['home-visit']
+  const earliestDate = firstOpenDate('home-visit', now, closures)
+  const nextDate = bookingData.preferredDate && !times.length ? nextOpenDate('home-visit', bookingData.preferredDate, now, closures) : null
 
   const chooseDate = (preferredDate: string) => {
     setScheduleError('')
@@ -61,7 +65,7 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
       ...prev,
       preferredDate,
       // Clear a time that is not open on the new date.
-      preferredTime: openTimes('home-visit', preferredDate, now).includes(prev.preferredTime) ? prev.preferredTime : '',
+      preferredTime: openTimes('home-visit', preferredDate, now, closures).includes(prev.preferredTime) ? prev.preferredTime : '',
     }))
   }
 
@@ -113,6 +117,7 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
           setScheduleError(result.error)
           setBookingData(prev => ({ ...prev, preferredTime: '' }))
           setNow(Date.now())
+          reloadClosures()
           setCurrentStep(2)
           return
         }
@@ -224,7 +229,7 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Date *</label>
                 <input type="date" value={bookingData.preferredDate} onChange={(e) => chooseDate(e.target.value)}
-                  min={earliestDate} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent" />
+                  min={earliestDate ?? undefined} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-mid focus:border-transparent" />
                 <p className="text-xs text-gray-500 mt-1">Visits must be booked at least 24 hours ahead. Times are Lagos time (WAT).</p>
               </div>
               <div>
@@ -236,7 +241,7 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
                   {times.map(time => <option key={time} value={time}>{displayTime(time)}</option>)}
                 </select>
                 {bookingData.preferredDate && !times.length && (
-                  <p className="text-xs text-amber-700 mt-1">No visit times are left on this date. The earliest date you can book is {displayDate(earliestDate)}.</p>
+                  <p className="text-xs text-amber-700 mt-1">No visit times are open on this date.{nextDate && ` The next date you can book is ${displayDate(nextDate)}.`}</p>
                 )}
               </div>
               {scheduleError && (

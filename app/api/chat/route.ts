@@ -4,6 +4,7 @@ import { sendZaraMessage, type ZaraMessage } from '@/lib/ai/zara-providers'
 import { getRequestAmbassador } from '@/lib/ambassador-portal'
 import { checkRateLimit } from '@/lib/request-security'
 import { bookingProblem, bookingRulesForZara, clockTime, parseTime, type ConsultationType } from '@/lib/bookingTimes'
+import { upcomingClosures } from '@/lib/bookingClosures'
 
 function getSupabase() {
   return createClient(
@@ -29,7 +30,9 @@ async function createChatAppointment(input: Record<string, string>) {
     return { appointment: null, success: false, problem: null }
   }
   // Zara is told the rules, but the booking is checked here too.
-  const problem = bookingProblem(consultationType as ConsultationType, preferredDate, preferredTime)
+  const closures = await upcomingClosures(getSupabase()).catch(() => null)
+  if (!closures) return { appointment: null, success: false, problem: null }
+  const problem = bookingProblem(consultationType as ConsultationType, preferredDate, preferredTime, Date.now(), closures)
   if (problem) return { appointment: null, success: false, problem }
   const startMinutes = parseTime(preferredTime)
   const now = new Date().toISOString()
@@ -184,8 +187,11 @@ export async function POST(request: NextRequest) {
     const safeSessionId = typeof sessionId === 'string' && /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(sessionId) ? sessionId : null
     const userMessage = messages[messages.length - 1].content
 
-    // The booking rules depend on the time now, so they are added per request.
-    const publicPrompt = `${SYSTEM_PROMPT}\n\n${bookingRulesForZara()}`
+    // The booking rules depend on the time now and on the days and times staff
+    // have closed, so they are added per request. If the closures cannot be
+    // loaded Zara still chats; a booking is checked against them again anyway.
+    const closures = context === 'ambassador' ? [] : await upcomingClosures(getSupabase()).catch(() => [])
+    const publicPrompt = `${SYSTEM_PROMPT}\n\n${bookingRulesForZara(Date.now(), closures)}`
     let systemPrompt = publicPrompt
     if (context === 'ambassador') {
       const ambassador = await getRequestAmbassador(request, true)
