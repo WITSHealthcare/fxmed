@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CalendarXIcon, MagnifyingGlassIcon, XIcon } from '@phosphor-icons/react'
 import { CLOSABLE_TIMES } from '@/lib/bookingTimes'
+import AddBookingDialog from '@/components/admin/AddBookingDialog'
 
 type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
 
@@ -99,6 +100,9 @@ export default function AppointmentCalendar() {
   const [closureError, setClosureError] = useState('')
   const [savingClosure, setSavingClosure] = useState<string | null>(null)
   const [closureReason, setClosureReason] = useState('')
+  // Open when staff are adding a booking by hand, with the date to start on.
+  const [addingBooking, setAddingBooking] = useState<{ date?: string } | null>(null)
+  const closeAddBooking = useCallback(() => setAddingBooking(null), [])
 
   const fetchClosures = useCallback(async () => {
     try {
@@ -139,13 +143,14 @@ export default function AppointmentCalendar() {
   }, [refresh])
 
   useEffect(() => {
-    if (!selectedDate) return
+    // Escape closes the add-booking form first, when it is open on top.
+    if (!selectedDate || addingBooking) return
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setSelectedDate(null)
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectedDate])
+  }, [selectedDate, addingBooking])
 
   const appointmentsByDate = useMemo(() => {
     return appointments.reduce<Record<string, WebsiteAppointment[]>>((groups, appointment) => {
@@ -207,6 +212,8 @@ export default function AppointmentCalendar() {
     setSelectedDate(key)
     setClosureReason('')
     setClosureError('')
+    // Try again if closures could not be loaded, say before migration 038 was run.
+    if (closuresNotice) fetchClosures()
   }
 
   const openSearchResult = (appointment: WebsiteAppointment) => {
@@ -296,6 +303,13 @@ export default function AppointmentCalendar() {
           <p className="mt-1 text-sm text-text-mid">Select a day to view its booking requests, or to close the day or some of its times to new bookings.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAddingBooking({})}
+            className="rounded-lg border border-green-deep px-4 py-2 text-sm font-semibold text-green-deep transition-colors hover:bg-green-50"
+          >
+            Add booking
+          </button>
           <button
             type="button"
             onClick={goToToday}
@@ -570,14 +584,23 @@ export default function AppointmentCalendar() {
                   {selectedAppointments.length} appointment{selectedAppointments.length === 1 ? '' : 's'} booked
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedDate(null)}
-                aria-label="Close appointment details"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-xl text-gray-600 hover:bg-gray-200"
-              >
-                <XIcon size={19} weight="bold" />
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAddingBooking({ date: selectedDate })}
+                  className="rounded-lg border border-green-deep px-3 py-2 text-sm font-semibold text-green-deep transition-colors hover:bg-green-50"
+                >
+                  Add booking
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(null)}
+                  aria-label="Close appointment details"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-xl text-gray-600 hover:bg-gray-200"
+                >
+                  <XIcon size={19} weight="bold" />
+                </button>
+              </div>
             </div>
 
             <div className="overflow-y-auto p-5 sm:p-7">
@@ -734,6 +757,18 @@ export default function AppointmentCalendar() {
           </div>
         </div>
       )}
+
+      <AddBookingDialog
+        open={addingBooking !== null}
+        initialDate={addingBooking?.date}
+        onClose={closeAddBooking}
+        onAdded={(appointment) => {
+          // Keep the same order as the API: by date, then time.
+          setAppointments((current) => [...current, appointment].sort((first, second) =>
+            `${appointmentDateKey(first.preferred_date)}T${first.preferred_time}`.localeCompare(`${appointmentDateKey(second.preferred_date)}T${second.preferred_time}`)
+          ))
+        }}
+      />
     </div>
   )
 }

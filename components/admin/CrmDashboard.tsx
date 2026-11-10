@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -22,6 +22,7 @@ import {
   ChartBarIcon, ChartLineUpIcon, CheckIcon, ClipboardTextIcon, DotsThreeVerticalIcon,
   FileTextIcon, RobotIcon, UserCircleIcon, UsersThreeIcon, XIcon,
 } from '@phosphor-icons/react'
+import AddBookingDialog from '@/components/admin/AddBookingDialog'
 
 type Stage = "Outreach" | "Follow Up" | "Enrolment" | "Onboarding" | "Active"
 type NavItem = "overview" | "pipeline" | "coordinator" | "documents" | "reporting" | "ai-agent"
@@ -927,6 +928,15 @@ export default function CrmDashboard({
     }
   }, [appointments])
 
+  // The API lists appointments by appointment date, oldest first, so the most
+  // recently made bookings are put first here.
+  const recentBookings = useMemo(() => {
+    return [...appointments].sort((first, second) => second.created_at.localeCompare(first.created_at))
+  }, [appointments])
+  const [showAllBookings, setShowAllBookings] = useState(false)
+  const [addingBooking, setAddingBooking] = useState(false)
+  const closeAddBooking = useCallback(() => setAddingBooking(false), [])
+
   const financialExecution = useMemo(() => {
     const startingCapital = 150000000
     const monthlyBurn = 30000000
@@ -1816,16 +1826,30 @@ export default function CrmDashboard({
               <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-dm-sans font-semibold text-green-deep">Recent Financial Bookings</h3>
-                  <button
-                    onClick={fetchAppointments}
-                    disabled={appointmentsLoading}
-                    className="px-4 py-2 bg-green-deep text-white rounded-lg font-dm-sans hover:bg-green-700 transition-colors disabled:opacity-50"
-                  >
-                    {appointmentsLoading ? 'Loading...' : 'Refresh'}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAddingBooking(true)}
+                      className="px-4 py-2 border border-green-deep text-green-deep rounded-lg font-dm-sans font-semibold hover:bg-green-50 transition-colors"
+                    >
+                      Add booking
+                    </button>
+                    <button
+                      onClick={fetchAppointments}
+                      disabled={appointmentsLoading}
+                      className="px-4 py-2 bg-green-deep text-white rounded-lg font-dm-sans hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      {appointmentsLoading ? 'Loading...' : 'Refresh'}
+                    </button>
+                  </div>
                 </div>
+                <AddBookingDialog
+                  open={addingBooking}
+                  onClose={closeAddBooking}
+                  onAdded={(appointment) => setAppointments((current) => [...current, appointment])}
+                />
                 <div className="space-y-3">
-                  {appointments.slice(0, 8).map((appointment) => (
+                  {(showAllBookings ? recentBookings : recentBookings.slice(0, 8)).map((appointment) => (
                     <div key={appointment.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-dm-sans font-semibold text-green-deep">
@@ -1866,6 +1890,15 @@ export default function CrmDashboard({
                   ))}
                   {!appointmentsLoading && appointments.length === 0 && (
                     <p className="text-sm text-gray-500 font-dm-sans">No booking records available yet.</p>
+                  )}
+                  {recentBookings.length > 8 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllBookings((showing) => !showing)}
+                      className="text-sm font-dm-sans font-semibold text-green-deep underline underline-offset-4 hover:text-green-700"
+                    >
+                      {showAllBookings ? 'Show the 8 most recent' : `Show all ${recentBookings.length} bookings`}
+                    </button>
                   )}
                 </div>
               </div>
