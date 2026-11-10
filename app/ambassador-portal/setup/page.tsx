@@ -7,6 +7,10 @@ import { useRouter } from 'next/navigation'
 import { CheckCircleIcon, EyeIcon, EyeSlashIcon, LockKeyIcon } from '@phosphor-icons/react'
 import { supabase } from '@/lib/supabase-auth'
 
+// Read at import, before the Supabase client can consume and clear them.
+const initialHash = typeof window === 'undefined' ? '' : window.location.hash
+const initialSearch = typeof window === 'undefined' ? '' : window.location.search
+
 export default function AmbassadorSetup() {
   const router = useRouter()
   const [ready, setReady] = useState(false)
@@ -23,8 +27,8 @@ export default function AmbassadorSetup() {
   useEffect(() => {
     async function prepareSession() {
       setError('')
-      const search = new URLSearchParams(window.location.search)
-      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      const search = new URLSearchParams(initialSearch)
+      const hash = new URLSearchParams(initialHash.replace(/^#/, ''))
       const callbackError = search.get('error_description') || hash.get('error_description')
       if (callbackError) {
         setError(decodeURIComponent(callbackError.replace(/\+/g, ' ')))
@@ -36,16 +40,15 @@ export default function AmbassadorSetup() {
       // it initializes. Wait for that first so a PKCE code is not exchanged twice.
       let { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-      // Fallback for an implicit-flow link when automatic URL detection was
-      // interrupted by a browser extension or cross-browser email handoff.
-      if (!session) {
-        const accessToken = hash.get('access_token')
-        const refreshToken = hash.get('refresh_token')
-        if (accessToken && refreshToken) {
-          const result = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-          session = result.data.session
-          sessionError = result.error
-        }
+      // The link's own tokens always win. Someone already signed in on this
+      // browser, such as staff on the admin dashboard, must never be the
+      // account whose password is set here.
+      const accessToken = hash.get('access_token')
+      const refreshToken = hash.get('refresh_token')
+      if (accessToken && refreshToken && session?.access_token !== accessToken) {
+        const result = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        session = result.data.session
+        sessionError = result.error
       }
 
       // Only exchange a remaining PKCE code if automatic initialization did not
@@ -57,7 +60,9 @@ export default function AmbassadorSetup() {
         sessionError = result.error
       }
 
-      if (session) {
+      if (session && session.user.app_metadata?.account_type !== 'ambassador') {
+        setError(`You are signed in as ${session.user.email}, which is not an ambassador account. Open the link from your invitation email again, or ask the FXMed team for a new one.`)
+      } else if (session) {
         setHasSession(true)
         setEmail(session.user.email || '')
         window.history.replaceState({}, document.title, window.location.pathname)
@@ -79,7 +84,14 @@ export default function AmbassadorSetup() {
     if (!hasSession) return setError('Your setup session is no longer valid. Request a new setup email from the FXMed team.')
     setSaving(true)
     setError('')
-    const { error: updateError } = await supabase.auth.updateUser({ password, data: { account_type: 'ambassador' } })
+    // Check again just before the password changes that this is an ambassador account.
+    const { data: { user: current } } = await supabase.auth.getUser()
+    if (current?.app_metadata?.account_type !== 'ambassador') {
+      setError('This sign-in is not an ambassador account, so no password was changed. Open the link from your invitation email again.')
+      setSaving(false)
+      return
+    }
+    const { error: updateError } = await supabase.auth.updateUser({ password })
     if (updateError) {
       setError(updateError.message)
       setSaving(false)

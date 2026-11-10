@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signIn, signOut, supabase } from '@/lib/supabase-auth'
+import { patientAuth } from '@/lib/patient-auth'
 
 export default function PatientPortalLogin() {
   const router = useRouter()
@@ -20,15 +20,18 @@ export default function PatientPortalLogin() {
     setError('')
     setMessage('')
     try {
-      const { user } = await signIn(email.trim(), password)
-      if (user.app_metadata?.account_type !== 'patient') {
-        await signOut()
+      // The portal's own sign-in: signing in here never signs staff out of the admin dashboard.
+      const auth = patientAuth()
+      const { data, error: signInError } = await auth.signInWithPassword({ email: email.trim(), password })
+      if (signInError) throw new Error(signInError.message === 'Invalid login credentials' ? 'That email and password do not match. Check them, or use Forgot password? to get a new link.' : signInError.message)
+      if (data.user?.app_metadata?.account_type !== 'patient') {
+        await auth.signOut()
         throw new Error('This account does not have Patient Portal access.')
       }
-      const response = await fetch('/api/patient-portal')
+      const response = await fetch('/api/patient-portal', { cache: 'no-store' })
       if (!response.ok) {
         const result = await response.json().catch(() => ({}))
-        await signOut()
+        await auth.signOut()
         throw new Error(result.error || 'Patient Portal access is unavailable. Contact the FXMed team.')
       }
       router.replace('/patient-portal')
@@ -48,12 +51,17 @@ export default function PatientPortalLogin() {
     setLoading(true)
     setError('')
     setMessage('')
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/patient-portal/setup`,
-    })
-    if (resetError) setError(resetError.message)
-    else setMessage('If this email has portal access, a password-reset link has been sent.')
-    setLoading(false)
+    // Sent from the server, so the link works on any device the patient opens it on.
+    try {
+      const response = await fetch('/api/patient-portal/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim() }) })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) setError(result.error || 'We could not send a reset link. Please try again.')
+      else setMessage(result.message)
+    } catch {
+      setError('We could not reach FXMed. Check your connection and try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

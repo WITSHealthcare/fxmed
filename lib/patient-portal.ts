@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { NextRequest } from 'next/server'
 import { getRequestUser } from '@/lib/ambassador-portal'
 import { getEmrDatabase } from '@/lib/emr'
+import { PATIENT_AUTH_COOKIE } from '@/lib/patient-auth'
 
 export const portalSections = ['overview', 'care_plan', 'documents', 'messages'] as const
 export type PortalSection = typeof portalSections[number]
@@ -22,7 +23,7 @@ export const portalDocumentColumns = 'id,title,category,original_name,mime_type,
  * null for anyone who is not a linked, non-suspended portal patient.
  */
 export async function getRequestPatient(request: NextRequest) {
-  const user = await getRequestUser(request)
+  const user = await getRequestUser(request, PATIENT_AUTH_COOKIE)
   const database = getEmrDatabase()
   if (!user || !database) return null
 

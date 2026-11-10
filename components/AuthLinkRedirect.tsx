@@ -19,7 +19,9 @@ function accountType(accessToken: string) {
   try {
     const payload = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
     const claims = JSON.parse(atob(payload.padEnd(Math.ceil(payload.length / 4) * 4, '=')))
-    return claims.app_metadata?.account_type || claims.user_metadata?.account_type || null
+    // Only app_metadata: it is set by FXMed staff tools, while users can edit
+    // their own user_metadata.
+    return claims.app_metadata?.account_type || null
   } catch {
     return null
   }
