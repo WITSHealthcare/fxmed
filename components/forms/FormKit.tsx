@@ -3,7 +3,8 @@
 // Building, filling in and summarising survey and quiz forms. Used by training
 // lessons and by standalone forms for customers, staff and patients.
 import { useEffect, useRef, useState } from 'react'
-import { choiceTypes, formPages, gradeFormResponse, isGradable, isOtherAnswer, optionListTypes, otherPrefix, questionNumbers, questionOptions, questionTypes, type FormAnswer, type FormAnswers, type FormDefinition, type FormQuestion, type FormQuestionType, type FormResponseView } from '@/lib/forms'
+import { PlayfulSection, StepTracker, sectionIconOptions } from '@/components/forms/FormFun'
+import { choiceTypes, formPages, gradeFormResponse, isGradable, isOtherAnswer, optionListTypes, otherPrefix, questionNumbers, questionOptions, questionTypes, type FormAnswer, type FormAnswers, type FormDefinition, type FormQuestion, type FormQuestionType, type FormResponseView, type SectionIcon } from '@/lib/forms'
 
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 const newQuestion = (type: FormQuestionType = 'single_choice'): FormQuestion => ({ id: makeId('question'), type, label: '', help: '', required: true, options: choiceTypes.includes(type) ? ['Option 1', 'Option 2'] : [], correct: [], scaleMax: 5 })
@@ -46,6 +47,7 @@ export function FormBuilder({ form, onChange, onRemove, heading = 'Lesson form',
       {showDetails && <textarea rows={2} maxLength={3000} value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} placeholder="Instructions (optional)" className="input mt-3" />}
       {quiz && <p className="mt-2 text-xs text-text-mid">{gradable ? `${gradable} graded question(s). Pass mark ${form.passPercent}%${passNote ? `; ${passNote}` : ''}.` : 'Mark the correct answers on choice questions to grade this quiz.'}</p>}
       {form.questions.some((q) => q.type === 'section') && <label className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold text-green-deep"><input type="checkbox" checked={!!form.paged} onChange={(e) => onChange({ ...form, paged: e.target.checked })} className="accent-green-deep" />Show one section per page<span className="font-normal text-text-mid">respondents move between sections with Back and Next</span></label>}
+      <label className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold text-green-deep"><input type="checkbox" checked={!!form.playful} onChange={(e) => onChange({ ...form, playful: e.target.checked })} className="accent-green-deep" />Playful style<span className="font-normal text-text-mid">section icons, animations and a celebration when the form is sent</span></label>
       <div className="mt-4 space-y-3">{form.questions.map((question, index) => <QuestionEditor key={question.id} question={question} index={index} number={numbers.get(question.id)} quiz={quiz} total={form.questions.length} onChange={(q) => setQuestion(index, q)} onMove={(by) => move(index, by)}
         onDuplicate={() => onChange({ ...form, questions: [...form.questions.slice(0, index + 1), { ...question, id: makeId('question') }, ...form.questions.slice(index + 1)] })}
         onDelete={() => onChange({ ...form, questions: form.questions.filter((_, i) => i !== index) })} />)}</div>
@@ -71,6 +73,7 @@ function QuestionEditor({ question, index, number, total, quiz, onChange, onMove
     <div className="flex flex-wrap gap-2"><span className="pt-3 text-xs font-bold text-gray-400">{section ? '§' : `Q${number}`}</span><input required value={question.label} maxLength={500} onChange={(e) => onChange({ ...question, label: e.target.value })} placeholder={section ? 'Section title' : 'Question'} className="input mt-0 min-w-[200px] flex-1" />
       <select aria-label="Question type" value={question.type} onChange={(e) => changeType(e.target.value as FormQuestionType)} className="input mt-0 w-auto">{questionTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></div>
     <input value={question.help} maxLength={1000} onChange={(e) => onChange({ ...question, help: e.target.value })} placeholder={section ? 'Introduction (optional)' : 'Help text (optional)'} className="input mt-2 py-2 text-xs" />
+    {section && <label className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold text-green-deep">Icon<select value={question.icon || ''} onChange={(e) => onChange({ ...question, icon: (e.target.value || undefined) as SectionIcon | undefined })} className="input mt-0 w-auto py-1.5"><option value="">Automatic</option>{sectionIconOptions.map((icon) => <option key={icon.value} value={icon.value}>{icon.label}</option>)}</select><span className="font-normal text-text-mid">shown with the playful style</span></label>}
     {optionListTypes.includes(question.type) && <div className="mt-3 space-y-2">
       {question.type === 'matrix' && <p className="text-xs font-bold text-green-deep">Columns (the rating scale)</p>}
       {question.type === 'ranking' && <p className="text-xs font-bold text-green-deep">Items to rank</p>}
@@ -149,15 +152,16 @@ export function FormFill({ form, response, preview, onSubmit, children }: { form
 
   // The preview sits inside the program editor's <form>, so it must not be a form or carry required fields itself.
   const Wrapper = preview ? 'div' : 'form'
-  return <Wrapper onSubmit={submit} className="space-y-4">
-    <div ref={top} tabIndex={-1} className="scroll-mt-6 outline-none">{paged && <div><div className="flex justify-between text-xs font-bold text-green-mid"><span>Step {at + 1} of {pages.length}</span><span>{Math.round(at / pages.length * 100)}% complete</span></div>
+  const playful = !!form.playful; const sectionIndex = new Map(form.questions.filter((q) => q.type === 'section').map((q, i) => [q.id, i]))
+  return <Wrapper onSubmit={submit} className={`space-y-4 ${playful ? 'form-playful' : ''}`}>
+    <div ref={top} tabIndex={-1} className="scroll-mt-6 outline-none">{paged && playful ? <StepTracker pages={pages} at={at} /> : paged && <div><div className="flex justify-between text-xs font-bold text-green-mid"><span>Step {at + 1} of {pages.length}</span><span>{Math.round(at / pages.length * 100)}% complete</span></div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-green-deep transition-all" style={{ width: `${(at + 1) / pages.length * 100}%` }} /></div></div>}</div>
     {at === 0 && (form.title || form.description) && <div>{form.title && <h6 className="font-bold text-green-deep">{form.title}</h6>}{form.description && <p className="mt-1 whitespace-pre-wrap text-sm text-text-mid">{form.description}</p>}</div>}
     {at === 0 && children}
-    {pages[at].map((q) => q.type === 'section'
-      ? <div key={q.id} className="border-b border-green-deep/15 pb-2 pt-4"><h3 className="text-lg font-bold text-green-deep">{q.label}</h3>{q.help && <p className="mt-1 whitespace-pre-wrap text-sm text-text-mid">{q.help}</p>}</div>
+    <div key={at} className="form-page space-y-4">{pages[at].map((q) => q.type === 'section'
+      ? playful ? <PlayfulSection key={q.id} question={q} index={sectionIndex.get(q.id) || 0} /> : <div key={q.id} className="border-b border-green-deep/15 pb-2 pt-4"><h3 className="text-lg font-bold text-green-deep">{q.label}</h3>{q.help && <p className="mt-1 whitespace-pre-wrap text-sm text-text-mid">{q.help}</p>}</div>
       : <fieldset key={q.id} id={`field-${q.id}`} className={`min-w-0 scroll-mt-24 rounded-xl border bg-white p-4 ${problem?.questionId === q.id ? 'border-red-300 ring-1 ring-red-200' : ''}`}><legend className="sr-only">{q.label}</legend><p className="text-sm font-bold text-green-deep">{numbers.get(q.id)}. {q.label}{q.required && <span className="text-red-600"> *</span>}</p>{q.help && <p className="mt-0.5 text-xs text-text-mid">{q.help}</p>}<div className="mt-3"><QuestionInput question={preview ? { ...q, required: false } : q} value={answers[q.id]} onChange={(v) => set(q.id, v)} /></div>
-        {problem?.questionId === q.id && <p role="alert" className="mt-3 text-sm font-bold text-red-600">{problem.error}</p>}</fieldset>)}
+        {problem?.questionId === q.id && <p role="alert" className="mt-3 text-sm font-bold text-red-600">{problem.error}</p>}</fieldset>)}</div>
     {problem && !problem.questionId && <p role="alert" className="text-sm font-bold text-red-600">{problem.error}</p>}
     <div className="flex items-center justify-end gap-3">{paged && at > 0 && <button type="button" onClick={() => goTo(at - 1)} className="mr-auto rounded-full border px-5 py-2 text-xs font-bold text-green-deep">← Back</button>}{response && <button type="button" onClick={() => { setAnswers(response.answers); setEditing(false) }} className="rounded-full border px-4 py-2 text-xs font-bold">Cancel</button>}{paged && !last ? <button type="button" onClick={next} className="rounded-full bg-green-deep px-5 py-2 text-xs font-bold text-white">Next →</button> : <button type={preview ? 'button' : 'submit'} disabled={preview || saving} className="rounded-full bg-green-deep px-5 py-2 text-xs font-bold text-white disabled:opacity-50">{preview ? 'Submit (preview)' : saving ? 'Submitting…' : quiz ? 'Submit quiz' : 'Submit'}</button>}</div>
   </Wrapper>
@@ -180,17 +184,17 @@ function QuestionInput({ question, value, onChange }: { question: FormQuestion; 
       <div className="mt-2 flex justify-between gap-3 text-xs text-text-mid"><span>{ranked.length === question.options.length ? 'All ranked' : `${ranked.length} of ${question.options.length} ranked · tap in order, starting with the highest priority`}</span>{ranked.length > 0 && <button type="button" onClick={() => onChange([])} className="shrink-0 font-bold text-green-mid">Reset order</button>}</div></div> }
   if (question.type === 'multi_choice') { const picked = Array.isArray(value) ? value : []; const other = picked.find(isOtherAnswer); const full = !!question.maxChoices && picked.length >= question.maxChoices
     return <div className="space-y-2">{options.map((o) => { const off = full && !picked.includes(o)
-      return <label key={o} className={`flex items-center gap-2 text-sm ${off ? 'opacity-50' : ''}`}><input type="checkbox" checked={picked.includes(o)} disabled={off} onChange={(e) => onChange(e.target.checked ? [...picked, o] : picked.filter((p) => p !== o))} className="h-4 w-4 accent-green-deep" />{o}</label> })}
+      return <label key={o} className={`form-choice flex items-center gap-2 text-sm ${off ? 'opacity-50' : ''}`}><input type="checkbox" checked={picked.includes(o)} disabled={off} onChange={(e) => onChange(e.target.checked ? [...picked, o] : picked.filter((p) => p !== o))} className="h-4 w-4 accent-green-deep" />{o}</label> })}
       {question.allowOther && <OtherChoice kind="checkbox" name={name} checked={other !== undefined} disabled={full && other === undefined} text={other?.slice(otherPrefix.length) ?? ''}
         onCheck={(on) => onChange(on ? [...picked, otherPrefix] : picked.filter((p) => !isOtherAnswer(p)))} onText={(text) => onChange([...picked.filter((p) => !isOtherAnswer(p)), otherPrefix + text])} />}
       {question.maxChoices ? <p className="text-xs text-text-mid">{picked.length} of {question.maxChoices} chosen</p> : null}</div> }
   const other = typeof value === 'string' && isOtherAnswer(value)
-  return <div className="space-y-2">{options.map((o) => <label key={o} className="flex items-center gap-2 text-sm"><input type="radio" name={name} required={question.required} checked={value === o} onChange={() => onChange(o)} className="h-4 w-4 accent-green-deep" />{o}</label>)}
+  return <div className="space-y-2">{options.map((o) => <label key={o} className="form-choice flex items-center gap-2 text-sm"><input type="radio" name={name} required={question.required} checked={value === o} onChange={() => onChange(o)} className="h-4 w-4 accent-green-deep" />{o}</label>)}
     {question.allowOther && <OtherChoice kind="radio" name={name} required={question.required} checked={other} text={other ? (value as string).slice(otherPrefix.length) : ''} onCheck={() => onChange(otherPrefix)} onText={(text) => onChange(otherPrefix + text)} />}</div>
 }
 
 function OtherChoice({ kind, name, checked, disabled, required, text, onCheck, onText }: { kind: 'radio' | 'checkbox'; name: string; checked: boolean; disabled?: boolean; required?: boolean; text: string; onCheck: (on: boolean) => void; onText: (text: string) => void }) {
-  return <div className={`text-sm ${disabled ? 'opacity-50' : ''}`}><label className="flex items-center gap-2"><input type={kind} name={name} required={required} checked={checked} disabled={disabled} onChange={(e) => onCheck(e.target.checked)} className="h-4 w-4 accent-green-deep" />Other (please specify)</label>
+  return <div className={`text-sm ${disabled ? 'opacity-50' : ''}`}><label className="form-choice flex items-center gap-2"><input type={kind} name={name} required={required} checked={checked} disabled={disabled} onChange={(e) => onCheck(e.target.checked)} className="h-4 w-4 accent-green-deep" />Other (please specify)</label>
     {checked && <input required value={text} maxLength={300} onChange={(e) => onText(e.target.value)} placeholder="Please specify" aria-label="Other, please specify" className="input ml-6 mt-1.5 w-[calc(100%-1.5rem)] py-2" />}</div>
 }
 

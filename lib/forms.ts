@@ -6,13 +6,22 @@ export type FormQuestionType = 'short_text' | 'long_text' | 'single_choice' | 'm
 // `correct` holds option text for gradable questions; it is only used when the form is a quiz.
 // `options` are the choices, the columns of a rating grid, or the items to rank. `rows` are a rating grid's rows.
 // `maxChoices` caps checkbox picks (0 = no cap). `allowOther` adds an "Other (please specify)" choice.
-// The last three are optional because forms saved before they existed don't carry them.
+// `icon` decorates a section heading when the form uses the playful style.
+// The optional fields are optional because forms saved before they existed don't carry them.
 export type FormQuestion = {
   id: string; type: FormQuestionType; label: string; help: string; required: boolean; options: string[]; correct: string[]; scaleMax: number
-  rows?: string[]; maxChoices?: number; allowOther?: boolean
+  rows?: string[]; maxChoices?: number; allowOther?: boolean; icon?: SectionIcon
 }
 // `paged` shows each section heading and its questions on a screen of its own.
-export type FormDefinition = { kind: 'survey' | 'quiz'; title: string; description: string; passPercent: number; questions: FormQuestion[]; paged?: boolean }
+// `playful` adds section icons, animations and a celebration when the form is sent.
+// `thankYouLink` is a button on the thank-you screen, e.g. "Leave us a Google review".
+export type FormDefinition = {
+  kind: 'survey' | 'quiz'; title: string; description: string; passPercent: number; questions: FormQuestion[]; paged?: boolean
+  playful?: boolean; thankYouLink?: { label: string; url: string }
+}
+
+export const sectionIcons = ['wave', 'heartbeat', 'clipboard', 'smiley', 'house', 'video', 'calendar', 'leaf', 'brain', 'baby', 'drop', 'star'] as const
+export type SectionIcon = typeof sectionIcons[number]
 // Rating grids answer with { row: column }; rankings with the options in ranked order.
 export type FormAnswer = string | string[] | number | Record<string, string>
 export type FormAnswers = Record<string, FormAnswer>
@@ -84,6 +93,7 @@ export function cleanFormDefinition(value: unknown): FormDefinition | null {
       // A cap at or above the number of choices is no cap.
       ...(maxChoices && maxChoices < options.length + (allowOther ? 1 : 0) ? { maxChoices } : {}),
       ...(allowOther ? { allowOther } : {}),
+      ...(type === 'section' && sectionIcons.includes(q.icon as SectionIcon) ? { icon: q.icon as SectionIcon } : {}),
     } satisfies FormQuestion]
   }) : []
   if (!questions.some((q) => q.type !== 'section')) return null
@@ -91,7 +101,17 @@ export function cleanFormDefinition(value: unknown): FormDefinition | null {
     kind: raw.kind === 'quiz' ? 'quiz' : 'survey', title: cleanFormText(raw.title, 160), description: cleanFormText(raw.description, 3000),
     passPercent: Math.max(0, Math.min(100, Math.trunc(Number(raw.passPercent) || 0))), questions,
     ...(raw.paged === true && questions.some((q) => q.type === 'section') ? { paged: true } : {}),
+    ...(raw.playful === true ? { playful: true } : {}),
+    ...cleanThankYouLink(raw.thankYouLink),
   }
+}
+
+// Only http(s) links, so a form can never carry a javascript: or data: URL to respondents.
+function cleanThankYouLink(value: unknown) {
+  if (!value || typeof value !== 'object') return {}
+  const link = value as Record<string, unknown>; const url = cleanFormText(link.url, 2000)
+  try { if (!['https:', 'http:'].includes(new URL(url).protocol)) return {} } catch { return {} }
+  return { thankYouLink: { label: cleanFormText(link.label, 80) || 'Visit link', url } }
 }
 
 // A picked choice, or "Other: <text>" when the question allows it; anything else is dropped.

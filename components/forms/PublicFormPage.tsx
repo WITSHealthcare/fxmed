@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { Celebration } from '@/components/forms/FormFun'
 import { FormFill } from '@/components/forms/FormKit'
 import type { FormAnswers, FormResponseView } from '@/lib/forms'
 import type { PublicFormRecord } from '@/lib/forms-types'
@@ -49,7 +50,7 @@ export default function PublicFormPage({ slug }: { slug: string }) {
             {form.status === 'closed' ? <p className="rounded-xl bg-gray-50 p-6 text-center text-text-mid">This form is closed and no longer accepts responses.</p>
               : submitted && (form.audience === 'customers' || !form.one_response_per_person) ? <Done form={form} response={submitted} onAgain={() => { setSubmitted(null); setRound((n) => n + 1) }} />
               : <>
-                {submitted && <p className="mb-5 rounded-xl bg-green-50 px-4 py-3 text-sm font-bold text-green-800">{form.confirmation_message || 'Thank you, your response has been recorded.'}</p>}
+                {submitted && <div className="mb-5 rounded-xl bg-green-50 px-4 py-3 text-sm font-bold text-green-800">{form.confirmation_message || 'Thank you, your response has been recorded.'}<ThankYouLink form={form} className="ml-3 underline" /></div>}
                 {error && <div role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
                 <FormFill key={round} form={form.definition} response={submitted || loaded!.my_response} preview={loaded!.preview} onSubmit={submit}>
                   {form.audience === 'customers' && form.collect_contact !== 'none' && <fieldset className="rounded-xl border bg-[#fbfaf6] p-4"><legend className="px-1 text-sm font-bold text-green-deep">Your details {contactRequired ? '' : <span className="font-normal text-text-mid">(optional)</span>}</legend>
@@ -69,11 +70,18 @@ export default function PublicFormPage({ slug }: { slug: string }) {
 }
 
 function Done({ form, response, onAgain }: { form: PublicFormRecord; response: FormResponseView; onAgain: () => void }) {
-  const quiz = form.definition.kind === 'quiz'
-  return <div className="py-6 text-center">
-    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-2xl text-green-700">✓</div>
+  const quiz = form.definition.kind === 'quiz'; const playful = !!form.definition.playful
+  return <div className={`py-6 text-center ${playful ? 'form-pop' : ''}`}>
+    {playful ? <Celebration /> : <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-2xl text-green-700">✓</div>}
     <h2 className="mt-4 text-2xl font-bold text-green-deep">{form.confirmation_message || 'Thank you, your response has been recorded.'}</h2>
     {quiz && response.score !== null && <p className="mt-3 text-text-mid">You scored <strong>{response.score}%</strong>{response.passed === null ? '' : response.passed ? ', a pass.' : `. The pass mark is ${form.definition.passPercent}%.`}</p>}
+    {form.definition.thankYouLink && <div className="mt-7 rounded-2xl bg-cream/70 p-5"><p className="text-sm text-text-mid">Enjoyed your experience with FXMed?</p><ThankYouLink form={form} className="primary mt-3" /></div>}
     <button type="button" onClick={onAgain} className="secondary mt-6">Submit another response</button>
   </div>
+}
+
+// Opens in a new tab so the respondent keeps the thank-you screen.
+function ThankYouLink({ form, className }: { form: PublicFormRecord; className: string }) {
+  const link = form.definition.thankYouLink
+  return link ? <a href={link.url} target="_blank" rel="noopener noreferrer" className={className}>{link.label} ↗</a> : null
 }
