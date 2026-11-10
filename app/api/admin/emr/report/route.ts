@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getEmrContext, writeEmrAudit } from '@/lib/emr'
+import { BOOKING_PRICES, displayTime, type ConsultationType } from '@/lib/bookingTimes'
+import { clinicalPlainText } from '@/lib/clinicalText'
 import { extractDocumentText, generateClinicalReport, isReadable, isTextExtractable, type ReportAttachment } from '@/lib/ai/clinical-report'
 import { ORDER_COLUMNS, REPORT_COLUMNS, mapOrderRow, mapReportRow, type InvestigationOrder, type InvestigationReport } from '@/lib/investigations'
 
@@ -47,7 +49,7 @@ function financialRecordsInRange(records: any[], from: string, to: string) {
   })
 }
 
-function buildFinancialReport(records: any[], from: string, to: string) {
+function buildFinancialReport(records: any[], bookings: any[], from: string, to: string) {
   const selected = financialRecordsInRange(records, from, to)
   const currencies = Array.from(new Set(selected.map(record => record.currency || 'NGN')))
   const totals = currencies.map(currency => {
@@ -85,6 +87,19 @@ function buildFinancialReport(records: any[], from: string, to: string) {
     lines.push('| Payment date | Bill | Amount | Method | Reference |', '| --- | --- | ---: | --- | --- |')
     for (const payment of installments) lines.push(`| ${tableCell(fmt(payment.payment_date))} | ${tableCell(payment.description)} | ${money(payment.amount, payment.currency)} | ${tableCell(payment.payment_method)} | ${tableCell(payment.payment_reference)} |`)
   }
+  // Bookings carry their own payment status; they are listed apart from bills.
+  lines.push('', '## Bookings')
+  const booked = bookings.filter(booking => booking.preferred_date >= from && booking.preferred_date <= to)
+  if (!booked.length) lines.push('No bookings fall in the selected period.')
+  else {
+    const amount = (booking: any) => BOOKING_PRICES[booking.consultation_type as ConsultationType] || 0
+    const active = booked.filter(booking => booking.status !== 'cancelled')
+    const paid = active.filter(booking => booking.payment_status === 'paid').reduce((sum, booking) => sum + amount(booking), 0)
+    const unpaid = active.filter(booking => booking.payment_status !== 'paid').reduce((sum, booking) => sum + amount(booking), 0)
+    lines.push(`Paid: ${money(paid)}. Not yet paid: ${money(unpaid)} (cancelled bookings are not counted).`, '')
+    lines.push('| Date | Time | Type | Booking status | Amount | Payment |', '| --- | --- | --- | --- | ---: | --- |')
+    for (const booking of booked) lines.push(`| ${tableCell(fmt(booking.preferred_date))} | ${tableCell(displayTime(booking.preferred_time || ''))} | ${booking.consultation_type === 'telemedicine' ? 'Telemedicine' : 'Home visit'} | ${tableCell(booking.status)} | ${money(amount(booking))} | ${tableCell(booking.payment_status)} |`)
+  }
   lines.push('', '## Status Notes')
   const outstanding = selected.filter(record => ['pending','partial','overdue'].includes(record.status))
   lines.push(outstanding.length ? `${outstanding.length} record${outstanding.length === 1 ? ' has' : 's have'} an outstanding balance.` : 'No outstanding balances are recorded for the selected period.')
@@ -117,17 +132,17 @@ function buildClinicalSummary(data: any, from: string, to: string) {
     const parts = [
       `${fmt(e.created_at)} — ${e.encounter_type} (${e.status})`,
       e.chief_complaint && `Chief complaint: ${e.chief_complaint}`,
-      e.history_presenting_illness && `History: ${e.history_presenting_illness}`,
-      e.examination && `Examination: ${e.examination}`,
-      e.clinical_assessment && `Assessment: ${e.clinical_assessment}`,
-      e.treatment_plan && `Plan: ${e.treatment_plan}`,
-      e.follow_up_plan && `Follow-up: ${e.follow_up_plan}`,
+      e.history_presenting_illness && `History: ${clinicalPlainText(e.history_presenting_illness)}`,
+      e.examination && `Examination: ${clinicalPlainText(e.examination)}`,
+      e.clinical_assessment && `Assessment: ${clinicalPlainText(e.clinical_assessment)}`,
+      e.treatment_plan && `Plan: ${clinicalPlainText(e.treatment_plan)}`,
+      e.follow_up_plan && `Follow-up: ${clinicalPlainText(e.follow_up_plan)}`,
     ].filter(Boolean)
     return parts.join('\n  ')
   })))
 
   lines.push(section('Clinical notes in period', (data.notes || []).filter((n: any) => inRange(n.created_at)).map((n: any) =>
-    `${fmt(n.created_at)} — ${n.note_type} (${n.status})${n.parent_note_id ? ' [amendment]' : ''}\n  ${n.content}`)))
+    `${fmt(n.created_at)} — ${n.note_type} (${n.status})${n.parent_note_id ? ' [amendment]' : ''}\n  ${clinicalPlainText(n.content)}`)))
 
   lines.push(section('Vital signs in period', (data.vitals || []).filter((v: any) => inRange(v.recorded_at)).map((v: any) => {
     const readings = [
@@ -218,7 +233,7 @@ export async function POST(request: NextRequest) {
     const reportType = body?.reportType === 'financial' ? 'financial' : 'clinical'
     if (!patientId || !from || !to) return NextResponse.json({ error: 'A patient and date range are required.' }, { status: 400 })
 
-    const [patient, encounters, notes, vitals, diagnoses, allergies, medications, orders, results, investigationOrders, investigationReports, imaging, documents, carePlans, financialRecords, financialPayments] = await Promise.all([
+    const [patient, encounters, notes, vitals, diagnoses, allergies, medications, orders, results, investigationOrders, investigationReports, imaging, documents, carePlans, financialRecords, financialPayments, bookings] = await Promise.all([
       database.from('emr_patients').select('*').eq('id', patientId).single(),
       database.from('emr_encounters').select('*').eq('patient_id', patientId).order('created_at'),
       database.from('emr_clinical_notes').select('*').eq('patient_id', patientId).order('created_at'),
@@ -235,14 +250,16 @@ export async function POST(request: NextRequest) {
       database.from('emr_care_plans').select('*').eq('patient_id', patientId),
       database.from('emr_financial_records').select('*').eq('patient_id', patientId).order('service_date'),
       database.from('emr_financial_payments').select('*').eq('patient_id', patientId).order('payment_date'),
+      database.from('appointments').select('preferred_date,preferred_time,consultation_type,status,payment_status').eq('patient_id', patientId).order('preferred_date'),
     ])
     if (patient.error || !patient.data) return NextResponse.json({ error: 'Patient not found.' }, { status: 404 })
     if (financialRecords.error) throw financialRecords.error
     if (financialPayments.error) throw financialPayments.error
+    if (bookings.error) throw bookings.error
     const ledger = (financialRecords.data || []).map((record: any) => ({ ...record, payments: (financialPayments.data || []).filter((payment: any) => payment.financial_record_id === record.id) }))
 
     if (reportType === 'financial') {
-      const report = buildFinancialReport(ledger, from, to)
+      const report = buildFinancialReport(ledger, bookings.data || [], from, to)
       await writeEmrAudit(database, user, { action: 'generate_financial_report', entityType: 'emr_patient', entityId: patientId, patientId, metadata: { from, to } })
       return NextResponse.json({ report, provider: 'FXMed financial ledger', documentsRead: 0, skipped: [] })
     }
@@ -318,7 +335,7 @@ export async function POST(request: NextRequest) {
     const { report: clinicalReport, provider } = await generateClinicalReport(prompt, attachments)
     // Financial figures are appended from the ledger rather than rewritten by
     // the model, so the billed, paid and outstanding amounts remain exact.
-    const report = `${clinicalReport.trim()}\n\n${buildFinancialReport(ledger, from, to)}`
+    const report = `${clinicalReport.trim()}\n\n${buildFinancialReport(ledger, bookings.data || [], from, to)}`
 
     await writeEmrAudit(database, user, {
       action: 'generate_patient_report',

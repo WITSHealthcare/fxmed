@@ -95,7 +95,7 @@ export default function AppointmentCalendar() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [closures, setClosures] = useState<BookingClosureRow[]>([])
-  // Set when closures cannot be managed yet, such as before migration 038.
+  // Set when closures cannot be managed yet, such as before migration 044.
   const [closuresNotice, setClosuresNotice] = useState('')
   const [closureError, setClosureError] = useState('')
   const [savingClosure, setSavingClosure] = useState<string | null>(null)
@@ -110,7 +110,7 @@ export default function AppointmentCalendar() {
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || 'Failed to fetch booking closures')
       setClosures(data.closures || [])
-      setClosuresNotice(data.needsMigration ? 'Closing days and times needs database migration 038 to be run first.' : '')
+      setClosuresNotice(data.needsMigration ? 'Closing days and times needs database migration 044 to be run first.' : '')
     } catch (error) {
       console.error('Error fetching booking closures:', error)
       setClosuresNotice('Closed days and times could not be loaded. Refresh to try again.')
@@ -212,7 +212,7 @@ export default function AppointmentCalendar() {
     setSelectedDate(key)
     setClosureReason('')
     setClosureError('')
-    // Try again if closures could not be loaded, say before migration 038 was run.
+    // Try again if closures could not be loaded, say before migration 044 was run.
     if (closuresNotice) fetchClosures()
   }
 

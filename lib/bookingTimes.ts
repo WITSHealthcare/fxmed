@@ -4,6 +4,9 @@
 
 export type ConsultationType = 'telemedicine' | 'home-visit'
 
+/** What a booking costs in naira, as counted in the financial CRM and the patient's chart. */
+export const BOOKING_PRICES: Record<ConsultationType, number> = { telemedicine: 25000, 'home-visit': 85000 }
+
 /** A day, or the hour starting at `time` on a day, that staff have closed to bookings. */
 export type BookingClosure = { date: string; time: string | null }
 

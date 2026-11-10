@@ -7,7 +7,7 @@ import { CLOSABLE_TIMES, displayDate, displayTime, isDate } from '@/lib/bookingT
 import { cleanPublicString } from '@/lib/request-security'
 
 // Staff close days, or single times on a day, to new bookings from the
-// Requests calendar. See migration 038.
+// Requests calendar. See migration 044.
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -19,7 +19,7 @@ const supabase = supabaseUrl && supabaseServiceKey
 const columns = 'id, closed_date, closed_time, reason, created_at'
 const forbidden = () => NextResponse.json({ error: 'Requests access required' }, { status: 403 })
 const unavailable = () => NextResponse.json({ error: 'Database connection not available' }, { status: 503 })
-const notSetUp = () => NextResponse.json({ error: 'Closing days and times needs database migration 038 to be run first.' }, { status: 503 })
+const notSetUp = () => NextResponse.json({ error: 'Closing days and times needs database migration 044 to be run first.' }, { status: 503 })
 
 async function allClosures() {
   const { data, error } = await supabase!

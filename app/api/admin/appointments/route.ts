@@ -1,27 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { getAuthorizedAdminRole } from '@/lib/admin-api-auth'
-import { writeRequestAdminActivity } from '@/lib/admin-activity'
-import { clockTime, displayDate, displayTime, isDate, parseTime } from '@/lib/bookingTimes'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { getRequestAdminUser } from '@/lib/admin-api-auth'
+import { canAccessTab, getUserAdminRole } from '@/lib/admin-auth'
+import { writeAdminActivity } from '@/lib/admin-activity'
+import { clockTime, displayDate, displayTime, isDate, lagosToday, parseTime } from '@/lib/bookingTimes'
+import { emrRolePermissions, getEmrDatabase, isUuid, writeEmrAudit } from '@/lib/emr'
 import { cleanPublicString, isEmail } from '@/lib/request-security'
 
-// Staff add a booking taken by phone, WhatsApp or in person. Unlike website
-// bookings, the 24-hour notice and closed days and times do not apply, so a
-// booking can also be recorded after the fact.
+// Staff add a booking taken by phone, WhatsApp or in person, from the Requests
+// calendar, the financial CRM or a patient's EMR chart. Every booking is for
+// a registered patient or a new one, so it shows on that patient's chart.
+// Unlike website bookings, the 24-hour notice and closed days and times do
+// not apply, so a booking can also be recorded after the fact.
+//
+// A new patient is registered in the EMR straight away by staff who can
+// create patients. For anyone else (sales) a registration request goes to the
+// clinical team, and approving it links the booking (see migration 027).
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const patientColumns = 'id, mrn, first_name, middle_name, last_name, phone, email, address'
+const sexes = ['female', 'male', 'intersex', 'unknown']
 
-const supabase = supabaseUrl && supabaseServiceKey
-  ? createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } })
-  : null
+const bad = (error: string, status = 400) => NextResponse.json({ error }, { status })
 
-const bad = (error: string) => NextResponse.json({ error }, { status: 400 })
+async function staffContext(request: NextRequest) {
+  const user = await getRequestAdminUser(request)
+  const role = getUserAdminRole(user)
+  if (!user || !role || !canAccessTab(role, 'requests')) return null
+  return { user, canRegister: emrRolePermissions[role].includes('create_patients') }
+}
 
-// POST - Add a booking by hand
+// GET - Find registered patients to book for (?search=name, MRN, phone or email)
+export async function GET(request: NextRequest) {
+  const context = await staffContext(request)
+  if (!context) return bad('Requests access required', 403)
+  const database = getEmrDatabase()
+  if (!database) return bad('Database connection not available', 503)
+
+  const words = (cleanPublicString(new URL(request.url).searchParams.get('search'), 80) || '')
+    .replace(/[%_,().*\\]/g, ' ').split(/\s+/).filter(Boolean)
+  // The database narrows by the longest word; every word must then match.
+  const longest = [...words].sort((a, b) => b.length - a.length)[0]
+  let query = database.from('emr_patients').select(patientColumns).order('last_name').order('first_name').limit(longest ? 60 : 20)
+  if (longest) query = query.or(['mrn', 'first_name', 'middle_name', 'last_name', 'phone', 'email'].map(column => `${column}.ilike.%${longest}%`).join(','))
+  const { data, error } = await query
+  if (error) {
+    console.error('Error searching patients for a booking:', error)
+    return bad('Patients could not be searched. Please try again.', 500)
+  }
+  const patients = (data || []).filter(patient => {
+    const text = [patient.mrn, patient.first_name, patient.middle_name, patient.last_name, patient.phone, patient.email].join(' ').toLowerCase()
+    return words.every(word => text.includes(word.toLowerCase()))
+  }).slice(0, 20)
+  return NextResponse.json({ patients, canRegister: context.canRegister })
+}
+
+async function findPatient(database: SupabaseClient, column: 'phone' | 'email', value: string) {
+  const { data, error } = await database.from('emr_patients').select('mrn').eq(column, value).limit(1).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+// POST - Add a booking for an existing patient ({ patientMode: 'existing', patientId })
+// or a new one ({ patientMode: 'new', firstName, lastName, phone, dateOfBirth, sex, consent })
 export async function POST(request: NextRequest) {
-  if (!await getAuthorizedAdminRole(request, 'requests')) return NextResponse.json({ error: 'Requests access required' }, { status: 403 })
-  if (!supabase) return NextResponse.json({ error: 'Database connection not available' }, { status: 503 })
+  const context = await staffContext(request)
+  if (!context) return bad('Requests access required', 403)
+  const database = getEmrDatabase()
+  if (!database) return bad('Database connection not available', 503)
+  const { user, canRegister } = context
 
   let body: Record<string, unknown>
   try {
@@ -30,37 +76,71 @@ export async function POST(request: NextRequest) {
     return bad('The booking details could not be read.')
   }
 
-  const firstName = cleanPublicString(body.firstName, 100)
-  const lastName = cleanPublicString(body.lastName, 100)
-  const phone = cleanPublicString(body.phone, 40)
-  const email = cleanPublicString(body.email, 180)?.toLowerCase() || ''
-  const homeAddress = cleanPublicString(body.homeAddress, 500) || ''
   const consultationType = body.consultationType
   const preferredDate = typeof body.preferredDate === 'string' ? body.preferredDate : ''
   const startMinutes = typeof body.preferredTime === 'string' ? parseTime(body.preferredTime) : null
   const status = body.status
   const paymentStatus = body.paymentStatus
+  let homeAddress = cleanPublicString(body.homeAddress, 500) || ''
 
-  if (!firstName || !lastName) return bad('Enter the patient’s first and last name.')
-  if (!phone) return bad('Enter the patient’s phone number.')
-  if (email && !isEmail(email)) return bad('Enter a valid email address, or leave it blank.')
   if (consultationType !== 'telemedicine' && consultationType !== 'home-visit') return bad('Choose telemedicine or home visit.')
-  if (consultationType === 'home-visit' && !homeAddress) return bad('Enter the address for the home visit.')
   if (!isDate(preferredDate)) return bad('Choose a date for the booking.')
   if (startMinutes === null) return bad('Choose a time for the booking.')
   if (typeof status !== 'string' || !['pending', 'confirmed', 'completed', 'cancelled'].includes(status)) return bad('Choose a booking status.')
   if (typeof paymentStatus !== 'string' || !['pending', 'paid', 'failed'].includes(paymentStatus)) return bad('Choose a payment status.')
 
+  // Who the booking is for.
+  let patient: { id: string; mrn: string } | null = null
+  let newPatient: Record<string, unknown> | null = null
+  let firstName: string, lastName: string, phone: string, email: string
+
   try {
-    // Link the booking to the patient's record when they are already registered.
-    const [patientByPhone, patientByEmail] = await Promise.all([
-      supabase.from('emr_patients').select('id').eq('phone', phone).limit(1).maybeSingle(),
-      email ? supabase.from('emr_patients').select('id').eq('email', email).limit(1).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    ])
-    if (patientByPhone.error || patientByEmail.error) throw patientByPhone.error || patientByEmail.error
+    if (body.patientMode === 'existing') {
+      if (!isUuid(body.patientId)) return bad('Choose the patient.')
+      const { data, error } = await database.from('emr_patients').select(patientColumns).eq('id', body.patientId).maybeSingle()
+      if (error) throw error
+      if (!data) return bad('That patient could not be found. Please search again.')
+      patient = { id: data.id, mrn: data.mrn }
+      firstName = data.first_name
+      lastName = data.last_name
+      phone = data.phone || ''
+      email = data.email || ''
+      homeAddress ||= data.address || ''
+    } else if (body.patientMode === 'new') {
+      firstName = cleanPublicString(body.firstName, 100) || ''
+      lastName = cleanPublicString(body.lastName, 100) || ''
+      phone = cleanPublicString(body.phone, 40) || ''
+      email = cleanPublicString(body.email, 180)?.toLowerCase() || ''
+      const dateOfBirth = typeof body.dateOfBirth === 'string' ? body.dateOfBirth : ''
+      const sex = typeof body.sex === 'string' ? body.sex : ''
+      if (!firstName || !lastName) return bad('Enter the patient’s first and last name.')
+      if (!phone) return bad('Enter the patient’s phone number.')
+      if (email && !isEmail(email)) return bad('Enter a valid email address, or leave it blank.')
+      if (!isDate(dateOfBirth) || dateOfBirth > lagosToday()) return bad('Enter the patient’s date of birth.')
+      if (!sexes.includes(sex)) return bad('Choose the patient’s sex.')
+      if (body.consent !== true) return bad('Confirm the patient agreed to FXMed keeping their details on record.')
+
+      // One record per person: point staff to the existing one instead.
+      const byPhone = await findPatient(database, 'phone', phone)
+      const byEmail = !byPhone && email ? await findPatient(database, 'email', email) : null
+      const existing = byPhone || byEmail
+      if (existing) return bad(`A patient with this ${byPhone ? 'phone number' : 'email'} is already registered (${existing.mrn}). Choose them under Existing patient.`, 409)
+      newPatient = { first_name: firstName, last_name: lastName, date_of_birth: dateOfBirth, sex, phone, email: email || null }
+    } else {
+      return bad('Choose an existing patient or add a new one.')
+    }
+    if (consultationType === 'home-visit' && !homeAddress) return bad('Enter the address for the home visit.')
+    if (newPatient) newPatient.address = homeAddress || null
+
+    if (newPatient && canRegister) {
+      const { data, error } = await database.from('emr_patients').insert({ ...newPatient, created_by: user.id }).select('id, mrn').single()
+      if (error) throw error
+      patient = data
+      await writeEmrAudit(database, user, { action: 'create', entityType: 'emr_patient', entityId: data.id, patientId: data.id, metadata: { source: 'staff_booking' } })
+    }
 
     const now = new Date().toISOString()
-    const { data, error } = await supabase
+    const { data: appointment, error } = await database
       .from('appointments')
       .insert({
         first_name: firstName,
@@ -74,26 +154,48 @@ export async function POST(request: NextRequest) {
         symptoms: cleanPublicString(body.notes, 3000),
         status,
         payment_status: paymentStatus,
-        patient_id: patientByPhone.data?.id || patientByEmail.data?.id || null,
+        patient_id: patient?.id || null,
         created_at: now,
         updated_at: now,
       })
       .select()
       .single()
-    if (error) throw error
+    if (error) {
+      // Do not leave behind a patient registered only for this booking.
+      if (newPatient && patient) await database.from('emr_patients').delete().eq('id', patient.id)
+      throw error
+    }
 
-    await writeRequestAdminActivity(supabase, request, {
+    let registration: 'created' | 'pending' | null = newPatient && patient ? 'created' : null
+    if (newPatient && !patient) {
+      const { error: registrationError } = await database.from('emr_patient_registration_requests').insert({
+        ...newPatient,
+        country: 'Nigeria',
+        consent_confirmed: true,
+        source: 'appointment_booking',
+        status: 'pending',
+        appointment_id: appointment.id,
+      })
+      if (registrationError) console.error('Error queueing patient registration for a staff booking:', registrationError)
+      else registration = 'pending'
+    }
+
+    const when = `${displayDate(preferredDate)} at ${displayTime(clockTime(startMinutes))}`
+    await writeAdminActivity(database, user, {
       action: 'add_appointment',
       module: 'Requests',
-      description: `Added a booking for ${firstName} ${lastName} on ${displayDate(preferredDate)} at ${displayTime(clockTime(startMinutes))}`,
+      description: `Added a booking for ${firstName} ${lastName} on ${when}`,
       entityType: 'appointment',
-      entityId: data.id,
-      metadata: { consultation_type: consultationType, status, payment_status: paymentStatus },
+      entityId: appointment.id,
+      metadata: { consultation_type: consultationType, status, payment_status: paymentStatus, patient_id: patient?.id || null, registration },
     })
+    if (patient) {
+      await writeEmrAudit(database, user, { action: 'schedule_appointment', entityType: 'appointment', entityId: appointment.id, patientId: patient.id, metadata: { preferred_date: preferredDate, consultation_type: consultationType } })
+    }
 
-    return NextResponse.json({ appointment: data }, { status: 201 })
+    return NextResponse.json({ appointment, patient, registration }, { status: 201 })
   } catch (error) {
     console.error('Error adding appointment:', error)
-    return NextResponse.json({ error: 'The booking could not be saved. Please try again.' }, { status: 500 })
+    return bad('The booking could not be saved. Please try again.', 500)
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { RICH_ENCOUNTER_FIELDS, cleanClinicalText } from '@/lib/clinicalText'
 import {
   calculateBmi,
   cleanDate,
@@ -114,6 +115,23 @@ async function unlinkedInvestigationMatches(database: any, patient: any) {
   return { orders: (orders.data || []).map(mapOrderRow), reports: (reports.data || []).map(mapReportRow) }
 }
 
+// Bookings not yet linked to any patient whose phone or email matches this
+// patient's, offered on the chart for staff to confirm and link. Phone numbers
+// are compared on their last ten digits, so "0803…" matches "+234 803…".
+async function unlinkedAppointmentMatches(database: any, patient: any) {
+  const digits = (value?: string | null) => (value || '').replace(/\D/g, '').slice(-10)
+  const phone = digits(patient.phone)
+  const email = (patient.email || '').trim().toLowerCase()
+  if (phone.length < 7 && !email) return []
+  const { data, error } = await database.from('appointments').select('*').is('patient_id', null).order('preferred_date', { ascending: false }).limit(1000)
+  if (error) {
+    console.error('Error matching unlinked appointments:', error.message)
+    return []
+  }
+  return (data || []).filter((appointment: any) =>
+    (phone.length >= 7 && digits(appointment.phone) === phone) || (email && (appointment.email || '').trim().toLowerCase() === email))
+}
+
 async function patientExists(database: any, patientId: unknown) {
   if (!isUuid(patientId)) return false
   const { data } = await database.from('emr_patients').select('id').eq('id', patientId).maybeSingle()
@@ -214,9 +232,9 @@ export async function GET(request: NextRequest) {
       ])
       const error = patient.error || encounters.error || notes.error || vitals.error || diagnoses.error || allergies.error || medications.error || prescriptions.error || orders.error || results.error || imaging.error || documents.error || carePlans.error || tasks.error || appointments.error || assessments.error || financialRecords.error || financialPayments.error || audit.error
       if (error) throw error
-      const unlinked = await unlinkedInvestigationMatches(database, patient.data)
+      const [unlinked, unlinkedAppointments] = await Promise.all([unlinkedInvestigationMatches(database, patient.data), unlinkedAppointmentMatches(database, patient.data)])
       await writeEmrAudit(database, user, { action: 'view_patient_chart', entityType: 'emr_patient', entityId: patientId, patientId })
-      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], investigationOrders: (investigationOrders.data || []).map(mapOrderRow), investigationReports: (investigationReports.data || []).map(mapReportRow), investigationError: investigationLoadError(investigationOrders.error || investigationReports.error), unlinkedInvestigationOrders: unlinked.orders, unlinkedInvestigationReports: unlinked.reports, imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], assessments: assessments.data || [], financialRecords: financialRecords.data || [], financialPayments: financialPayments.data || [], audit: audit.data || [] })
+      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], investigationOrders: (investigationOrders.data || []).map(mapOrderRow), investigationReports: (investigationReports.data || []).map(mapReportRow), investigationError: investigationLoadError(investigationOrders.error || investigationReports.error), unlinkedInvestigationOrders: unlinked.orders, unlinkedInvestigationReports: unlinked.reports, imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], unlinkedAppointments, assessments: assessments.data || [], financialRecords: financialRecords.data || [], financialPayments: financialPayments.data || [], audit: audit.data || [] })
     }
 
     if (resource === 'follow_ups') {
@@ -363,7 +381,7 @@ export async function PATCH(request: NextRequest) {
   const resource = body?.resource as string
   const id = body?.id
   if (!body || !resource || !isUuid(id)) return NextResponse.json({ error: 'A valid clinical record is required.' }, { status: 400 })
-  const permission: EmrPermission = resource === 'patients' ? 'edit_patients' : resource === 'appointments' ? 'edit_encounters' : resource === 'legacy_reports' ? 'record_results' : resource in resources ? resources[resource as ResourceName].permission : 'view_clinical_records'
+  const permission: EmrPermission = resource === 'patients' ? 'edit_patients' : resource === 'appointments' ? ('payment_status' in body ? 'manage_financial_records' : 'edit_encounters') : resource === 'legacy_reports' ? 'record_results' : resource in resources ? resources[resource as ResourceName].permission : 'view_clinical_records'
   const context = await getEmrContext(request, permission)
   if (!context) return NextResponse.json({ error: 'Clinical access required.' }, { status: 403 })
   const { database, user } = context
@@ -390,9 +408,15 @@ export async function PATCH(request: NextRequest) {
       const updates: Record<string, unknown> = {}
       if ('patient_id' in body) updates.patient_id = isUuid(body.patient_id) ? body.patient_id : null
       if ('status' in body && ['pending','confirmed','completed','cancelled'].includes(body.status)) updates.status = body.status
+      if ('payment_status' in body) {
+        if (!['pending','paid','failed'].includes(body.payment_status)) return NextResponse.json({ error: 'A valid payment status is required.' }, { status: 400 })
+        updates.payment_status = body.payment_status
+      }
+      if (!Object.keys(updates).length) return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 })
+      updates.updated_at = new Date().toISOString()
       const { data, error } = await database.from('appointments').update(updates).eq('id', id).select('*').single()
       if (error) throw error
-      await writeEmrAudit(database, user, { action: 'link_appointment', entityType: 'appointment', entityId: id, patientId: data.patient_id })
+      await writeEmrAudit(database, user, { action: 'payment_status' in updates ? 'update_appointment_payment' : 'link_appointment', entityType: 'appointment', entityId: id, patientId: data.patient_id, metadata: 'payment_status' in updates ? { payment_status: updates.payment_status } : undefined })
       return NextResponse.json({ record: data })
     }
 
@@ -504,8 +528,8 @@ function buildRecord(resource: ResourceName, body: Record<string, any>, userId: 
   const now = new Date().toISOString()
   const dated = backdate(body)
   switch (resource) {
-    case 'encounters': return { patient_id: body.patient_id, appointment_id: isUuid(body.appointment_id) ? body.appointment_id : null, provider_id: userId, encounter_type: cleanText(body.encounter_type, 80) || 'consultation', status: enumValue(body.status, 'encounter_status', 'in_progress'), chief_complaint: cleanText(body.chief_complaint), history_presenting_illness: cleanText(body.history_presenting_illness, 12000), past_medical_history: cleanText(body.past_medical_history, 12000), surgical_history: cleanText(body.surgical_history, 12000), family_history: cleanText(body.family_history, 12000), social_history: cleanText(body.social_history, 12000), review_of_systems: cleanText(body.review_of_systems, 12000), examination: cleanText(body.examination, 12000), clinical_assessment: cleanText(body.clinical_assessment, 12000), treatment_plan: cleanText(body.treatment_plan, 12000), follow_up_plan: cleanText(body.follow_up_plan, 4000), started_at: dated || now, ...(dated ? { created_at: dated } : {}) }
-    case 'notes': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, author_id: userId, note_type: enumValue(body.note_type, 'note_type', 'progress'), content: cleanText(body.content, 50000), status: enumValue(body.status, 'note_status', 'draft'), finalized_at: body.status === 'final' ? (dated || now) : null, parent_note_id: isUuid(body.parent_note_id) ? body.parent_note_id : null, ...(dated ? { created_at: dated } : {}) }
+    case 'encounters': return { patient_id: body.patient_id, appointment_id: isUuid(body.appointment_id) ? body.appointment_id : null, provider_id: userId, encounter_type: cleanText(body.encounter_type, 80) || 'consultation', status: enumValue(body.status, 'encounter_status', 'in_progress'), chief_complaint: cleanText(body.chief_complaint), history_presenting_illness: cleanClinicalText(body.history_presenting_illness, 12000), past_medical_history: cleanClinicalText(body.past_medical_history, 12000), surgical_history: cleanClinicalText(body.surgical_history, 12000), family_history: cleanClinicalText(body.family_history, 12000), social_history: cleanClinicalText(body.social_history, 12000), review_of_systems: cleanClinicalText(body.review_of_systems, 12000), examination: cleanClinicalText(body.examination, 12000), clinical_assessment: cleanClinicalText(body.clinical_assessment, 12000), treatment_plan: cleanClinicalText(body.treatment_plan, 12000), follow_up_plan: cleanClinicalText(body.follow_up_plan, 12000), started_at: dated || now, ...(dated ? { created_at: dated } : {}) }
+    case 'notes': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, author_id: userId, note_type: enumValue(body.note_type, 'note_type', 'progress'), content: cleanClinicalText(body.content, 50000), status: enumValue(body.status, 'note_status', 'draft'), finalized_at: body.status === 'final' ? (dated || now) : null, parent_note_id: isUuid(body.parent_note_id) ? body.parent_note_id : null, ...(dated ? { created_at: dated } : {}) }
     case 'vitals': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, systolic_bp: cleanNumber(body.systolic_bp), diastolic_bp: cleanNumber(body.diastolic_bp), heart_rate: cleanNumber(body.heart_rate), respiratory_rate: cleanNumber(body.respiratory_rate), temperature_c: cleanNumber(body.temperature_c), spo2: cleanNumber(body.spo2), weight_kg: cleanNumber(body.weight_kg), height_cm: cleanNumber(body.height_cm), bmi: calculateBmi(body.weight_kg, body.height_cm), blood_glucose: cleanNumber(body.blood_glucose), pain_score: cleanNumber(body.pain_score), notes: cleanText(body.notes), recorded_by: userId, ...(dated ? { recorded_at: dated } : {}) }
     case 'diagnoses': return { patient_id: body.patient_id, encounter_id: isUuid(body.encounter_id) ? body.encounter_id : null, provider_id: userId, diagnosis_name: cleanText(body.diagnosis_name, 240), icd10_code: cleanText(body.icd10_code, 30), status: enumValue(body.status, 'diagnosis_status', 'active'), notes: cleanText(body.notes), ...(dated ? { diagnosed_at: dated, created_at: dated } : {}) }
     case 'allergies': return { patient_id: body.patient_id, allergen: cleanText(body.allergen, 240), reaction: cleanText(body.reaction, 500), severity: enumValue(body.severity, 'allergy_severity', 'unknown'), status: enumValue(body.status, 'allergy_status', 'active'), identified_at: cleanDate(body.identified_at), notes: cleanText(body.notes), recorded_by: userId }
@@ -549,7 +573,12 @@ function buildUpdate(resource: ResourceName, body: Record<string, any>, userId: 
     financial_payments: ['amount','payment_date','payment_method','payment_reference','notes'],
   }
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  for (const field of fields[resource]) if (field in body) updates[field] = typeof body[field] === 'string' ? cleanText(body[field], 12000) : body[field]
+  for (const field of fields[resource]) {
+    if (!(field in body)) continue
+    // Encounter narrative and note text may be formatted with the rich text editor.
+    const rich = (resource === 'encounters' && RICH_ENCOUNTER_FIELDS.includes(field)) || (resource === 'notes' && field === 'content')
+    updates[field] = typeof body[field] !== 'string' ? body[field] : rich ? cleanClinicalText(body[field], field === 'content' ? 50000 : 12000) : cleanText(body[field], 12000)
+  }
   // Let the recorded date be corrected after the fact, for entries captured
   // late. Each resource keeps its own notion of when the care happened.
   const dated = backdate(body)

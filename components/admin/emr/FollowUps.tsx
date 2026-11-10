@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { clinicalPlainText } from '@/lib/clinicalText'
 import { PhoneCallIcon, PlusIcon, WhatsappLogoIcon, XIcon } from '@phosphor-icons/react'
 import { contactChannels, contactOutcomes, daysUntilDue, dueLabel, lagosDate, reminderMessage, whatsappNumber } from '@/lib/follow-ups'
 import { Alert, Empty, Field, Loading, Panel, fullName, label } from '@/components/admin/emr/ui'
@@ -151,7 +152,7 @@ function FollowUpCard({ item, data, showPatient, onPatient, onChanged }: { item:
       </div>
       <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${dueTone(item)}`}>{open ? dueLabel(item.due_at) : `${label(item.status)}${item.completed_at ? ` ${day.format(new Date(item.completed_at))}` : ''}`}</span>
     </div>
-    {item.note && <p className="mt-3 line-clamp-2 rounded-[12px] bg-white p-3 text-sm leading-6 text-text-mid"><span className="font-bold text-green-deep">From the {label(item.note.note_type).toLowerCase().replace("follow up", "follow-up")} note of {day.format(new Date(item.note.created_at))}:</span> {item.note.content}</p>}
+    {item.note && <p className="mt-3 line-clamp-2 rounded-[12px] bg-white p-3 text-sm leading-6 text-text-mid"><span className="font-bold text-green-deep">From the {label(item.note.note_type).toLowerCase().replace("follow up", "follow-up")} note of {day.format(new Date(item.note.created_at))}:</span> {clinicalPlainText(item.note.content)}</p>}
     <p className="mt-3 text-sm text-text-mid">{last ? `Last contact ${ago(last.contacted_at)}: ${channelLabel(last.channel)}, ${outcomeLabel(last.outcome).toLowerCase()}${last.contacted_by ? `, by ${data.staff[last.contacted_by] || 'a colleague'}` : ''}${contacts.length > 1 ? ` · ${contacts.length} attempts` : ''}` : open ? 'Not contacted yet' : 'No contact was logged'}{showPatient && open && patient.phone ? ` · ${patient.phone}` : ''}</p>
     {!open && item.outcome && <p className="mt-2 text-sm"><span className="font-bold">Outcome:</span> {item.outcome}</p>}
     {error && <Alert tone="error">{error}</Alert>}
