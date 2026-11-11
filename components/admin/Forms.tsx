@@ -55,7 +55,7 @@ function AdminForms({ forms, onNew, onEdit, onResponses, onDelete, onDuplicate, 
   const shown = forms.filter((form) => filter === 'all' || form.audience === filter)
   const copy = async (form: FormRecord) => { await navigator.clipboard.writeText(formLink(form.slug)).catch(() => {}); setCopied(form.id); setTimeout(() => setCopied(''), 1500) }
   return <>
-    <div className="grid gap-4 sm:grid-cols-3"><Stat label="Forms" value={forms.length} /><Stat label="Published" value={forms.filter((f) => f.status === 'published').length} /><Stat label="Responses" value={forms.reduce((n, f) => n + (f.response_count || 0), 0)} /></div>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"><Stat label="Forms" value={forms.length} /><Stat label="Published" value={forms.filter((f) => f.status === 'published').length} /><Stat label="Responses" value={forms.reduce((n, f) => n + (f.response_count || 0), 0)} /></div>
     <section className="overflow-hidden rounded-[20px] border border-green-deep/10 bg-white shadow-lg">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b p-6"><div><h3 className="text-2xl font-bold text-green-deep">Forms and surveys</h3><p className="mt-1 text-sm text-text-mid">Build surveys and quizzes for customers, employees or patients, share them, and review the responses.</p></div><button onClick={onNew} className="rounded-full bg-green-deep px-5 py-2.5 text-sm font-bold text-white">+ New form</button></div>
       <div className="flex flex-wrap gap-2 border-b px-6 py-3">{(['all', ...audienceOrder] as const).map((key) => <button key={key} onClick={() => setFilter(key)} className={`rounded-full px-3 py-1 text-xs font-bold ${filter === key ? 'bg-green-deep text-white' : 'bg-gray-100 text-green-deep'}`}>{key === 'all' ? 'All' : audienceLabels[key].label} <span className="opacity-60">{key === 'all' ? forms.length : forms.filter((f) => f.audience === key).length}</span></button>)}</div>
@@ -150,7 +150,7 @@ function ResponsesModal({ form, onClose }: { form: FormRecord; onClose: () => vo
 }
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) { return <label className="block text-sm font-bold text-green-deep">{label} {hint && <span className="font-normal text-gray-400">({hint})</span>}{children}</label> }
-function Stat({ label, value }: { label: string; value: number }) { return <div className="rounded-[18px] border bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-green-mid">{label}</p><p className="mt-2 text-3xl font-bold text-green-deep">{value}</p></div> }
+function Stat({ label, value }: { label: string; value: number }) { return <div className="rounded-[18px] border bg-white p-4 sm:p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-green-mid">{label}</p><p className="mt-2 text-2xl sm:text-3xl font-bold text-green-deep">{value}</p></div> }
 function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {
   const colors: Record<string, string> = { published: 'bg-green-50 text-green-700', draft: 'bg-gray-100 text-gray-600', closed: 'bg-amber-50 text-amber-700', audience: 'bg-[#eef3ff] text-[#30508f]' }
   return <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide ${colors[tone] || colors.audience}`}>{children}</span>

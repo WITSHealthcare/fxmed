@@ -69,12 +69,12 @@ function AnalysisList({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
       {error && <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{error} You can still prepare a new analysis.</p>}
       {items === null ? <div className="flex min-h-40 items-center justify-center"><span className="h-8 w-8 animate-spin rounded-full border-2 border-green-deep/15 border-t-green-deep" /></div>
-        : shown.length ? <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{shown.map(item => <button key={item.id} type="button" onClick={() => onOpen(item.id)} className="flex items-start gap-4 rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4 text-left transition hover:border-green-mid">
+        : shown.length ? <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">{shown.map(item => <button key={item.id} type="button" onClick={() => onOpen(item.id)} className="flex min-w-0 items-start gap-3 rounded-[16px] sm:gap-4 border border-green-deep/10 bg-[#FCFFF0] p-4 text-left transition hover:border-green-mid">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-green-deep text-gold"><FlaskIcon size={21} weight="fill" /></span>
           <span className="min-w-0 flex-1"><span className="block truncate font-bold">{item.patient?.name || 'Unnamed patient'}</span>
             <span className="mt-1 block text-xs text-text-mid">{item.markerCount} markers{item.patient?.collectedAt ? ` · collected ${item.patient.collectedAt}` : ''}{item.patient?.labRef ? ` · ${item.patient.labRef}` : ''}</span>
             <span className="mt-1 block text-[11px] text-text-mid">Updated {dateTime.format(new Date(item.updated_at))}</span></span>
-          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${item.status === 'final' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.status === 'final' ? 'Issued' : 'Draft'}</span>
+          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${item.status === 'final' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.status === 'final' ? 'Issued' : 'Draft'}</span>
         </button>)}</div>
         : <div className="py-12 text-center text-sm text-text-mid"><FlaskIcon size={34} weight="duotone" className="mx-auto mb-3 text-green-mid/60" />{query ? 'No analyses match.' : 'No analyses yet. Start one with New analysis.'}</div>}
     </section>

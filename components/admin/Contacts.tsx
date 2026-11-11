@@ -222,7 +222,7 @@ export default function Contacts() {
           <select
             value={eventFilter}
             onChange={(e) => setEventFilter(e.target.value)}
-            className="ml-auto px-3 py-2 rounded-lg border border-gray-300 font-dm-sans text-sm focus:outline-none focus:ring-2 focus:ring-green-deep"
+            className="w-full min-w-0 max-w-full truncate sm:ml-auto sm:w-auto px-3 py-2 rounded-lg border border-gray-300 font-dm-sans text-sm focus:outline-none focus:ring-2 focus:ring-green-deep"
           >
             <option value="all">All sources / outreaches</option>
             {events.map((ev) => <option key={ev} value={ev}>{ev}</option>)}

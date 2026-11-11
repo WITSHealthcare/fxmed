@@ -108,7 +108,7 @@ export default function CareersManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         <Stat label="Published" value={counts.published} tone="bg-green-50 text-green-700" />
         <Stat label="Drafts" value={counts.draft} tone="bg-amber-50 text-amber-700" />
         <Stat label="Closed" value={counts.closed} tone="bg-gray-100 text-gray-700" />
@@ -200,7 +200,7 @@ export default function CareersManagement() {
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
-    <div className="rounded-[18px] border border-green-deep/10 bg-white p-5 shadow-sm">
+    <div className="rounded-[18px] border border-green-deep/10 bg-white p-4 sm:p-5 shadow-sm">
       <span className={`inline-flex rounded-full px-3 py-1 font-dm-sans text-xs font-bold ${tone}`}>{label}</span>
       <p className="mt-3 font-dm-sans text-3xl font-bold text-green-deep">{value}</p>
     </div>
