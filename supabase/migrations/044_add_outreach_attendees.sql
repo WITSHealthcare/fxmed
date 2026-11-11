@@ -160,7 +160,8 @@ BEGIN
   END IF;
 
   INSERT INTO public.appointments (first_name, last_name, email, phone, home_address, consultation_type, preferred_date, preferred_time, symptoms, status, payment_status, patient_id)
-  SELECT p.first_name, p.last_name, coalesce(attendee.email, p.email), coalesce(attendee.phone, p.phone), coalesce(attendee.address, p.address),
+  -- appointments requires email, phone and address; an attendee may have given none of them.
+  SELECT p.first_name, p.last_name, coalesce(attendee.email, p.email, ''), coalesce(attendee.phone, p.phone, ''), coalesce(attendee.address, p.address, ''),
     p_consultation_type, p_appointment_date, p_appointment_time, left(p_concern, 3000), 'confirmed', 'pending', p.id
     FROM public.emr_patients p WHERE p.id = patient
   RETURNING id INTO appointment;
