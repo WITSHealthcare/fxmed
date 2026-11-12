@@ -24,7 +24,8 @@ export const adminRolePermissions: Record<AdminRole, { tabs: AdminTab[]; crmView
     crmViews: ['clinical'],
   },
   sales: {
-    tabs: ['crm', 'seo', 'messages', 'requests', 'training', 'forms', 'hr', 'tools', 'contacts'],
+    // Healthcare is limited for sales: see lib/emr-permissions.ts.
+    tabs: ['crm', 'seo', 'messages', 'requests', 'training', 'forms', 'hr', 'tools', 'contacts', 'healthcare'],
     crmViews: ['financial'],
   },
 }

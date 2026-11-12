@@ -19,14 +19,16 @@ export type CoverageState = { data: CoverageData | null; error: string; reload: 
 
 // Loaded once by the patient record and shared by the banner, the Coverage
 // tab and the referral form.
-export function useCoverage(patientId: string): CoverageState {
+// `enabled` is false for staff without clinical access, who never see coverage.
+export function useCoverage(patientId: string, enabled = true): CoverageState {
   const [data, setData] = useState<CoverageData | null>(null)
   const [error, setError] = useState('')
   const reload = useCallback(async () => {
+    if (!enabled) { setData({ coverage: [], verifications: [] }); return }
     const response = await fetch(`${api}?patientId=${patientId}`)
     const result = await response.json().catch(() => ({}))
     if (response.ok) { setData(result); setError('') } else { setData({ coverage: [], verifications: [] }); setError(result.error || 'Coverage could not be loaded.') }
-  }, [patientId])
+  }, [patientId, enabled])
   useEffect(() => { reload() }, [reload])
   return { data, error, reload }
 }

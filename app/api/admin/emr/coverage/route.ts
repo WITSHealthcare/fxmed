@@ -56,7 +56,8 @@ function coverageFields(body: Record<string, any>, partial: boolean) {
 }
 
 export async function GET(request: NextRequest) {
-  const context = await getEmrContext(request, 'view_patients')
+  // Clinical staff only: sales can view patients but not their clinical details.
+  const context = await getEmrContext(request, 'view_clinical_records')
   if (!context) return fail('Clinical access required.', 403)
   const { database, user } = context
   const patientId = new URL(request.url).searchParams.get('patientId')

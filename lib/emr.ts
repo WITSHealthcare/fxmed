@@ -1,32 +1,10 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 import type { NextRequest } from 'next/server'
 import { getRequestAdminUser } from '@/lib/admin-api-auth'
-import { getUserAdminRole, type AdminRole } from '@/lib/admin-auth'
+import { getUserAdminRole } from '@/lib/admin-auth'
+import { emrRolePermissions, type EmrPermission } from '@/lib/emr-permissions'
 
-export type EmrPermission =
-  | 'view_patients' | 'create_patients' | 'edit_patients'
-  | 'view_clinical_records' | 'create_encounters' | 'edit_encounters' | 'finalize_encounters'
-  | 'create_notes' | 'finalize_notes' | 'record_vitals' | 'manage_diagnoses'
-  | 'manage_allergies' | 'prescribe_medication' | 'order_investigations'
-  | 'record_results' | 'review_results' | 'upload_documents' | 'manage_care_plans'
-  | 'view_financial_records' | 'manage_financial_records'
-  | 'manage_coverage' | 'manage_referrals'
-
-const clinicalPermissions: EmrPermission[] = [
-  'view_patients', 'create_patients', 'edit_patients', 'view_clinical_records',
-  'create_encounters', 'edit_encounters', 'finalize_encounters', 'create_notes',
-  'finalize_notes', 'record_vitals', 'manage_diagnoses', 'manage_allergies',
-  'prescribe_medication', 'order_investigations', 'record_results',
-  'review_results', 'upload_documents', 'manage_care_plans',
-  'view_financial_records', 'manage_financial_records',
-  'manage_coverage', 'manage_referrals',
-]
-
-export const emrRolePermissions: Record<AdminRole, EmrPermission[]> = {
-  admin: clinicalPermissions,
-  clinical: clinicalPermissions,
-  sales: [],
-}
+export { emrRolePermissions, hasEmrPermission, NON_CLINICAL_PATIENT_COLUMNS, type EmrPermission } from '@/lib/emr-permissions'
 
 export function getEmrDatabase(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL

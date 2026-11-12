@@ -1,3 +1,4 @@
+import type { EmrPermission } from '@/lib/emr-permissions'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AdminTab } from '@/lib/admin-auth'
 import { dueLabel, lagosDate } from '@/lib/follow-ups'
@@ -34,6 +35,9 @@ export type Notification = {
 export const notificationSources: Array<{
   kind: NotificationKind
   tab: AdminTab
+  // Within the tab, the EMR permission also needed: sales open the Healthcare
+  // tab but never see clinical items.
+  permission?: EmrPermission
   table: string
   // One status, or any of several.
   status: string | string[]
@@ -158,6 +162,7 @@ export const notificationSources: Array<{
   {
     kind: 'follow_up',
     tab: 'healthcare',
+    permission: 'view_follow_ups',
     table: 'emr_clinical_tasks',
     status: ['pending', 'in_progress'],
     // Only follow-ups that are due: today or overdue, up to MAX_AGE_DAYS back.
@@ -174,6 +179,7 @@ export const notificationSources: Array<{
   {
     kind: 'assessment',
     tab: 'healthcare',
+    permission: 'view_clinical_records',
     table: 'emr_health_assessments',
     status: 'new',
     // Patients the team added themselves need no alert.
@@ -196,6 +202,7 @@ export const notificationSources: Array<{
   {
     kind: 'portal_message',
     tab: 'healthcare',
+    permission: 'view_clinical_records',
     table: 'patient_portal_messages',
     status: 'unread',
     // Only what patients send; the clinic's own replies are not news to it.
@@ -213,16 +220,18 @@ export const notificationSources: Array<{
   {
     kind: 'portal_upload',
     tab: 'healthcare',
+    permission: 'view_clinical_records',
     table: 'emr_documents',
     status: 'new',
     statusField: 'portal_status',
     timeField: 'created_at',
     select: 'id, patient_id, title, category, created_at, patient:emr_patients(first_name, last_name)',
     link: '/admin?tab=healthcare',
-    linkFor: row => `/admin?tab=healthcare&patient=${row.patient_id}&chart=portal`,
+    // Lab results open on the chart's Investigations tab, where they are entered.
+    linkFor: row => `/admin?tab=healthcare&patient=${row.patient_id}&chart=${row.category === 'laboratory' ? 'investigations' : 'portal'}`,
     dismissable: false,
     describe: row => ({
-      title: `${[row.patient?.first_name, row.patient?.last_name].filter(Boolean).join(' ') || 'A patient'} uploaded a document`,
+      title: `${[row.patient?.first_name, row.patient?.last_name].filter(Boolean).join(' ') || 'A patient'} uploaded ${row.category === 'laboratory' ? 'lab results' : 'a document'}`,
       detail: String(row.title || '').trim(),
     }),
   },

@@ -36,10 +36,10 @@ export default function PhotoGallery() {
 
           {/* Tabs */}
           <div className="flex justify-center mb-12">
-            <div className="inline-flex bg-[#FCFFF0] rounded-[50px] p-1">
+            <div className="inline-flex max-w-full flex-wrap justify-center gap-1 bg-[#FCFFF0] rounded-[28px] sm:rounded-[50px] p-1">
               <button 
                 onClick={() => setActiveTab('testimonials')}
-                className={`font-dm-sans px-6 py-2 rounded-[50px] text-[1rem] font-medium transition-all ${
+                className={`font-dm-sans px-4 sm:px-6 py-2 rounded-[50px] text-[0.95rem] sm:text-[1rem] font-medium transition-all ${
                   activeTab === 'testimonials' 
                     ? 'bg-gold text-green-deep' 
                     : 'text-green-deep hover:bg-green-deep/10'
@@ -49,7 +49,7 @@ export default function PhotoGallery() {
               </button>
               <button 
                 onClick={() => setActiveTab('team')}
-                className={`font-dm-sans px-6 py-2 rounded-[50px] text-[1rem] font-medium transition-all ${
+                className={`font-dm-sans px-4 sm:px-6 py-2 rounded-[50px] text-[0.95rem] sm:text-[1rem] font-medium transition-all ${
                   activeTab === 'team' 
                     ? 'bg-gold text-green-deep' 
                     : 'text-green-deep hover:bg-green-deep/10'
@@ -59,7 +59,7 @@ export default function PhotoGallery() {
               </button>
               <button 
                 onClick={() => setActiveTab('outreach')}
-                className={`font-dm-sans px-6 py-2 rounded-[50px] text-[1rem] font-medium transition-all ${
+                className={`font-dm-sans px-4 sm:px-6 py-2 rounded-[50px] text-[0.95rem] sm:text-[1rem] font-medium transition-all ${
                   activeTab === 'outreach' 
                     ? 'bg-gold text-green-deep' 
                     : 'text-green-deep hover:bg-green-deep/10'
@@ -69,7 +69,7 @@ export default function PhotoGallery() {
               </button>
               <button 
                 onClick={() => setActiveTab('van')}
-                className={`font-dm-sans px-6 py-2 rounded-[50px] text-[1rem] font-medium transition-all ${
+                className={`font-dm-sans px-4 sm:px-6 py-2 rounded-[50px] text-[0.95rem] sm:text-[1rem] font-medium transition-all ${
                   activeTab === 'van' 
                     ? 'bg-gold text-green-deep' 
                     : 'text-green-deep hover:bg-green-deep/10'

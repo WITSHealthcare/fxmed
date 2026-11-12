@@ -3,10 +3,11 @@
 // Medical outreach worklist: attendees who registered on an outreach form wait
 // here for a health worker to log vital signs and sign off, then for a
 // follow-up booking, which makes them an EMR patient (lib/outreach.ts,
-// app/api/admin/emr/outreach, migration 044).
+// app/api/admin/emr/outreach, migration 048).
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowSquareOutIcon, CheckCircleIcon, MagnifyingGlassIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
 import { Alert, Empty, Field, Loading, Panel, Status } from '@/components/admin/emr/ui'
+import { useEmrAccess } from '@/components/admin/emr/access'
 import { formatAnswerText, type FormDefinition } from '@/lib/forms'
 import {
   followUpWishLabels, outreachAlerts, outreachConcerns, outreachStatuses, splitName, vitalFields,
@@ -84,6 +85,8 @@ export default function Outreaches({ onPatient }: { onPatient: (id: string) => v
 
 function AttendeeModal({ attendee, definition, onClose, onChanged, onPatient }: { attendee: OutreachAttendee; definition: FormDefinition; onClose: () => void; onChanged: (a: OutreachAttendee) => void; onPatient: (id: string) => void }) {
   const [error, setError] = useState(''); const [saving, setSaving] = useState(''); const [booking, setBooking] = useState(false)
+  // Staff who can only view outreaches (sales) see everything but no actions.
+  const editable = useEmrAccess().can('record_vitals')
   const booked = attendee.status === 'booked'
   async function act(name: string, body: Record<string, unknown>) {
     setSaving(name); setError('')
@@ -97,9 +100,9 @@ function AttendeeModal({ attendee, definition, onClose, onChanged, onPatient }: 
       {error && <Alert tone="error">{error}</Alert>}
       {booked && attendee.patient_id && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><p className="font-bold text-emerald-800"><CheckCircleIcon size={20} weight="fill" className="mr-2 inline" />Follow-up booked{attendee.patient_mrn ? ` · ${attendee.patient_mrn}` : ''}. Vitals and intake are in the patient chart.</p><button type="button" onClick={() => onPatient(attendee.patient_id!)} className="primary">Open chart <ArrowSquareOutIcon size={16} /></button></div>}
       <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_1fr]">
-        <VitalsCard key={attendee.recorded_at || 'new'} attendee={attendee} saving={saving} disabled={booked} onSave={(v) => act('vitals', { action: 'record_vitals', ...v })} onSignOff={() => act('sign', { action: 'sign_off' })} />
+        <VitalsCard key={attendee.recorded_at || 'new'} attendee={attendee} saving={saving} disabled={booked || !editable} onSave={(v) => act('vitals', { action: 'record_vitals', ...v })} onSignOff={() => act('sign', { action: 'sign_off' })} />
         <div className="space-y-5">
-          {!booked && attendee.signed_at && (booking
+          {editable && !booked && attendee.signed_at && (booking
             ? <BookingCard attendee={attendee} saving={saving === 'book'} onCancel={() => setBooking(false)} onBook={async (b) => { const r = await act('book', { action: 'book_follow_up', ...b }); if (r) setBooking(false) }} />
             : <section className="rounded-[20px] border border-green-deep/10 bg-white p-5"><h4 className="font-bold text-green-deep">Next step</h4>
               {attendee.follow_up_wish && <p className="mt-1 text-sm text-text-mid">On the form: <strong>{followUpWishLabels[attendee.follow_up_wish]}</strong></p>}
@@ -107,9 +110,9 @@ function AttendeeModal({ attendee, definition, onClose, onChanged, onPatient }: 
               <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => setBooking(true)} className="primary">Book follow-up</button>
                 {attendee.status !== 'no_follow_up' && <button type="button" disabled={!!saving} onClick={() => act('status', { action: 'set_status', status: 'no_follow_up' })} className="secondary">No follow-up</button>}
                 {attendee.status === 'no_follow_up' && <button type="button" disabled={!!saving} onClick={() => act('status', { action: 'set_status', status: 'signed_off' })} className="secondary">Back to signed off</button>}</div></section>)}
-          {!booked && !attendee.signed_at && attendee.status !== 'left' && <button type="button" disabled={!!saving} onClick={() => act('status', { action: 'set_status', status: 'left' })} className="secondary w-full">Mark as left before vitals</button>}
-          {attendee.status === 'left' && <button type="button" disabled={!!saving} onClick={() => act('status', { action: 'set_status', status: 'awaiting_vitals' })} className="secondary w-full">They came back: awaiting vitals</button>}
-          {!booked && <DetailsCard attendee={attendee} saving={saving === 'details'} onSave={(d) => act('details', { action: 'update_details', ...d })} />}
+          {editable && !booked && !attendee.signed_at && attendee.status !== 'left' && <button type="button" disabled={!!saving} onClick={() => act('status', { action: 'set_status', status: 'left' })} className="secondary w-full">Mark as left before vitals</button>}
+          {editable && attendee.status === 'left' && <button type="button" disabled={!!saving} onClick={() => act('status', { action: 'set_status', status: 'awaiting_vitals' })} className="secondary w-full">They came back: awaiting vitals</button>}
+          {editable && !booked && <DetailsCard attendee={attendee} saving={saving === 'details'} onSave={(d) => act('details', { action: 'update_details', ...d })} />}
           <AnswersCard attendee={attendee} definition={definition} />
         </div>
       </div>

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { isReadable, type ReportAttachment } from '@/lib/ai/clinical-report'
 import { cleanText, emrErrorMessage, getEmrContext, isUuid, writeEmrAudit } from '@/lib/emr'
+import { labOrderNotice, notifyPatient, uploadReviewedNotice } from '@/lib/patient-portal'
+import { HOME_LOGISTICS_FEE, collectionLabels, type CollectionType, type LabInvoice, type LabInvoiceLine } from '@/lib/labPrices'
 import { extractInvestigationResults } from '@/lib/investigationExtraction'
 import { resultRowsForOrder } from '@/lib/investigationResultCatalog'
 import {
@@ -19,7 +21,7 @@ const MAX_FILE_BYTES = 15 * 1024 * 1024
 // The most sent to an AI provider in one request, across all files read.
 const MAX_READ_BYTES = 15 * 1024 * 1024
 const MAX_PDF_BASE64_CHARS = 30 * 1024 * 1024
-const FILE_COLUMNS = 'id,investigation_form_id,title,original_name,mime_type,file_size,created_at'
+const FILE_COLUMNS = 'id,investigation_form_id,title,original_name,mime_type,file_size,source,portal_status,created_at'
 const INVESTIGATION_FILE_CATEGORIES = ['laboratory', 'imaging']
 
 function fail(message: string, status = 400) {
@@ -96,6 +98,27 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // An order's saved invoices (lab and home collection), and whether one is on the patient's bills.
+    if (params.get('view') === 'invoices') {
+      const id = params.get('id')
+      if (!isUuid(id)) return fail('A valid order is required.')
+      const [saved, bill] = await Promise.all([
+        database.from('investigation_order_invoices').select(INVOICE_COLUMNS).eq('investigation_form_id', id),
+        database.from('emr_financial_records').select('id,collection_type,amount_due,created_at').eq('investigation_form_id', id).maybeSingle(),
+      ])
+      // Before migrations 052 and 053 nothing can have been saved or billed.
+      const needsMigration = missingTable(saved.error) || bill.error?.code === '42703'
+      if (saved.error && !missingTable(saved.error)) throw saved.error
+      if (bill.error && bill.error.code !== '42703') throw bill.error
+      const invoices: Partial<Record<CollectionType, LabInvoice>> = {}
+      for (const row of saved.data || []) invoices[row.collection_type as CollectionType] = mapLabInvoice(row)
+      return NextResponse.json({
+        invoices,
+        bill: bill.data ? { id: bill.data.id, collection: bill.data.collection_type, amount: Number(bill.data.amount_due), createdAt: bill.data.created_at } : null,
+        needsMigration,
+      })
+    }
+
     if (params.get('view') === 'recent') {
       const { data, error } = await database.from('investigation_forms')
         .select(`${ORDER_COLUMNS},emr_patient:emr_patients(mrn)`)
@@ -118,7 +141,126 @@ export async function POST(request: NextRequest) {
   if (body.action === 'order') return placeOrder(request, body)
   if (body.action === 'results') return saveResults(request, body, null)
   if (body.action === 'read') return readLabReport(request, body)
+  if (body.action === 'save_invoice') return saveOrderInvoice(request, body)
+  if (body.action === 'bill') return addOrderToBill(request, body)
   return fail('Unknown investigation action.')
+}
+
+const INVOICE_COLUMNS = 'collection_type,lines,total,updated_at,saved_by_email'
+const missingTable = (error: { code?: string } | null) => error?.code === '42P01' || error?.code === 'PGRST205'
+
+function mapLabInvoice(row: Record<string, any>): LabInvoice {
+  return { collection: row.collection_type, lines: Array.isArray(row.lines) ? row.lines : [], total: Number(row.total) || 0, savedAt: row.updated_at, savedByEmail: row.saved_by_email || null }
+}
+
+/** The order's bill, if its tests are already on the patient's bills. Null before migration 052. */
+async function orderBill(database: SupabaseClient, orderId: string) {
+  const { data, error } = await database.from('emr_financial_records').select('id').eq('investigation_form_id', orderId).maybeSingle()
+  if (error && error.code !== '42703') throw error
+  return data
+}
+
+// Saves the invoice a clinician built for an order from the price list, for
+// lab or home collection. Saving again replaces it. Once the order is on the
+// patient's bills its invoices are settled and cannot change.
+async function saveOrderInvoice(request: NextRequest, body: Record<string, any>) {
+  const context = await getEmrContext(request, 'manage_financial_records')
+  if (!context) return fail('Financial access required.', 403)
+  const { database, user } = context
+
+  try {
+    const collection: CollectionType | null = body.collection === 'lab' || body.collection === 'home' ? body.collection : null
+    if (!collection) return fail('Choose lab collection or home collection.')
+    const row = await findOrder(database, body.orderId)
+    if (!row || !row.emr_patient_id) return fail('Order not found.', 404)
+    if (row.status === 'cancelled') return fail('This order was cancelled, so it cannot be invoiced.', 409)
+
+    const lines: LabInvoiceLine[] = []
+    for (const entry of (Array.isArray(body.lines) ? body.lines : []).slice(0, 100)) {
+      const test = cleanText(entry?.test, 240)
+      const amount = Math.round(Number(entry?.amount) * 100) / 100
+      if (!test) return fail('Every line needs a name.')
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 100_000_000) return fail(`Enter a price for ${test}.`)
+      lines.push({ test, item: cleanText(entry?.item, 400), amount })
+    }
+    if (!lines.length) return fail('Add at least one line to the invoice.')
+    // Every home collection invoice carries the logistics fee, at its set amount, whatever was sent.
+    if (collection === 'home') {
+      const fee = HOME_LOGISTICS_FEE.label.toLowerCase()
+      const tests = lines.filter(line => line.test.toLowerCase() !== fee)
+      if (!tests.length) return fail('Add at least one test to the invoice.')
+      lines.splice(0, lines.length, ...tests, { test: HOME_LOGISTICS_FEE.label, item: null, amount: HOME_LOGISTICS_FEE.amount })
+    }
+    if (await orderBill(database, row.id)) return fail('This order is already on the patient’s bill. Delete that bill on the Financial tab to change its invoices.', 409)
+
+    const total = Math.round(lines.reduce((sum, line) => sum + line.amount, 0) * 100) / 100
+    const { data, error } = await database.from('investigation_order_invoices').upsert({
+      investigation_form_id: row.id,
+      emr_patient_id: row.emr_patient_id,
+      collection_type: collection,
+      lines,
+      total,
+      saved_by: user.id,
+      saved_by_email: user.email,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'investigation_form_id,collection_type' }).select(INVOICE_COLUMNS).single()
+    if (error) {
+      if (missingTable(error)) return fail('Saving invoices needs migration 053 to be run in Supabase first.', 503)
+      throw error
+    }
+    await writeEmrAudit(database, user, { action: 'save_investigation_invoice', entityType: 'investigation_forms', entityId: row.id, patientId: row.emr_patient_id, metadata: { collection, lines: lines.length, total } })
+    return NextResponse.json({ invoice: mapLabInvoice(data) })
+  } catch (error) {
+    return serverError(error)
+  }
+}
+
+// Adds an order's saved invoice to the patient's bills, once the patient has
+// approved lab or home collection. Never automatic: staff choose it. The
+// amount is the saved invoice's, not one sent with the request.
+async function addOrderToBill(request: NextRequest, body: Record<string, any>) {
+  const context = await getEmrContext(request, 'manage_financial_records')
+  if (!context) return fail('Financial access required.', 403)
+  const { database, user } = context
+
+  try {
+    const collection: CollectionType | null = body.collection === 'lab' || body.collection === 'home' ? body.collection : null
+    if (!collection) return fail('Choose lab collection or home collection.')
+    const row = await findOrder(database, body.orderId)
+    if (!row || !row.emr_patient_id) return fail('Order not found.', 404)
+    if (row.status === 'cancelled') return fail('This order was cancelled, so it cannot be billed.', 409)
+    const order = mapOrderRow(row)
+
+    const saved = await database.from('investigation_order_invoices').select(INVOICE_COLUMNS).eq('investigation_form_id', row.id).eq('collection_type', collection).maybeSingle()
+    if (saved.error) {
+      if (missingTable(saved.error)) return fail('Adding lab orders to the bill needs migration 053 to be run in Supabase first.', 503)
+      throw saved.error
+    }
+    if (!saved.data) return fail(`Save the ${collection} collection invoice first.`)
+    const invoice = mapLabInvoice(saved.data)
+    if (!invoice.lines.length || invoice.total <= 0) return fail(`The ${collection} collection invoice has no lines.`)
+
+    const naira = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 })
+    const { data, error } = await database.from('emr_financial_records').insert({
+      patient_id: row.emr_patient_id,
+      description: `Lab tests: ${order.panelTitle} (${collectionLabels[collection].toLowerCase()})`.slice(0, 240),
+      amount_due: invoice.total,
+      currency: 'NGN',
+      notes: invoice.lines.map(line => `${line.test}: ${naira.format(line.amount)}`).join('; ').slice(0, 4000),
+      investigation_form_id: order.id,
+      collection_type: collection,
+      created_by: user.id,
+    }).select('id,collection_type,amount_due,created_at').single()
+    if (error) {
+      if (error.code === '23505') return fail('This order is already on the patient’s bill. To change it, delete that bill on the Financial tab first.', 409)
+      if (error.code === '42703' || error.code === 'PGRST204') return fail('Adding lab orders to the bill needs migration 052 to be run in Supabase first.', 503)
+      throw error
+    }
+    await writeEmrAudit(database, user, { action: 'bill_investigation_order', entityType: 'emr_financial_records', entityId: data.id, patientId: row.emr_patient_id, metadata: { orderId: order.id, collection, total: invoice.total } })
+    return NextResponse.json({ bill: { id: data.id, collection: data.collection_type, amount: Number(data.amount_due), createdAt: data.created_at } }, { status: 201 })
+  } catch (error) {
+    return serverError(error)
+  }
 }
 
 export async function PATCH(request: NextRequest) {
@@ -220,6 +362,8 @@ async function placeOrder(request: NextRequest, body: Record<string, any>) {
     if (error) throw error
 
     await writeEmrAudit(database, user, { action: 'create_investigation_order', entityType: 'investigation_forms', entityId: data.id, patientId, metadata: { tests: tests.length } })
+    // The patient can download the request form from their portal's Lab results.
+    await notifyPatient(database, patientId, labOrderNotice(data.panel_title))
     return NextResponse.json({ order: mapOrderRow(data) }, { status: 201 })
   } catch (error) {
     return serverError(error)
@@ -281,9 +425,34 @@ async function saveResults(request: NextRequest, body: Record<string, any>, repo
     }
 
     await writeEmrAudit(database, user, { action: reportId ? 'update_investigation_results' : 'create_investigation_results', entityType: 'investigation_results', entityId: data.id, patientId, metadata: { orderId, results: results.length } })
+    await reviewPatientUploads(database, user, patientId, orderId, body.documentIds)
     return NextResponse.json({ report: mapReportRow(data) }, { status: reportId ? 200 : 201 })
   } catch (error) {
     return serverError(error)
+  }
+}
+
+/**
+ * Results saved from lab reports the patient uploaded mean those uploads have
+ * been reviewed: they leave the notification bell and the patient is told.
+ * The results are already saved, so a failure here is only logged.
+ */
+async function reviewPatientUploads(database: SupabaseClient, user: User, patientId: string, orderId: string | null, documentIds: unknown) {
+  const ids = (Array.isArray(documentIds) ? documentIds : []).filter(isUuid).slice(0, 50)
+  const matches = [orderId ? `investigation_form_id.eq.${orderId}` : '', ids.length ? `id.in.(${ids.join(',')})` : ''].filter(Boolean)
+  if (!matches.length) return
+  try {
+    const { data, error } = await database.from('emr_documents')
+      .update({ portal_status: 'reviewed', reviewed_by: user.id, reviewed_at: new Date().toISOString() })
+      .eq('patient_id', patientId).eq('source', 'patient').eq('portal_status', 'new')
+      .or(matches.join(','))
+      .select('id,title,category')
+    if (error) throw error
+    if (!data?.length) return
+    await writeEmrAudit(database, user, { action: 'review_patient_upload', entityType: 'emr_document', entityId: data[0].id, patientId, metadata: { documents: data.map(item => item.id), orderId } })
+    await notifyPatient(database, patientId, uploadReviewedNotice({ title: data.length === 1 ? data[0].title : null, category: data.every(item => item.category === 'laboratory') ? 'laboratory' : null }))
+  } catch (error) {
+    console.error('Patient uploads could not be marked reviewed:', error)
   }
 }
 

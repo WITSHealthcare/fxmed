@@ -53,6 +53,18 @@ body {
   overflow-x: hidden;
 }
 
+/*
+ * iPhones zoom the whole page when a form field with text under 16px is
+ * tapped, and stay zoomed after. Keep fields at 16px on phone-sized screens.
+ */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 h1, h2, h3 {
   font-family: 'DM Sans', sans-serif;
   font-weight: 700;

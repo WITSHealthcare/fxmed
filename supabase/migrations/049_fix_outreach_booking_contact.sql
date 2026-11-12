@@ -1,9 +1,13 @@
--- Fixes book_outreach_follow_up from 044: appointments requires email, phone
+-- Fixes book_outreach_follow_up from 048: appointments requires email, phone
 -- and address, so booking failed for attendees who gave no email. Missing
 -- values are now stored as empty text.
 -- Booking a follow-up: link or create the patient, copy the outreach vitals and
 -- intake note into the chart, book the appointment and mark the attendee
 -- booked. Glucose is stored in the EMR in mg/dL (mmol/L x 18).
+--
+-- First numbered 045, which patient portal emails also used; renumbered to
+-- 049 so every migration number is unique. It only replaces one function, so
+-- running it again is safe.
 CREATE OR REPLACE FUNCTION public.book_outreach_follow_up(
   p_attendee_id uuid, p_actor_id uuid, p_link_patient_id uuid,
   p_first_name text, p_last_name text, p_date_of_birth date, p_sex text,

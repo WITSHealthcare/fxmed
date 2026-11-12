@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { RobotIcon } from '@phosphor-icons/react'
+import { ArrowLeftIcon, RobotIcon } from '@phosphor-icons/react'
 
 interface ChatSession {
   id: string
@@ -105,9 +105,11 @@ export default function ZaraDashboard() {
   const browsingCount = sessions.length - bookedCount
 
   return (
+    // Below large screens the list and the open conversation take turns,
+    // as there is no room for both side by side.
     <div className="flex gap-6 h-[calc(100vh-240px)] min-h-[500px]">
       {/* Sessions list */}
-      <div className="w-80 flex-shrink-0 flex flex-col gap-3">
+      <div className={`w-full lg:w-80 flex-shrink-0 flex-col gap-3 ${selectedSession ? 'hidden lg:flex' : 'flex'}`}>
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-white rounded-[12px] p-3 shadow-sm border border-green-deep/10 text-center">
@@ -196,7 +198,7 @@ export default function ZaraDashboard() {
       </div>
 
       {/* Conversation pane */}
-      <div className="flex-1 bg-white rounded-[20px] shadow-sm border border-green-deep/10 flex flex-col overflow-hidden">
+      <div className={`min-w-0 flex-1 bg-white rounded-[20px] shadow-sm border border-green-deep/10 flex-col overflow-hidden ${selectedSession ? 'flex' : 'hidden lg:flex'}`}>
         {!selectedSession ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
             <RobotIcon size={52} weight="duotone" className="mb-4 text-green-mid" />
@@ -208,12 +210,15 @@ export default function ZaraDashboard() {
         ) : (
           <>
             {/* Header */}
-            <div className="px-6 py-4 border-b border-green-deep/10 flex items-center justify-between">
-              <div>
+            <div className="px-4 sm:px-6 py-4 border-b border-green-deep/10 flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <button type="button" onClick={() => setSelectedSession(null)} className="mb-2 inline-flex items-center gap-1.5 font-dm-sans text-xs font-bold text-green-mid hover:text-green-deep lg:hidden">
+                  <ArrowLeftIcon size={14} weight="bold" />All conversations
+                </button>
                 <div className="font-dm-sans font-semibold text-green-deep">
                   {selectedSession.visitor_name ?? 'Anonymous visitor'}
                 </div>
-                <div className="font-dm-sans text-text-mid text-xs mt-0.5 flex gap-3">
+                <div className="font-dm-sans text-text-mid text-xs mt-0.5 flex flex-wrap gap-x-3 break-all">
                   {selectedSession.visitor_email && <span>{selectedSession.visitor_email}</span>}
                   {selectedSession.visitor_phone && <span>{selectedSession.visitor_phone}</span>}
                   <span>Started {formatDate(selectedSession.created_at)}</span>
@@ -227,7 +232,7 @@ export default function ZaraDashboard() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-3">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 flex flex-col gap-3">
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-32">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-deep" />
@@ -243,7 +248,7 @@ export default function ZaraDashboard() {
                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[70%] rounded-[16px] px-4 py-2.5 ${
+                      className={`max-w-[85%] sm:max-w-[70%] rounded-[16px] px-4 py-2.5 ${
                         msg.role === 'user'
                           ? 'bg-green-deep text-white rounded-br-[4px]'
                           : 'bg-[#F5F7F0] text-green-deep rounded-bl-[4px]'

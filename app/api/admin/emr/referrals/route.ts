@@ -39,7 +39,8 @@ function pick(value: unknown, allowed: string[]) {
 }
 
 export async function GET(request: NextRequest) {
-  const context = await getEmrContext(request, 'view_patients')
+  // Clinical staff only: sales can view patients but not their clinical details.
+  const context = await getEmrContext(request, 'view_clinical_records')
   if (!context) return fail('Clinical access required.', 403)
   const { database, user } = context
   const params = new URL(request.url).searchParams

@@ -6,6 +6,9 @@
 -- appointment, all in one transaction (book_outreach_follow_up).
 -- Every read and write goes through validated server routes using the service
 -- role, so RLS stays closed.
+--
+-- First numbered 044, which booking closures also used; renumbered to 048 so
+-- every migration number is unique. Already run on the live database.
 BEGIN;
 
 ALTER TABLE public.forms ADD COLUMN IF NOT EXISTS outreach boolean NOT NULL DEFAULT false;
