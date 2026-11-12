@@ -9,6 +9,8 @@ import {
   emrErrorMessage,
   getEmrContext,
   isUuid,
+  hasEmrPermission,
+  NON_CLINICAL_PATIENT_COLUMNS,
   type EmrPermission,
   writeEmrAudit,
 } from '@/lib/emr'
@@ -142,10 +144,21 @@ async function patientExists(database: any, patientId: unknown) {
 export async function GET(request: NextRequest) {
   const context = await getEmrContext(request, 'view_patients')
   if (!context) return NextResponse.json({ error: 'Clinical access required.' }, { status: 403 })
-  const { database, user } = context
+  const { database, user, role } = context
   const params = new URL(request.url).searchParams
   const resource = params.get('resource') || 'dashboard'
   const patientId = params.get('patientId')
+  // Staff without clinical access (sales) see contact details, appointments,
+  // follow-ups and finances, never clinical records.
+  const clinical = hasEmrPermission(role, 'view_clinical_records')
+  const needed: EmrPermission = ['patients', 'patient', 'appointments'].includes(resource) ? 'view_patients'
+    : ['follow_ups', 'tasks', 'task_contacts'].includes(resource) ? 'view_follow_ups'
+    : ['financial_records', 'financial_payments'].includes(resource) ? 'view_financial_records'
+    : 'view_clinical_records'
+  if (!hasEmrPermission(role, needed)) {
+    await writeEmrAudit(database, user, { action: 'access_denied', entityType: 'emr_permission', metadata: { permission: needed, resource } })
+    return NextResponse.json({ error: 'You do not have access to this part of the EMR.' }, { status: 403 })
+  }
 
   try {
     // Automatic review follow-ups are brought up to date before anything
@@ -198,7 +211,7 @@ export async function GET(request: NextRequest) {
       const status = params.get('status')
       const sort = ['updated_at','created_at','last_name','mrn','date_of_birth'].includes(params.get('sort') || '') ? params.get('sort')! : 'updated_at'
       const ascending = params.get('direction') === 'asc'
-      let query = database.from('emr_patients').select('*,encounters:emr_encounters(created_at)', { count: 'exact' })
+      let query = database.from('emr_patients').select(clinical ? '*,encounters:emr_encounters(created_at)' : NON_CLINICAL_PATIENT_COLUMNS, { count: 'exact' })
       if (search) query = query.or(`mrn.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
       if (status && enumValues.patient_status.includes(status)) query = query.eq('status', status)
       const { data, error, count } = await query.order(sort, { ascending }).range((page - 1) * pageSize, page * pageSize - 1)
@@ -208,6 +221,26 @@ export async function GET(request: NextRequest) {
 
     if (resource === 'patient') {
       if (!isUuid(patientId)) return NextResponse.json({ error: 'A valid patient is required.' }, { status: 400 })
+      // Without clinical access: contact details, follow-ups, appointments and
+      // finances only, with every clinical list empty.
+      if (!clinical) {
+        const [patient, tasks, appointments, financialRecords, financialPayments] = await Promise.all([
+          database.from('emr_patients').select(NON_CLINICAL_PATIENT_COLUMNS).eq('id', patientId).single(),
+          database.from('emr_clinical_tasks').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
+          database.from('appointments').select('*').eq('patient_id', patientId).order('preferred_date', { ascending: false }),
+          database.from('emr_financial_records').select('*').eq('patient_id', patientId).order('service_date', { ascending: false }).order('created_at', { ascending: false }),
+          database.from('emr_financial_payments').select('*').eq('patient_id', patientId).order('payment_date', { ascending: false }).order('created_at', { ascending: false }),
+        ])
+        const error = patient.error || tasks.error || appointments.error || financialRecords.error || financialPayments.error
+        if (error) throw error
+        await writeEmrAudit(database, user, { action: 'view_patient_chart', entityType: 'emr_patient', entityId: patientId, patientId, metadata: { limited: true } })
+        return NextResponse.json({
+          patient: patient.data, encounters: [], notes: [], vitals: [], diagnoses: [], allergies: [], medications: [], prescriptions: [], investigations: [], results: [],
+          investigationOrders: [], investigationReports: [], investigationError: null, unlinkedInvestigationOrders: [], unlinkedInvestigationReports: [], imaging: [], documents: [], carePlans: [],
+          tasks: tasks.data || [], appointments: appointments.data || [], unlinkedAppointments: [], assessments: [],
+          financialRecords: financialRecords.data || [], financialPayments: financialPayments.data || [], audit: [], limited: true,
+        })
+      }
       const [patient, encounters, notes, vitals, diagnoses, allergies, medications, prescriptions, orders, results, investigationOrders, investigationReports, imaging, documents, carePlans, tasks, appointments, assessments, financialRecords, financialPayments, audit] = await Promise.all([
         database.from('emr_patients').select('*').eq('id', patientId).single(),
         database.from('emr_encounters').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }),
@@ -240,8 +273,11 @@ export async function GET(request: NextRequest) {
 
     if (resource === 'follow_ups') {
       const completed = params.get('scope') === 'completed'
+      // The clinical note a follow-up came from is only for clinical staff.
       let query = database.from('emr_clinical_tasks')
-        .select('*,patient:emr_patients(id,mrn,first_name,last_name,phone,email),note:emr_clinical_notes(id,note_type,content,created_at),contacts:emr_task_contacts(*)')
+        .select(clinical
+          ? '*,patient:emr_patients(id,mrn,first_name,last_name,phone,email),note:emr_clinical_notes(id,note_type,content,created_at),contacts:emr_task_contacts(*)'
+          : '*,patient:emr_patients(id,mrn,first_name,last_name,phone,email),contacts:emr_task_contacts(*)')
       query = completed
         ? query.in('status', ['completed','cancelled']).gte('updated_at', new Date(Date.now() - 30 * 86400000).toISOString()).order('updated_at', { ascending: false })
         : query.in('status', ['pending','in_progress']).order('due_at', { ascending: true, nullsFirst: false })
@@ -407,6 +443,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (resource === 'appointments') {
+      // Financial access covers the payment status only; linking a booking to a
+      // patient or changing its status here is for clinical staff.
+      if (('patient_id' in body || 'status' in body) && !hasEmrPermission(context.role, 'edit_encounters')) return NextResponse.json({ error: 'Clinical access required.' }, { status: 403 })
       const updates: Record<string, unknown> = {}
       if ('patient_id' in body) updates.patient_id = isUuid(body.patient_id) ? body.patient_id : null
       if ('status' in body && ['pending','confirmed','completed','cancelled'].includes(body.status)) updates.status = body.status
@@ -503,6 +542,13 @@ export async function DELETE(request: NextRequest) {
     if (resource === 'financial_records') {
       const { data: bill, error: findError } = await database.from('emr_financial_records').select('id,patient_id,description,amount_due,amount_paid,currency').eq('id', id).maybeSingle()
       if (findError || !bill) return NextResponse.json({ error: 'Bill not found.' }, { status: 404 })
+      // A bill on an invoice that is not cancelled stays, so the invoice still adds up.
+      // (Before migration 051 there are no invoices to check.)
+      const { data: invoiced, error: invoicedError } = await database.from('emr_invoice_items')
+        .select('invoice:emr_invoices!inner(invoice_number,status)').eq('financial_record_id', id).neq('invoice.status', 'void').limit(1)
+      if (!invoicedError && invoiced?.length) {
+        return NextResponse.json({ error: `This bill is on invoice ${(invoiced[0] as any).invoice?.invoice_number}. Cancel that invoice first, then delete the bill.` }, { status: 409 })
+      }
       // Payment installments are removed by the bill foreign key's CASCADE.
       const { error } = await database.from('emr_financial_records').delete().eq('id', id)
       if (error) throw error

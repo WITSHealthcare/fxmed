@@ -7,7 +7,7 @@ export type FormStatus = 'draft' | 'published' | 'closed'
 export type FormRecord = {
   id: string; slug: string; title: string; description: string; audience: FormAudience; status: FormStatus
   definition: FormDefinition; collect_contact: 'none' | 'optional' | 'required'; one_response_per_person: boolean
-  // Customer forms only: each response joins the EMR Outreaches list (migration 044).
+  // Customer forms only: each response joins the EMR Outreaches list (migration 048).
   outreach: boolean
   audience_roles: AdminRole[]; assigned_emails: string[]; confirmation_message: string
   created_at: string; updated_at: string; response_count?: number

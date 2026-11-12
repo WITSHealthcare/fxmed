@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CORE_PANEL_TESTS, INVESTIGATION_CATALOG, generateInvestigationFormPdf } from '@/lib/investigationFormPdf'
 import { blobToBase64, downloadBlob } from '@/lib/fileDownload'
 import { downloadBase, type InvestigationOrder, type InvestigationPatientSnapshot } from '@/lib/investigations'
+import { OrderDownloadsDialog } from '@/components/admin/emr/OrderInvoices'
 
 // Places an investigation order: the tests requested, printed on the FXMed
 // request form. The order then waits for results on the patient's Results tab.
@@ -146,6 +147,8 @@ export default function InvestigationOrderForm({ patient, template, onOrdered }:
   const [testSearch, setTestSearch] = useState('')
   const [status, setStatus] = useState<'idle' | 'working' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState(template ? 'Tests copied from the earlier order. Check them, then place the order.' : '')
+  // The order just placed, with its request form, for the downloads window.
+  const [placed, setPlaced] = useState<{ order: InvestigationOrder; patient: OrderPatient; form: Blob; formName: string } | null>(null)
 
   const selected = useMemo(() => new Set(tests), [tests])
   const catalogue = useMemo(() => {
@@ -197,9 +200,9 @@ export default function InvestigationOrderForm({ patient, template, onOrdered }:
       })
       const result = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(result.error || 'The order could not be saved.')
-      downloadBlob(blob, downloadName)
       setStatus('success')
-      setMessage(`Order placed and the request form downloaded. It is waiting for results on ${patient ? 'the Results tab' : `${orderPatientName(orderFor)}'s record`}.`)
+      setMessage(`Order placed. It is waiting for results on ${patient ? 'the Results tab' : `${orderPatientName(orderFor)}'s record`}.`)
+      setPlaced({ order: result.order, patient: orderFor, form: blob, formName: downloadName })
       onOrdered(result.order)
     } catch (error) {
       setStatus('error')
@@ -209,7 +212,7 @@ export default function InvestigationOrderForm({ patient, template, onOrdered }:
 
   return <div className="bg-white rounded-[20px] p-6 shadow-lg border border-green-deep/10">
     <h3 className="text-xl font-dm-sans font-semibold text-green-deep">Order investigations</h3>
-    <p className="mt-2 max-w-2xl text-sm text-text-mid font-dm-sans leading-relaxed">Tick the tests required and place the order. The FXMed request form downloads for the patient to take to the laboratory, and the order waits for its results on the Results tab.</p>
+    <p className="mt-2 max-w-2xl text-sm text-text-mid font-dm-sans leading-relaxed">Tick the tests required and place the order. You can then download the FXMed request form and generate the invoice for lab or home collection. The patient also gets the request form in their portal, and the order waits for its results on the Results tab.</p>
 
     <div className="mt-6 rounded-xl border border-green-deep/10 bg-cream/40 p-4">
       <h4 className="text-sm font-dm-sans font-semibold text-green-deep mb-4">Patient and request details</h4>
@@ -280,8 +283,10 @@ export default function InvestigationOrderForm({ patient, template, onOrdered }:
 
       <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         {message ? <p role={status === 'error' ? 'alert' : 'status'} className={`text-sm font-dm-sans ${status === 'error' ? 'text-red-600' : 'text-green-deep'}`}>{message}</p> : <span />}
-        <button type="button" onClick={placeOrder} disabled={status === 'working'} className="primary shrink-0 disabled:opacity-50">{status === 'working' ? 'Placing order…' : 'Place order and download form'}</button>
+        <button type="button" onClick={placeOrder} disabled={status === 'working'} className="primary shrink-0 disabled:opacity-50">{status === 'working' ? 'Placing order…' : 'Place order'}</button>
       </div>
     </div>
+    {placed && <OrderDownloadsDialog justPlaced order={placed.order} patient={{ id: placed.patient.id, fullName: orderPatientName(placed.patient), mrn: placed.patient.mrn, phone: placed.patient.phone, email: placed.patient.email }}
+      onDownloadForm={() => downloadBlob(placed.form, placed.formName)} onBilled={() => onOrdered(placed.order)} onClose={() => setPlaced(null)} />}
   </div>
 }

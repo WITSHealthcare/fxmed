@@ -3,7 +3,7 @@ import { calculateBmi, cleanDate, cleanNumber, cleanText, getEmrContext, isUuid,
 import type { FormDefinition } from '@/lib/forms'
 import { followUpWish, intakeNote, vitalFields, type OutreachAttendee, type OutreachStatus } from '@/lib/outreach'
 
-const migrationHint = 'Has migration 044 been applied?'
+const migrationHint = 'Has migration 048 been applied?'
 const statuses: OutreachStatus[] = ['awaiting_vitals', 'signed_off', 'booked', 'no_follow_up', 'left']
 const fail = (error: string, status = 400) => NextResponse.json({ error }, { status })
 

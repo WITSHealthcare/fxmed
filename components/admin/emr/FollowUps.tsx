@@ -5,6 +5,7 @@ import { clinicalPlainText } from '@/lib/clinicalText'
 import { PhoneCallIcon, PlusIcon, WhatsappLogoIcon, XIcon } from '@phosphor-icons/react'
 import { contactChannels, contactOutcomes, daysUntilDue, dueLabel, lagosDate, reminderMessage, whatsappNumber } from '@/lib/follow-ups'
 import { Alert, Empty, Field, Loading, Panel, fullName, label } from '@/components/admin/emr/ui'
+import { useEmrAccess } from '@/components/admin/emr/access'
 
 const api = '/api/admin/emr'
 const day = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Lagos' })
@@ -103,10 +104,11 @@ export default function FollowUps({ onPatient }: { onPatient: (id: string) => vo
 
 // One patient's follow-ups, for the patient record.
 export function FollowUpList({ patientId, onChanged, onCreate }: { patientId: string; onChanged: () => void; onCreate: () => void }) {
+  const editable = useEmrAccess().can('edit_encounters')
   const open = useFollowUps('open', patientId)
   const closed = useFollowUps('completed', patientId)
   const refresh = () => { open.reload(); closed.reload(); onChanged() }
-  return <Panel title="Follow-ups" subtitle="What the team needs to chase this patient about." action={<button onClick={onCreate} className="primary"><PlusIcon size={18} weight="bold" />Add follow-up</button>}>
+  return <Panel title="Follow-ups" subtitle="What the team needs to chase this patient about." action={editable ? <button onClick={onCreate} className="primary"><PlusIcon size={18} weight="bold" />Add follow-up</button> : undefined}>
     {(open.error || closed.error) && <Alert tone="error">{open.error || closed.error}</Alert>}
     {!open.data || !closed.data ? <Loading /> : <>
       <div className="mt-5 space-y-3">{open.data.followUps.map(item => <FollowUpCard key={item.id} item={item} data={open.data!} onChanged={refresh} />)}{!open.data.followUps.length && <Empty text="No open follow-ups for this patient." />}</div>
@@ -122,11 +124,14 @@ export function NoteFollowUp({ tasks }: { tasks: FollowUp[] }) {
 }
 
 function FollowUpCard({ item, data, showPatient, onPatient, onChanged }: { item: FollowUp; data: FollowUpData; showPatient?: boolean; onPatient?: (id: string) => void; onChanged: () => void }) {
+  // Staff who can only view follow-ups (sales) see no actions.
+  const editable = useEmrAccess().can('edit_encounters')
   const [modal, setModal] = useState<{ kind: 'contact'; channel?: string } | { kind: 'done' | 'cancel' } | null>(null)
   const [history, setHistory] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const open = isOpen(item)
+  const actionable = editable && open
   const patient = item.patient || {}
   const contacts = [...(item.contacts || [])].sort((a, b) => String(b.contacted_at).localeCompare(String(a.contacted_at)))
   const last = contacts[0]
@@ -157,13 +162,13 @@ function FollowUpCard({ item, data, showPatient, onPatient, onChanged }: { item:
     {!open && item.outcome && <p className="mt-2 text-sm"><span className="font-bold">Outcome:</span> {item.outcome}</p>}
     {error && <Alert tone="error">{error}</Alert>}
     <div className="mt-3 flex flex-wrap items-center gap-2">
-      {open && patient.phone && <a href={`tel:${patient.phone}`} onClick={() => setModal({ kind: 'contact', channel: 'call' })} className="secondary"><PhoneCallIcon size={16} weight="duotone" />Call</a>}
-      {open && whatsapp && <a href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(reminderMessage(patient.first_name, item.task_type))}`} target="_blank" rel="noopener noreferrer" onClick={() => setModal({ kind: 'contact', channel: 'whatsapp' })} className="secondary"><WhatsappLogoIcon size={16} weight="duotone" />WhatsApp</a>}
-      {open && <button type="button" onClick={() => setModal({ kind: 'contact' })} className="secondary">Log contact</button>}
-      {open && <button type="button" onClick={() => setModal({ kind: 'done' })} className="primary">Mark done</button>}
-      {open && item.assigned_to !== data.currentUserId && <button type="button" disabled={busy} onClick={() => update({ assigned_to: data.currentUserId })} className="secondary disabled:opacity-50">Assign to me</button>}
-      {open && <button type="button" onClick={() => setModal({ kind: 'cancel' })} className="secondary text-red-700">Cancel</button>}
-      {!open && <button type="button" disabled={busy} onClick={() => update({ status: 'pending' })} className="secondary disabled:opacity-50">Reopen</button>}
+      {actionable && patient.phone && <a href={`tel:${patient.phone}`} onClick={() => setModal({ kind: 'contact', channel: 'call' })} className="secondary"><PhoneCallIcon size={16} weight="duotone" />Call</a>}
+      {actionable && whatsapp && <a href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(reminderMessage(patient.first_name, item.task_type))}`} target="_blank" rel="noopener noreferrer" onClick={() => setModal({ kind: 'contact', channel: 'whatsapp' })} className="secondary"><WhatsappLogoIcon size={16} weight="duotone" />WhatsApp</a>}
+      {actionable && <button type="button" onClick={() => setModal({ kind: 'contact' })} className="secondary">Log contact</button>}
+      {actionable && <button type="button" onClick={() => setModal({ kind: 'done' })} className="primary">Mark done</button>}
+      {actionable && item.assigned_to !== data.currentUserId && <button type="button" disabled={busy} onClick={() => update({ assigned_to: data.currentUserId })} className="secondary disabled:opacity-50">Assign to me</button>}
+      {actionable && <button type="button" onClick={() => setModal({ kind: 'cancel' })} className="secondary text-red-700">Cancel</button>}
+      {editable && !open && <button type="button" disabled={busy} onClick={() => update({ status: 'pending' })} className="secondary disabled:opacity-50">Reopen</button>}
       {contacts.length > 0 && <button type="button" onClick={() => setHistory(value => !value)} aria-expanded={history} className="px-2 text-xs font-bold text-green-mid hover:underline">{history ? 'Hide contact history' : 'Contact history'}</button>}
     </div>
     {history && <ol className="mt-3 space-y-2 border-t border-green-deep/10 pt-3">{contacts.map(contact => <li key={contact.id} className="rounded-[12px] bg-white p-3 text-sm">

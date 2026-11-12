@@ -8,7 +8,7 @@ export const outreachStatuses: { value: OutreachStatus; label: string }[] = [
   { value: 'booked', label: 'Follow-up booked' }, { value: 'no_follow_up', label: 'No follow-up' }, { value: 'left', label: 'Left early' },
 ]
 
-// The vital signs a health worker logs, with the ranges migration 044 accepts.
+// The vital signs a health worker logs, with the ranges migration 048 accepts.
 export const vitalFields = [
   { name: 'systolic_bp', label: 'Systolic BP', unit: 'mmHg', min: 40, max: 300, integer: true },
   { name: 'diastolic_bp', label: 'Diastolic BP', unit: 'mmHg', min: 20, max: 200, integer: true },

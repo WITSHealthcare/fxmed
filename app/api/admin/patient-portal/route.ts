@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cleanText, getEmrContext, isUuid, writeEmrAudit, type EmrPermission } from '@/lib/emr'
-import { notifyPatient, portalErrorMessage } from '@/lib/patient-portal'
+import { notifyPatient, portalErrorMessage, uploadReviewedNotice } from '@/lib/patient-portal'
 import { portalUrl } from '@/lib/portal-url'
 
 // The clinic side of the patient portal: portal access, the message thread,
@@ -169,14 +169,20 @@ export async function POST(request: NextRequest) {
       }
 
       case 'review_upload': {
-        if (!isUuid(body.id)) return NextResponse.json({ error: 'A valid document is required.' }, { status: 400 })
+        // One upload, or several pages of the same results (ids), told to the patient once.
+        const ids = (Array.isArray(body.ids) ? body.ids : [body.id]).filter(isUuid).slice(0, 50)
+        if (!ids.length) return NextResponse.json({ error: 'A valid document is required.' }, { status: 400 })
         const { data, error } = await database.from('emr_documents')
           .update({ portal_status: 'reviewed', reviewed_by: user.id, reviewed_at: now })
-          .eq('id', body.id).eq('source', 'patient').select('*').single()
+          .in('id', ids).eq('source', 'patient').select('*')
         if (error) throw error
-        await notifyPatient(database, data.patient_id, { kind: 'document', title: 'Your care team reviewed a document you uploaded', detail: data.title, section: 'documents', email: { subject: 'Your FXMed care team reviewed your document', summary: 'Your care team has reviewed a document you uploaded to your Patient Portal.' } })
-        await writeEmrAudit(database, user, { action: 'review_patient_upload', entityType: 'emr_document', entityId: data.id, patientId: data.patient_id })
-        return NextResponse.json({ document: data })
+        if (!data?.length) return NextResponse.json({ error: 'Document not found.' }, { status: 404 })
+        for (const patientId of Array.from(new Set(data.map(item => item.patient_id as string)))) {
+          const reviewed = data.filter(item => item.patient_id === patientId)
+          await notifyPatient(database, patientId, uploadReviewedNotice(reviewed.length === 1 ? reviewed[0] : { category: reviewed.every(item => item.category === 'laboratory') ? 'laboratory' : null }))
+        }
+        for (const item of data) await writeEmrAudit(database, user, { action: 'review_patient_upload', entityType: 'emr_document', entityId: item.id, patientId: item.patient_id })
+        return NextResponse.json({ document: data[0], documents: data })
       }
 
       case 'share_care_plan': {

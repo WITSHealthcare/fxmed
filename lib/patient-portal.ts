@@ -7,7 +7,7 @@ import { displayDate, displayTime, lagosToday } from '@/lib/bookingTimes'
 import { sendEmail } from '@/lib/email'
 import { contact, siteUrl } from '@/lib/seo'
 
-export const portalSections = ['overview', 'care_plan', 'documents', 'messages'] as const
+export const portalSections = ['overview', 'care_plan', 'lab_results', 'documents', 'billing', 'messages'] as const
 export type PortalSection = typeof portalSections[number]
 
 export const portalDocumentTypes = [
@@ -19,7 +19,7 @@ export const PORTAL_MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 // The patient-facing columns of an EMR record. Internal fields such as CRM
 // links and who created the record are never sent to the portal.
 export const portalPatientColumns = 'id,mrn,first_name,middle_name,last_name,date_of_birth,sex,phone,email,address,city,state'
-export const portalDocumentColumns = 'id,title,category,original_name,mime_type,file_size,notes,source,portal_status,shared_at,created_at'
+export const portalDocumentColumns = 'id,title,category,original_name,mime_type,file_size,notes,source,portal_status,investigation_form_id,shared_at,created_at'
 
 /**
  * The signed-in patient, their EMR record and their portal account. Returns
@@ -39,7 +39,7 @@ export async function getRequestPatient(request: NextRequest) {
   return { user, account, database, patientId: account.patient_id as string }
 }
 
-export type PortalNoticeKind = 'message' | 'document' | 'care_plan' | 'appointment'
+export type PortalNoticeKind = 'message' | 'document' | 'care_plan' | 'appointment' | 'lab_order' | 'invoice'
 
 export type PortalNotice = {
   kind: PortalNoticeKind
@@ -60,12 +60,18 @@ const emailDefaults: Record<PortalNoticeKind, { subject: string; summary: string
   document: { subject: 'A new document is ready in your FXMed Patient Portal', summary: 'Your care team has shared a document with you in your Patient Portal.' },
   care_plan: { subject: 'Your FXMed care plan has an update', summary: 'Your care team has shared or updated your care plan in your Patient Portal.' },
   appointment: { subject: 'An update about your FXMed appointment', summary: 'There is an update about your appointment.' },
+  // Says only that there is a form to download: which tests were ordered stays in the portal.
+  lab_order: { subject: 'A new form is ready in your FXMed Patient Portal', summary: 'Your care team has added a form for you to download in your Patient Portal.' },
+  // No amounts or services: those stay in the portal.
+  invoice: { subject: 'You have a new invoice from FXMed', summary: 'Your care team has sent you an invoice. You can view and download it in your Patient Portal.' },
 }
 const buttonLabels: Record<PortalSection, string> = {
   overview: 'Open your Patient Portal',
   care_plan: 'See your care plan',
   documents: 'Open your documents',
   messages: 'Read the message',
+  lab_results: 'Open your Patient Portal',
+  billing: 'View your invoice',
 }
 // Several changes in a row send one email of each kind. Each appointment
 // update is its own email.
@@ -85,18 +91,46 @@ export function hasOnboarded(account: { status?: string | null; activated_at?: s
  * they have turned emails off. Only for patients who have completed portal
  * onboarding. A missed notification never fails the action that raised it.
  */
+/** Tells the patient their care team has requested lab tests, with a request form to download. */
+export function labOrderNotice(panelTitle: string | null | undefined): PortalNotice {
+  return { kind: 'lab_order', title: 'Your care team requested lab tests', detail: panelTitle ? `${panelTitle}. Download the request form to take to the lab.` : 'Download the request form to take to the lab.', section: 'lab_results' }
+}
+
+/** Tells the patient they have a new invoice, in their portal's Billing section. */
+export function invoiceNotice(invoiceNumber: string, total: string): PortalNotice {
+  return { kind: 'invoice', title: 'You have a new invoice', detail: `${invoiceNumber} · ${total}`, section: 'billing' }
+}
+
+/** Tells the patient their care team has looked at something they uploaded. */
+export function uploadReviewedNotice(document: { title?: string | null; category?: string | null }): PortalNotice {
+  const lab = document.category === 'laboratory'
+  return {
+    kind: 'document',
+    title: lab ? 'Your care team reviewed the lab results you uploaded' : 'Your care team reviewed a document you uploaded',
+    detail: document.title || null,
+    section: 'documents',
+    // Never says what the document was: email is not a secure channel.
+    email: { subject: 'Your FXMed care team reviewed your document', summary: 'Your care team has reviewed a document you uploaded to your Patient Portal.' },
+  }
+}
+
 export async function notifyPatient(database: SupabaseClient, patientId: string, notice: PortalNotice) {
   const { data: account, error: accountError } = await database.from('patient_portal_accounts').select('*').eq('patient_id', patientId).maybeSingle()
   if (accountError) console.error('Failed to look up a patient portal account:', accountError.message)
   if (!hasOnboarded(account)) return
 
-  const { data, error } = await database.from('patient_portal_notifications').insert({
+  const insert = (kind: string, section: string) => database.from('patient_portal_notifications').insert({
     patient_id: patientId,
-    kind: notice.kind,
+    kind,
     title: notice.title.slice(0, 240),
     detail: notice.detail ? notice.detail.slice(0, 600) : null,
-    section: notice.section,
+    section,
   }).select('id').single()
+  let { data, error } = await insert(notice.kind, notice.section)
+  // Before migrations 050 and 051 the database does not accept lab test or
+  // invoice notifications, or their sections. File it as a document on the
+  // Overview rather than lose it.
+  if (error?.code === '23514') ({ data, error } = await insert('document', 'overview'))
   if (error) console.error('Failed to write patient portal notification:', error.message)
 
   // The email goes after the response, so it never slows down or fails the clinic's action.

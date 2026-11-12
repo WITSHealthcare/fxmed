@@ -23,6 +23,7 @@ import {
   FileTextIcon, RobotIcon, UserCircleIcon, UsersThreeIcon, XIcon,
 } from '@phosphor-icons/react'
 import AddBookingDialog from '@/components/admin/AddBookingDialog'
+import ProspectFollowUps from '@/components/admin/ProspectFollowUps'
 import { bookingAmount, bookingTypeName, type BookingType } from '@/lib/bookingTimes'
 
 type Stage = "Outreach" | "Follow Up" | "Enrolment" | "Onboarding" | "Active"
@@ -499,6 +500,7 @@ export default function CrmDashboard({
   const [search, setSearch] = useState("")
   const [stageFilter, setStageFilter] = useState<string>("All")
   const [riskFilter, setRiskFilter] = useState<string>("All")
+  const [showProspects, setShowProspects] = useState(false)
   const [activeSection, setActiveSection] = useState<NavItem>("overview")
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [showPatientModal, setShowPatientModal] = useState(false)
@@ -1569,8 +1571,11 @@ export default function CrmDashboard({
     setAgentMessages((prev) => [...prev, { role: "user", text: prompt }, { role: "assistant", text: response }])
   }
 
+  if (showProspects) return <div className="space-y-5"><button onClick={() => setShowProspects(false)} className="font-semibold text-green-mid">← Back to CRM dashboard</button><ProspectFollowUps /></div>
+
   return (
     <div className="space-y-6">
+      <button onClick={() => setShowProspects(true)} className="rounded-lg border border-green-deep/20 bg-white px-5 py-3 font-semibold text-green-deep hover:bg-green-50">Prospect follow-ups · Individuals & Corporate →</button>
       <div className="flex items-start justify-between gap-4 mb-6">
         {crmView === "clinical" ? (
           <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg overflow-x-auto">

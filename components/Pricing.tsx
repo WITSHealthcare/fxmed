@@ -26,10 +26,10 @@ export default function Pricing() {
 
         {/* Pricing Toggle */}
         <div className="flex justify-center mb-16">
-          <div className="inline-flex bg-white rounded-[50px] p-1 shadow-sm">
+          <div className="inline-flex max-w-full flex-wrap justify-center gap-1 bg-white rounded-[28px] sm:rounded-[50px] p-1 shadow-sm">
             <button 
               onClick={() => setActiveTab('personal-wellness')}
-              className={`font-dm-sans px-6 py-3 rounded-[50px] text-[1rem] font-medium transition-all ${
+              className={`font-dm-sans px-4 sm:px-6 py-3 rounded-[50px] text-[0.95rem] sm:text-[1rem] font-medium transition-all ${
                 activeTab === 'personal-wellness' 
                   ? 'bg-gold text-green-deep' 
                   : 'text-green-deep hover:bg-green-deep/10'
@@ -39,7 +39,7 @@ export default function Pricing() {
             </button>
             <button 
               onClick={() => setActiveTab('pregnancy')}
-              className={`font-dm-sans px-6 py-3 rounded-[50px] text-[1rem] font-medium transition-all ${
+              className={`font-dm-sans px-4 sm:px-6 py-3 rounded-[50px] text-[0.95rem] sm:text-[1rem] font-medium transition-all ${
                 activeTab === 'pregnancy' 
                   ? 'bg-gold text-green-deep' 
                   : 'text-green-deep hover:bg-green-deep/10'
@@ -49,7 +49,7 @@ export default function Pricing() {
             </button>
             <button 
               onClick={() => setActiveTab('corporate')}
-              className={`font-dm-sans px-6 py-3 rounded-[50px] text-[1rem] font-medium transition-all ${
+              className={`font-dm-sans px-4 sm:px-6 py-3 rounded-[50px] text-[0.95rem] sm:text-[1rem] font-medium transition-all ${
                 activeTab === 'corporate' 
                   ? 'bg-gold text-green-deep' 
                   : 'text-green-deep hover:bg-green-deep/10'

@@ -3,6 +3,7 @@ import { syncReviewFollowUps } from '@/lib/reviewFollowUps'
 import { createClient } from '@supabase/supabase-js'
 import { getRequestAdminUser } from '@/lib/admin-api-auth'
 import { canAccessTab, getUserAdminRole } from '@/lib/admin-auth'
+import { hasEmrPermission } from '@/lib/emr-permissions'
 import { loadNotifications, notificationSources } from '@/lib/admin-notifications'
 
 export type { NotificationKind } from '@/lib/admin-notifications'
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
   const role = getUserAdminRole(user)
   if (!role) return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
 
-  const visible = notificationSources.filter(source => canAccessTab(role, source.tab))
+  const visible = notificationSources.filter(source => canAccessTab(role, source.tab) && (!source.permission || hasEmrPermission(role, source.permission)))
   // Due review follow-ups are raised automatically; make sure they exist first.
   if (visible.some(source => source.kind === 'follow_up')) await syncReviewFollowUps(supabase)
 

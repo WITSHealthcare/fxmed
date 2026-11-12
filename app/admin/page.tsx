@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
@@ -284,6 +284,7 @@ export default function AdminPanel() {
   const [importing, setImporting] = useState(false)
   const [authChecking, setAuthChecking] = useState(true)
   const [currentRole, setCurrentRole] = useState<AdminRole | null>(null)
+  const menu = useRef<HTMLElement>(null)
 
   // CRM state
   const [patients, setPatients] = useState<Patient[]>(patientsSeed)
@@ -328,6 +329,16 @@ export default function AdminPanel() {
 
     verifyAdminAccess()
   }, [router])
+
+  // On phones the menu is a sideways strip: bring the open tab into view
+  // without moving the page up or down.
+  useEffect(() => {
+    const strip = menu.current
+    const item = strip?.querySelector<HTMLElement>(`[data-tab="${activeTab}"]`)
+    if (!strip || !item || strip.scrollWidth <= strip.clientWidth) return
+    strip.scrollTo({ left: item.offsetLeft - (strip.clientWidth - item.offsetWidth) / 2, behavior: 'smooth' })
+    // The menu only appears once both the access check and the first load are done.
+  }, [activeTab, authChecking, loading])
 
   // Import JSON content as drafts in batches
   const importDraftsFromJSON = async () => {
@@ -605,25 +616,26 @@ export default function AdminPanel() {
           <div
             role="img"
             aria-label="FXMed"
-            className="h-16 w-48 bg-no-repeat sm:w-52 lg:w-56"
+            className="h-12 w-36 bg-no-repeat sm:h-16 sm:w-52 lg:w-56"
             style={{ backgroundImage: "url('/logo.png')", backgroundPosition: '51% 45%', backgroundSize: '115.5% auto' }}
           />
           <button type="button" onClick={handleLogout} className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-white/70 transition hover:bg-white/10 hover:text-white lg:hidden"><SignOutIcon size={18} weight="duotone" />Sign out</button>
         </div>
 
-        <div className="relative mt-4 rounded-[22px] border border-white/10 bg-white/[0.07] p-5 backdrop-blur-sm lg:mt-7">
-          <span className="inline-flex rounded-full bg-gold px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-green-deep">FXMed Admin</span>
-          <p className="mt-4 text-lg font-bold">Management Portal</p>
+        <div className="relative mt-3 rounded-[18px] border border-white/10 bg-white/[0.07] px-4 py-3 backdrop-blur-sm lg:mt-7 lg:rounded-[22px] lg:p-5">
+          <span className="hidden rounded-full bg-gold px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-green-deep lg:inline-flex">FXMed Admin</span>
+          <p className="text-base font-bold lg:mt-4 lg:text-lg">Management Portal</p>
           <p className="mt-1 text-xs tracking-[0.05em] text-white/50">{currentRole ? adminRoleLabels[currentRole] : 'Dashboard access'}</p>
         </div>
 
-        <nav className="relative mt-4 flex gap-2 overflow-x-auto pb-2 lg:mt-7 lg:block lg:min-h-0 lg:flex-1 lg:space-y-1.5 lg:overflow-y-auto lg:pb-4 lg:pr-1">
+        <nav ref={menu} className="relative -mx-5 mt-3 flex gap-2 overflow-x-auto px-5 pb-2 [scrollbar-width:none] lg:mx-0 lg:mt-7 lg:px-0 lg:block lg:min-h-0 lg:flex-1 lg:space-y-1.5 lg:overflow-y-auto lg:pb-4 lg:pr-1">
           {availableTabs.map((item) => (
-            <div key={item.id} className={item.id === 'healthcare' ? 'mt-5 border-t border-white/10 pt-5' : ''}>
-              {item.id === 'healthcare' && <p className="mb-3 px-4 text-[10px] font-bold uppercase tracking-[0.16em] text-gold/70">Healthcare</p>}
+            <div key={item.id} className={`shrink-0 ${item.id === 'healthcare' ? 'border-l border-white/10 pl-2 lg:mt-5 lg:border-l-0 lg:border-t lg:pl-0 lg:pt-5' : ''}`}>
+              {item.id === 'healthcare' && <p className="mb-3 hidden px-4 text-[10px] font-bold uppercase tracking-[0.16em] text-gold/70 lg:block">Healthcare</p>}
             <button
+              data-tab={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`group flex shrink-0 items-center gap-3 rounded-[14px] px-4 py-3.5 text-left text-sm font-semibold transition-all lg:w-full ${
+              className={`group flex shrink-0 items-center gap-3 rounded-[14px] px-4 py-3 text-left text-sm font-semibold transition-all lg:w-full lg:py-3.5 ${
                 activeTab === item.id
                   ? 'bg-gold text-green-deep shadow-[0_8px_24px_rgba(201,226,101,0.18)]'
                   : 'text-white/65 hover:bg-white/[0.08] hover:text-white'
@@ -647,7 +659,7 @@ export default function AdminPanel() {
       </aside>
 
       <main className="min-w-0 pb-8">
-        <header className="sticky top-0 z-20 border-b border-green-deep/10 bg-[#f7f5ee]/95 px-4 py-5 shadow-[0_10px_30px_rgba(26,61,46,0.04)] backdrop-blur-xl sm:px-7 lg:px-10 lg:py-7 xl:px-12">
+        <header className="relative z-20 border-b border-green-deep/10 bg-[#f7f5ee]/95 px-4 py-4 lg:sticky lg:top-0 shadow-[0_10px_30px_rgba(26,61,46,0.04)] backdrop-blur-xl sm:px-7 lg:px-10 lg:py-7 xl:px-12">
           <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-5">
             <div className="flex min-w-0 items-center gap-4">
               {activeNavItem && <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-[15px] bg-green-deep text-gold shadow-[0_8px_20px_rgba(26,61,46,0.14)] sm:flex"><activeNavItem.Icon size={25} weight="fill" /></span>}
@@ -749,7 +761,7 @@ export default function AdminPanel() {
 
             {activeTab === 'contacts' && canAccessTab(currentRole, 'contacts') && <Contacts />}
 
-            {activeTab === 'healthcare' && canAccessTab(currentRole, 'healthcare') && <EmrWorkspace />}
+            {activeTab === 'healthcare' && canAccessTab(currentRole, 'healthcare') && <EmrWorkspace role={currentRole} />}
             {activeTab === 'fm_analysis' && canAccessTab(currentRole, 'fm_analysis') && <FmLabAnalysis />}
           </div>
         </div>

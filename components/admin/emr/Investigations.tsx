@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ArrowCounterClockwiseIcon, CircleNotchIcon, ClockIcon, CopyIcon, DownloadSimpleIcon, EyeIcon,
-  FileTextIcon, FlaskIcon, ImageIcon, PencilSimpleIcon, PlusIcon, UploadSimpleIcon, XIcon,
+  FileTextIcon, FlaskIcon, ImageIcon, PencilSimpleIcon, PlusIcon, ReceiptIcon, UploadSimpleIcon, XIcon,
 } from '@phosphor-icons/react'
 import InvestigationOrderForm, { INVESTIGATIONS_API, patientSnapshot, type OrderPatient, type OrderTemplate } from '@/components/admin/emr/InvestigationOrderForm'
+import { OrderDownloadsDialog } from '@/components/admin/emr/OrderInvoices'
 import ResultsEditor from '@/components/admin/emr/ResultsEditor'
 import { Alert, Empty, Loading, Panel } from '@/components/admin/emr/ui'
 import { base64ToBlob, blobToBase64, downloadBlob, formatFileSize } from '@/lib/fileDownload'
@@ -40,6 +41,8 @@ type Entry = {
   files: LabReportFile[]
   /** Lab report files chosen on an order card, uploaded as the window opens. */
   pendingUpload?: File[]
+  /** Files already on the record, such as the patient's upload, read as the window opens. */
+  readOnOpen?: string[]
 }
 
 function daysSince(value: string) {
@@ -98,6 +101,7 @@ function useActions(onChanged: () => void) {
   return {
     error,
     setError,
+    refresh: onChanged,
     download: (kind: 'order' | 'report', id: string) => run(() => downloadStoredPdf(kind, id), false),
     openFile: (id: string) => run(() => openLabReport(id), false),
     cancelOrder: (order: InvestigationOrder) => {
@@ -117,7 +121,21 @@ function useActions(onChanged: () => void) {
     removeFile: (file: LabReportFile) => {
       if (confirmRemoveFile(file.originalName)) run(() => removeInvestigationFile(file.id))
     },
+    review: (ids: string[]) => run(() => reviewPatientUploads(ids)),
   }
+}
+
+/** Marks lab results the patient uploaded as reviewed, and tells the patient. */
+async function reviewPatientUploads(ids: string[]) {
+  const response = await fetch('/api/admin/patient-portal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'review_upload', ids }) })
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(result.error || 'The upload could not be marked reviewed.')
+}
+
+/** The request form and the lab / home collection invoices for an order. `mrn` is the patient's, when the order does not carry it. */
+function OrderDocuments({ order, mrn, actions, onClose }: { order: InvestigationOrder; mrn?: string; actions: ReturnType<typeof useActions>; onClose: () => void }) {
+  return <OrderDownloadsDialog order={order} patient={{ id: order.patientId || '', fullName: order.patient.fullName, mrn: order.mrn || mrn, phone: order.patient.phone, email: order.patient.email }}
+    onDownloadForm={() => actions.download('order', order.id)} onBilled={actions.refresh} onClose={onClose} />
 }
 
 function SubTabs<T extends string>({ value, onChange, items }: { value: T; onChange: (value: T) => void; items: { id: T; label: string; description: string; count?: number }[] }) {
@@ -138,7 +156,9 @@ function FileLinks({ files, onOpen, onRemove, disabled }: { files: LabReportFile
     const Icon = file.mimeType?.startsWith('image/') ? ImageIcon : FileTextIcon
     return <span key={file.id} className="inline-flex max-w-full items-center rounded-full border border-green-deep/10 bg-white text-xs font-semibold text-green-deep hover:border-green-mid">
       <button type="button" onClick={() => onOpen(file.id)} title="Open the lab's report" className={`inline-flex min-w-0 items-center gap-2 py-1.5 pl-3 ${onRemove ? 'pr-1.5' : 'pr-3'}`}>
-        <Icon size={16} weight="duotone" className="shrink-0 text-green-mid" /><span className="truncate">{file.originalName}</span>{file.fileSize ? <span className="shrink-0 font-normal text-text-mid">{formatFileSize(file.fileSize)}</span> : null}
+        <Icon size={16} weight="duotone" className="shrink-0 text-green-mid" /><span className="truncate">{file.originalName}</span>{file.fileSize ? <span className="hidden shrink-0 font-normal text-text-mid sm:inline">{formatFileSize(file.fileSize)}</span> : null}
+        {/* Shorter on phones, so the file name keeps its room. */}
+        {file.fromPatient && <span title={file.isNew ? 'New from the patient' : 'Uploaded by the patient'} className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${file.isNew ? 'bg-gold text-green-deep' : 'bg-green-deep/5 text-text-mid'}`}><span className="sm:hidden">{file.isNew ? 'New' : 'Patient'}</span><span className="hidden sm:inline">{file.isNew ? 'New from patient' : 'From patient'}</span></span>}
       </button>
       {onRemove && <button type="button" onClick={() => onRemove(file)} disabled={disabled} aria-label={`Remove ${file.originalName}`} title="Remove this file" className="mr-1 shrink-0 rounded-full p-1 text-text-mid hover:bg-red-50 hover:text-red-700 disabled:opacity-50"><XIcon size={14} weight="bold" /></button>}
     </span>
@@ -167,12 +187,16 @@ function TestChips({ tests, limit = 8 }: { tests: string[]; limit?: number }) {
 
 // Earlier orders, made before results were tracked, use the same card: their
 // results may still be outstanding, but nothing says so.
-function AwaitingOrderCard({ order, report, files, showPatient, onEnter, onUpload, onView, onOpenPatient, actions }: {
+function AwaitingOrderCard({ order, report, files, showPatient, mrn, onEnter, onReadPatientUpload, onUpload, onView, onOpenPatient, actions }: {
   order: InvestigationOrder
+  /** The patient's number, on a patient record where the order does not carry it. */
+  mrn?: string
   report?: InvestigationReport
   files: LabReportFile[]
   showPatient?: boolean
   onEnter: () => void
+  /** Opens the results window and reads in the lab report the patient uploaded. */
+  onReadPatientUpload?: () => void
   onUpload: (files: File[]) => void
   onView: () => void
   onOpenPatient?: () => void
@@ -180,7 +204,9 @@ function AwaitingOrderCard({ order, report, files, showPatient, onEnter, onUploa
 }) {
   const waited = daysSince(order.createdAt)
   const earlier = !order.status
-  return <article className={`rounded-[18px] border p-5 ${earlier ? 'border-green-deep/10 bg-white' : 'border-amber-200 bg-amber-50/40'}`}>
+  const fromPatient = files.filter(file => file.isNew)
+  const [documents, setDocuments] = useState(false)
+  return <article className={`rounded-[18px] border p-5 ${fromPatient.length ? 'border-gold bg-gold/10' : earlier ? 'border-green-deep/10 bg-white' : 'border-amber-200 bg-amber-50/40'}`}>
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
         {showPatient && <button type="button" onClick={onOpenPatient} disabled={!onOpenPatient} className="mb-1 text-xs font-bold text-green-mid hover:text-green-deep hover:underline">{order.mrn ? `${order.mrn} · ` : ''}{order.patient.fullName || 'Patient'}</button>}
@@ -192,15 +218,19 @@ function AwaitingOrderCard({ order, report, files, showPatient, onEnter, onUploa
         : <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800"><ClockIcon size={14} weight="bold" />{waited === 0 ? 'Awaiting results · ordered today' : `Awaiting results · ${waited} day${waited === 1 ? '' : 's'}`}</span>}
     </div>
     <TestChips tests={order.tests} />
+    {fromPatient.length > 0 && <p className="mt-3 flex items-center gap-2 text-xs font-bold text-green-deep"><UploadSimpleIcon size={16} weight="bold" className="shrink-0 text-green-mid" />The patient uploaded {fromPatient.length === 1 ? 'a lab report' : `${fromPatient.length} lab report files`} for this order. Read the results in from it.</p>}
     {report && <p className="mt-3 text-xs font-semibold text-green-deep">{report.results.length} result{report.results.length === 1 ? '' : 's'} saved on {formatDay(report.updatedAt || report.createdAt)}. Waiting for the rest.</p>}
     <FileLinks files={files} onOpen={actions.openFile} onRemove={actions.removeFile} />
     <div className="mt-4 flex flex-wrap items-center gap-2">
-      <button type="button" onClick={onEnter} disabled={!order.patientId} className="primary disabled:opacity-50"><PencilSimpleIcon size={18} weight="bold" />{report ? 'Add remaining results' : 'Enter results'}</button>
+      {fromPatient.length > 0 && onReadPatientUpload && <button type="button" onClick={onReadPatientUpload} disabled={!order.patientId} className="primary disabled:opacity-50"><FlaskIcon size={18} weight="bold" />Read in the patient's results</button>}
+      <button type="button" onClick={onEnter} disabled={!order.patientId} className={`${fromPatient.length && onReadPatientUpload ? 'secondary' : 'primary'} disabled:opacity-50`}><PencilSimpleIcon size={18} weight="bold" />{report ? 'Add remaining results' : 'Enter results'}</button>
       <UploadButton onFiles={onUpload} disabled={!order.patientId} />
       <button type="button" onClick={() => actions.download('order', order.id)} className="secondary"><DownloadSimpleIcon size={18} weight="bold" />Request form</button>
+      <button type="button" onClick={() => setDocuments(true)} title="Request form and invoices for lab or home collection" className="secondary"><ReceiptIcon size={18} weight="bold" />Invoices</button>
       {report && <button type="button" onClick={onView} className="secondary"><EyeIcon size={18} weight="bold" />View results so far</button>}
       <button type="button" onClick={() => actions.cancelOrder(order)} className="px-2 text-sm font-semibold text-text-mid hover:text-red-700">{earlier ? 'Close without results' : 'Cancel order'}</button>
     </div>
+    {documents && <OrderDocuments order={order} mrn={mrn} actions={actions} onClose={() => setDocuments(false)} />}
   </article>
 }
 
@@ -320,8 +350,9 @@ const statusChip: Record<string, { text: string; tone: string }> = {
   untracked: { text: 'Not tracked', tone: 'bg-gray-100 text-text-mid' },
 }
 
-function OrderHistory({ orders, showPatient, loading, onReuse, onEnter, onOpenPatient, actions }: {
+function OrderHistory({ orders, showPatient, loading, mrn, onReuse, onEnter, onOpenPatient, actions }: {
   orders: InvestigationOrder[]
+  mrn?: string
   showPatient?: boolean
   loading?: boolean
   onReuse: (order: InvestigationOrder) => void
@@ -329,6 +360,7 @@ function OrderHistory({ orders, showPatient, loading, onReuse, onEnter, onOpenPa
   onOpenPatient?: (order: InvestigationOrder) => void
   actions: ReturnType<typeof useActions>
 }) {
+  const [documents, setDocuments] = useState<InvestigationOrder | null>(null)
   return <Panel title={showPatient ? 'Recent orders' : 'Order history'} subtitle={showPatient ? 'The latest investigation orders across all patients.' : `${orders.length} order${orders.length === 1 ? '' : 's'} for this patient.`}>
     {loading ? <Loading /> : <div className="mt-5 divide-y divide-green-deep/10">{orders.length ? orders.map(order => {
       const chip = statusChip[order.status || 'untracked']
@@ -341,6 +373,7 @@ function OrderHistory({ orders, showPatient, loading, onReuse, onEnter, onOpenPa
         <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${chip.tone}`}>{chip.text}</span>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => actions.download('order', order.id)} className="secondary"><DownloadSimpleIcon size={16} weight="bold" />Form</button>
+          <button type="button" onClick={() => setDocuments(order)} title="Request form and invoices for lab or home collection" className="secondary"><ReceiptIcon size={16} weight="bold" />Invoices</button>
           <button type="button" onClick={() => onReuse(order)} title="Start a new order with these tests" className="secondary"><CopyIcon size={16} weight="bold" />Reuse tests</button>
           {!order.status && order.patientId && <button type="button" onClick={() => onEnter(order)} className="secondary"><PencilSimpleIcon size={16} weight="bold" />Enter results</button>}
           {order.status === 'cancelled' && <button type="button" onClick={() => actions.reopenOrder(order)} className="secondary"><ArrowCounterClockwiseIcon size={16} weight="bold" />Reopen</button>}
@@ -348,6 +381,7 @@ function OrderHistory({ orders, showPatient, loading, onReuse, onEnter, onOpenPa
         </div>
       </div>
     }) : <Empty text="No investigations have been ordered yet." />}</div>}
+    {documents && <OrderDocuments order={documents} mrn={mrn} actions={actions} onClose={() => setDocuments(null)} />}
   </Panel>
 }
 
@@ -377,6 +411,51 @@ function NameMatches({ name, orders, reports, onLink, actions }: {
   </Panel>
 }
 
+type PatientUploadGroup = { key: string; order: InvestigationOrder | null; files: LabReportFile[]; notes: string[]; uploadedAt: string }
+
+/** Lab results the patient uploaded that no one has reviewed yet, one group per order. */
+function patientUploadGroups(documents: any[], orders: InvestigationOrder[]) {
+  const groups: PatientUploadGroup[] = []
+  for (const document of documents) {
+    if (document.source !== 'patient' || document.category !== 'laboratory' || document.portal_status !== 'new') continue
+    const order = orders.find(item => item.id === document.investigation_form_id) || null
+    const key = order?.id || 'none'
+    let group = groups.find(item => item.key === key)
+    if (!group) {
+      group = { key, order, files: [], notes: [], uploadedAt: document.created_at }
+      groups.push(group)
+    }
+    group.files.push({ ...mapLabReportFile(document), orderId: order?.id || null })
+    const note = typeof document.notes === 'string' ? document.notes.trim() : ''
+    if (note && !group.notes.includes(note)) group.notes.push(note)
+    if (document.created_at > group.uploadedAt) group.uploadedAt = document.created_at
+  }
+  // Pages in the order they were sent.
+  for (const group of groups) group.files.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  return groups
+}
+
+function PatientUploads({ groups, onRead, actions }: { groups: PatientUploadGroup[]; onRead: (group: PatientUploadGroup) => void; actions: ReturnType<typeof useActions> }) {
+  if (!groups.length) return null
+  return <Panel title="Lab results from the patient" subtitle="Uploaded from the patient's portal. Read the results in to check and save them; that also marks the upload reviewed and lets the patient know.">
+    <div className="mt-5 space-y-3">{groups.map(group => <article key={group.key} className="rounded-[18px] border border-gold bg-gold/10 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-bold text-green-deep">{group.order ? group.order.panelTitle : 'Lab results without an order'}</p>
+          <p className="mt-1 text-xs text-text-mid">Uploaded {formatDay(group.uploadedAt)} · {group.files.length} file{group.files.length === 1 ? '' : 's'}{group.order ? ` · ordered ${formatDay(group.order.createdAt)}` : ' · the patient did not choose a requested test'}</p>
+        </div>
+        <span className="rounded-full bg-gold px-3 py-1.5 text-xs font-bold text-green-deep">New from patient</span>
+      </div>
+      {group.notes.map(note => <p key={note} className="mt-3 rounded-[12px] border border-green-deep/10 bg-white px-4 py-3 text-sm leading-6 text-text-dark"><span className="font-bold text-green-deep">Patient&rsquo;s note: </span>{note}</p>)}
+      <FileLinks files={group.files} onOpen={actions.openFile} />
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => onRead(group)} className="primary"><FlaskIcon size={18} weight="bold" />Read in results</button>
+        <button type="button" onClick={() => actions.review(group.files.map(file => file.id))} title="For an upload that needs no results entered, such as a duplicate" className="secondary">Mark reviewed</button>
+      </div>
+    </article>)}</div>
+  </Panel>
+}
+
 function orderTemplate(order: InvestigationOrder, samePatient: boolean): OrderTemplate {
   // Clinical details describe one patient, so they only carry over on that
   // patient's own record.
@@ -392,7 +471,7 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
   const [template, setTemplate] = useState<{ key: number; value: OrderTemplate } | null>(null)
   const [entry, setEntry] = useState<Entry | null>(null)
   const [viewing, setViewing] = useState<{ report: InvestigationReport; order: InvestigationOrder | null } | null>(null)
-  const closeViewer = useCallback(() => setViewing(null), [])
+  const closeViewer = useCallback(() => setViewing(null), [setViewing])
   const actions = useActions(onChanged)
 
   const awaiting = orders.filter(order => order.status === 'awaiting_results')
@@ -402,10 +481,16 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
   // Results for orders still awaiting the rest are shown on their order.
   const awaitingIds = new Set(awaiting.map(order => order.id))
   const finished = reports.filter(report => !report.orderId || !awaitingIds.has(report.orderId))
-  const open = (order: InvestigationOrder | null, report: InvestigationReport | null, pendingUpload?: File[]) => setEntry({
+  const uploadGroups = patientUploadGroups(chart.documents || [], orders)
+  const open = (order: InvestigationOrder | null, report: InvestigationReport | null, pendingUpload?: File[], from?: { files?: LabReportFile[]; readOnOpen?: string[] }) => setEntry({
     patientId: patient.id, mrn: patient.mrn, snapshot: patientSnapshot(patient), order, report,
-    files: filesFor(order?.id || report?.orderId || null), pendingUpload,
+    files: from?.files || filesFor(order?.id || report?.orderId || null), pendingUpload, readOnOpen: from?.readOnOpen,
   })
+  // Reads in the lab report files the patient sent for an order and no one has reviewed.
+  const readNewFromPatient = (order: InvestigationOrder) => open(order, reportFor(order) || null, undefined, { readOnOpen: filesFor(order.id).filter(file => file.isNew).map(file => file.id) })
+  const readPatientUpload = (group: PatientUploadGroup) => group.order
+    ? open(group.order, reportFor(group.order) || null, undefined, { readOnOpen: group.files.map(file => file.id) })
+    : open(null, null, undefined, { files: group.files, readOnOpen: group.files.map(file => file.id) })
 
   return <div className="space-y-6">
     <SubTabs value={tab} onChange={setTab} items={[
@@ -416,6 +501,7 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
     {actions.error && <Alert tone="error">{actions.error}</Alert>}
 
     {tab === 'results' && <>
+      <PatientUploads groups={uploadGroups} onRead={readPatientUpload} actions={actions} />
       <Panel title="Results" subtitle={finished.length ? `${finished.length} results report${finished.length === 1 ? '' : 's'}. Each downloads as an FXMed-branded PDF.` : 'Results appear here once they are saved.'} action={<button type="button" onClick={() => open(null, null)} className="secondary"><PlusIcon size={18} weight="bold" />Results without an order</button>}>
         <div className="mt-5 space-y-3">{finished.length ? finished.map(report => {
           const order = orders.find(item => item.id === report.orderId)
@@ -423,14 +509,15 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
         }) : <Empty text="No results have been recorded yet." />}</div>
       </Panel>
       <Panel title="Awaiting results" subtitle={awaiting.length ? `${awaiting.length} order${awaiting.length === 1 ? ' is' : 's are'} waiting for results. Enter them by hand, or upload the lab's report to read them in.` : 'Orders appear here until their results are in.'}>
-        <div className="mt-5 space-y-3">{awaiting.length ? awaiting.map(order => <AwaitingOrderCard key={order.id} order={order} report={reportFor(order)} files={filesFor(order.id)} actions={actions}
+        <div className="mt-5 space-y-3">{awaiting.length ? awaiting.map(order => <AwaitingOrderCard key={order.id} order={order} mrn={patient.mrn} report={reportFor(order)} files={filesFor(order.id)} actions={actions}
           onView={() => { const report = reportFor(order); if (report) setViewing({ report, order }) }}
           onEnter={() => open(order, reportFor(order) || null)}
+          onReadPatientUpload={() => readNewFromPatient(order)}
           onUpload={selected => open(order, reportFor(order) || null, selected)} />)
           : <Empty text="No orders are waiting for results." />}</div>
       </Panel>
       {earlier.length > 0 && <Panel title="Earlier orders" subtitle={`${earlier.length} order${earlier.length === 1 ? ' was' : 's were'} placed before results were tracked, so the system cannot tell whether their results came back. Enter or upload the results for any you have, and close the rest.`}>
-        <div className="mt-5 space-y-3">{earlier.map(order => <AwaitingOrderCard key={order.id} order={order} report={reportFor(order)} files={filesFor(order.id)} actions={actions}
+        <div className="mt-5 space-y-3">{earlier.map(order => <AwaitingOrderCard key={order.id} order={order} mrn={patient.mrn} report={reportFor(order)} files={filesFor(order.id)} actions={actions}
           onView={() => { const report = reportFor(order); if (report) setViewing({ report, order }) }}
           onEnter={() => open(order, reportFor(order) || null)}
           onUpload={selected => open(order, reportFor(order) || null, selected)} />)}</div>
@@ -442,7 +529,7 @@ export function PatientInvestigations({ patient, chart, onChanged, attachments }
 
     {tab === 'order' && <>
       <InvestigationOrderForm key={template?.key || 0} patient={patient} template={template?.value} onOrdered={onChanged} />
-      <OrderHistory orders={orders} actions={actions} onEnter={order => open(order, null)}
+      <OrderHistory orders={orders} mrn={patient.mrn} actions={actions} onEnter={order => open(order, null)}
         onReuse={order => { setTemplate({ key: Date.now(), value: orderTemplate(order, true) }); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
     </>}
 
@@ -479,15 +566,19 @@ export function InvestigationWorklist({ onPatient }: { onPatient: (patientId: st
   useEffect(() => { loadAwaiting() }, [loadAwaiting])
   useEffect(() => { if (tab === 'order' && !recent) loadRecent() }, [tab, recent, loadRecent])
 
-  const open = (order: InvestigationOrder, pendingUpload?: File[]) => {
+  const open = (order: InvestigationOrder, pendingUpload?: File[], readOnOpen?: string[]) => {
     if (!order.patientId) return
     setEntry({
       patientId: order.patientId, mrn: order.mrn, snapshot: order.patient, order,
       report: lists?.reports.find(report => report.orderId === order.id) || null,
       files: (lists?.files || []).filter(file => file.orderId === order.id),
       pendingUpload,
+      readOnOpen,
     })
   }
+  const newPatientFiles = (order: InvestigationOrder) => (lists?.files || []).filter(file => file.orderId === order.id && file.isNew).map(file => file.id)
+  // Orders the patient has sent results for come first, then the longest-waiting.
+  const awaitingOrders = lists ? [...lists.orders].sort((a, b) => Number(newPatientFiles(b).length > 0) - Number(newPatientFiles(a).length > 0)) : []
 
   return <div className="space-y-6">
     <SubTabs value={tab} onChange={setTab} items={[
@@ -497,11 +588,12 @@ export function InvestigationWorklist({ onPatient }: { onPatient: (patientId: st
     {loadError && <Alert tone="error">{loadError}</Alert>}
     {actions.error && <Alert tone="error">{actions.error}</Alert>}
 
-    {tab === 'awaiting' && <Panel title="Awaiting results" subtitle="Enter results by hand, or upload the lab's report to read them in. Each order closes when its results are saved.">
-      {!lists ? (loadError ? null : <Loading />) : <div className="mt-5 space-y-3">{lists.orders.length ? lists.orders.map(order => <AwaitingOrderCard key={order.id} order={order} showPatient actions={actions}
+    {tab === 'awaiting' && <Panel title="Awaiting results" subtitle="Enter results by hand, or upload the lab's report to read them in. Orders the patient has uploaded results for come first. Each order closes when its results are saved.">
+      {!lists ? (loadError ? null : <Loading />) : <div className="mt-5 space-y-3">{awaitingOrders.length ? awaitingOrders.map(order => <AwaitingOrderCard key={order.id} order={order} showPatient actions={actions}
         report={lists.reports.find(report => report.orderId === order.id)}
         files={lists.files.filter(file => file.orderId === order.id)}
         onEnter={() => open(order)}
+        onReadPatientUpload={() => open(order, undefined, newPatientFiles(order))}
         onUpload={selected => open(order, selected)}
         onView={() => { const report = lists.reports.find(item => item.orderId === order.id); if (report) setViewing({ report, order }) }}
         onOpenPatient={order.patientId ? () => onPatient(order.patientId!) : undefined} />)
@@ -627,11 +719,17 @@ function ResultsEntry({ entry, onClose, onSaved }: { entry: Entry; onClose: (cha
     }
   }
 
-  // Files chosen on an order card are uploaded as soon as the window opens.
+  // Files chosen on an order card are uploaded as soon as the window opens,
+  // and a lab report the patient uploaded is read straight away.
   useEffect(() => {
-    if (started.current || !entry.pendingUpload?.length) return
-    started.current = true
-    uploadAndRead(entry.pendingUpload)
+    if (started.current) return
+    if (entry.pendingUpload?.length) {
+      started.current = true
+      uploadAndRead(entry.pendingUpload)
+    } else if (entry.readOnOpen?.length) {
+      started.current = true
+      read(entry.readOnOpen)
+    }
     // Runs once, for the files the window was opened with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -654,6 +752,8 @@ function ResultsEntry({ entry, onClose, onSaved }: { entry: Entry; onClose: (cha
         body: JSON.stringify({
           action: 'results', id: report?.id, patientId, orderId: order?.id, patient: snapshot,
           results: filled, reportMeta: meta, completeOrder: order ? completeOrder : undefined,
+          // Any of these the patient uploaded are marked reviewed.
+          documentIds: files.map(file => file.id),
           documentBase64: await blobToBase64(blob), downloadName, size: blob.size,
         }),
       })

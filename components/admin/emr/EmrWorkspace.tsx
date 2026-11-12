@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIcon, ArrowLeftIcon, CalendarCheckIcon, CaretLeftIcon, CaretRightIcon,
   CheckCircleIcon, ClipboardTextIcon, ClockIcon, FileArrowUpIcon, FileTextIcon, FirstAidKitIcon,
@@ -16,6 +16,10 @@ import FunctionalHealthAnalysis from '@/components/admin/FunctionalHealthAnalysi
 import { InvestigationWorklist, PatientInvestigations, confirmRemoveFile, removeInvestigationFile } from '@/components/admin/emr/Investigations'
 import PatientAssistant from '@/components/admin/emr/PatientAssistant'
 import PatientPortalPanel from '@/components/admin/emr/PatientPortalPanel'
+import PatientInvoices from '@/components/admin/emr/Invoices'
+import { EmrAccessProvider, useEmrAccess } from '@/components/admin/emr/access'
+import type { AdminRole } from '@/lib/admin-auth'
+import type { EmrPermission } from '@/lib/emr-permissions'
 import { CoverageBanner, CoveragePanel, useCoverage } from '@/components/admin/emr/Coverage'
 import ReferralWorklist, { PatientReferrals } from '@/components/admin/emr/Referrals'
 import CatalogInput, { type CatalogKind } from '@/components/admin/emr/CatalogInput'
@@ -51,14 +55,24 @@ const nav: Array<{ id: EmrView; label: string; Icon: typeof ActivityIcon }> = [
   { id: 'documents', label: 'Documents', Icon: FileTextIcon },
 ]
 
-export default function EmrWorkspace() {
+// The views staff without clinical access can open. Every other view shows clinical records.
+const viewPermissions: Partial<Record<EmrView, EmrPermission>> = { outreaches: 'view_patients', follow_ups: 'view_follow_ups', patients: 'view_patients', appointments: 'view_patients' }
+
+export default function EmrWorkspace({ role }: { role: AdminRole | null }) {
+  return <EmrAccessProvider role={role}><Workspace /></EmrAccessProvider>
+}
+
+function Workspace() {
+  const { can } = useEmrAccess()
+  const views = nav.filter(item => can(viewPermissions[item.id] || 'view_clinical_records'))
   // A notification can open a view directly, as /admin?tab=healthcare&view=follow_ups,
   // or one patient's chart, as /admin?tab=healthcare&patient=<id>&chart=portal.
   const [view, setView] = useState<EmrView>(() => {
     const params = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search)
-    if (params?.get('patient')) return 'patients'
+    if (params?.get('patient') && views.some(item => item.id === 'patients')) return 'patients'
     const requested = params?.get('view')
-    return nav.some(item => item.id === requested) ? requested as EmrView : 'dashboard'
+    if (views.some(item => item.id === requested)) return requested as EmrView
+    return views.find(item => item.id === 'dashboard')?.id || views.find(item => item.id === 'appointments')?.id || views[0]?.id || 'dashboard'
   })
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(() => typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('patient'))
   // The patient-record tab to open on, when a link goes straight to one.
@@ -81,12 +95,12 @@ export default function EmrWorkspace() {
         <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-gold/20 blur-3xl" />
         <div className="relative flex flex-wrap items-end justify-between gap-6">
           <div><span className="inline-flex rounded-full bg-gold px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-green-deep">Healthcare / EMR</span><h2 className="mt-4 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">Clinical workspace</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-white/65">Longitudinal patient records, encounters, clinical documentation, investigations and care delivery.</p></div>
-          <button type="button" onClick={() => { setSelectedPatientId(null); setView('patients') }} className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-3 text-sm font-bold text-green-deep transition hover:-translate-y-0.5"><UserCirclePlusIcon size={20} weight="fill" />Register patient</button>
+          {can('create_patients') && <button type="button" onClick={() => { setSelectedPatientId(null); setView('patients') }} className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-3 text-sm font-bold text-green-deep transition hover:-translate-y-0.5"><UserCirclePlusIcon size={20} weight="fill" />Register patient</button>}
         </div>
       </section>
 
       <nav className="flex gap-2 overflow-x-auto rounded-[20px] border border-green-deep/10 bg-white p-2 shadow-[0_8px_30px_rgba(26,61,46,0.05)]" aria-label="Healthcare navigation">
-        {nav.map((item) => <button key={item.id} type="button" onClick={() => { setView(item.id); if (item.id !== 'patients') setSelectedPatientId(null) }} className={`flex shrink-0 items-center gap-2 rounded-[14px] px-4 py-3 text-sm font-bold transition ${view === item.id ? 'bg-green-deep text-white shadow-md' : 'text-text-mid hover:bg-green-deep/5 hover:text-green-deep'}`}><item.Icon size={20} weight={view === item.id ? 'fill' : 'duotone'} className={view === item.id ? 'text-gold' : 'text-green-mid'} />{item.label}</button>)}
+        {views.map((item) => <button key={item.id} type="button" onClick={() => { setView(item.id); if (item.id !== 'patients') setSelectedPatientId(null) }} className={`flex shrink-0 items-center gap-2 rounded-[14px] px-4 py-3 text-sm font-bold transition ${view === item.id ? 'bg-green-deep text-white shadow-md' : 'text-text-mid hover:bg-green-deep/5 hover:text-green-deep'}`}><item.Icon size={20} weight={view === item.id ? 'fill' : 'duotone'} className={view === item.id ? 'text-gold' : 'text-green-mid'} />{item.label}</button>)}
       </nav>
 
       {error && <Alert tone="error">{error}</Alert>}
@@ -140,13 +154,14 @@ function Dashboard({ onNavigate, onPatient }: { onNavigate: (view: EmrView) => v
 }
 
 function PatientRegistry({ onPatient, onChanged }: { onPatient: (id: string) => void; onChanged: () => void }) {
+  const { can } = useEmrAccess()
   const [section, setSection] = useState<'registry' | 'requests'>('registry')
   const [patients, setPatients] = useState<Patient[]>([]), [search, setSearch] = useState(''), [status, setStatus] = useState('active'), [sort, setSort] = useState('updated_at'), [direction, setDirection] = useState('desc')
   const [page, setPage] = useState(1), [total, setTotal] = useState(0), [loading, setLoading] = useState(true), [showForm, setShowForm] = useState(false), [error, setError] = useState('')
   const load = useCallback(async () => { setLoading(true); const params = new URLSearchParams({ resource: 'patients', page: String(page), pageSize: '20', status, sort, direction }); if (search.trim()) params.set('search', search.trim()); const response = await fetch(`${api}?${params}`); const result = await response.json(); if (response.ok) { setPatients(result.patients); setTotal(result.total) } else setError(result.error); setLoading(false) }, [page, search, status, sort, direction])
   useEffect(() => { const timer = setTimeout(load, search ? 300 : 0); return () => clearTimeout(timer) }, [load, search])
   return <div className="space-y-5"><div className="flex gap-2 rounded-[18px] border border-green-deep/10 bg-white p-2"><button onClick={() => setSection('registry')} className={`rounded-[12px] px-4 py-2.5 text-sm font-bold ${section === 'registry' ? 'bg-green-deep text-white' : 'text-text-mid'}`}>Patient registry</button><button onClick={() => setSection('requests')} className={`rounded-[12px] px-4 py-2.5 text-sm font-bold ${section === 'requests' ? 'bg-green-deep text-white' : 'text-text-mid'}`}>Registration requests</button></div>
-  {section === 'requests' ? <RegistrationRequests onPatient={onPatient} onChanged={() => { load(); onChanged() }} /> : <Panel title="Patient registry" subtitle="Search and manage canonical clinical patient records." action={<button onClick={() => setShowForm(true)} className="primary"><PlusIcon size={18} weight="bold" />Register patient</button>}>
+  {section === 'requests' ? <RegistrationRequests onPatient={onPatient} onChanged={() => { load(); onChanged() }} /> : <Panel title="Patient registry" subtitle="Search and manage canonical clinical patient records." action={can('create_patients') ? <button onClick={() => setShowForm(true)} className="primary"><PlusIcon size={18} weight="bold" />Register patient</button> : undefined}>
     <div className="mt-6 flex flex-wrap gap-3"><div className="relative min-w-64 flex-1"><MagnifyingGlassIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-green-mid" /><input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search MRN, name, email or phone…" className="input pl-11" /></div><select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }} className="input w-auto"><option value="">All</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="deceased">Deceased</option></select><select value={sort} onChange={e => setSort(e.target.value)} className="input w-auto"><option value="updated_at">Recently updated</option><option value="created_at">Recently registered</option><option value="last_name">Last name</option><option value="mrn">MRN</option><option value="date_of_birth">Date of birth</option></select><button onClick={() => setDirection(value => value === 'asc' ? 'desc' : 'asc')} className="secondary">{direction === 'asc' ? 'Ascending' : 'Descending'}</button></div>
     {error && <Alert tone="error">{error}</Alert>}
     {loading ? <Loading /> : <div className="mt-6 overflow-x-auto rounded-[16px] border border-green-deep/10"><table className="w-full min-w-[940px] text-left text-sm"><thead><tr className="bg-[#FCFFF0] text-[11px] uppercase tracking-wide text-green-deep/55"><th className="p-4">MRN</th><th className="p-4">Patient</th><th className="p-4">Date of birth</th><th className="p-4">Sex</th><th className="p-4">Contact</th><th className="p-4">Last encounter</th><th className="p-4">Status</th><th className="p-4"></th></tr></thead><tbody>{patients.map(patient => <tr key={patient.id} onClick={() => onPatient(patient.id)} className="cursor-pointer border-t border-green-deep/[0.07] hover:bg-green-50/30"><td className="p-4 font-bold text-green-mid">{patient.mrn}</td><td className="p-4 font-bold">{fullName(patient)}</td><td className="p-4 text-text-mid">{date.format(new Date(`${patient.date_of_birth}T00:00:00`))}<span className="ml-1 text-xs">({formatPatientAge(patient.date_of_birth)})</span></td><td className="p-4 text-text-mid">{label(patient.sex)}</td><td className="p-4"><p>{patient.phone || '—'}</p><p className="text-xs text-text-mid">{patient.email || '—'}</p></td><td className="p-4 text-text-mid">{patient.encounters?.length ? date.format(new Date([...patient.encounters].sort((a:any,b:any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0].created_at)) : '—'}</td><td className="p-4"><Status value={patient.status} /></td><td className="p-4 text-right"><button onClick={e => { e.stopPropagation(); onPatient(patient.id) }} className="secondary">Open chart</button></td></tr>)}</tbody></table>{!patients.length && <Empty text="No patients match your search." />}</div>}
@@ -156,6 +171,7 @@ function PatientRegistry({ onPatient, onChanged }: { onPatient: (id: string) => 
 }
 
 function RegistrationRequests({ onPatient, onChanged }: { onPatient: (id: string) => void; onChanged: () => void }) {
+  const { can } = useEmrAccess()
   const [status, setStatus] = useState('pending')
   const [registrations, setRegistrations] = useState<any[]>([])
   const [links, setLinks] = useState<Record<string,string>>({})
@@ -193,7 +209,8 @@ function RegistrationRequests({ onPatient, onChanged }: { onPatient: (id: string
   return <Panel title="Patient registration requests" subtitle="Review public submissions before creating or linking an official EMR patient record." action={<select className="input w-auto" value={status} onChange={event => setStatus(event.target.value)}><option value="pending">Pending</option><option value="approved">Approved</option><option value="linked">Linked</option><option value="correction_requested">Correction requested</option><option value="rejected">Rejected</option></select>}>
     {error && <Alert tone="error">{error}</Alert>}
     {loading ? <Loading /> : <div className="mt-6 space-y-4">{registrations.map(registration => {
-      const active = ['pending','correction_requested'].includes(registration.status)
+      // Only staff who can register patients act on a request; others can read it.
+      const active = can('create_patients') && ['pending','correction_requested'].includes(registration.status)
       const incomplete = !registration.date_of_birth || !registration.sex
       const demographicValues = demographics[registration.id] || { date_of_birth: registration.date_of_birth || '', sex: registration.sex || '' }
       return <article key={registration.id} className="rounded-[18px] border border-green-deep/10 bg-[#FCFFF0] p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-green-mid">{registration.source === 'appointment_booking' ? 'Appointment booking' : 'Registration form'} · Submitted {dateTime.format(new Date(registration.submitted_at))}</p><h4 className="mt-2 text-xl font-bold">{registration.first_name} {registration.middle_name || ''} {registration.last_name}</h4><p className="mt-1 text-sm text-text-mid">{registration.date_of_birth ? date.format(new Date(`${registration.date_of_birth}T00:00:00`)) : 'Date of birth missing'} · {registration.sex ? label(registration.sex) : 'Sex missing'} · {registration.phone}{registration.email ? ` · ${registration.email}` : ''}</p></div><Status value={registration.status} /></div><dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Detail label="Address" value={[registration.address,registration.city,registration.state,registration.country].filter(Boolean).join(', ')} /><Detail label="Occupation" value={registration.occupation} /><Detail label="Marital status" value={registration.marital_status && label(registration.marital_status)} /><Detail label="Emergency contact" value={[registration.emergency_contact_name,registration.emergency_contact_phone,registration.emergency_contact_relationship].filter(Boolean).join(' · ')} /></dl>
@@ -206,30 +223,59 @@ function RegistrationRequests({ onPatient, onChanged }: { onPatient: (id: string
   </Panel>
 }
 
+// The chart tabs staff without clinical access can open. Every other tab shows clinical records.
+const chartTabPermissions: Record<string, EmrPermission> = { follow_ups: 'view_follow_ups', financial: 'view_financial_records' }
+
 function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }: { patientId: string; initialTab?: string; onBack: () => void; onChanged: () => void }) {
-  const [chart, setChart] = useState<Chart | null>(null), [tab, setTab] = useState(initialTab === 'encounters' ? 'appointments' : initialTab), [modal, setModal] = useState<string | null>(null), [error, setError] = useState('')
+  const { can, canSchedule } = useEmrAccess()
+  const clinical = can('view_clinical_records')
+  const allTabs = ['overview','coverage','follow_ups','timeline','appointments','notes','diagnoses','allergies','medications','investigations','referrals','financial','documents','care_plans','portal']
+  const tabs = allTabs.filter(item => can(chartTabPermissions[item] || 'view_clinical_records'))
+  const startTab = initialTab === 'encounters' ? 'appointments' : initialTab
+  const [chart, setChart] = useState<Chart | null>(null), [tab, setTab] = useState(tabs.includes(startTab) ? startTab : tabs[0] || 'overview'), [modal, setModal] = useState<string | null>(null), [error, setError] = useState('')
   const load = useCallback(async () => { const response = await fetch(`${api}?resource=patient&patientId=${patientId}`); const result = await response.json(); if (response.ok) setChart(result); else setError(result.error) }, [patientId])
   useEffect(() => { load() }, [load])
   const [scheduling, setScheduling] = useState(false)
-  const closeScheduling = useCallback(() => setScheduling(false), [])
+  const closeScheduling = useCallback(() => setScheduling(false), [setScheduling])
   // The appointment an encounter is being started for.
   const [encounterFor, setEncounterFor] = useState<any>(null)
-  const coverage = useCoverage(patientId)
+  const coverage = useCoverage(patientId, clinical)
+  // On narrow screens the tabs scroll sideways: keep the open one in view, as
+  // when a notification opens the chart on a later tab.
+  const tabStrip = useRef<HTMLElement>(null)
+  const chartLoaded = Boolean(chart)
+  useEffect(() => {
+    const strip = tabStrip.current
+    const item = strip?.querySelector<HTMLElement>(`[data-tab="${tab}"]`)
+    if (!strip || !item || strip.scrollWidth <= strip.clientWidth) return
+    strip.scrollTo({ left: item.offsetLeft - strip.offsetLeft - (strip.clientWidth - item.offsetWidth) / 2, behavior: 'smooth' })
+  }, [tab, chartLoaded])
   if (error) return <Alert tone="error">{error}</Alert>
   if (!chart) return <Loading />
   const patient = chart.patient
-  const tabs = ['overview','coverage','follow_ups','timeline','appointments','notes','diagnoses','allergies','medications','investigations','referrals','financial','documents','care_plans','portal']
+  // Uploads from the patient's portal that no one has reviewed yet.
+  const newUploads = (chart.documents || []).filter((item: any) => item.source === 'patient' && item.portal_status === 'new')
+  const tabCounts: Record<string, number> = {
+    investigations: newUploads.filter((item: any) => item.category === 'laboratory').length,
+    portal: newUploads.length,
+  }
   // Recording against an encounter starts on the most recent one.
   const latestEncounterId = chart.encounters[0]?.id
   return <div className="space-y-6">
     <button onClick={onBack} className="inline-flex items-center gap-2 text-sm font-bold text-green-mid hover:text-green-deep"><ArrowLeftIcon size={18} />Back to patient registry</button>
     <section className="overflow-hidden rounded-[26px] border border-green-deep/10 bg-white shadow-[0_10px_40px_rgba(26,61,46,0.07)]">
-      <div className="bg-green-deep p-6 text-white sm:p-8"><div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-gold">{patient.mrn}</p><h2 className="mt-2 text-3xl font-bold">{fullName(patient)}</h2><p className="mt-2 text-sm text-white/65">{formatPatientAge(patient.date_of_birth)} · {label(patient.sex)} · {patient.phone || 'No phone'}</p></div><div className="flex flex-col items-end gap-3"><Status value={patient.status} /><div className="flex flex-wrap justify-end gap-2"><button onClick={() => setScheduling(true)} className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"><CalendarCheckIcon size={18} weight="duotone" />Schedule appointment</button><button onClick={() => setModal('financial_report')} className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"><FileTextIcon size={18} weight="duotone" />Financial report</button><button onClick={() => setModal('report')} className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-green-deep transition-colors hover:bg-gold-light"><FileTextIcon size={18} weight="duotone" />Generate patient report</button></div></div></div></div>
-      <div className="grid gap-4 p-5 md:grid-cols-3 sm:p-7"><SummaryAlert title="Allergies" warning items={chart.allergies.filter((x: any) => x.status === 'active').map((x: any) => `${x.allergen}${x.reaction ? ` — ${x.reaction}` : ''}`)} empty="No known allergies" /><SummaryAlert title="Active conditions" items={chart.diagnoses.filter((x: any) => x.status === 'active').map((x: any) => x.diagnosis_name)} empty="No active diagnoses" /><SummaryAlert title="Current medications" items={chart.medications.filter((x: any) => x.status === 'active').map((x: any) => `${x.medication_name} ${x.strength || ''}`.trim())} empty="No active medications" /></div>
+      <div className="bg-green-deep p-6 text-white sm:p-8"><div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-gold">{patient.mrn}</p><h2 className="mt-2 text-3xl font-bold">{fullName(patient)}</h2><p className="mt-2 text-sm text-white/65">{formatPatientAge(patient.date_of_birth)} · {label(patient.sex)} · {patient.phone || 'No phone'}</p></div><div className="flex flex-col items-end gap-3"><Status value={patient.status} /><div className="flex flex-wrap justify-end gap-2">{canSchedule && <button onClick={() => setScheduling(true)} className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"><CalendarCheckIcon size={18} weight="duotone" />Schedule appointment</button>}{can('view_financial_records') && <button onClick={() => setModal('financial_report')} className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10"><FileTextIcon size={18} weight="duotone" />Financial report</button>}{clinical && <button onClick={() => setModal('report')} className="inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-green-deep transition-colors hover:bg-gold-light"><FileTextIcon size={18} weight="duotone" />Generate patient report</button>}</div></div></div></div>
+      {clinical && <div className="grid gap-4 p-5 md:grid-cols-3 sm:p-7"><SummaryAlert title="Allergies" warning items={chart.allergies.filter((x: any) => x.status === 'active').map((x: any) => `${x.allergen}${x.reaction ? ` — ${x.reaction}` : ''}`)} empty="No known allergies" /><SummaryAlert title="Active conditions" items={chart.diagnoses.filter((x: any) => x.status === 'active').map((x: any) => x.diagnosis_name)} empty="No active diagnoses" /><SummaryAlert title="Current medications" items={chart.medications.filter((x: any) => x.status === 'active').map((x: any) => `${x.medication_name} ${x.strength || ''}`.trim())} empty="No active medications" /></div>}
     </section>
-    <CoverageBanner state={coverage} onOpen={() => setTab('coverage')} />
+    {clinical && <CoverageBanner state={coverage} onOpen={() => setTab('coverage')} />}
     <OpenFollowUpsBanner tasks={chart.tasks} onOpen={() => setTab('follow_ups')} />
-    <section className="flex gap-2 overflow-x-auto rounded-[18px] border border-green-deep/10 bg-white p-2">{tabs.map(item => <button key={item} onClick={() => setTab(item)} className={`shrink-0 rounded-[12px] px-4 py-2.5 text-sm font-bold ${tab === item ? 'bg-green-deep text-white' : 'text-text-mid hover:bg-green-deep/5'}`}>{item === 'follow_ups' ? 'Follow-ups' : item === 'portal' ? 'Patient Portal' : label(item)}</button>)}</section>
+    <section ref={tabStrip} className="flex gap-2 overflow-x-auto rounded-[18px] border border-green-deep/10 bg-white p-2">{tabs.map(item => {
+      const count = tabCounts[item] || 0
+      return <button key={item} data-tab={item} onClick={() => setTab(item)} className={`inline-flex shrink-0 items-center gap-2 rounded-[12px] px-4 py-2.5 text-sm font-bold ${tab === item ? 'bg-green-deep text-white' : 'text-text-mid hover:bg-green-deep/5'}`}>
+        {item === 'follow_ups' ? 'Follow-ups' : item === 'portal' ? 'Patient Portal' : label(item)}
+        {count > 0 && <span title={item === 'investigations' ? 'New lab results from the patient' : 'New uploads from the patient'} className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1.5 text-[10px] font-bold text-green-deep">{count}</span>}
+      </button>
+    })}</section>
     {tab === 'overview' && <PatientOverview chart={chart} onEdit={() => setModal('patient')} />}
     {tab === 'coverage' && <CoveragePanel patient={patient} state={coverage} />}
     {tab === 'referrals' && <PatientReferrals patient={patient} chart={chart} coverage={coverage} onChanged={load} />}
@@ -242,13 +288,13 @@ function PatientChart({ patientId, initialTab = 'overview', onBack, onChanged }:
     {tab === 'allergies' && <RecordList records={chart.allergies} kind="allergy" onUpdate={load} action={<button onClick={() => setModal('allergy')} className="primary"><WarningCircleIcon size={18} weight="duotone" />Add allergy</button>} />}
     {tab === 'medications' && <RecordList records={chart.medications} kind="medication" patient={patient} chart={chart} prescriptions={chart.prescriptions} onUpdate={load} action={<button onClick={() => setModal('medication')} className="primary"><PillIcon size={18} weight="duotone" />Create prescription</button>} />}
     {tab === 'investigations' && <PatientInvestigations patient={patient} chart={chart} onChanged={load} attachments={<InvestigationAttachments chart={chart} onAdd={() => setModal('investigation_document')} onChanged={load} />} />}
-    {tab === 'financial' && <div className="space-y-6"><BookingPayments chart={chart} onUpdate={load} onSchedule={() => setScheduling(true)} /><FinancialRecords chart={chart} onUpdate={load} onAdd={() => setModal('financial_record')} /></div>}
+    {tab === 'financial' && <div className="space-y-6"><BookingPayments chart={chart} onUpdate={load} onSchedule={() => setScheduling(true)} /><FinancialRecords chart={chart} onUpdate={load} onAdd={() => setModal('financial_record')} /><PatientInvoices chart={chart} onChanged={load} /></div>}
     {tab === 'documents' && <Panel title="Documents" subtitle={`${chart.documents.length} document${chart.documents.length === 1 ? '' : 's'}`} action={<button onClick={() => setModal('document')} className="primary"><FileArrowUpIcon size={18} weight="duotone" />Upload document</button>}><PatientDocuments chart={chart} onChanged={load} /></Panel>}
     {tab === 'care_plans' && <CarePlanList chart={chart} patient={patient} onUpdate={load} onCreate={() => setModal('care_plan')} />}
     {tab === 'portal' && <PatientPortalPanel chart={chart} onChanged={load} />}
     {modal === 'report' && <PatientReportModal patient={patient} mode="clinical" onClose={() => setModal(null)} />}
     {modal === 'financial_report' && <PatientReportModal patient={patient} mode="financial" onClose={() => setModal(null)} />}
-    <PatientAssistant key={patientId} patientId={patientId} patientName={fullName(patient)} />
+    {clinical && <PatientAssistant key={patientId} patientId={patientId} patientName={fullName(patient)} />}
     <AddBookingDialog open={scheduling} patient={patient as any} onClose={closeScheduling} onAdded={() => load()} />
     {encounterFor && <ClinicalModal type="encounter" patient={patient} chart={chart} fixed={{ appointment_id: encounterFor.id, encounter_type: encounterFor.consultation_type === 'home-visit' ? 'home_visit' : encounterFor.consultation_type === 'telemedicine' ? 'telemedicine' : 'consultation', chief_complaint: encounterFor.symptoms || '' }} patients={[patient]} onClose={() => setEncounterFor(null)} onSaved={() => { setEncounterFor(null); load(); onChanged() }} />}
     {modal && !['report','financial_report'].includes(modal) && <ClinicalModal type={modal.split(':')[0]} patient={patient} chart={chart} fixed={modal.startsWith('result:') ? { order_id: modal.split(':')[1] } : modal.includes(':') ? { encounter_id: modal.split(':')[1] } : {}} patients={[patient]} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); onChanged() }} />}
@@ -299,6 +345,7 @@ function ResourceWorkspace({ title, description, resource, patients, createType,
 }
 
 function Appointments({ patients, onPatient, onError, onPatientsChanged }: { patients: Patient[]; onPatient: (id: string) => void; onError: (value: string) => void; onPatientsChanged: () => void }) {
+  const { can, canSchedule } = useEmrAccess()
   const [items, setItems] = useState<any[]>([]), [links, setLinks] = useState<Record<string,string>>({}), [loading, setLoading] = useState(true)
   const [scheduling, setScheduling] = useState(false)
   const closeScheduling = useCallback(() => setScheduling(false), [])
@@ -306,7 +353,7 @@ function Appointments({ patients, onPatient, onError, onPatientsChanged }: { pat
   useEffect(() => { load() }, [load])
   async function linkAppointment(item: any) { const patientId = links[item.id]; if (!patientId) return; const response = await fetch(api, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: 'appointments', id: item.id, patient_id: patientId }) }); const result = await response.json(); if (!response.ok) onError(result.error); else load() }
   async function start(item: any) { if (!item.patient_id) return onError('Link this appointment to a clinical patient first.'); const response = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resource: 'encounters', patient_id: item.patient_id, appointment_id: item.id, encounter_type: item.consultation_type, chief_complaint: item.symptoms }) }); const result = await response.json(); if (!response.ok) onError(result.error); else { load(); onPatient(item.patient_id) } }
-  return <Panel title="Clinical appointments" subtitle="Appointment requests and scheduled appointments, linked into the patient and encounter workflow." action={<button onClick={() => setScheduling(true)} className="primary"><PlusIcon size={18} />Schedule appointment</button>}><AddBookingDialog open={scheduling} onClose={closeScheduling} onAdded={() => { load(); onPatientsChanged() }} />{loading ? <Loading /> : <div className="mt-6 space-y-3">{items.map(item => <div key={item.id} className="flex flex-wrap items-center gap-4 rounded-[16px] border border-green-deep/10 bg-white p-4"><span className="flex h-11 w-11 items-center justify-center rounded-[13px] bg-[#EAF2FE] text-[#3374A8]"><CalendarCheckIcon size={22} weight="fill" /></span><div className="min-w-48 flex-1"><p className="font-bold">{item.first_name} {item.last_name}</p><p className="mt-1 text-xs text-text-mid">{date.format(new Date(item.preferred_date))} · {formatTime(item.preferred_time)} · {label(item.consultation_type)}</p></div>{item.patient ? <button onClick={() => onPatient(item.patient.id)} className="secondary">{item.patient.mrn} · Open patient</button> : <div className="flex min-w-72 gap-2"><select className="input py-2" value={links[item.id] || ''} onChange={e => setLinks(current => ({ ...current, [item.id]: e.target.value }))}><option value="">Link to patient…</option>{patients.map(p => <option key={p.id} value={p.id}>{p.mrn} · {fullName(p)}</option>)}</select><button onClick={() => linkAppointment(item)} className="secondary">Link</button></div>}<button disabled={!item.patient_id || Boolean(item.encounter_id)} onClick={() => start(item)} className="primary disabled:opacity-40">{item.encounter_id ? 'Encounter started' : 'Start encounter'}</button></div>)}</div>}</Panel>
+  return <Panel title="Clinical appointments" subtitle="Appointment requests and scheduled appointments, linked into the patient and encounter workflow." action={canSchedule ? <button onClick={() => setScheduling(true)} className="primary"><PlusIcon size={18} />Schedule appointment</button> : undefined}><AddBookingDialog open={scheduling} onClose={closeScheduling} onAdded={() => { load(); onPatientsChanged() }} />{loading ? <Loading /> : <div className="mt-6 space-y-3">{items.map(item => <div key={item.id} className="flex flex-wrap items-center gap-4 rounded-[16px] border border-green-deep/10 bg-white p-4"><span className="flex h-11 w-11 items-center justify-center rounded-[13px] bg-[#EAF2FE] text-[#3374A8]"><CalendarCheckIcon size={22} weight="fill" /></span><div className="min-w-48 flex-1"><p className="font-bold">{item.first_name} {item.last_name}</p><p className="mt-1 text-xs text-text-mid">{date.format(new Date(item.preferred_date))} · {formatTime(item.preferred_time)} · {label(item.consultation_type)}</p></div>{item.patient ? <button onClick={() => onPatient(item.patient.id)} className="secondary">{item.patient.mrn} · Open patient</button> : !can('edit_encounters') ? <span className="text-xs font-semibold text-text-mid">Not linked to a patient record</span> : <div className="flex min-w-72 gap-2"><select className="input py-2" value={links[item.id] || ''} onChange={e => setLinks(current => ({ ...current, [item.id]: e.target.value }))}><option value="">Link to patient…</option>{patients.map(p => <option key={p.id} value={p.id}>{p.mrn} · {fullName(p)}</option>)}</select><button onClick={() => linkAppointment(item)} className="secondary">Link</button></div>}{can('create_encounters') && <button disabled={!item.patient_id || Boolean(item.encounter_id)} onClick={() => start(item)} className="primary disabled:opacity-40">{item.encounter_id ? 'Encounter started' : 'Start encounter'}</button>}</div>)}</div>}</Panel>
 }
 
 function DocumentsWorkspace({ patients }: { patients: Patient[]; onPatient: (id: string) => void }) {
@@ -398,7 +445,7 @@ function Attachments({ files, showHeading = true, onRemove }: { files: any[]; sh
     <div className="mt-2 grid gap-2 sm:grid-cols-2">{files.map((item: any) => <div key={item.id} className="flex items-center rounded-[12px] border border-green-deep/10 bg-white hover:border-green-mid">
       <button type="button" onClick={() => open(item.id)} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left">
         <FileTextIcon size={20} weight="duotone" className="shrink-0 text-green-mid" />
-        <span className="min-w-0"><span className="block truncate text-sm font-bold">{item.title}</span><span className="block text-[11px] text-text-mid">{label(item.category)} · {formatBytes(item.file_size)}</span></span>
+        <span className="min-w-0"><span className="block truncate text-sm font-bold">{item.title}</span><span className="block text-[11px] text-text-mid">{label(item.category)} · {formatBytes(item.file_size)}{item.source === 'patient' ? ' · Uploaded by the patient' : ''}</span></span>
       </button>
       {onRemove && <button type="button" onClick={() => onRemove(item)} aria-label={`Remove ${item.title}`} title="Remove this file" className="mr-2 shrink-0 rounded-lg p-2 text-text-mid hover:bg-red-50 hover:text-red-700"><XIcon size={16} weight="bold" /></button>}
     </div>)}</div>
@@ -933,8 +980,11 @@ function formConfig(type: string): { title: string; resource: string; submit: st
 }
 
 function FormField({ field, value, onChange, onPatch, form, chart }: { field: FieldDef; value: any; onChange: (value: any) => void; onPatch: (patch: Record<string, any>) => void; form: Record<string, any>; chart?: Chart }) {
+  const clinical = useEmrAccess().can('view_clinical_records')
   if (field.catalog) return <Field label={field.label} required={field.required} wide={field.wide}><CatalogInput kind={field.catalog} value={value} onChange={onChange} onPick={entry => onPatch(catalogPatch(field.catalog!, entry, form))} required={field.required} placeholder={field.placeholder} /></Field>
   if (field.suggestions) { const listId = `${field.name}-suggestions`; return <Field label={field.label} required={field.required} wide={field.wide}><input className="input" list={listId} value={value} onChange={e => onChange(e.target.value)} required={field.required} placeholder={field.placeholder} autoComplete="off" /><datalist id={listId}>{field.suggestions(form).map(option => <option key={option} value={option} />)}</datalist></Field> }
+  // Encounters are clinical records: staff without clinical access get no encounter picker.
+  if (field.type === 'encounter' && !clinical) return null
   if (field.type === 'encounter') return <Field label={field.label} required={field.required} wide={field.wide}><select className="input" value={value} onChange={e => onChange(e.target.value)} required={field.required}><option value="">{field.required ? 'Select encounter…' : 'Not linked to an encounter'}</option>{(chart?.encounters || []).map((item: any) => <option key={item.id} value={item.id}>{item.encounter_number} · {date.format(new Date(item.created_at))}</option>)}</select></Field>
   if (field.type === 'select' || field.options) return <Field label={field.label} required={field.required} wide={field.wide}><select className="input" value={value} onChange={e => onChange(e.target.value)} required={field.required}><option value="">Select…</option>{field.options?.map(option => <option key={option} value={option}>{label(option)}</option>)}</select></Field>
   if (field.type === 'follow_up_date') return <Field label={field.label} required={field.required} wide={field.wide}><FollowUpDateInput value={value} onChange={onChange} required={field.required} /></Field>

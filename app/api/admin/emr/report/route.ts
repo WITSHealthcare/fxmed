@@ -221,17 +221,33 @@ Content rules:
 - Do not issue a new diagnosis or change the treatment plan. Summarise what happened and what was already advised.`
 
 export async function POST(request: NextRequest) {
-  const context = await getEmrContext(request, 'view_clinical_records')
-  if (!context) return NextResponse.json({ error: 'Clinical access required.' }, { status: 403 })
+  const body = await request.json().catch(() => null) as Record<string, any> | null
+  const reportType = body?.reportType === 'financial' ? 'financial' : 'clinical'
+  // The financial report reads only bills, payments and bookings, so financial
+  // access is enough for it.
+  const context = await getEmrContext(request, reportType === 'financial' ? 'view_financial_records' : 'view_clinical_records')
+  if (!context) return NextResponse.json({ error: reportType === 'financial' ? 'Financial access required.' : 'Clinical access required.' }, { status: 403 })
   const { database, user } = context
 
   try {
-    const body = await request.json().catch(() => null) as Record<string, any> | null
     const patientId = body?.patientId
     const from = body?.from
     const to = body?.to
-    const reportType = body?.reportType === 'financial' ? 'financial' : 'clinical'
     if (!patientId || !from || !to) return NextResponse.json({ error: 'A patient and date range are required.' }, { status: 400 })
+
+    if (reportType === 'financial') {
+      const [financialRecords, financialPayments, bookings] = await Promise.all([
+        database.from('emr_financial_records').select('*').eq('patient_id', patientId).order('service_date'),
+        database.from('emr_financial_payments').select('*').eq('patient_id', patientId).order('payment_date'),
+        database.from('appointments').select('*').eq('patient_id', patientId).order('preferred_date'),
+      ])
+      const loadError = financialRecords.error || financialPayments.error || bookings.error
+      if (loadError) throw loadError
+      const ledger = (financialRecords.data || []).map((record: any) => ({ ...record, payments: (financialPayments.data || []).filter((payment: any) => payment.financial_record_id === record.id) }))
+      const report = buildFinancialReport(ledger, bookings.data || [], from, to)
+      await writeEmrAudit(database, user, { action: 'generate_financial_report', entityType: 'emr_patient', entityId: patientId, patientId, metadata: { from, to } })
+      return NextResponse.json({ report, provider: 'FXMed financial ledger', documentsRead: 0, skipped: [] })
+    }
 
     const [patient, encounters, notes, vitals, diagnoses, allergies, medications, orders, results, investigationOrders, investigationReports, imaging, documents, carePlans, financialRecords, financialPayments, bookings] = await Promise.all([
       database.from('emr_patients').select('*').eq('id', patientId).single(),
@@ -258,11 +274,6 @@ export async function POST(request: NextRequest) {
     if (bookings.error) throw bookings.error
     const ledger = (financialRecords.data || []).map((record: any) => ({ ...record, payments: (financialPayments.data || []).filter((payment: any) => payment.financial_record_id === record.id) }))
 
-    if (reportType === 'financial') {
-      const report = buildFinancialReport(ledger, bookings.data || [], from, to)
-      await writeEmrAudit(database, user, { action: 'generate_financial_report', entityType: 'emr_patient', entityId: patientId, patientId, metadata: { from, to } })
-      return NextResponse.json({ report, provider: 'FXMed financial ledger', documentsRead: 0, skipped: [] })
-    }
 
     const chart = {
       patient: patient.data,

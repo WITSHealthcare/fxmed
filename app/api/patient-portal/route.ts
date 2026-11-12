@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isUuid, writeEmrAudit } from '@/lib/emr'
+import { PORTAL_LAB_ORDER_COLUMNS, mapPortalLabOrder } from '@/lib/investigations'
+import { INVOICE_COLUMNS, mapInvoice, type InvoiceBill } from '@/lib/invoices'
 import { getRequestPatient, portalDocumentColumns, portalErrorMessage, portalPatientColumns } from '@/lib/patient-portal'
 
 export async function GET(request: NextRequest) {
@@ -8,7 +10,7 @@ export async function GET(request: NextRequest) {
     if (!context) return NextResponse.json({ error: 'Patient portal access required' }, { status: 403 })
     const { database, patientId, account } = context
 
-    const [patient, carePlans, documents, messages, notifications] = await Promise.all([
+    const [patient, carePlans, documents, messages, notifications, labOrders, invoices, bills] = await Promise.all([
       database.from('emr_patients').select(portalPatientColumns).eq('id', patientId).single(),
       database.from('emr_care_plans')
         .select('id,title,description,goals,status,start_date,target_date,shared_at,created_at,items:emr_care_plan_items(id,title,instructions,due_date,status,position,completed_at,completed_by_patient)')
@@ -21,9 +23,23 @@ export async function GET(request: NextRequest) {
         .eq('patient_id', patientId).order('created_at', { ascending: true }).limit(200),
       database.from('patient_portal_notifications').select('id,kind,title,detail,section,read_at,created_at')
         .eq('patient_id', patientId).order('created_at', { ascending: false }).limit(50),
+      // Tests the care team has requested and is waiting on, so the patient can
+      // upload the lab's results against them.
+      database.from('investigation_forms').select(PORTAL_LAB_ORDER_COLUMNS)
+        .eq('emr_patient_id', patientId).eq('status', 'awaiting_results')
+        .order('created_at', { ascending: false }).limit(50),
+      // Invoices the care team has sent; drafts stay with staff.
+      database.from('emr_invoices').select(INVOICE_COLUMNS)
+        .eq('patient_id', patientId).in('status', ['sent', 'void'])
+        .order('created_at', { ascending: false }).limit(100),
+      database.from('emr_financial_records').select('id,amount_paid,status').eq('patient_id', patientId),
     ])
     const error = patient.error || carePlans.error || documents.error || messages.error || notifications.error
     if (error) throw error
+    // The rest of the portal still works if the tests cannot be listed.
+    if (labOrders.error) console.error('Error loading patient lab orders:', labOrders.error)
+    // Before migration 051 there are no invoices.
+    if (invoices.error) console.error('Error loading patient invoices:', invoices.error)
 
     await database.from('patient_portal_accounts').update({ last_seen_at: new Date().toISOString() }).eq('id', account.id)
     return NextResponse.json({
@@ -36,6 +52,8 @@ export async function GET(request: NextRequest) {
       documents: documents.data || [],
       messages: messages.data || [],
       notifications: notifications.data || [],
+      labOrders: (labOrders.data || []).map(mapPortalLabOrder),
+      invoices: invoices.error ? [] : (invoices.data || []).map(row => mapInvoice(row, (bills.data || []) as InvoiceBill[])),
     })
   } catch (error) {
     console.error('Error loading patient portal:', error)

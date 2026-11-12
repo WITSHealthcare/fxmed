@@ -67,7 +67,15 @@ export type LabReportFile = {
   mimeType: string | null
   fileSize: number | null
   createdAt: string
+  /** Uploaded by the patient from their portal, rather than by staff. */
+  fromPatient: boolean
+  /** A patient upload no one has reviewed yet. */
+  isNew: boolean
 }
+
+/** An order as the patient sees it in their portal: no clinical details. */
+export type PortalLabOrder = { id: string; title: string; tests: string[]; orderedAt: string }
+export const PORTAL_LAB_ORDER_COLUMNS = 'id,panel_title,tests,created_at'
 
 /** Columns for listing orders. The stored PDF is fetched only on download. */
 export const ORDER_COLUMNS = 'id,download_name,patient,panel_title,tests,status,completed_at,created_at,created_by_email,emr_patient_id'
@@ -171,7 +179,13 @@ export function mapLabReportFile(row: Record<string, any>): LabReportFile {
     mimeType: row.mime_type || null,
     fileSize: row.file_size ?? null,
     createdAt: row.created_at,
+    fromPatient: row.source === 'patient',
+    isNew: row.source === 'patient' && row.portal_status === 'new',
   }
+}
+
+export function mapPortalLabOrder(row: Record<string, any>): PortalLabOrder {
+  return { id: row.id, title: text(row.panel_title) || 'Lab tests', tests: testNames(row.tests), orderedAt: row.created_at }
 }
 
 /** A filesystem-safe base for download names, from the patient's name. */
