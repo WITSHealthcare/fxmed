@@ -2,8 +2,9 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 
+type Contact = { id: string; full_name: string; phone: string | null; email: string | null }
 type Interaction = { id: string; kind: string; occurred_at: string; notes: string }
-type Prospect = { id: string; kind: string; name: string; contact_person: string; phone: string; email: string; owner: string; status: string; next_follow_up: string | null; next_action: string; interactions: Interaction[] }
+type Prospect = { id: string; contact_id?: string | null; kind: string; name: string; contact_person: string; phone: string; email: string; owner: string; status: string; next_follow_up: string | null; next_action: string; interactions: Interaction[] }
 const blank = { kind: 'individual', name: '', contact_person: '', phone: '', email: '', owner: '', status: 'new', next_follow_up: '', next_action: '' }
 const statuses = ['new', 'in_discussion', 'proposal_sent', 'won', 'lost']
 const label = (s: string) => s.replace(/_/g, ' ')
@@ -14,6 +15,28 @@ const iso = (s: string) => s ? new Date(`${s}:00+01:00`).toISOString() : null
 const active = (p: Prospect) => !['won', 'lost'].includes(p.status)
 
 export default function ProspectFollowUps() {
+  const [contactPicker, setContactPicker] = useState(false)
+  const [contactSearch, setContactSearch] = useState('')
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [contactsLoading, setContactsLoading] = useState(false)
+  const [contactError, setContactError] = useState('')
+  const [contactId, setContactId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!contactPicker) return
+    const controller = new AbortController()
+    setContactsLoading(true); setContactError('')
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/crm/prospects?resource=contacts&search=${encodeURIComponent(contactSearch)}`, { signal: controller.signal })
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || 'Unable to load contacts.')
+        setContacts(data.contacts)
+      } catch (e) {
+        if (!controller.signal.aborted) setContactError(e instanceof Error ? e.message : 'Unable to load contacts.')
+      } finally { if (!controller.signal.aborted) setContactsLoading(false) }
+    }, 250)
+    return () => { clearTimeout(timer); controller.abort() }
+  }, [contactPicker, contactSearch])
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [kind, setKind] = useState('individual')
@@ -39,17 +62,19 @@ export default function ProspectFollowUps() {
     event.preventDefault()
     setSaving(true); setError('')
     try {
-      const body = resource === 'interaction' ? { ...interaction, resource, prospect_id: selected, occurred_at: iso(interaction.occurred_at) } : { ...form, id: selected, next_follow_up: iso(form.next_follow_up) }
+      const body = resource === 'interaction' ? { ...interaction, resource, prospect_id: selected, occurred_at: iso(interaction.occurred_at) } : { ...form, contact_id: contactId, id: selected, next_follow_up: iso(form.next_follow_up) }
       const response = await fetch('/api/crm/prospects', { method: resource === 'prospect' && selected ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error)
-      if (resource === 'prospect') { setSelected(data.prospect.id); setKind(data.prospect.kind); setEditing(false) }
+      if (resource === 'prospect') { setSelected(data.prospect.id); setKind(data.prospect.kind); setEditing(false); setSearch(''); setDueOnly(false) }
       else setInteraction({ kind: 'call', occurred_at: inputDate(new Date().toISOString()), notes: '' })
       await load()
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save.') }
     finally { setSaving(false) }
   }
   function edit(p?: Prospect) {
+    setContactPicker(false)
+    setContactId(p?.contact_id || null)
     setSelected(p?.id || null)
     setForm(p ? { ...p, next_follow_up: p.next_follow_up ? inputDate(p.next_follow_up) : '' } : { ...blank, kind })
     setEditing(true)
@@ -58,7 +83,19 @@ export default function ProspectFollowUps() {
   const visible = prospects.filter(p => p.kind === kind && (!dueOnly || due(p)) && `${p.name} ${p.contact_person} ${p.phone} ${p.email} ${p.owner}`.toLowerCase().includes(search.toLowerCase())).sort((a,b) => (active(a) && a.next_follow_up ? Date.parse(a.next_follow_up) : Infinity) - (active(b) && b.next_follow_up ? Date.parse(b.next_follow_up) : Infinity))
   const field = (name: keyof typeof blank, title: string, type = 'text') => <label className="block text-sm font-medium">{title}<input className="mt-1 w-full rounded-lg border p-3" type={type} required={name === 'name'} maxLength={name === 'next_action' ? 2000 : 200} value={form[name]} onChange={e => setForm({ ...form, [name]: e.target.value })} /></label>
   return <section className="space-y-5 rounded-2xl border bg-white p-5 sm:p-7">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold text-green-deep">Prospect follow-ups</h2><p className="mt-1 text-sm text-text-mid">Keep every conversation and the next step together. All times are Lagos time.</p></div><button className="rounded-lg bg-green-deep px-4 py-3 text-white" onClick={() => edit()}>+ Add prospect</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold text-green-deep">Prospect follow-ups</h2><p className="mt-1 text-sm text-text-mid">Keep every conversation and the next step together. All times are Lagos time.</p></div><div className="flex flex-wrap gap-2"><button className="rounded-lg border border-green-deep px-4 py-3 text-green-deep" onClick={() => { setContactPicker(true); setEditing(false); setContactSearch('') }}>Add from contacts</button><button className="rounded-lg bg-green-deep px-4 py-3 text-white" onClick={() => edit()}>+ Add prospect</button></div></div>
+    {contactPicker && <div className="space-y-3 rounded-xl border bg-gray-50 p-4">
+      <div className="flex items-center justify-between gap-3"><h3 className="font-bold">Choose an existing contact</h3><button onClick={() => setContactPicker(false)} className="underline">Close</button></div>
+      <input aria-label="Search existing contacts" placeholder="Search by name, phone or email…" className="w-full rounded-lg border p-3" value={contactSearch} onChange={e => setContactSearch(e.target.value)} />
+      <p className="text-xs text-text-mid">Showing up to 50 contacts. Search to narrow the list.</p>
+      {contactError ? <p role="alert" className="text-red-700">{contactError}</p> : contactsLoading ? <p role="status">Loading contacts…</p> : <div className="max-h-72 space-y-2 overflow-y-auto">{!contacts.length && <p>No contacts found.</p>}{contacts.map(contact => {
+        const existing = prospects.find(p => p.contact_id === contact.id)
+        return <button key={contact.id} className="w-full rounded-lg border bg-white p-3 text-left" onClick={() => {
+          if (existing) { setSelected(existing.id); setKind(existing.kind); setSearch(''); setDueOnly(false); setEditing(false); setContactPicker(false); return }
+          edit(); setContactId(contact.id); setForm({ ...blank, name: contact.full_name, phone: contact.phone || '', email: contact.email || '' })
+        }}><span className="block font-semibold">{contact.full_name}</span><span className="block break-words text-sm text-text-mid">{[contact.phone, contact.email].filter(Boolean).join(' · ')}</span><span className="text-xs text-green-mid">{existing ? 'Already a prospect · View follow-ups' : 'Select contact'}</span></button>
+      })}</div>}
+    </div>}
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700">{error} <button className="underline" onClick={() => { setError(''); load().catch(e => setError(e.message)) }}>Retry</button></p>}
     <div className="flex flex-wrap gap-3">{['individual','corporate'].map(k => <button key={k} className={`rounded-lg px-4 py-2 capitalize ${kind === k ? 'bg-green-deep text-white' : 'bg-gray-100'}`} onClick={() => { setKind(k); setSelected(null); setEditing(false) }}>{k === 'individual' ? 'Individuals' : 'Corporate'} ({prospects.filter(p => p.kind === k).length})</button>)}<button className={`rounded-lg border px-4 py-2 ${dueOnly ? 'bg-amber-100' : ''}`} onClick={() => setDueOnly(!dueOnly)}>Due follow-ups ({prospects.filter(p => p.kind === kind && due(p)).length}){dueOnly ? ' · Show all' : ''}</button><input aria-label="Search prospects" placeholder="Search name, contact or owner…" className="min-w-0 rounded-lg border p-2" value={search} onChange={e => setSearch(e.target.value)} /></div>
     <div className="grid gap-6 lg:grid-cols-[minmax(240px,1fr)_2fr]"><div className="space-y-3">{loading ? <p>Loading prospects…</p> : !visible.length ? <p className="p-4 text-text-mid">No prospects match this view. Add a prospect to begin.</p> : visible.map(p => {
