@@ -10,6 +10,14 @@ const clean = (value: unknown, max = 500) => typeof value === 'string' ? value.t
 
 export async function GET(request: NextRequest) {
   if (!await getAuthorizedAdminRole(request, 'crm')) return NextResponse.json({ error: 'CRM access required' }, { status: 403 })
+  if (request.nextUrl.searchParams.get('resource') === 'contacts') {
+    const search = clean(request.nextUrl.searchParams.get('search'), 100).replace(new RegExp('[^\\p{L}\\p{N} @+._-]', 'gu'), '').trim()
+    let query = db().from('contacts').select('id, full_name, phone, email').order('full_name').limit(50)
+    if (search) query = query.or(`full_name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)
+    const { data, error } = await query
+    if (error) return NextResponse.json({ error: 'Unable to load contacts.' }, { status: 500 })
+    return NextResponse.json({ contacts: data })
+  }
   const { data, error } = await db().from('crm_prospects').select('*, interactions:crm_prospect_interactions(*)').order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: error.code === '42P01' || error.code === 'PGRST205' ? 'Prospect follow-ups need database migration 054 before they can be used.' : 'Unable to load prospects.' }, { status: 500 })
   return NextResponse.json({ prospects: data })
@@ -28,9 +36,19 @@ async function save(request: NextRequest, updating: boolean) {
       return NextResponse.json({ success: true }, { status: 201 })
     }
     if (!clean(body.name, 200) || !['individual','corporate'].includes(body.kind) || !['new','in_discussion','proposal_sent','won','lost'].includes(body.status) || (body.next_follow_up && !date(body.next_follow_up)) || (updating && !uuid(body.id))) return NextResponse.json({ error: 'Check prospect name, type, status and follow-up date.' }, { status: 400 })
-    const values = { name: clean(body.name, 200), kind: body.kind, contact_person: clean(body.contact_person), phone: clean(body.phone, 80), email: clean(body.email, 254), owner: clean(body.owner, 200), status: body.status, next_follow_up: body.next_follow_up || null, next_action: clean(body.next_action, 2000) }
+    let contactId: string | undefined
+    if (!updating && body.contact_id) {
+      if (!uuid(body.contact_id)) return NextResponse.json({ error: 'Choose a valid contact.' }, { status: 400 })
+      const { data: contact, error } = await client.from('contacts').select('id').eq('id', body.contact_id).maybeSingle()
+      if (error) throw error
+      if (!contact) return NextResponse.json({ error: 'This contact no longer exists. Choose another contact.' }, { status: 404 })
+      contactId = contact.id
+    }
+    const values = { ...(contactId ? { contact_id: contactId } : {}), name: clean(body.name, 200), kind: body.kind, contact_person: clean(body.contact_person), phone: clean(body.phone, 80), email: clean(body.email, 254), owner: clean(body.owner, 200), status: body.status, next_follow_up: body.next_follow_up || null, next_action: clean(body.next_action, 2000) }
     const query = updating ? client.from('crm_prospects').update(values).eq('id', body.id) : client.from('crm_prospects').insert(values)
     const { data, error } = await query.select().single()
+    if (error?.code === '23505' && contactId) return NextResponse.json({ error: 'This contact is already a prospect. Search for them in prospect follow-ups.' }, { status: 409 })
+    if (error?.code === 'PGRST204' && contactId) return NextResponse.json({ error: 'Adding contacts requires database migration 055.' }, { status: 500 })
     if (error) throw error
     await writeRequestAdminActivity(client, request, { action: updating ? 'update_prospect' : 'create_prospect', module: 'CRM', description: `${updating ? 'Updated' : 'Created'} prospect ${data.name}`, entityType: 'crm_prospect', entityId: data.id })
     return NextResponse.json({ prospect: data }, { status: updating ? 200 : 201 })
