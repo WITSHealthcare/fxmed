@@ -3,9 +3,9 @@ import OpenAI from 'openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { docxToText } from '@/lib/docx-text'
 
-// Models proven in this codebase. Both Gemini and Claude accept PDFs and images
+// Both Gemini and Claude accept PDFs and images
 // directly, which is how uploaded documents are read without local OCR.
-const GEMINI_MODEL = 'gemini-1.5-flash'
+const GEMINI_MODEL = 'gemini-2.5-flash'
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
 const OPENAI_MODEL = 'gpt-4o'
 
