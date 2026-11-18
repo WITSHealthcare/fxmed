@@ -16,7 +16,7 @@ export const MAX_AGE_DAYS = 60
 // Per source, so one busy stream cannot bury the others.
 const PER_SOURCE_LIMIT = 20
 
-export type NotificationKind = 'message' | 'appointment' | 'festive' | 'registration' | 'contact' | 'assessment' | 'follow_up' | 'portal_message' | 'portal_upload'
+export type NotificationKind = 'message' | 'appointment' | 'festive' | 'registration' | 'contact' | 'assessment' | 'follow_up' | 'portal_message' | 'portal_upload' | 'training_overdue'
 
 export type Notification = {
   id: string

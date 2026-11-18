@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRequestAdminUser } from '@/lib/admin-api-auth'
 import { getUserAdminRole } from '@/lib/admin-auth'
-import { cleanTrainingForm, cleanTrainingText, getTrainingDatabase, hasForm, type TrainingLesson, type TrainingModule } from '@/lib/training'
+import { getRequestAdminUser } from '@/lib/admin-api-auth'
+import { cleanTrainingForm, cleanTrainingText, getTrainingDatabase, slugify, toPreview, type TrainingEnrolment, type TrainingLesson, type TrainingModule, type TrainingProgram } from '@/lib/training'
+import { accessProgram, canOpenProgram, canSelfEnrol, isAssigned, loadProgram, tickLesson, trainingErrorMessage, uuidPattern, withLearnerState } from '@/lib/training-access'
+import { getRequestStaffLearner } from '@/lib/training-learner'
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function cleanModules(value: unknown): TrainingModule[] {
@@ -33,38 +34,65 @@ function cleanModules(value: unknown): TrainingModule[] {
 
 function payload(body: Record<string, unknown>) {
   const title = cleanTrainingText(body.title, 160)
-  if (!title) return null
+  if (!title) return { error: 'Add a program title.' }
+  const visibility = body.visibility === 'public' || body.visibility === 'both' ? body.visibility : 'internal'
   const audienceRoles = Array.isArray(body.audience_roles)
-    ? Array.from(new Set(body.audience_roles.filter((role): role is string => role === 'clinical' || role === 'sales')))
+    ? Array.from(new Set(body.audience_roles.filter((role): role is string => role === 'admin' || role === 'clinical' || role === 'sales')))
     : []
   const assignedEmails = Array.isArray(body.assigned_emails)
     ? Array.from(new Set(body.assigned_emails.map((email) => cleanTrainingText(email, 254).toLowerCase()).filter((email) => emailPattern.test(email)))).slice(0, 500)
     : []
-  if (!audienceRoles.length && !assignedEmails.length) return null
-  return { title, description: cleanTrainingText(body.description, 3000), status: body.status === 'published' ? 'published' : 'draft', audience_roles: audienceRoles, assigned_emails: assignedEmails, modules: cleanModules(body.modules) }
+  const selfEnrol = body.self_enrol === true
+  if (visibility !== 'public' && !audienceRoles.length && !assignedEmails.length && !selfEnrol) return { error: 'Choose a role, add member emails, or allow staff to self-enrol.' }
+  const slug = slugify(cleanTrainingText(body.slug, 120) || title)
+  if (visibility !== 'internal' && !slug) return { error: 'Public courses need a web address (slug).' }
+  const price = Math.round(Number(body.price_naira) * 100)
+  const dueDays = Math.trunc(Number(body.default_due_days))
+  const outcomes = Array.isArray(body.learning_outcomes) ? body.learning_outcomes.map((item) => cleanTrainingText(item, 300)).filter(Boolean).slice(0, 20) : []
+  const cover = cleanTrainingText(body.cover_image_url, 2000)
+  return {
+    clean: {
+      title, description: cleanTrainingText(body.description, 3000), status: body.status === 'published' ? 'published' : 'draft',
+      audience_roles: audienceRoles, assigned_emails: assignedEmails, modules: cleanModules(body.modules),
+      slug: slug || null, visibility, price_kobo: Number.isFinite(price) && price > 0 ? Math.min(price, 2_000_000_000) : 0, currency: 'NGN',
+      cover_image_url: /^(https:\/\/|\/)/.test(cover) ? cover : '', summary: cleanTrainingText(body.summary, 600), learning_outcomes: outcomes,
+      self_enrol: selfEnrol, sequential: body.sequential === true, certificate_enabled: body.certificate_enabled === true,
+      default_due_days: Number.isFinite(dueDays) && dueDays >= 1 && dueDays <= 365 ? dueDays : null,
+    },
+  }
 }
 
+const saveError = (error: unknown, fallback: string) => {
+  const code = typeof error === 'object' && error && 'code' in error ? (error as { code: string }).code : ''
+  if (code === '23505') return NextResponse.json({ error: 'Another course already uses that web address. Choose a different slug.' }, { status: 409 })
+  console.error(fallback, error)
+  return NextResponse.json({ error: trainingErrorMessage(error) === 'The training request could not be completed.' ? fallback : trainingErrorMessage(error) }, { status: 500 })
+}
+
+// Admins get every program to manage (default). ?view=learn returns the
+// caller's own courses plus the staff catalogue, for every role.
 export async function GET(request: NextRequest) {
   try {
-    const user = await getRequestAdminUser(request); const role = getUserAdminRole(user); const database = getTrainingDatabase()
-    if (!user || !role) return NextResponse.json({ error: 'Dashboard access required' }, { status: 403 })
-    if (!database) return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    const context = await getRequestStaffLearner(request)
+    if (!context) return NextResponse.json({ error: 'Dashboard access required' }, { status: 403 })
+    const { database, learner, role } = context
     const { data, error } = await database.from('training_programs').select('*').order('updated_at', { ascending: false })
     if (error) throw error
-    const email = user.email?.toLowerCase() || ''
-    const programs = role === 'admin' ? (data || []) : (data || []).filter((program) => program.status === 'published' && (program.audience_roles?.includes(role) || program.assigned_emails?.includes(email)))
-    if (role === 'admin' || !programs.length) return NextResponse.json({ programs })
-    const { data: progress, error: progressError } = await database.from('training_progress').select('program_id,completed_lesson_ids').eq('user_id', user.id)
-    if (progressError) throw progressError
-    // Responses are optional so training still loads before migration 040 is applied.
-    const { data: responses, error: responsesError } = await database.from('training_form_responses').select('*').eq('user_id', user.id)
-    if (responsesError) console.error('Error loading training form responses:', responsesError.message)
-    const byProgram = new Map((progress || []).map((item) => [item.program_id, item.completed_lesson_ids || []]))
-    return NextResponse.json({ programs: programs.map((program) => {
-      const completed = byProgram.get(program.id) || []; const total = (program.modules || []).reduce((sum: number, module: TrainingModule) => sum + module.lessons.length, 0)
-      return { ...program, completed_lesson_ids: completed, progress_percent: total ? Math.round(completed.length / total * 100) : 0, form_responses: (responses || []).filter((response) => response.program_id === program.id) }
-    }) })
-  } catch (error) { console.error('Error loading training:', error); return NextResponse.json({ error: 'Failed to load training programs. Has migration 028 been applied?' }, { status: 500 }) }
+    const all = (data || []) as TrainingProgram[]
+    if (role === 'admin' && request.nextUrl.searchParams.get('view') !== 'learn') return NextResponse.json({ programs: all })
+
+    const { data: enrolmentRows, error: enrolmentError } = await database.from('training_enrolments').select('*').eq('user_id', learner.id)
+    if (enrolmentError) throw enrolmentError
+    const enrolments = new Map((enrolmentRows as TrainingEnrolment[]).map((row) => [row.program_id, row]))
+    const mine = all.filter((program) => canOpenProgram(program, learner, enrolments.get(program.id) || null))
+    const programs = await Promise.all(mine.map(async (program) => {
+      // Assigned staff get an enrolment (and due date) the first time they see a course.
+      const enrolment = enrolments.get(program.id) || (isAssigned(program, learner) ? await accessProgram(database, program, learner) : null)
+      return withLearnerState(database, program, learner.id, enrolment)
+    }))
+    const catalogue = all.filter((program) => !mine.includes(program) && enrolments.get(program.id)?.status !== 'revoked' && canSelfEnrol(program, learner)).map(toPreview)
+    return NextResponse.json({ programs, catalogue })
+  } catch (error) { console.error('Error loading training:', error); return NextResponse.json({ error: trainingErrorMessage(error) }, { status: 500 }) }
 }
 
 export async function POST(request: NextRequest) {
@@ -72,39 +100,42 @@ export async function POST(request: NextRequest) {
     const user = await getRequestAdminUser(request); const database = getTrainingDatabase()
     if (getUserAdminRole(user) !== 'admin') return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     if (!database) return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
-    const body = await request.json().catch(() => null) as Record<string, unknown> | null; const clean = body && payload(body)
-    if (!clean) return NextResponse.json({ error: 'Add a title and at least one role or member email.' }, { status: 400 })
-    const { data, error } = await database.from('training_programs').insert({ ...clean, created_by: user!.id }).select('*').single()
+    const body = await request.json().catch(() => null) as Record<string, unknown> | null
+    const result = body ? payload(body) : { error: 'Add a program title.' }
+    if ('error' in result) return NextResponse.json({ error: result.error }, { status: 400 })
+    const { data, error } = await database.from('training_programs').insert({ ...result.clean, created_by: user!.id }).select('*').single()
     if (error) throw error
     return NextResponse.json({ program: data }, { status: 201 })
-  } catch (error) { console.error('Error creating training:', error); return NextResponse.json({ error: 'Failed to create training program.' }, { status: 500 }) }
+  } catch (error) { return saveError(error, 'Failed to create training program.') }
 }
 
+// With lessonId: any staff member ticks a lesson in their own course.
+// Without: an admin saves the whole program.
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await getRequestAdminUser(request); const role = getUserAdminRole(user); const database = getTrainingDatabase()
-    if (!user || !role) return NextResponse.json({ error: 'Dashboard access required' }, { status: 403 })
-    if (!database) return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+    const context = await getRequestStaffLearner(request)
+    if (!context) return NextResponse.json({ error: 'Dashboard access required' }, { status: 403 })
+    const { database, learner, role } = context
     const body = await request.json().catch(() => null) as Record<string, unknown> | null
-    if (!body || typeof body.id !== 'string' || !uuid.test(body.id)) return NextResponse.json({ error: 'A valid program is required.' }, { status: 400 })
-    if (role !== 'admin') {
-      const lessonId = cleanTrainingText(body.lessonId, 80); if (!lessonId) return NextResponse.json({ error: 'A lesson is required.' }, { status: 400 })
-      const { data: program } = await database.from('training_programs').select('status,audience_roles,assigned_emails,modules').eq('id', body.id).single()
-      const allowed = program?.status === 'published' && (program.audience_roles?.includes(role) || program.assigned_emails?.includes(user.email?.toLowerCase() || ''))
-      const lessons: TrainingLesson[] = (program?.modules || []).flatMap((module: TrainingModule) => module.lessons); const lessonIds = lessons.map((lesson) => lesson.id)
-      if (!allowed || !lessonIds.includes(lessonId)) return NextResponse.json({ error: 'Training access denied.' }, { status: 403 })
-      if (hasForm(lessons.find((lesson) => lesson.id === lessonId)!)) return NextResponse.json({ error: 'Submit the lesson form to complete this lesson.' }, { status: 400 })
-      const { data: existing } = await database.from('training_progress').select('completed_lesson_ids').eq('program_id', body.id).eq('user_id', user.id).maybeSingle()
-      const set = new Set<string>(existing?.completed_lesson_ids || []); body.completed === false ? set.delete(lessonId) : set.add(lessonId)
-      const completed = Array.from(set).filter((id) => lessonIds.includes(id))
-      const { error } = await database.from('training_progress').upsert({ program_id: body.id, user_id: user.id, completed_lesson_ids: completed, updated_at: new Date().toISOString() })
-      if (error) throw error
-      return NextResponse.json({ completed_lesson_ids: completed, progress_percent: lessonIds.length ? Math.round(completed.length / lessonIds.length * 100) : 0 })
+    if (!body || typeof body.id !== 'string' || !uuidPattern.test(body.id)) return NextResponse.json({ error: 'A valid program is required.' }, { status: 400 })
+
+    if (body.lessonId !== undefined) {
+      const lessonId = cleanTrainingText(body.lessonId, 80)
+      const program = await loadProgram(database, { id: body.id })
+      const enrolment = program && lessonId ? await accessProgram(database, program, learner) : null
+      if (!program || !enrolment) return NextResponse.json({ error: 'Training access denied.' }, { status: 403 })
+      const outcome = await tickLesson(database, program, enrolment, lessonId, body.completed !== false)
+      if ('error' in outcome) return NextResponse.json({ error: outcome.error }, { status: outcome.status })
+      return NextResponse.json(outcome.result)
     }
-    const clean = payload(body); if (!clean) return NextResponse.json({ error: 'Add a title and at least one role or member email.' }, { status: 400 })
-    const { data, error } = await database.from('training_programs').update(clean).eq('id', body.id).select('*').single(); if (error) throw error
+
+    if (role !== 'admin') return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    const result = payload(body)
+    if ('error' in result) return NextResponse.json({ error: result.error }, { status: 400 })
+    const { data, error } = await database.from('training_programs').update(result.clean).eq('id', body.id).select('*').single()
+    if (error) throw error
     return NextResponse.json({ program: data })
-  } catch (error) { console.error('Error updating training:', error); return NextResponse.json({ error: 'Failed to update training program.' }, { status: 500 }) }
+  } catch (error) { return saveError(error, 'Failed to update training program.') }
 }
 
 export async function DELETE(request: NextRequest) {
@@ -112,7 +143,7 @@ export async function DELETE(request: NextRequest) {
     const user = await getRequestAdminUser(request); const database = getTrainingDatabase(); const id = new URL(request.url).searchParams.get('id') || ''
     if (getUserAdminRole(user) !== 'admin') return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     if (!database) return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
-    if (!uuid.test(id)) return NextResponse.json({ error: 'A valid program is required.' }, { status: 400 })
+    if (!uuidPattern.test(id)) return NextResponse.json({ error: 'A valid program is required.' }, { status: 400 })
     const { error } = await database.from('training_programs').delete().eq('id', id); if (error) throw error
     return NextResponse.json({ success: true })
   } catch (error) { console.error('Error deleting training:', error); return NextResponse.json({ error: 'Failed to delete training program.' }, { status: 500 }) }
