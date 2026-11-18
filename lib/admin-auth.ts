@@ -44,9 +44,14 @@ export function getUserAdminRole(user: User | null): AdminRole | null {
   const userMetadata = user.user_metadata
   if (appMetadata?.dashboard_active === false) return null
   const email = user.email?.toLowerCase()
-  const role = appMetadata?.role || userMetadata?.role
+  // Anyone signed in can edit their own user_metadata, so it only counts for
+  // older staff accounts. Portal accounts (patients, ambassadors, course
+  // learners) carry account_type in app_metadata, which only the server can
+  // set, and get a dashboard role only from app_metadata.
+  const trustUserMetadata = !appMetadata?.account_type
+  const role = appMetadata?.role || (trustUserMetadata ? userMetadata?.role : undefined)
 
-  if (role === 'admin' || appMetadata?.is_admin === true || userMetadata?.is_admin === true) return 'admin'
+  if (role === 'admin' || appMetadata?.is_admin === true || (trustUserMetadata && userMetadata?.is_admin === true)) return 'admin'
   if (role === 'clinical') return 'clinical'
   if (role === 'sales') return 'sales'
   if (email && getConfiguredAdminEmails().includes(email)) return 'admin'

@@ -5,6 +5,7 @@ import { getRequestAdminUser } from '@/lib/admin-api-auth'
 import { canAccessTab, getUserAdminRole } from '@/lib/admin-auth'
 import { hasEmrPermission } from '@/lib/emr-permissions'
 import { loadNotifications, notificationSources } from '@/lib/admin-notifications'
+import { loadOverdueTraining } from '@/lib/training-notifications'
 
 export type { NotificationKind } from '@/lib/admin-notifications'
 
@@ -24,7 +25,13 @@ export async function GET(request: NextRequest) {
   // Due review follow-ups are raised automatically; make sure they exist first.
   if (visible.some(source => source.kind === 'follow_up')) await syncReviewFollowUps(supabase)
 
-  const { notifications, counts, degraded } = await loadNotifications(supabase, visible)
+  const [loaded, training] = await Promise.all([
+    loadNotifications(supabase, visible),
+    canAccessTab(role, 'training') ? loadOverdueTraining(supabase, role, user!.id) : null,
+  ])
+  const notifications = training ? [...loaded.notifications, ...training.items].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : loaded.notifications
+  const counts = training ? { ...loaded.counts, training_overdue: training.items.length } : loaded.counts
+  const degraded = training?.failed ? [...loaded.degraded, 'training_overdue'] : loaded.degraded
   return NextResponse.json({
     notifications,
     total: notifications.length,

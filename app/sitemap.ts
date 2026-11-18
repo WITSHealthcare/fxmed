@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { absoluteUrl, publicRoutes } from '@/lib/seo'
+import { getPublicCourses } from '@/lib/training-public'
 import { MIN_INDEXABLE_TOPIC_POSTS, getPublishedPostSummaries, groupTopics, topicPath } from '@/lib/blog'
 
 // Without this the sitemap is prerendered once at build, so articles published
@@ -9,7 +10,7 @@ export const revalidate = 3600
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
-  const blogPosts = await getPublishedPostSummaries()
+  const [blogPosts, courses] = await Promise.all([getPublishedPostSummaries(), getPublicCourses()])
   const newestPost = blogPosts[0]
 
   const staticEntries = publicRoutes.map((route) => ({
@@ -42,5 +43,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }) satisfies MetadataRoute.Sitemap
 
-  return [...staticEntries, ...topicEntries, ...blogEntries]
+  const courseEntries = [
+    ...(courses.length ? [{ url: absoluteUrl('/courses'), lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }] : []),
+    ...courses.map((course) => ({ url: absoluteUrl(`/courses/${course.slug}`), lastModified: now, changeFrequency: 'monthly' as const, priority: 0.6 })),
+  ] satisfies MetadataRoute.Sitemap
+
+  return [...staticEntries, ...topicEntries, ...courseEntries, ...blogEntries]
 }
