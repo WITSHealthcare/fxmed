@@ -30,7 +30,7 @@ export type TrainingProgram = {
   assigned_emails: string[]; modules: TrainingModule[]; created_at: string; updated_at: string
   slug: string | null; visibility: TrainingVisibility; price_kobo: number; currency: string; cover_image_url: string
   summary: string; learning_outcomes: string[]; self_enrol: boolean; sequential: boolean
-  certificate_enabled: boolean; default_due_days: number | null
+  certificate_enabled: boolean; default_due_days: number | null; listed: boolean
   completed_lesson_ids?: string[]; progress_percent?: number; form_responses?: TrainingFormResponse[]
   enrolment?: TrainingEnrolment | null; attempts?: TrainingAttemptSummary[]
 }
@@ -44,11 +44,12 @@ export type TrackingRow = {
 }
 
 /** What anyone may see before enrolling: the outline, never lesson content or answers. */
-export type TrainingPreview = Pick<TrainingProgram, 'id' | 'title' | 'description' | 'slug' | 'visibility' | 'price_kobo' | 'currency' | 'cover_image_url' | 'summary' | 'learning_outcomes' | 'sequential' | 'certificate_enabled' | 'self_enrol'> & {
+export type TrainingPreview = Pick<TrainingProgram, 'id' | 'title' | 'description' | 'slug' | 'visibility' | 'price_kobo' | 'currency' | 'cover_image_url' | 'summary' | 'learning_outcomes' | 'sequential' | 'certificate_enabled' | 'self_enrol' | 'listed'> & {
   modules: { id: string; title: string; lessons: { id: string; title: string; durationMinutes: number; hasQuiz: boolean }[] }[]
   total_minutes: number; lesson_count: number; quiz_count: number
 }
 
+export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 export const hasForm = (lesson: TrainingLesson) => Boolean(lesson.form?.questions.length)
 export const programLessons = (program: Pick<TrainingProgram, 'modules'>) => (program.modules || []).flatMap((module) => module.lessons)
 export const progressPercent = (program: Pick<TrainingProgram, 'modules'>, completed: string[]) => {
@@ -72,7 +73,7 @@ export function toPreview(program: TrainingProgram): TrainingPreview {
   return {
     id: program.id, title: program.title, description: program.description, slug: program.slug, visibility: program.visibility, price_kobo: program.price_kobo,
     currency: program.currency, cover_image_url: program.cover_image_url, summary: program.summary, learning_outcomes: program.learning_outcomes,
-    sequential: program.sequential, certificate_enabled: program.certificate_enabled, self_enrol: program.self_enrol, modules,
+    sequential: program.sequential, certificate_enabled: program.certificate_enabled, self_enrol: program.self_enrol, listed: program.listed !== false, modules,
     total_minutes: lessons.reduce((sum, lesson) => sum + (lesson.durationMinutes || 0), 0), lesson_count: lessons.length, quiz_count: lessons.filter((lesson) => lesson.hasQuiz).length,
   }
 }

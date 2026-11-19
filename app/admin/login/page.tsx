@@ -31,7 +31,9 @@ export default function AdminLogin() {
         throw new Error('Access denied. Dashboard role required.')
       }
 
-      router.push('/admin')
+      // Back to the page that sent them here (e.g. a shared course link), never off the dashboard.
+      const next = new URLSearchParams(window.location.search).get('next') || ''
+      router.push(/^\/admin(?!\/login)([/?]|$)/.test(next) && !next.startsWith('//') ? next : '/admin')
       router.refresh()
     } catch (error: any) {
       console.error('Login error:', error)

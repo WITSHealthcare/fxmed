@@ -66,7 +66,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!isAllowedDashboardUser) {
-    return redirectTo('/admin/login', { next: pathname })
+    return redirectTo('/admin/login', { next: `${pathname}${request.nextUrl.search}` })
   }
 
   return response

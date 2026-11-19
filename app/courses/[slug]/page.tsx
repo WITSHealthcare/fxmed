@@ -21,6 +21,7 @@ export async function generateMetadata({ params }: Props) {
     path: `/courses/${course.slug}`,
     image: course.cover_image_url || undefined,
     keywords: ['FXMed course', 'functional medicine', course.title],
+    noIndex: !course.listed,
   })
 }
 
@@ -36,7 +37,7 @@ export default async function CoursePage({ params }: Props) {
     hasCourseInstance: { '@type': 'CourseInstance', courseMode: 'online', courseWorkload: course.total_minutes ? `PT${course.total_minutes}M` : undefined },
   }
   return <main className="min-h-screen bg-[#FCFFF0]">
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+    {course.listed && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />}
     <Navigation />
     <section className="bg-gradient-to-br from-green-deep to-green-mid px-[5%] pb-14 pt-40 text-white">
       <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[1fr_320px] md:items-end">
