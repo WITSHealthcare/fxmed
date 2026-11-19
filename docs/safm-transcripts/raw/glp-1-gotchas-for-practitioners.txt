@@ -1,0 +1,621 @@
+[00:00] Today we're talking about gotchas in
+[00:04] GLP1
+[00:06] medications. It is the current darling
+[00:09] of the pharmaceutical interventional
+[00:12] world. And whether you're a prescriber
+[00:14] or not, you need to be savvy about the
+[00:17] common clinical conundrums that can
+[00:20] arise with your patients and clients who
+[00:22] are using GLP-1 agonist medications. And
+[00:25] in today's broadcast, I'm going to give
+[00:27] you four key considerations and talk
+[00:31] specifically about what you want to be
+[00:33] looking for and resolving in order to
+[00:35] minimize these negative side effects on
+[00:38] the people that you're serving in your
+[00:40] practice. Welcome to functional medicine
+[00:42] for realworld impact where we're diving
+[00:45] into the complex interconnected nature
+[00:48] of health and disease exploring not just
+[00:51] theory but practically what it takes to
+[00:53] turn functional medicine insight into
+[00:55] powerful practical realworld results. So
+[00:59] please hit subscribe and let's get
+[01:01] started. So first of all let's talk
+[01:03] about the oh so common complaint of
+[01:06] nausea and dismotility. This is quite
+[01:09] challenging for many individuals who
+[01:12] start using these medications. GLP-1
+[01:15] agonists are being prescribed for many
+[01:17] individuals who are substantially
+[01:20] oversee uh morbidly obese and who are
+[01:23] wrestling with entrenched type 2
+[01:24] diabetes. And we know that they're
+[01:26] increasingly being prescribed as well
+[01:29] for uh off label more minor uh weight
+[01:34] loss types of concerns and
+[01:36] considerations. and they are becoming
+[01:38] very popular because they work. But
+[01:42] let's talk for a moment about the simple
+[01:45] physiology of GLP1 uh which is an an
+[01:48] example of an increeton hormone that is
+[01:51] naturally produced in the human gut
+[01:54] specifically in the um in the dadum as
+[01:57] well as other places that helps to
+[02:00] regulate motility and to tie our food
+[02:04] intake to our glucose regulatory
+[02:07] response. Normally increins are secreted
+[02:13] in response to the movement of food
+[02:16] coming out of our gastric cavity. And if
+[02:19] we have slower gastric emptying then
+[02:23] we're going to have a more mild or lower
+[02:25] increin response in creatin synthesis
+[02:28] and therefore increant signaling and
+[02:30] lower insulin signaling. But if we have
+[02:33] a more aggressive or accelerated gastric
+[02:37] emptying response, it will pop a
+[02:40] stronger more aggressive increeton
+[02:42] response in the small intestines and
+[02:44] that will have a stronger insulin
+[02:46] signaling. Now in the normal human
+[02:50] physiology there is a self-regulating
+[02:52] process where if we have a surge of
+[02:56] increance it is going to work to calm
+[02:59] and slow that uh gastric emptying and
+[03:03] then there will be a lower increeton
+[03:07] response. Well, it's this slower gastric
+[03:10] emptying that is reducing appetite that
+[03:12] is supporting so many people using GLP-1
+[03:15] agonist in order to lose weight. Uh they
+[03:18] simply don't feel like eating as much
+[03:21] and this lowers appetite and makes it
+[03:23] easier for them to um minimize excessive
+[03:28] food intake. But the problem is that
+[03:31] we're interfering with the body's normal
+[03:33] self-regulatory pattern because even
+[03:36] though gastric emptying is being slowed,
+[03:38] we keep taking the medication and we
+[03:40] keep pushing higher levels of increins
+[03:43] in order to get higher insulin uh
+[03:46] response and the nausea um and the
+[03:50] dispsia that some individuals complain
+[03:52] of is a natural consequence of the fact
+[03:55] that that is what the medication is
+[03:57] doing is promoting
+[04:00] upper GI dismotility on purpose in order
+[04:04] to create that appetite reduction. But
+[04:07] as you know likely from your practice
+[04:09] for some individuals this uh nausea in
+[04:12] particular can be extremely debilitating
+[04:14] and in some cases the dismotility can
+[04:16] actually lead to distension and bloating
+[04:19] that is really quite uncomfortable. And
+[04:22] we find through the functional medicine
+[04:23] lens that often individuals struggle
+[04:25] with this so much more because even
+[04:29] before using the medication or maybe
+[04:31] coincident with it since they have begun
+[04:33] their prescription they have other
+[04:36] underlying functional imbalances that
+[04:39] are creating nausea and dismotility.
+[04:42] Ideally through the functional medicine
+[04:44] lens we can help people to identify
+[04:46] these factors before they start the
+[04:48] drugs. we can work on improving them so
+[04:50] they're way less likely to have symptoms
+[04:54] downstream. But uh there are a couple of
+[04:57] very common reasons why individuals
+[04:59] might already struggle with nausea and
+[05:03] overall uh
+[05:05] dismotility. And one of those that you
+[05:07] want to be on the lookout for and learn
+[05:09] to characterize and support is histamine
+[05:12] overload. Um, histamine is a
+[05:16] natural substance that the human body
+[05:18] thrives with. It's a pro-inflammatory
+[05:21] mediator and it supports our immune
+[05:23] function, but it's also a signaling
+[05:25] molecule for a number of key functions
+[05:27] in the human body. But like so many
+[05:30] other biochemicals, we thrive when we
+[05:32] have a nice balance between the amount
+[05:35] of a biochemical that's being generated
+[05:37] or that we're being exposed to alongside
+[05:40] our ability to process it or degrade it.
+[05:44] And so we have a balanced supply and
+[05:47] demand, if you will, and we are able to
+[05:49] well manage our histamine load. But
+[05:52] individuals can end up with an overload
+[05:54] of histamine either because their body
+[05:58] uh is being exposed to or is generating
+[06:01] too much of it or we have an impaired
+[06:03] ability to degrade histamine. And
+[06:08] uh women in particular when they enter
+[06:10] the pmenopausal time of life largely the
+[06:14] decade that is their 40s often start to
+[06:17] struggle with histamine overload. And
+[06:20] this has to do with the shift of
+[06:21] progesterone and estrogen that is
+[06:23] naturally happening during these years.
+[06:26] And women can end up generating more
+[06:28] histamine than they did naturally in
+[06:31] prior years. And they can end up with
+[06:33] simultaneously impaired ability to
+[06:35] degrade that histamine largely through
+[06:38] reduced activity of an enzyme in the
+[06:41] small intestines called damine oxidase
+[06:44] that would normally degrade histamine.
+[06:47] And so, um, this is an important
+[06:49] consideration because many women who are
+[06:52] taking GLP-1 agonists are in those
+[06:54] pmenopausal years and the further they
+[06:57] move into it, the likelihood that
+[06:59] they're going to struggle with
+[07:02] increasingly higher levels of histamine
+[07:04] overload. And histamine in the body
+[07:08] doesn't just promote nasal respiratory
+[07:11] congestion, which is what we often
+[07:12] associate it with, right?
+[07:15] chronic post-nasal drip or some type of
+[07:19] mucus or flem challenge uh in the body.
+[07:23] But histamine overload can promote a
+[07:25] rich diversity of symptoms including
+[07:28] migraine headache, anxiety and
+[07:30] hypervigilance including poor sleep uh
+[07:33] and also in the gut it can promote both
+[07:37] nausea and dismotility. And so if a
+[07:40] woman for example is already struggling
+[07:43] in her permenopausal years with some
+[07:46] histamine overload and then she adds
+[07:48] these medications on top of it, it's
+[07:50] almost a given that she's going to
+[07:52] wrestle with some pretty debilitating GI
+[07:55] symptoms. And so we want to be looking
+[07:59] for the roots of this and be able to
+[08:02] help her whether it's using natural
+[08:05] anti-histamines
+[08:06] uh such as uh corsetin and bromelain uh
+[08:10] or actually using overt diamine oxidase
+[08:13] supplementation in order to minimize
+[08:15] histamine load in the gut especially
+[08:17] when there is an impaired ability to
+[08:21] produce damine uh oxidase especially as
+[08:25] we age. And so, think about this for per
+[08:27] menopausal women. We often need to
+[08:29] support them with histamine overload.
+[08:32] But it's also true that many women and
+[08:35] some men wrestle with
+[08:37] hypothyroidism, especially subclinical
+[08:39] hypothyroidism. And this can also
+[08:41] promote dismotility that GLP-1 agonists
+[08:45] again are just going to further fuel.
+[08:48] And we through the functional medicine
+[08:49] lens, we always want to be looking for
+[08:53] uh subclinical intracellular
+[08:56] hypothyroidism. Uh especially when
+[08:59] people are presenting with some of the
+[09:02] uh same types of symptoms that um might
+[09:05] have set them on the path to becoming
+[09:08] marketkedly overweight or developing
+[09:10] type 2 diabetes. They have lower energy.
+[09:12] They feel more sedentary. uh they have
+[09:16] trouble maintaining uh their weight.
+[09:19] They might feel cold uh on a regular
+[09:22] basis. There might already be in general
+[09:25] just trouble maintaining an optimal body
+[09:27] temperature. Uh all of these are classic
+[09:30] signs and symptoms of hypothyroidism and
+[09:34] subclinical hypothyroidism is quite
+[09:36] rampant and we need to be running full
+[09:38] thyroid panels in order to identify
+[09:41] where this might be at play so we can
+[09:43] identify the particular type or profile
+[09:46] of hypothyroidism and adjust it. But the
+[09:49] point being here that that nausea and
+[09:52] dismotility is quite common in
+[09:54] individuals who are using GLP1 agonist
+[09:57] medications and we can best help these
+[10:00] uh patients and clients by getting to
+[10:03] the roots of why they uniquely have it.
+[10:06] Another common driver for nausea
+[10:09] especially idiopathic nausea is actually
+[10:13] insufficiency of vitamin B6. uh this is
+[10:17] a an essential nutrient for
+[10:20] catalyzing enzyme activity in the body
+[10:23] and we need adequate levels of vitamin
+[10:26] B6 uh in order to synthesize key
+[10:30] neurotransmitters that affect gut
+[10:32] motility like uh serotonin. We also need
+[10:36] B6 in order to make the damine oxidase
+[10:39] that I mentioned earlier. And you might
+[10:41] be surprised at the number of people in
+[10:43] your practice who have suboptimal
+[10:45] vitamin B6 status. This is especially a
+[10:48] risk in women who have been using oral
+[10:52] estrogen containing medications for an
+[10:55] extended period of time like birth
+[10:57] control
+[10:58] pills. And so we want to be thinking
+[11:00] about uh how these fairly common
+[11:04] lifestyle choices and circumstances
+[11:07] might be depleting core nutrients. Uh,
+[11:10] an oso common mineral insufficiency in
+[11:13] the American population in general is
+[11:16] magnesium. And inadequate levels of
+[11:19] magnesium can cause trouble with
+[11:22] balanced muscle contraction and
+[11:24] relaxation throughout the body. And this
+[11:26] is also often at play in chronic GI
+[11:30] dismotility. So that's the first one I
+[11:32] want you to be aware of. The second one
+[11:35] is maybe the obvious elephant in the
+[11:38] room which is malnutrition because GLP-1
+[11:41] agonist medications work and they
+[11:44] dramatically reduce appetite and
+[11:48] unfortunately when they are used in the
+[11:50] typical dosages that are uh being
+[11:55] prescribed they suppress appetite to the
+[11:58] point where individuals are um
+[12:02] marketkedly undercon. consuming key
+[12:05] micronutrients. And in fact, the the
+[12:08] typical recommended dosage is so high
+[12:11] that the patient doesn't actually have
+[12:14] to adopt any type of market dietary
+[12:18] improvement at all. Unfortunately,
+[12:21] nominal dosages of this drug promote the
+[12:24] belief, the false belief that people can
+[12:26] just eat whatever they want and they
+[12:28] keep losing weight. We see this
+[12:30] messaging, these conclusions being
+[12:32] promoted all over the internet and it's
+[12:34] not doing these people a service because
+[12:37] at the end of the day, if they if they
+[12:40] stop the medication at all, uh they are
+[12:44] going to have a rushed return of their
+[12:47] prior levels of appetite, their prior
+[12:50] cravings, and they haven't learned any
+[12:53] new lifestyle habits to help them
+[12:56] navigate a new norm that would allow
+[12:58] them to maintain the health improvements
+[13:01] that they've made. Anytime we are using
+[13:04] a pharmaceutical solution that removes
+[13:06] any responsibility from the patient to
+[13:09] take ownership of their health and to
+[13:11] make tangible sustainable change in
+[13:14] their life, I think we're doing them a
+[13:17] disservice. It's promoting their belief
+[13:19] in a magic pill that takes away their
+[13:22] need to change, their need to make
+[13:25] shifts in their choices. And I actually
+[13:28] believe that these medications are much
+[13:30] more promising and will ultimately do
+[13:32] much more service to the people who are
+[13:35] taking them if we use them in
+[13:37] marketkedly lower doses that still
+[13:40] require people to pay attention to their
+[13:42] habits and to make mindful choices about
+[13:45] their foods. to not reduce their
+[13:47] appetite so much that they hardly feel
+[13:50] like eating at all. In which case,
+[13:52] they're way more likely to be continuing
+[13:54] to eat nutrient poor, highly refined,
+[13:58] hyper palatable foods because their
+[14:00] appetite is so low and they're not
+[14:03] getting the macro nutrition or the
+[14:06] micronutrition that they need. Yes,
+[14:08] they're losing weight because of extreme
+[14:10] calorie
+[14:12] deprivation, but they're not learning
+[14:14] new habits and even in the interim,
+[14:16] they're not fueling their
+[14:18] body in order to support their
+[14:21] biochemical thriving. So I believe we
+[14:24] need to be looking much more carefully
+[14:26] at gauging individual response to these
+[14:29] medications and managing dosing so that
+[14:32] people get the hand up that they need.
+[14:35] the increased increant signaling that
+[14:38] gets a better insulin response
+[14:42] um in order to manage blood glucose but
+[14:45] helps them to just take the edge off of
+[14:47] their appetite so that their caloric
+[14:51] intake can better be matched with their
+[14:53] overall level of activity and their
+[14:55] metabolism can find a better balance.
+[14:58] Research actually shows that GLP-1
+[15:00] agonists do not overtly themselves
+[15:03] uh necessarily improve insulin
+[15:06] sensitivity at all. But by promoting
+[15:08] weight loss, weight loss does improve
+[15:11] insulin sensitivity over time. And so we
+[15:14] need to be paying close attention to
+[15:16] what are people eating. And just like we
+[15:18] would do for beriatric surgery, give
+[15:20] people targeted guidance on what to
+[15:23] actually consume. It's especially
+[15:25] critical to make sure that individuals
+[15:27] are getting in enough protein because
+[15:31] while we can store some excess uh sugars
+[15:34] as glycogen and we can certainly um
+[15:38] store uh lots of um fat in the body for
+[15:43] later usage. we have an incredibly
+[15:45] limited ability to store amino acids
+[15:49] without going into a catabolic state and
+[15:52] having to break down our own uh tissues
+[15:54] in order to mobilize amino acids. So, we
+[15:57] need to be consuming our protein. I
+[15:59] think we need to be giving people
+[16:00] guidance around eating your protein
+[16:03] first. Making sure they're taking key
+[16:06] core supplements to get the
+[16:08] micronutrition they need. Pretty much
+[16:10] anyone in my experience on a GLP1
+[16:12] agonist needs a a good solid rich high
+[16:15] quality
+[16:17] multi-nutrient that includes both
+[16:18] vitamins and minerals. They also need an
+[16:21] essential uh fatty acid and fat soluble
+[16:24] vitamin uh support in order to make sure
+[16:28] that they are are getting those key
+[16:30] those key fats. And then after the core
+[16:33] nutrients and the protein getting in
+[16:36] vegetables because phytonutrients from a
+[16:38] colorful diversity of plant foods are
+[16:41] also in their own way a collective
+[16:44] basket of essential nutrients that are
+[16:46] needed to fuel the antioxidant pathways
+[16:50] in the body that help us to counter
+[16:53] proxidant damage. So malnutrition is a
+[16:56] much bigger risk than we might think.
+[16:58] Yes, even while someone is morbidly
+[17:00] obese, many individuals are uh having
+[17:03] such a suppressed appetite that they're
+[17:05] not getting the basic nutrition that
+[17:06] they need to run their
+[17:08] biochemistry during this weight loss
+[17:11] process, which is going to leave them
+[17:13] with other functional imbalances. On the
+[17:17] other
+[17:18] side, the third thing that I want to
+[17:21] encourage you to look for and think
+[17:23] about is the notion of
+[17:27] hypoglycemia because yes, these GLP-1
+[17:30] agonists are uh directly affecting
+[17:34] firstphase insulin signaling so that we
+[17:37] get a more aggressive response from the
+[17:39] pancreas. we get higher levels of uh
+[17:42] insulin being put out and research shows
+[17:45] that people who have type 2 diabetes for
+[17:47] example by the way they aren't
+[17:49] necessarily making lower levels of
+[17:52] increants uh that really depends on the
+[17:54] study uh that um the uh research that's
+[17:58] being conducted. It varies quite a bit
+[18:00] depending on the sample group. But what
+[18:02] we do find is that there's lower
+[18:04] increant signaling happening in
+[18:07] individuals who have type 2 diabetes.
+[18:09] And so popping in these uh GLP-1
+[18:14] agonist, right, these basically increin
+[18:16] mimicking medications helps to naturally
+[18:20] pop that stronger in signaling. So you
+[18:25] get a greater insulin response. But in
+[18:28] some cases, these medications are being
+[18:30] given to individuals who may be quite
+[18:34] overweight. Um, but they already have a
+[18:37] significant insulin response. I've
+[18:40] encountered a number of these
+[18:41] individuals, perhaps you have as well,
+[18:43] where the fasting insulin or fasting
+[18:46] ceptide response for these patients was
+[18:49] not actually measured prior to the
+[18:52] medication being delivered. After all,
+[18:55] individuals can have all sorts of
+[18:57] different blood sugar levels aligned
+[19:01] with all sorts of different insulin
+[19:03] levels behind the scenes. In some cases,
+[19:06] individuals may have marketkedly high
+[19:08] blood sugar, but behind the scenes,
+[19:10] their pancreas is still responding very
+[19:13] strongly and they already have
+[19:16] um
+[19:18] hyperinsulinemia. And giving the GLP-1
+[19:21] agonist drug is going to make that
+[19:24] hyperinsulinemia even worse. And again,
+[19:27] while this might suppress appetite and
+[19:30] um promote weight loss, the higher
+[19:33] levels of insulin behind the scenes can
+[19:36] actually be promoting both hypoglycemic
+[19:41] episodes uh which can as we know be
+[19:44] quite dangerous for individuals uh in
+[19:46] terms of promoting uh dizziness or
+[19:49] cognitive impairment. Um individuals may
+[19:53] also feel very emotionally labile or
+[19:55] anxious uh during these
+[19:58] times. But higher levels of insulin is
+[20:01] also naturally going to promote
+[20:04] atyposity. And individuals using these
+[20:07] medications can be getting a negative
+[20:09] shift in their body composition while
+[20:12] their weight loss is happening. They're
+[20:14] actually gaining body fat as a relative
+[20:17] percentage even while they are losing
+[20:19] weight. And so we want to be assessing
+[20:22] and looking for actual insulin status
+[20:27] before we use a medication that is
+[20:29] artificially going to pop it to be more
+[20:32] aggressive
+[20:34] um as a result of the drug. Now, yes,
+[20:37] plenty of people with type 2 diabetes
+[20:40] who have marketkedly elevated blood
+[20:43] sugar have pancreatic insufficiency and
+[20:47] their pancreas is now failing to respond
+[20:51] appropriately or sufficiently to the
+[20:53] glycemic load and so um pancreatic
+[20:56] response uh needs to be stimulated. But
+[20:59] that is not always the case. People can
+[21:01] have low insulin response and high blood
+[21:04] sugar. They can have moderate insulin
+[21:06] response and high blood sugar or they
+[21:08] can have really high insulin response
+[21:12] behind the scenes but the glycemic load
+[21:15] is so strong from their stressors from
+[21:19] their uh diet uh that um the insulin is
+[21:25] simply still not enough in order to
+[21:27] manage to accommodate that glycemic
+[21:30] load. So we want to do our due diligence
+[21:32] to really understand what's actually
+[21:35] happening with this individual in terms
+[21:37] of pancreatic response uh before we use
+[21:40] a medication that's going to pop the
+[21:42] pancreas to be even more aggressive.
+[21:46] After all, if there is insulin
+[21:48] resistance behind the scenes, we can
+[21:51] work on multiple p uh pathways to help
+[21:54] improve
+[21:56] that well beyond the weight loss that
+[21:59] the medication is going to
+[22:01] promote. And then the fourth thing that
+[22:04] I really want to make sure that you are
+[22:06] aware of for these medications is in my
+[22:08] opinion perhaps the most alarming risk
+[22:11] of using these drugs. And this is again
+[22:15] a consequence of its primary mechanism
+[22:17] of action. GLP1 agonists are promoting
+[22:21] weight loss by causing upper GI
+[22:25] dismotility on purpose. And this is
+[22:28] again causing the lowered appetite. But
+[22:31] in causing lower or slower gastric
+[22:35] emptying, we must remember that the
+[22:37] effects of the medication are not just
+[22:39] limited to the stomach and the dadum.
+[22:43] These medications are also slowing
+[22:46] motility through the hippatic biliary
+[22:49] tree and making more sluggish the
+[22:53] emptying of the gallbladder. And again,
+[22:55] if this is on top of other sources of
+[22:57] dismotility like hypothyroidism, then
+[23:00] it's going to be even worsened. And so
+[23:04] the liver gallbladder axis becomes quite
+[23:07] vulnerable to
+[23:10] congestion and blockage
+[23:14] uh as a result of using these
+[23:16] medications. Well, let's pause for a
+[23:18] minute. Which population is particularly
+[23:20] vulnerable already to having hippatic
+[23:23] biliary congestion starting with fatty
+[23:26] liver? Well, it's individuals with
+[23:28] metabolic disease like type 2 diabetes.
+[23:31] And so many people who are going on
+[23:33] GLP-1 agonist
+[23:35] drugs already have some degree of a
+[23:38] fatty liver. They already have some
+[23:41] degree of hippatic biliary sluggishness
+[23:46] and they may already be struggling with
+[23:48] suboptimal emptying of the gallbladder
+[23:50] that over time is naturally going to be
+[23:53] more likely to promote uh eventual
+[23:56] crystallization of gallstones that can
+[23:59] build up and promote blockage and the
+[24:02] eventual development of gallbladder
+[24:04] disease and the need for a
+[24:06] choleiccystectomy. And so um if we
+[24:10] aren't assessing
+[24:12] uh fatty liver, he hippatic biliary
+[24:14] congestion, gallbladder emptying and
+[24:17] looking for not only labs but other
+[24:20] qualitative signs and symptoms of these
+[24:22] dynamics. If we're not looking for them
+[24:24] in advance so that we can help to
+[24:26] resolve them before people start using
+[24:28] the medication that's going to make them
+[24:30] overtly worse, then we may be
+[24:33] contributing to what uh research shows
+[24:36] is a marketked increased risk of
+[24:39] eventual gallbladder disease and
+[24:42] choleacyctomy in people who are using
+[24:44] these medications. And so this is a
+[24:48] particular area of vulnerability you
+[24:50] want to be on on the lookout for. uh
+[24:52] when we assess and find even early
+[24:55] stages of of fatty liver or poor
+[24:58] gallbladder functioning, there are a
+[25:00] number of different targeted
+[25:01] interventions we can make in order to
+[25:04] remove that to resolve that, which we'll
+[25:06] talk about in other videos. But we want
+[25:10] to use care in ideally
+[25:13] resolving this functional imbalance
+[25:16] before individuals start using the drugs
+[25:19] and making the situation even worse. And
+[25:23] again, this is where reduced dosages can
+[25:26] also make a huge difference because the
+[25:29] effects are not as severe. the the the
+[25:33] um the upper GI dismotility is not as
+[25:37] severe when we use lower dosage when we
+[25:40] think about uh small or even micro
+[25:43] dosage of these medications. Dr. Tina
+[25:45] Moore in the functional medicine world
+[25:47] has done an awesome job promoting the
+[25:50] benefits of these medications but really
+[25:52] teaching us how they can be wisely used
+[25:55] in much lower dosages to get the
+[25:58] beneficial effects but avoiding so many
+[26:02] of the known risks and negative
+[26:06] complications uh of using them. And
+[26:08] again, we always want to think about
+[26:11] leaving patients and clients empowered
+[26:14] and in fact leaving them with a
+[26:17] responsibility to truly partner with you
+[26:20] as a
+[26:22] practitioner to make sustainable
+[26:24] lifestyle change. The only way we ever
+[26:27] have durable, resilient change in our
+[26:31] health is by taking ownership of our
+[26:34] day-to-day choices and making different
+[26:37] choices, right? Um, so much of what is
+[26:41] normal in our cultures, our food, our
+[26:43] environment, our behaviors are actively
+[26:47] promoting disease. In fact, metabolic
+[26:50] disease is incredibly common as we know
+[26:52] in our populations. All you have to do
+[26:54] is make normal choices, eat the normal
+[26:56] foods, experience the normal stressors,
+[26:59] do the normal behaviors, and metabolic
+[27:02] disease. It will be an eventuality in
+[27:05] your life. Unfortunately, that is the
+[27:08] American way. And so our opportunity
+[27:10] through the functional medicine lens is
+[27:12] to empower people to make
+[27:16] abnormally healthy
+[27:18] choices in order to earn abnormally
+[27:23] healthy futures in order to have an
+[27:26] abnormally healthy high vitality life
+[27:29] experience that is not plagued by
+[27:32] debilitating symptoms especially during
+[27:36] the prime years of their life. And so we
+[27:39] want to use these medications
+[27:41] responsibly. And whether you're a
+[27:43] prescriber or not, you have the
+[27:45] opportunity to educate, inspire, and
+[27:48] empower the people you serve to
+[27:50] understand the necessity of them taking
+[27:53] responsibility for their choices to make
+[27:56] sure that their changes in their health,
+[27:58] the improvements that any pharmaceutical
+[28:00] might give them can actually be
+[28:03] sustained through a shift in their
+[28:06] physiology and biochemistry. that
+[28:08] happens because they make different day
+[28:10] overday
+[28:11] choices. So, I thank you so much for
+[28:14] joining us here at the School of Applied
+[28:15] Functional Medicine. We're posting
+[28:17] content on a regular basis to help you
+[28:20] as practitioners to do your best
+[28:22] clinical work to not only optimize the
+[28:24] health of your patients and clients, but
+[28:26] help earn you that deep satisfaction and
+[28:29] fulfillment that you crave. Please hit
+[28:31] subscribe and I look forward to being
+[28:33] with you next time.
