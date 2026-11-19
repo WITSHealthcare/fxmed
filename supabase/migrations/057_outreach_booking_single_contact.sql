@@ -1,7 +1,7 @@
 -- Booking an outreach follow-up no longer leaves a second contact. The
 -- appointment's own contact (from the appointments trigger in 032) is removed
 -- and the appointment is recorded on the contact the attendee already has from
--- registering. Replaces book_outreach_follow_up from 045.
+-- registering. Replaces book_outreach_follow_up from 049.
 CREATE OR REPLACE FUNCTION public.book_outreach_follow_up(
   p_attendee_id uuid, p_actor_id uuid, p_link_patient_id uuid,
   p_first_name text, p_last_name text, p_date_of_birth date, p_sex text,
