@@ -10,7 +10,7 @@ const api = '/api/admin/training'
 
 // A staff member's own learning: assigned and joined courses, the staff
 // catalogue with a preview before joining, and the lesson player.
-export default function StaffLearning() {
+export default function StaffLearning({ initialCourseId = '' }: { initialCourseId?: string }) {
   const [programs, setPrograms] = useState<TrainingProgram[] | null>(null)
   const [catalogue, setCatalogue] = useState<TrainingPreview[]>([])
   const [view, setView] = useState<'mine' | 'catalogue'>('mine')
@@ -23,6 +23,20 @@ export default function StaffLearning() {
     catch (loadError) { setError((loadError as Error).message); setPrograms([]) }
   }, [])
   useEffect(() => { load() }, [load])
+
+  // Opened from a shared course link: go straight into the course, or its preview if not yet enrolled.
+  const [linkHandled, setLinkHandled] = useState(false)
+  useEffect(() => {
+    if (!initialCourseId || linkHandled || !programs) return
+    setLinkHandled(true)
+    if (programs.some((program) => program.id === initialCourseId)) setOpenId(initialCourseId)
+    else {
+      const preview = catalogue.find((item) => item.id === initialCourseId)
+      if (preview) setPreviewing(preview)
+      else setError('That course link is not open to you. It may be unpublished, or not assigned to your role. Ask an admin to enrol you.')
+    }
+    const url = new URL(window.location.href); url.searchParams.delete('course'); window.history.replaceState({}, '', url)
+  }, [initialCourseId, linkHandled, programs, catalogue])
 
   const patch = (id: string, update: Partial<TrainingProgram>) => setPrograms((items) => (items || []).map((item) => item.id === id ? { ...item, ...update } : item))
   async function tick(program: TrainingProgram, lessonId: string, completed: boolean) {

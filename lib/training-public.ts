@@ -1,6 +1,8 @@
 import { getTrainingDatabase, toPreview, type TrainingPreview, type TrainingProgram } from './training'
 
-// Server-only reads for the public course pages. Only the preview (outline,
+// Server-only reads for the public course pages. getPublicCourses is the
+// catalogue (listed courses only); getPublicCourse opens any public course by
+// its link, listed or not. Only the preview (outline,
 // never lesson content or quiz answers) leaves the server.
 
 export async function getPublicCourses(): Promise<TrainingPreview[]> {
@@ -10,7 +12,8 @@ export async function getPublicCourses(): Promise<TrainingPreview[]> {
     .eq('status', 'published').in('visibility', ['public', 'both']).not('slug', 'is', null)
     .order('updated_at', { ascending: false })
   if (error) { console.error('Could not load public courses:', error.message); return [] }
-  return (data as TrainingProgram[]).map(toPreview)
+  // Unlisted courses open from their link but are not listed.
+  return (data as TrainingProgram[]).filter((program) => program.listed !== false).map(toPreview)
 }
 
 export async function getPublicCourse(slug: string): Promise<TrainingPreview | null> {

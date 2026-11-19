@@ -56,7 +56,7 @@ function payload(body: Record<string, unknown>) {
       audience_roles: audienceRoles, assigned_emails: assignedEmails, modules: cleanModules(body.modules),
       slug: slug || null, visibility, price_kobo: Number.isFinite(price) && price > 0 ? Math.min(price, 2_000_000_000) : 0, currency: 'NGN',
       cover_image_url: /^(https:\/\/|\/)/.test(cover) ? cover : '', summary: cleanTrainingText(body.summary, 600), learning_outcomes: outcomes,
-      self_enrol: selfEnrol, sequential: body.sequential === true, certificate_enabled: body.certificate_enabled === true,
+      self_enrol: selfEnrol, listed: body.listed !== false, sequential: body.sequential === true, certificate_enabled: body.certificate_enabled === true,
       default_due_days: Number.isFinite(dueDays) && dueDays >= 1 && dueDays <= 365 ? dueDays : null,
     },
   }

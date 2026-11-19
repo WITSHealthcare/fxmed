@@ -13,21 +13,39 @@ const roles = ['admin', 'clinical', 'sales'] as const
 type Form = {
   title: string; description: string; status: 'draft' | 'published'; audience_roles: string[]; assigned_emails: string; modules: TrainingModule[]
   slug: string; visibility: TrainingVisibility; price_naira: string; cover_image_url: string; summary: string; learning_outcomes: string
-  self_enrol: boolean; sequential: boolean; certificate_enabled: boolean; default_due_days: string
+  self_enrol: boolean; listed: boolean; sequential: boolean; certificate_enabled: boolean; default_due_days: string
 }
 const blank: Form = {
   title: '', description: '', status: 'draft', audience_roles: ['clinical'], assigned_emails: '', modules: [], slug: '', visibility: 'internal', price_naira: '',
-  cover_image_url: '', summary: '', learning_outcomes: '', self_enrol: false, sequential: false, certificate_enabled: true, default_due_days: '',
+  cover_image_url: '', summary: '', learning_outcomes: '', self_enrol: false, listed: true, sequential: false, certificate_enabled: true, default_due_days: '',
 }
 function programForm(program: TrainingProgram): Form {
   return {
     title: program.title, description: program.description, status: program.status, audience_roles: program.audience_roles, assigned_emails: program.assigned_emails.join('\n'),
     modules: program.modules, slug: program.slug || '', visibility: program.visibility || 'internal', price_naira: program.price_kobo ? String(program.price_kobo / 100) : '',
     cover_image_url: program.cover_image_url || '', summary: program.summary || '', learning_outcomes: (program.learning_outcomes || []).join('\n'),
-    self_enrol: !!program.self_enrol, sequential: !!program.sequential, certificate_enabled: !!program.certificate_enabled, default_due_days: program.default_due_days ? String(program.default_due_days) : '',
+    self_enrol: !!program.self_enrol, listed: program.listed !== false, sequential: !!program.sequential, certificate_enabled: !!program.certificate_enabled, default_due_days: program.default_due_days ? String(program.default_due_days) : '',
   }
 }
 const visibilityLabel: Record<TrainingVisibility, string> = { internal: 'Staff only', public: 'Public', both: 'Staff + public' }
+const origin = () => typeof window === 'undefined' ? '' : window.location.origin
+/** The links to share for a published course: the public course page, and/or the dashboard link for staff. */
+function shareLinks(program: TrainingProgram) {
+  const links: { key: string; label: string; url: string }[] = []
+  if (program.visibility !== 'internal' && program.slug) links.push({ key: 'public', label: program.listed === false ? 'Public link (unlisted)' : 'Public link', url: `${origin()}/courses/${program.slug}` })
+  if (program.visibility !== 'public') links.push({ key: 'staff', label: 'Staff link', url: `${origin()}/admin?tab=training&course=${program.id}` })
+  return links
+}
+
+function ShareLinks({ program }: { program: TrainingProgram }) {
+  const [copied, setCopied] = useState('')
+  const copy = async (key: string, url: string) => { await navigator.clipboard.writeText(url).catch(() => {}); setCopied(key); setTimeout(() => setCopied(''), 1500) }
+  return <div className="mt-3 space-y-2">{shareLinks(program).map((link) => <div key={link.key} className="flex max-w-xl items-center gap-2 rounded-full bg-gray-50 py-1 pl-4 pr-1 text-xs">
+    <span className="shrink-0 font-bold text-green-mid">{link.label}</span><span className="min-w-0 flex-1 truncate text-text-mid">{link.url}</span>
+    <button type="button" onClick={() => copy(link.key, link.url)} className="rounded-full bg-white px-3 py-1 font-bold text-green-deep shadow-sm">{copied === link.key ? 'Copied' : 'Copy link'}</button>
+    <a href={link.url} target="_blank" rel="noopener noreferrer" className="rounded-full px-2 py-1 font-bold text-green-mid">Open ↗</a>
+  </div>)}</div>
+}
 
 // Admins build and publish courses here.
 export default function ProgramManager() {
@@ -55,10 +73,10 @@ export default function ProgramManager() {
       {!programs.length ? <p className="p-16 text-center text-text-mid">No courses yet. Create the first one.</p> : <div className="divide-y">{programs.map((program) => {
         const lessons = program.modules.reduce((n, m) => n + m.lessons.length, 0); const forms = program.modules.reduce((n, m) => n + m.lessons.filter(hasForm).length, 0)
         return <div key={program.id} className="flex flex-wrap items-start justify-between gap-4 p-6"><div className="min-w-[240px] flex-1">
-          <div className="flex flex-wrap items-center gap-2"><h4 className="text-lg font-bold text-green-deep">{program.title}</h4><Badge tone={program.status === 'published' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-text-mid'}>{program.status}</Badge><Badge tone="bg-gold/30 text-green-deep">{visibilityLabel[program.visibility || 'internal']}</Badge>{program.visibility !== 'internal' && <Badge tone="bg-gray-100 text-text-mid">{formatPrice(program.price_kobo, program.currency)}</Badge>}</div>
+          <div className="flex flex-wrap items-center gap-2"><h4 className="text-lg font-bold text-green-deep">{program.title}</h4><Badge tone={program.status === 'published' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-text-mid'}>{program.status}</Badge><Badge tone="bg-gold/30 text-green-deep">{visibilityLabel[program.visibility || 'internal']}</Badge>{program.visibility !== 'internal' && <Badge tone="bg-gray-100 text-text-mid">{formatPrice(program.price_kobo, program.currency)}</Badge>}{program.visibility !== 'internal' && program.listed === false && <Badge tone="bg-gray-100 text-text-mid">Unlisted</Badge>}</div>
           <p className="mt-1 text-sm text-text-mid">{program.summary || program.description || 'No description'}</p>
           <p className="mt-2 text-xs text-gray-500">{program.modules.length} modules · {lessons} lessons{forms ? ` · ${forms} form(s)` : ''}{program.visibility !== 'public' && ` · ${program.audience_roles.join(', ') || 'no roles'}`}{program.assigned_emails.length ? ` · ${program.assigned_emails.length} direct assignment(s)` : ''}{program.self_enrol ? ' · self-enrol' : ''}{program.sequential ? ' · in order' : ''}{program.default_due_days ? ` · due in ${program.default_due_days} days` : ''}</p>
-          {program.status === 'published' && program.visibility !== 'internal' && program.slug && <a href={`/courses/${program.slug}`} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs font-bold text-green-mid underline">/courses/{program.slug} ↗</a>}
+          {program.status === 'published' ? <ShareLinks program={program} /> : <p className="mt-2 text-xs text-gray-400">Publish to get a shareable link.</p>}
         </div><div className="flex flex-wrap gap-2">
           <button onClick={() => setPreviewing(program)} className="rounded-full border px-4 py-2 text-xs font-bold text-green-deep">Preview</button>
           {forms > 0 && <button onClick={() => setReviewing(program)} className="rounded-full border px-4 py-2 text-xs font-bold text-green-deep">Responses</button>}
@@ -118,6 +136,7 @@ function Editor({ program, onClose, onSave, error }: { program: TrainingProgram 
         {publicCourse && <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Web address" hint={`fxmed.ng/courses/${form.slug || slugify(form.title) || '…'}`}><input value={form.slug} onChange={(e) => set('slug', slugify(e.target.value))} placeholder={slugify(form.title)} className="input" /></Field>
           <Field label="Price (₦)" hint="leave empty for free"><input type="number" min="0" step="100" value={form.price_naira} onChange={(e) => set('price_naira', e.target.value)} placeholder="0" className="input" /></Field>
+          <div className="sm:col-span-2"><Toggle checked={form.listed} onChange={(v) => set('listed', v)} label="List in the public course catalogue" hint="Turn off to make it unlisted: only people with the link can find it, and it stays out of search results." /></div>
         </div>}
       </div>
 

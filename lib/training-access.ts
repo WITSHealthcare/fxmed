@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AdminRole } from './admin-auth'
 import {
-  gradeTrainingResponse, hasForm, isLessonUnlocked, programLessons, progressPercent,
+  gradeTrainingResponse, hasForm, uuidPattern, isLessonUnlocked, programLessons, progressPercent,
   type TrainingAnswer, type TrainingAttemptSummary, type TrainingEnrolment, type TrainingLesson, type TrainingProgram,
 } from './training'
 
@@ -12,7 +12,7 @@ export type TrainingLearner =
   | { kind: 'staff'; id: string; email: string; role: AdminRole }
   | { kind: 'external'; id: string; email: string }
 
-export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+export { uuidPattern } from './training'
 const heldEnrolment = (enrolment: TrainingEnrolment | null) => enrolment && enrolment.status !== 'revoked'
 
 export const isInternal = (program: Pick<TrainingProgram, 'visibility'>) => program.visibility !== 'public'
