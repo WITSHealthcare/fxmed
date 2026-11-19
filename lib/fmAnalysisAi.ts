@@ -6,7 +6,7 @@
 import { generateClinicalReport, type ReportAttachment } from '@/lib/ai/clinical-report'
 import { analyse, BAND_LABEL, bandOf, directionOf } from '@/lib/fmAssessment'
 import {
-  FM_BIOMARKERS, createEntry, defaultRanges, matchBiomarker,
+  FM_BIOMARKERS, ageInYears, createEntry, defaultRanges, isChild, matchBiomarker,
   type FmEntry, type FmNarrative, type FmPatient, type Priority, type Sex,
 } from '@/lib/fmBiomarkers'
 
@@ -44,7 +44,7 @@ Rules:
 - If this is not a laboratory report, return an empty results array.${pastedText ? `\n\nREPORT TEXT:\n${pastedText.slice(0, 40000)}` : ''}`
 }
 
-export async function extractLabResults(files: ReportAttachment[], pastedText: string, sex: Sex): Promise<ExtractedLab> {
+export async function extractLabResults(files: ReportAttachment[], pastedText: string, sex: Sex, age?: number | null): Promise<ExtractedLab> {
   const { report: output, provider } = await generateClinicalReport(extractionPrompt(pastedText), files)
   let parsed: Record<string, any>
   try {
@@ -55,6 +55,8 @@ export async function extractLabResults(files: ReportAttachment[], pastedText: s
   const patient = parsed.patient && typeof parsed.patient === 'object' ? parsed.patient : {}
   const extractedSex = patient.sex === 'female' || patient.sex === 'male' ? patient.sex as Sex : ''
   const rangeSex = sex || extractedSex
+  // Children's results need paediatric defaults; the report's printed age stands in when the caller has none.
+  const rangeAge = age ?? ageInYears(text(patient.age, 10))
   const entries: FmEntry[] = []
   const seen = new Set<string>()
   for (const row of Array.isArray(parsed.results) ? parsed.results.slice(0, 200) : []) {
@@ -67,7 +69,7 @@ export async function extractLabResults(files: ReportAttachment[], pastedText: s
     seen.add(key)
     const unit = text(row?.unit, 40)
     const labRange = text(row?.referenceRange, 60)
-    const fallback = marker ? defaultRanges(marker, unit, rangeSex) : null
+    const fallback = marker ? defaultRanges(marker, unit, rangeSex, rangeAge) : null
     entries.push(createEntry(marker, rangeSex, {
       ...(marker ? {} : { name }),
       value,
@@ -75,7 +77,7 @@ export async function extractLabResults(files: ReportAttachment[], pastedText: s
       // The lab's own printed range wins; the catalogue fills a gap.
       labRange: labRange || fallback?.lab || '',
       fmRange: fallback?.fm || '',
-    }))
+    }, rangeAge))
   }
   return {
     patient: {
@@ -91,7 +93,9 @@ export async function extractLabResults(files: ReportAttachment[], pastedText: s
 // Interpretation
 
 function interpretationPrompt(patient: FmPatient, entries: FmEntry[], context: string) {
-  const analysis = analyse(entries, patient.sex)
+  const age = ageInYears(patient.age)
+  const child = isChild(age)
+  const analysis = analyse(entries, patient.sex, age)
   const outOfOptimal = analysis.summary.assessed.filter(entry => directionOf(entry))
   const lines = outOfOptimal.map(entry =>
     `- ${entry.name}: ${entry.value} ${entry.unit} | ${BAND_LABEL[bandOf(entry)]} | lab range ${entry.labRange || 'n/a'} | FM optimal ${entry.fmRange || 'n/a'}${entry.urgent ? ' | ALARM' : ''}${entry.calculated ? ' | calculated' : ''}`)
@@ -100,7 +104,7 @@ function interpretationPrompt(patient: FmPatient, entries: FmEntry[], context: s
   return `You are a functional medicine physician writing the interpretation for a patient's Functional Health Report at WITS FxMed Nigeria. The statuses and likelihood scores below were calculated by the clinic's software; do not re-classify them. Write for a patient who will read this with their doctor: plain English, specific to these numbers, clinically sound, never alarmist and never dismissive. Do not invent results that are not listed. Practical advice should suit a Nigerian patient (local foods, availability).
 
 PATIENT: ${patient.age || 'unknown age'} years, ${patient.sex || 'sex not recorded'}
-${context ? `CLINICAL CONTEXT FROM THE CLINICIAN:\n${context.slice(0, 3000)}\n` : ''}
+${child ? 'THIS PATIENT IS A CHILD. The results were judged against paediatric reference ranges, not adult optimal ranges. Write for the parents, about the child.\n' : ''}${context ? `CLINICAL CONTEXT FROM THE CLINICIAN:\n${context.slice(0, 3000)}\n` : ''}
 HEALTH IMPROVEMENT AREAS FLAGGED (likelihood of dysfunction):
 ${areas.join('\n') || 'None above 50%.'}
 
@@ -123,7 +127,7 @@ Rules:
 - markerNotes: one for every result outside optimal, and none for the others.
 - recommendations: 4-6 groups ordered by priority, each with 3-5 items covering food, lifestyle, supplements to discuss and follow-up tests as relevant. Put any medical referral first.
 - nextSteps: exactly 3 groups: seeing their clinician, follow-up tests with timing, and the foundations to start now.
-- Use the units given. Give typical adult supplement doses and always say to agree medicines and supplements with their doctor.`
+- Use the units given. ${child ? 'Use paediatric reasoning throughout. Never give adult supplement doses: give child doses by body weight (mg/kg) or by age where standard, only for supplements that are appropriate for a child, and say that the child\'s doctor must agree every medicine, supplement and dose.' : 'Give typical adult supplement doses and always say to agree medicines and supplements with their doctor.'}`
 }
 
 export async function interpretLabResults(patient: FmPatient, entries: FmEntry[], context: string) {

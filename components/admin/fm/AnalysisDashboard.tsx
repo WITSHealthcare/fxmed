@@ -16,7 +16,7 @@ import { inputClass } from './ResultsEntry'
 // searchable table where any marker opens its detail.
 
 function Stat({ label, value, sub, color, Icon }: { label: string; value: number; sub?: string; color: string; Icon: typeof FileTextIcon }) {
-  return <div className="rounded-[18px] border border-green-deep/10 bg-white p-5" style={{ borderTop: `4px solid ${color}` }}>
+  return <div className="rounded-[18px] border border-green-deep/10 bg-white p-4 sm:p-5" style={{ borderTop: `4px solid ${color}` }}>
     <div className="flex items-center justify-between"><div><p className="text-xs font-semibold text-text-mid">{label}</p><p className="mt-1 text-3xl font-bold" style={{ color }}>{value}</p>{sub && <p className="text-[11px] text-text-mid">{sub}</p>}</div><Icon size={28} weight="duotone" style={{ color }} /></div>
   </div>
 }
@@ -34,8 +34,8 @@ function Likelihood({ score }: { score: number }) {
 
 const SCORE_GROUPS: Array<[Exclude<AreaGroup, 'plan'>, string]> = [['system', 'Body systems'], ['accessory', 'Accessory'], ['nutrient', 'Nutrient status'], ['deficiency', 'Nutrient needs']]
 
-export default function AnalysisDashboard({ entries, narrative, sex }: { entries: FmEntry[]; narrative: FmNarrative; sex: Sex }) {
-  const analysis = useMemo(() => analyse(entries, sex), [entries, sex])
+export default function AnalysisDashboard({ entries, narrative, sex, age }: { entries: FmEntry[]; narrative: FmNarrative; sex: Sex; age?: number | null }) {
+  const analysis = useMemo(() => analyse(entries, sex, age), [entries, sex, age])
   const summary = analysis.summary
   const [group, setGroup] = useState<Exclude<AreaGroup, 'plan'>>('system')
   const [search, setSearch] = useState('')
@@ -58,7 +58,7 @@ export default function AnalysisDashboard({ entries, narrative, sex }: { entries
   const rows = summary.assessed.filter(entry => (panel === 'all' || entry.panel === panel) && (!query || entry.name.toLowerCase().includes(query)))
 
   return <div className="space-y-6">
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
       <Stat label="Total markers" value={summary.total} color="#14261E" Icon={FileTextIcon} />
       <Stat label="Normal / optimal (FM)" value={summary.inRange} sub={pct(summary.inRange, summary.total)} color="#1A6B53" Icon={CheckCircleIcon} />
       <Stat label="High (FM)" value={summary.high} sub={pct(summary.high, summary.total)} color="#C53030" Icon={TrendUpIcon} />
@@ -72,7 +72,7 @@ export default function AnalysisDashboard({ entries, narrative, sex }: { entries
         <p className="mt-1 text-xs text-text-mid">Areas at 50% likelihood or more, worked out from the results. Each has a plan on the report, which you can edit on the Report step.</p>
         <div className="mt-4 space-y-2.5">{analysis.plan.length ? analysis.plan.map(item => {
           const priority = priorityOf(item)
-          const plan = planFor(item.area, narrative)
+          const plan = planFor(item.area, narrative, analysis.child)
           return <details key={item.area.id} className="group rounded-xl border border-green-deep/10 p-3">
             <summary className="cursor-pointer list-none">
               <div className="flex items-center justify-between gap-3 text-sm"><span className="font-bold text-green-deep">{item.area.name}</span>

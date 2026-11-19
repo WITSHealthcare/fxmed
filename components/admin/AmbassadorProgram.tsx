@@ -73,7 +73,7 @@ export default function AmbassadorProgram() {
   }
 
   return <div className="space-y-6">
-    <div className="grid gap-4 sm:grid-cols-3"><Stat label="Active ambassadors" value={String(totals.active)} /><Stat label="Successful referrals" value={String(totals.converted)} /><Stat label="Commission pending / due" value={money.format(totals.due)} /></div>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"><Stat label="Active ambassadors" value={String(totals.active)} /><Stat label="Successful referrals" value={String(totals.converted)} /><Stat label="Commission pending / due" value={money.format(totals.due)} /></div>
     <div className="flex gap-2 overflow-x-auto rounded-2xl border border-green-deep/10 bg-white p-2 shadow-sm">{[
       ['applications','Applications'], ['ambassadors','Ambassadors'], ['referrals','Referrals'], ['payouts','Payouts'], ['content','Content'],
     ].map(([id, label]) => <button key={id} onClick={() => setTab(id as typeof tab)} className={`shrink-0 rounded-xl px-5 py-3 font-dm-sans text-sm font-bold ${tab === id ? 'bg-green-deep text-white' : 'text-text-mid hover:bg-green-50'}`}>{label}</button>)}</div>
@@ -91,7 +91,7 @@ export default function AmbassadorProgram() {
   </div>
 }
 
-function Stat({ label, value }: { label: string; value: string }) { return <div className="rounded-2xl border border-green-deep/10 bg-white p-5 shadow-sm"><p className="font-dm-sans text-xs font-bold uppercase tracking-wide text-text-mid">{label}</p><p className="mt-2 font-dm-sans text-2xl font-bold text-green-deep">{value}</p></div> }
+function Stat({ label, value }: { label: string; value: string }) { return <div className="rounded-2xl border border-green-deep/10 bg-white p-4 sm:p-5 shadow-sm"><p className="font-dm-sans text-xs font-bold uppercase tracking-wide text-text-mid">{label}</p><p className="mt-2 font-dm-sans text-2xl font-bold text-green-deep">{value}</p></div> }
 function Panel({ title, subtitle, loading, children }: { title: string; subtitle: string; loading: boolean; children: React.ReactNode }) { return <section className="overflow-hidden rounded-[20px] border border-green-deep/10 bg-white shadow-lg"><div className="border-b p-6"><h3 className="font-dm-sans text-2xl font-bold text-green-deep">{title}</h3><p className="mt-1 font-dm-sans text-sm text-text-mid">{subtitle}</p></div>{loading ? <div className="p-16 text-center text-text-mid">Loading…</div> : children}</section> }
 function Table({ headers, rows }: { headers: string[]; rows: React.ReactNode[][] }) { if (!rows.length) return <div className="p-16 text-center font-dm-sans text-text-mid">No records yet.</div>; return <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left font-dm-sans text-sm"><thead><tr className="border-b bg-gray-50 text-xs uppercase text-gray-500">{headers.map((item) => <th key={item} className="px-5 py-3">{item}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index} className="border-b border-gray-100">{row.map((cell, cellIndex) => <td key={cellIndex} className="px-5 py-4 text-gray-700">{cell}</td>)}</tr>)}</tbody></table></div> }
 

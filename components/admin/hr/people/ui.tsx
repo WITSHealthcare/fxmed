@@ -18,7 +18,7 @@ export async function call<T = Record<string, unknown>>(url: string, method = 'G
 }
 
 export function Field({ label, hint, children, className = '' }: { label: string; hint?: string; children: ReactNode; className?: string }) { return <label className={`block text-sm font-bold text-green-deep ${className}`}>{label} {hint && <span className="font-normal text-gray-400">— {hint}</span>}{children}</label> }
-export function Stat({ label, value, tone = '' }: { label: string; value: number | string; tone?: string }) { return <div className="rounded-[18px] border bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-green-mid">{label}</p><p className={`mt-2 text-3xl font-bold text-green-deep ${tone}`}>{value}</p></div> }
+export function Stat({ label, value, tone = '' }: { label: string; value: number | string; tone?: string }) { return <div className="rounded-[18px] border bg-white p-4 sm:p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-green-mid">{label}</p><p className={`mt-2 text-2xl sm:text-3xl font-bold text-green-deep ${tone}`}>{value}</p></div> }
 export function Badge({ children, tone = 'bg-green-50 text-green-700' }: { children: ReactNode; tone?: string }) { return <span className={`whitespace-nowrap rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide ${tone}`}>{children}</span> }
 export function Alert({ children }: { children: ReactNode }) { return children ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{children}</div> : null }
 export function Card({ title, description, action, children }: { title: string; description?: string; action?: ReactNode; children: ReactNode }) {

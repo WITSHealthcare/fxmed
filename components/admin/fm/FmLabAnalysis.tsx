@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeftIcon, ChartBarIcon, FileTextIcon, FlaskIcon, FloppyDiskIcon, MagnifyingGlassIcon, PlusIcon, TrashIcon, UserIcon } from '@phosphor-icons/react'
 import { ageFromDateOfBirth } from '@/lib/age'
-import { defaultRanges, emptyNarrative, markerById, refreshRanges, summarize, type FmEntry, type FmNarrative, type FmPatient, type Sex } from '@/lib/fmBiomarkers'
+import { ageInYears, defaultRanges, emptyNarrative, markerById, refreshRanges, summarize, type FmEntry, type FmNarrative, type FmPatient, type Sex } from '@/lib/fmBiomarkers'
 import AnalysisDashboard from './AnalysisDashboard'
 import RecordResults from './RecordResults'
 import ReportBuilder from './ReportBuilder'
@@ -69,12 +69,12 @@ function AnalysisList({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
       {error && <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{error} You can still prepare a new analysis.</p>}
       {items === null ? <div className="flex min-h-40 items-center justify-center"><span className="h-8 w-8 animate-spin rounded-full border-2 border-green-deep/15 border-t-green-deep" /></div>
-        : shown.length ? <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{shown.map(item => <button key={item.id} type="button" onClick={() => onOpen(item.id)} className="flex items-start gap-4 rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4 text-left transition hover:border-green-mid">
+        : shown.length ? <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">{shown.map(item => <button key={item.id} type="button" onClick={() => onOpen(item.id)} className="flex min-w-0 items-start gap-3 rounded-[16px] sm:gap-4 border border-green-deep/10 bg-[#FCFFF0] p-4 text-left transition hover:border-green-mid">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-green-deep text-gold"><FlaskIcon size={21} weight="fill" /></span>
           <span className="min-w-0 flex-1"><span className="block truncate font-bold">{item.patient?.name || 'Unnamed patient'}</span>
             <span className="mt-1 block text-xs text-text-mid">{item.markerCount} markers{item.patient?.collectedAt ? ` · collected ${item.patient.collectedAt}` : ''}{item.patient?.labRef ? ` · ${item.patient.labRef}` : ''}</span>
             <span className="mt-1 block text-[11px] text-text-mid">Updated {dateTime.format(new Date(item.updated_at))}</span></span>
-          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${item.status === 'final' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.status === 'final' ? 'Issued' : 'Draft'}</span>
+          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${item.status === 'final' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.status === 'final' ? 'Issued' : 'Draft'}</span>
         </button>)}</div>
         : <div className="py-12 text-center text-sm text-text-mid"><FlaskIcon size={34} weight="duotone" className="mx-auto mb-3 text-green-mid/60" />{query ? 'No analyses match.' : 'No analyses yet. Start one with New analysis.'}</div>}
     </section>
@@ -99,6 +99,19 @@ function PatientLink({ onPick }: { onPick: (patient: EmrPatient) => void }) {
       <span className="font-semibold text-green-deep">{patientName(patient)}</span><span className="ml-2 text-xs text-text-mid">{patient.mrn}{patient.date_of_birth ? ` · ${ageFromDateOfBirth(patient.date_of_birth)} y` : ''}{patient.sex ? ` · ${patient.sex}` : ''}</span>
     </button>)}</div>}
   </div>
+}
+
+/** Entries with the catalogue ranges of one sex and age moved to another's; hand-edited ranges are kept. */
+function rerange(entries: FmEntry[], from: { sex: Sex; age: string }, to: { sex: Sex; age: string }) {
+  if (from.sex === to.sex && from.age === to.age) return entries
+  const fromAge = ageInYears(from.age), toAge = ageInYears(to.age)
+  return entries.map(entry => {
+    const marker = markerById(entry.markerId)
+    if (!marker || entry.calculated) return entry
+    const before = defaultRanges(marker, entry.unit, from.sex, fromAge), after = defaultRanges(marker, entry.unit, to.sex, toAge)
+    if (!before || !after) return entry
+    return { ...entry, labRange: entry.labRange === before.lab ? after.lab : entry.labRange, fmRange: entry.fmRange === before.fm ? after.fm : entry.fmRange }
+  })
 }
 
 function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
@@ -146,47 +159,51 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
   const canAutosave = !!patient.name.trim() && (!!analysisId || entries.length > 0)
 
   const summary = useMemo(() => summarize(entries), [entries])
+  const age = useMemo(() => ageInYears(patient.age), [patient.age])
   // Results saved before the ranges were last reviewed can be brought up to date.
-  const outdated = useMemo(() => refreshRanges(entries, patient.sex).changed, [entries, patient.sex])
+  const outdated = useMemo(() => refreshRanges(entries, patient.sex, age).changed, [entries, patient.sex, age])
   function updateRanges() {
-    const result = refreshRanges(entries, patient.sex)
+    const result = refreshRanges(entries, patient.sex, age)
     setEntries(result.entries)
     setMessage({ tone: 'ok', text: `Updated the reference ranges of ${result.changed} result${result.changed === 1 ? '' : 's'} to the current clinical ranges.` })
   }
   const setField = (field: keyof FmPatient, value: string) => setPatient(current => ({ ...current, [field]: value }))
 
-  // A change of sex moves catalogue ranges that have not been edited by hand.
-  function setSex(sex: Sex) {
-    const previous = patient.sex
-    setPatient(current => ({ ...current, sex }))
-    setEntries(current => current.map(entry => {
-      const marker = markerById(entry.markerId)
-      if (!marker) return entry
-      const before = defaultRanges(marker, entry.unit, previous), after = defaultRanges(marker, entry.unit, sex)
-      if (!before || !after) return entry
-      return { ...entry, labRange: entry.labRange === before.lab ? after.lab : entry.labRange, fmRange: entry.fmRange === before.fm ? after.fm : entry.fmRange }
-    }))
+  // A change of sex or age moves catalogue ranges that have not been edited by hand.
+  function setProfile(next: { sex?: Sex; age?: string }, extra: Partial<FmPatient> = {}) {
+    const to = { sex: next.sex ?? patient.sex, age: next.age ?? patient.age }
+    setPatient(current => ({ ...current, ...extra, ...to }))
+    setEntries(current => rerange(current, patient, to))
   }
+  const setSex = (sex: Sex) => setProfile({ sex })
 
   // Linking a patient also brings in the results saved in their record; see RecordResults.
   function linkPatient(record: EmrPatient) {
     setEmrPatientId(record.id)
     setEmrPatientLabel(`${patientName(record)} · ${record.mrn}`)
     setStep('results')
-    const age = ageFromDateOfBirth(record.date_of_birth)
-    setPatient(current => ({ ...current, name: patientName(record), age: age === null ? current.age : String(age) }))
-    if (record.sex === 'female' || record.sex === 'male') setSex(record.sex)
+    const years = ageFromDateOfBirth(record.date_of_birth)
+    setProfile({
+      ...(years === null ? {} : { age: String(years) }),
+      ...(record.sex === 'female' || record.sex === 'male' ? { sex: record.sex } : {}),
+    }, { name: patientName(record) })
   }
 
   function imported(incoming: FmEntry[], details: Partial<FmPatient>, source: string) {
-    const merge = mergeEntries(entries, incoming, patient.sex)
+    // The report's own sex and age fill in what the analysis does not have yet.
+    const reportAge = ageInYears(details.age)
+    const to: { sex: Sex; age: string } = {
+      sex: patient.sex || (details.sex === 'female' || details.sex === 'male' ? details.sex : ''),
+      age: patient.age || (reportAge === null ? '' : String(Math.floor(reportAge))),
+    }
+    const toAge = ageInYears(to.age)
+    const merge = mergeEntries(rerange(entries, patient, to), refreshRanges(incoming, to.sex, toAge).entries, to.sex, toAge)
     setEntries(merge.entries)
     setPatient(current => {
-      const next = { ...current }
-      for (const key of ['name', 'age', 'collectedAt', 'labRef', 'facility'] as const) if (!next[key] && details[key]) next[key] = details[key] as string
+      const next = { ...current, ...to }
+      for (const key of ['name', 'collectedAt', 'labRef', 'facility'] as const) if (!next[key] && details[key]) next[key] = details[key] as string
       return next
     })
-    if (!patient.sex && (details.sex === 'female' || details.sex === 'male')) setSex(details.sex)
     const counts = `${merge.added} added, ${merge.updated} updated`
     setMessage({ tone: 'ok', text: source.startsWith('the patient\'s record')
       ? `Brought in ${incoming.length} result${incoming.length === 1 ? '' : 's'} from ${source}: ${counts}.`
@@ -283,7 +300,7 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="text-xs font-semibold text-text-mid">Patient name *<input value={patient.name} onChange={event => setField('name', event.target.value)} className={`${inputClass} mt-1`} /></label>
         <div className="grid grid-cols-2 gap-3">
-          <label className="text-xs font-semibold text-text-mid">Age<input value={patient.age} inputMode="numeric" onChange={event => setField('age', event.target.value.replace(/[^\d]/g, '').slice(0, 3))} className={`${inputClass} mt-1`} /></label>
+          <label className="text-xs font-semibold text-text-mid">Age<input value={patient.age} inputMode="numeric" onChange={event => setProfile({ age: event.target.value.replace(/[^\d]/g, '').slice(0, 3) })} className={`${inputClass} mt-1`} /></label>
           <label className="text-xs font-semibold text-text-mid">Sex<select value={patient.sex} onChange={event => setSex(event.target.value as Sex)} className={`${inputClass} mt-1`}><option value="">—</option><option value="female">Female</option><option value="male">Male</option></select></label>
         </div>
         <label className="text-xs font-semibold text-text-mid">Sample collected<input type="date" value={/^\d{4}-\d{2}-\d{2}$/.test(patient.collectedAt) ? patient.collectedAt : ''} onChange={event => setField('collectedAt', event.target.value)} className={`${inputClass} mt-1`} />{patient.collectedAt && !/^\d{4}-\d{2}-\d{2}$/.test(patient.collectedAt) && <span className="mt-1 block text-[11px]">As printed: {patient.collectedAt}</span>}</label>
@@ -307,11 +324,11 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
 
     {step === 'results' && <div className="space-y-6">
       {emrPatientId && <RecordResults key={emrPatientId} patientId={emrPatientId} patientName={patient.name} sex={patient.sex} empty={entries.length === 0} onImported={imported} />}
-      <ImportPanel sex={patient.sex} onImported={imported} another={entries.length > 0} />
-      <ResultsTable entries={entries} sex={patient.sex} onChange={setEntries} />
+      <ImportPanel sex={patient.sex} age={age} onImported={imported} another={entries.length > 0} />
+      <ResultsTable entries={entries} sex={patient.sex} age={age} onChange={setEntries} />
       {summary.total > 0 && <div className="flex justify-end"><button type="button" className="primary" onClick={() => setStep('analysis')}><ChartBarIcon size={16} />See the analysis</button></div>}
     </div>}
-    {step === 'analysis' && <AnalysisDashboard entries={entries} narrative={narrative} sex={patient.sex} />}
+    {step === 'analysis' && <AnalysisDashboard entries={entries} narrative={narrative} sex={patient.sex} age={age} />}
     {step === 'report' && <ReportBuilder patient={patient} entries={entries} setEntries={setEntries} narrative={narrative} setNarrative={setNarrative} emrPatientId={emrPatientId} onSaveAnalysis={save} />}
   </div>
 }

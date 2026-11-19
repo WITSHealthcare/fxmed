@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateActio
 import { ArrowCounterClockwiseIcon, DownloadSimpleIcon, FloppyDiskIcon, ListChecksIcon, PlusIcon, SparkleIcon, TrashIcon } from '@phosphor-icons/react'
 import { PAGE_H, PAGE_W, buildFmReportPages, fitPage, renderFmReportPdf } from '@/lib/fmAnalysisPdf'
 import { PLAN_PARTS, analyse, defaultFindings, defaultNextSteps, defaultRecommendations, defaultSummary, planFor } from '@/lib/fmAssessment'
-import { type AreaPlan, type FmEntry, type FmNarrative, type FmPatient, type Priority } from '@/lib/fmBiomarkers'
+import { ageInYears, type AreaPlan, type FmEntry, type FmNarrative, type FmPatient, type Priority } from '@/lib/fmBiomarkers'
 import { inputClass } from './ResultsEntry'
 
 // Step three: the report. Every section has standard wording worked out from
@@ -60,7 +60,7 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [showPreview, setShowPreview] = useState(true)
-  const analysis = useMemo(() => analyse(entries, patient.sex), [entries, patient.sex])
+  const analysis = useMemo(() => analyse(entries, patient.sex, ageInYears(patient.age)), [entries, patient.sex, patient.age])
   const summary = analysis.summary
   const pages = useMemo(() => showPreview ? buildFmReportPages({ patient, entries, narrative }) : [], [patient, entries, narrative, showPreview])
   const update = (changes: Partial<FmNarrative>) => setNarrative(current => ({ ...current, ...changes }))
@@ -175,7 +175,7 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
 
     <Card title="Health improvement plan" subtitle={`${analysis.plan.length} area${analysis.plan.length === 1 ? '' : 's'} at 50% likelihood or more, each with its own page. Edit any area's plan (one point per line); the standard plan is used until you do.`}>
       <div className="space-y-2">{analysis.plan.map(item => {
-        const plan = planFor(item.area, narrative)
+        const plan = planFor(item.area, narrative, analysis.child)
         const edited = !!narrative.areaPlans?.[item.area.id]
         return <details key={item.area.id} className="rounded-xl border border-green-deep/10">
           <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-green-deep">{item.area.name}<span className="ml-2 text-xs font-normal text-text-mid">{item.score}%{item.urgent ? ' · alarm marker' : ''} · {item.contributors.map(({ entry, direction }) => `${entry.name} ${direction === 'low' ? '↓' : '↑'}`).join(', ')}{edited ? ' · edited' : ''}</span></summary>

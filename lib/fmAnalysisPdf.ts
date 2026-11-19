@@ -12,7 +12,7 @@ import {
   defaultSummary, directionOf, likelihoodLabel, needsDetail, planFor, PLAN_PARTS, priorityOf,
   type Analysis, type AreaGroup, type AreaResult, type Band,
 } from './fmAssessment'
-import { FM_PANELS, PRIORITY_COLOR, type AssessedEntry, type FmEntry, type FmNarrative, type FmPatient } from './fmBiomarkers'
+import { ageInYears, FM_PANELS, PRIORITY_COLOR, type AssessedEntry, type FmEntry, type FmNarrative, type FmPatient } from './fmBiomarkers'
 import { markerExplanation } from './fmMarkerInfo'
 
 export const PAGE_W = 816
@@ -339,8 +339,8 @@ function targets(item: AreaResult) {
   </div>`
 }
 
-function improvementPage(item: AreaResult, narrative: FmNarrative) {
-  const plan = planFor(item.area, narrative)
+function improvementPage(item: AreaResult, narrative: FmNarrative, child: boolean) {
+  const plan = planFor(item.area, narrative, child)
   const priority = priorityOf(item)
   return `${dash('1.4em 0 .9em')}
     <div style="display:grid;grid-template-columns:1fr 11.5em;gap:2em;align-items:start">
@@ -356,7 +356,7 @@ function improvementPage(item: AreaResult, narrative: FmNarrative) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em">${PLAN_PARTS.filter(part => plan[part.key].length).map(part => `<div style="background:${CREAM};border-top:.35em solid ${part.color};border-radius:.3em .3em .9em .9em;padding:.95em 1.15em">
       <div style="font-weight:800;color:${part.color};margin-bottom:.6em;font-size:1em">${part.title}</div>
       <div style="font-size:.9em;line-height:1.5;color:${BODY}">${bullets(plan[part.key], part.color)}</div></div>`).join('')}</div>
-    <div style="font-size:.8em;color:${MUTED};margin-top:1.1em;line-height:1.5">Supplement doses are typical adult doses for discussion with your clinician. Do not start, stop or change any medicine or supplement without their advice, particularly if you are pregnant, breastfeeding or taking prescribed medicines.</div>`
+    <div style="font-size:.8em;color:${MUTED};margin-top:1.1em;line-height:1.5">${child ? 'Supplement doses for children depend on age and weight and must be set by the child\'s doctor. Do not start, stop or change any medicine or supplement without their advice.' : 'Supplement doses are typical adult doses for discussion with your clinician. Do not start, stop or change any medicine or supplement without their advice, particularly if you are pregnant, breastfeeding or taking prescribed medicines.'}</div>`
 }
 
 function recommendationCard(item: FmNarrative['recommendations'][number]) {
@@ -507,7 +507,7 @@ const SEVERITY: Record<Band, number> = { alarm_high: 0, alarm_low: 0, above_stan
 /** Every page of the report, as HTML, in order. */
 export function buildFmReportPages(data: FmReportData) {
   svgId = 0
-  const analysis = analyse(data.entries, data.patient.sex)
+  const analysis = analyse(data.entries, data.patient.sex, ageInYears(data.patient.age))
   const { narrative } = data
   const pages: Page[] = []
   const add = (section: SectionId, tab: string, body: Page['body'], kind: Page['kind'] = 'content') => pages.push({ kind, section, tab, body })
@@ -554,7 +554,7 @@ export function buildFmReportPages(data: FmReportData) {
   // 4. Health improvement plan
   divider('plan')
   add('plan', 'Health Improvement', () => `${title('Health Improvement')}${lead(AREA_GROUPS.plan.intro)}${lead(analysis.plan.length ? 'Each area below is explained on its own page, with the results behind it and a practical plan covering nutrition, lifestyle, supplements to discuss with your clinician and follow-up tests.' : 'None of the improvement areas reached the 50% threshold. Keep up the foundations on the Next Steps page and retest as advised.')}${analysis.plan.length ? likelihoodChart(analysis.plan, 'Needs attention') : ''}`)
-  analysis.plan.forEach(item => add('plan', 'Health Improvement', () => improvementPage(item, narrative)))
+  analysis.plan.forEach(item => add('plan', 'Health Improvement', () => improvementPage(item, narrative, analysis.child)))
   const recommendations = narrative.recommendations.length ? narrative.recommendations : defaultRecommendations(analysis)
   chunk(recommendations, 6).forEach((part, page) => add('plan', 'Priority Actions', () =>
     `${page ? '<div style="height:1.6em"></div>' : `${title('Your Priority Actions')}${lead('The most important actions from your plan, in order of priority. Urgent items need medical attention before anything else.')}<div style="height:1.8em"></div>`}<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em">${part.map(recommendationCard).join('')}</div>`))
