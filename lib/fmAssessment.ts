@@ -11,7 +11,7 @@
 // AI and the clinician can then personalise the wording and the plan.
 
 import {
-  canonicalValue, createEntry, markerById, summarize,
+  canonicalValue, createEntry, isChild, markerById, summarize,
   type AreaPlan, type AssessedEntry, type FmEntry, type FmNarrative, type Priority, type Sex,
 } from './fmBiomarkers'
 import { markerExplanation } from './fmMarkerInfo'
@@ -73,7 +73,7 @@ const fixed = (value: number) => String(Number(value.toFixed(value >= 10 ? 1 : 2
  * added only when the lab has not reported it and both inputs are in units
  * that can be converted to the catalogue's.
  */
-export function withCalculated(entries: FmEntry[], sex: Sex): FmEntry[] {
+export function withCalculated(entries: FmEntry[], sex: Sex, age?: number | null): FmEntry[] {
   const present = new Set(entries.filter(entry => entry.value.trim()).map(entry => entry.markerId).filter(Boolean))
   const value = (id: string) => {
     const entry = entries.find(item => item.markerId === id && item.value.trim())
@@ -89,7 +89,7 @@ export function withCalculated(entries: FmEntry[], sex: Sex): FmEntry[] {
     const marker = markerById(id)
     if (!marker) return
     const names = from.map(input => markerById(input)?.name || input)
-    extra.push({ ...createEntry(marker, sex, { value: fixed(result) }), note: `Calculated from ${names.join(' and ')}.`, calculated: true })
+    extra.push({ ...createEntry(marker, sex, { value: fixed(result) }, age), note: `Calculated from ${names.join(' and ')}.`, calculated: true })
   }
   const ratio = ([a, b]: number[]) => b ? a / b : null
   add('homa_ir', ['fasting_glucose', 'fasting_insulin'], ([glucose, insulin]) => (glucose * insulin) / 22.5)
@@ -506,9 +506,9 @@ function scoreArea(area: Area, byMarker: Map<string, AssessedEntry>, sex: Sex): 
 
 export type Analysis = ReturnType<typeof analyse>
 
-/** The whole assessment of a set of results. */
-export function analyse(entries: FmEntry[], sex: Sex) {
-  const all = withCalculated(entries, sex)
+/** The whole assessment of a set of results; `age` in years, where known. */
+export function analyse(entries: FmEntry[], sex: Sex, age?: number | null) {
+  const all = withCalculated(entries, sex, age)
   const summary = summarize(all)
   const byMarker = new Map<string, AssessedEntry>()
   for (const entry of summary.assessed) if (entry.markerId && entry.numeric !== null && !byMarker.has(entry.markerId)) byMarker.set(entry.markerId, entry)
@@ -521,7 +521,7 @@ export function analyse(entries: FmEntry[], sex: Sex) {
   summary.assessed.forEach(entry => { bands[bandOf(entry)] += 1 })
   // An area with a result past an alarm limit always needs attention, and comes first.
   const plan = group('plan').filter(item => item.score >= 50 || item.urgent).sort((a, b) => Number(b.urgent) - Number(a.urgent) || b.score - a.score)
-  return { entries: all, summary, areas, group, bands, plan }
+  return { entries: all, summary, areas, group, bands, plan, child: isChild(age) }
 }
 
 /** Whether an area's likelihood is high enough to get its own explanation. */
@@ -554,9 +554,18 @@ export const PLAN_PARTS: Array<{ key: keyof AreaPlan; title: string; color: stri
 
 const EMPTY_PLAN: AreaPlan = { nutrition: [], lifestyle: [], supplements: [], tests: [] }
 
+/** The standard plans' supplement doses are adult ones; a child's are set by weight. */
+export const CHILD_SUPPLEMENT_NOTE = 'Supplement doses for children are set by weight: agree any supplement and its dose with the child\'s doctor before starting.'
+
+/** An area's standard plan, with the adult supplement doses taken out for a child. */
+function standardPlan(area: Area, child: boolean): AreaPlan {
+  const plan = area.plan || EMPTY_PLAN
+  return child && plan.supplements.length ? { ...plan, supplements: [CHILD_SUPPLEMENT_NOTE] } : plan
+}
+
 /** An area's plan as the clinician left it, or the standard plan. */
-export function planFor(area: Area, narrative: Pick<FmNarrative, 'areaPlans'>): AreaPlan {
-  return narrative.areaPlans?.[area.id] || area.plan || EMPTY_PLAN
+export function planFor(area: Area, narrative: Pick<FmNarrative, 'areaPlans'>, child = false): AreaPlan {
+  return narrative.areaPlans?.[area.id] || standardPlan(area, child)
 }
 
 const listNames = (names: string[]) => names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
@@ -589,7 +598,7 @@ export function defaultFindings(analysis: Analysis): FmNarrative['findings'] {
 
 export function defaultRecommendations(analysis: Analysis): FmNarrative['recommendations'] {
   return analysis.plan.slice(0, 8).map(item => {
-    const plan = item.area.plan || EMPTY_PLAN
+    const plan = standardPlan(item.area, analysis.child)
     return {
       priority: priorityOf(item),
       title: item.area.name,
@@ -618,7 +627,8 @@ export function defaultNextSteps(analysis: Analysis): FmNarrative['nextSteps'] {
     {
       title: 'Start with the foundations',
       text: 'The biggest gains usually come from the basics. Any supplement or medicine change should be agreed with your clinician first.',
-      items: Array.from(new Set(analysis.plan.slice(0, 3).flatMap(item => (item.area.plan?.lifestyle || []).slice(0, 1)))).concat('Sleep 7–9 hours, eat whole foods, move daily and limit alcohol.').slice(0, 4),
+      items: Array.from(new Set(analysis.plan.slice(0, 3).flatMap(item => (item.area.plan?.lifestyle || []).slice(0, 1))))
+        .concat(analysis.child ? 'Regular sleep, whole foods, active play and limited screen time.' : 'Sleep 7–9 hours, eat whole foods, move daily and limit alcohol.').slice(0, 4),
     },
   ]
 }

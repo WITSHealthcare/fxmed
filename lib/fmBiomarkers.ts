@@ -246,8 +246,84 @@ function conversion(markerId: string, unit: string) {
 
 export type Sex = 'female' | 'male' | ''
 
-/** Lab and FM ranges for a marker, for a sex, in the catalogue unit. */
-function rangesFor(marker: Biomarker, sex: Sex) {
+// ---------------------------------------------------------------------------
+// Children
+//
+// The catalogue's ranges are adult ones, and the FM optimal ranges come from
+// adult practice. For a patient under 18 no FM optimal range is applied: the
+// result is read against an age-appropriate reference range, which is the
+// lab's printed range where there is one, or the defaults below.
+
+/** Patients younger than this are read against paediatric ranges. */
+export const ADULT_AGE = 18
+/** Below this, reference ranges change too fast for a default (newborn and early infancy). */
+const YOUNGEST_DEFAULT_AGE = 0.5
+
+/** The age in years from what was typed: "4", "4y 5m", "4 years", "18 months", "6 weeks". */
+export function ageInYears(text: string | null | undefined): number | null {
+  const value = (text || '').trim().toLowerCase()
+  if (!value) return null
+  const unit = (pattern: RegExp) => { const match = value.match(pattern); return match ? Number(match[1]) : null }
+  const years = unit(/(\d+(?:\.\d+)?)\s*(?:y\b|yr|year)/)
+  const months = unit(/(\d+(?:\.\d+)?)\s*(?:m\b|mo|month)/)
+  const weeks = unit(/(\d+(?:\.\d+)?)\s*(?:w\b|wk|week)/)
+  if (years !== null || months !== null || weeks !== null) return (years || 0) + (months || 0) / 12 + (weeks || 0) / 52
+  const plain = Number(value)
+  return Number.isFinite(plain) && plain >= 0 ? plain : null
+}
+
+export const isChild = (age: number | null | undefined): age is number => typeof age === 'number' && age < ADULT_AGE
+
+type AgeBand = { to: number; lab?: Pair; male?: Pair; female?: Pair }
+const band = (to: number, lab: Pair | null, sexes: { male?: Pair; female?: Pair } = {}): AgeBand => ({ to, ...(lab ? { lab } : {}), ...sexes })
+
+/**
+ * Paediatric reference ranges in the catalogue unit, by age band (each band
+ * runs from the previous one's end to `to` years). Blood counts from Nathan &
+ * Oski / the Harriet Lane Handbook; alkaline phosphatase from CALIPER.
+ */
+const PAEDIATRIC: Record<string, AgeBand[]> = {
+  hemoglobin: [band(2, [10.5, 13.5]), band(6, [11.5, 13.5]), band(12, [11.5, 15.5]), band(18, null, { male: [13, 16], female: [12, 16] })],
+  hematocrit: [band(2, [33, 39]), band(6, [34, 40]), band(12, [35, 45]), band(18, null, { male: [37, 49], female: [36, 46] })],
+  mcv: [band(2, [70, 86]), band(6, [75, 87]), band(12, [77, 95]), band(18, null, { male: [78, 98], female: [78, 102] })],
+  mch: [band(2, [23, 31]), band(6, [24, 30]), band(12, [25, 33]), band(18, [25, 35])],
+  rbc: [band(2, [3.7, 5.3]), band(6, [3.9, 5.3]), band(12, [4, 5.2]), band(18, null, { male: [4.5, 5.3], female: [4.1, 5.1] })],
+  wbc: [band(2, [6, 17.5]), band(6, [5.5, 15.5]), band(12, [4.5, 13.5]), band(18, [4.5, 13])],
+  neutrophils: [band(2, [1.5, 8.5]), band(6, [1.5, 8.5]), band(12, [1.5, 8]), band(18, [1.8, 8])],
+  lymphocytes: [band(2, [4, 10.5]), band(6, [2, 8]), band(12, [1.5, 6.8]), band(18, [1.2, 5.2])],
+  alp: [
+    band(1, [134, 518]), band(10, [156, 369]), band(13, [141, 460]),
+    band(15, null, { male: [127, 517], female: [62, 280] }), band(17, null, { male: [89, 365], female: [54, 128] }), band(18, null, { male: [59, 164], female: [48, 95] }),
+  ],
+  calcium: [band(18, [2.2, 2.7])],
+}
+
+/** Markers whose adult reference range also holds through childhood. */
+const ADULT_RANGE_IN_CHILDHOOD = new Set([
+  'sodium', 'potassium', 'chloride', 'bicarbonate', 'magnesium', 'b12', 'folate', 'vitamin_d', 'zinc', 'hs_crp',
+  'bilirubin_total', 'bilirubin_conj', 'alt', 'ggt', 'albumin', 'platelets', 'eosinophils', 'basophils', 'monocytes',
+  'mchc', 'rdw', 'fasting_glucose', 'hba1c', 'anion_gap',
+])
+
+/** A child's reference range for a marker; null where the lab's printed range must be used. */
+function paediatricLab(marker: Biomarker, sex: Sex, age: number): Pair | null {
+  if (age < YOUNGEST_DEFAULT_AGE) return null
+  const bands = PAEDIATRIC[marker.id]
+  if (bands) {
+    const found = bands.find(item => age < item.to)
+    if (!found) return null
+    const bySex = sex === 'male' ? found.male : sex === 'female' ? found.female : undefined
+    return bySex || found.lab || null
+  }
+  return ADULT_RANGE_IN_CHILDHOOD.has(marker.id) ? marker.lab : null
+}
+
+/** Whether a marker's adult catalogue range would mislead for a child. */
+const ageSensitive = (marker: Biomarker) => !ADULT_RANGE_IN_CHILDHOOD.has(marker.id)
+
+/** Lab and FM ranges for a marker, for a sex and age, in the catalogue unit. */
+function rangesFor(marker: Biomarker, sex: Sex, age?: number | null): { lab: Pair | null; fm: Pair | null } {
+  if (isChild(age)) return { lab: paediatricLab(marker, sex, age), fm: null }
   const override = sex === 'male' ? marker.male : sex === 'female' ? marker.female : undefined
   return { lab: override?.lab || marker.lab, fm: override?.fm || marker.fm }
 }
@@ -255,17 +331,19 @@ function rangesFor(marker: Biomarker, sex: Sex) {
 /**
  * The default ranges for a marker reported in `unit`. When the lab's unit
  * differs and no conversion is known, nothing is returned: comparing against a
- * range in another unit would misclassify the result.
+ * range in another unit would misclassify the result. For a child, the FM range
+ * is empty and the lab range is the paediatric default, or empty where the
+ * lab's printed range is needed.
  */
-export function defaultRanges(marker: Biomarker, unit: string, sex: Sex) {
-  const { lab, fm } = rangesFor(marker, sex)
+export function defaultRanges(marker: Biomarker, unit: string, sex: Sex, age?: number | null) {
+  const { lab, fm } = rangesFor(marker, sex, age)
   const target = normalizeUnit(unit || marker.unit)
   // An empty FM range means the lab's range is used for both.
-  const fmText = (pair: Pair) => marker.fmFromLab ? '' : formatRange(pair)
+  const fmText = (pair: Pair | null) => marker.fmFromLab ? '' : formatRange(pair)
   if (!unit.trim() || target === normalizeUnit(marker.unit)) return { lab: formatRange(lab), fm: fmText(fm), converted: false }
   const factor = conversion(marker.id, target)
   if (!factor) return null
-  const scale = (pair: Pair): Pair => [pair[0] === null ? null : round(pair[0] * factor), pair[1] === null ? null : round(pair[1] * factor)]
+  const scale = (pair: Pair | null): Pair | null => pair && [pair[0] === null ? null : round(pair[0] * factor), pair[1] === null ? null : round(pair[1] * factor)]
   return { lab: formatRange(scale(lab)), fm: fmText(scale(fm)), converted: true }
 }
 
@@ -402,9 +480,9 @@ export type FmPatient = {
 
 export const emptyNarrative = (): FmNarrative => ({ summary: '', findings: [], panels: {}, recommendations: [], nextSteps: [] })
 
-export function createEntry(marker: Biomarker | null, sex: Sex, overrides: Partial<FmEntry> = {}): FmEntry {
+export function createEntry(marker: Biomarker | null, sex: Sex, overrides: Partial<FmEntry> = {}, age?: number | null): FmEntry {
   const unit = overrides.unit ?? marker?.unit ?? ''
-  const ranges = marker ? defaultRanges(marker, unit, sex) : null
+  const ranges = marker ? defaultRanges(marker, unit, sex, age) : null
   return {
     markerId: marker?.id || null,
     name: marker?.name || '',
@@ -431,10 +509,11 @@ const LEGACY_LAB_DEFAULTS: Record<string, string[]> = {
 /**
  * Brings saved results up to the current catalogue: optimal ranges are reset
  * to the current defaults, and lab ranges only where they are a known wrong
- * default (a lab's own printed range is kept). Returns the updated entries and
- * how many changed.
+ * default (a lab's own printed range is kept). For a child, an adult catalogue
+ * range filled in for an age-sensitive marker is also replaced. Returns the
+ * updated entries and how many changed.
  */
-export function refreshRanges(entries: FmEntry[], sex: Sex) {
+export function refreshRanges(entries: FmEntry[], sex: Sex, age?: number | null) {
   let changed = 0
   const next = entries.map(entry => {
     let markerId = entry.markerId
@@ -442,9 +521,11 @@ export function refreshRanges(entries: FmEntry[], sex: Sex) {
     if (markerId === 'urea' && /\bbun\b|urea nitrogen/i.test(entry.name)) markerId = 'bun'
     const marker = markerById(markerId)
     if (!marker || entry.calculated) return entry
-    const ranges = defaultRanges(marker, entry.unit, sex)
+    const ranges = defaultRanges(marker, entry.unit, sex, age)
     if (!ranges) return markerId === entry.markerId ? entry : { ...entry, markerId, panel: marker.panel }
-    const legacy = (LEGACY_LAB_DEFAULTS[marker.id] || []).includes(entry.labRange) && normalizeUnit(entry.unit || marker.unit) === normalizeUnit(marker.unit)
+    const sameUnit = normalizeUnit(entry.unit || marker.unit) === normalizeUnit(marker.unit)
+    const adultDefault = isChild(age) && ageSensitive(marker) && !!entry.labRange && ['', 'male', 'female'].some(adultSex => defaultRanges(marker, entry.unit, adultSex as Sex)?.lab === entry.labRange)
+    const legacy = ((LEGACY_LAB_DEFAULTS[marker.id] || []).includes(entry.labRange) && sameUnit) || adultDefault
     const updated = { ...entry, markerId, panel: marker.panel, fmRange: ranges.fm, labRange: legacy ? ranges.lab : entry.labRange }
     if (updated.fmRange !== entry.fmRange || updated.labRange !== entry.labRange || markerId !== entry.markerId) { changed++; return updated }
     return entry

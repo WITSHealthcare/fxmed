@@ -17,7 +17,7 @@ const UPLOAD_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'
 const entryKey = (entry: Pick<FmEntry, 'markerId' | 'name'>) => entry.markerId || entry.name.trim().toLowerCase()
 
 /** Adds read results to the table: a marker already there takes the new value. */
-export function mergeEntries(current: FmEntry[], incoming: FmEntry[], sex: Sex) {
+export function mergeEntries(current: FmEntry[], incoming: FmEntry[], sex: Sex, age?: number | null) {
   const next = [...current]
   let added = 0, updated = 0
   for (const entry of incoming) {
@@ -26,7 +26,7 @@ export function mergeEntries(current: FmEntry[], incoming: FmEntry[], sex: Sex) 
     const row = next[index]
     const marker = markerById(row.markerId)
     const unitChanged = entry.unit && entry.unit !== row.unit
-    const ranges = marker && unitChanged ? defaultRanges(marker, entry.unit, sex) : null
+    const ranges = marker && unitChanged ? defaultRanges(marker, entry.unit, sex, age) : null
     next[index] = {
       ...row,
       value: entry.value,
@@ -52,7 +52,7 @@ function splitCsvLine(line: string) {
   return cells
 }
 
-function parseCsv(text: string, sex: Sex): FmEntry[] {
+function parseCsv(text: string, sex: Sex, age?: number | null): FmEntry[] {
   const lines = text.split(/\r?\n/).filter(line => line.trim())
   if (!lines.length) return []
   const head = splitCsvLine(lines[0]).map(cell => cell.toLowerCase())
@@ -67,12 +67,12 @@ function parseCsv(text: string, sex: Sex): FmEntry[] {
     if (!name || !value) return []
     const marker = matchBiomarker(name)
     const unit = (col.unit >= 0 ? cells[col.unit] : '') || marker?.unit || ''
-    const ranges = marker ? defaultRanges(marker, unit, sex) : null
-    return [createEntry(marker, sex, { ...(marker ? {} : { name }), value, unit, labRange: (col.range >= 0 ? cells[col.range] : '') || ranges?.lab || '', fmRange: ranges?.fm || '' })]
+    const ranges = marker ? defaultRanges(marker, unit, sex, age) : null
+    return [createEntry(marker, sex, { ...(marker ? {} : { name }), value, unit, labRange: (col.range >= 0 ? cells[col.range] : '') || ranges?.lab || '', fmRange: ranges?.fm || '' }, age)]
   })
 }
 
-export function ImportPanel({ sex, onImported, another = false }: { sex: Sex; onImported: (entries: FmEntry[], patient: Partial<FmPatient>, source: string) => void; another?: boolean }) {
+export function ImportPanel({ sex, age, onImported, another = false }: { sex: Sex; age?: number | null; onImported: (entries: FmEntry[], patient: Partial<FmPatient>, source: string) => void; another?: boolean }) {
   const [mode, setMode] = useState<'upload' | 'paste'>('upload')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -88,7 +88,7 @@ export function ImportPanel({ sex, onImported, another = false }: { sex: Sex; on
     setBusy(true)
     try {
       for (const file of csv) {
-        const entries = parseCsv(await file.text(), sex)
+        const entries = parseCsv(await file.text(), sex, age)
         if (!entries.length) throw new Error(`No results were found in ${file.name}. Use columns: test, result, unit, reference range.`)
         onImported(entries, {}, file.name)
       }
@@ -96,6 +96,7 @@ export function ImportPanel({ sex, onImported, another = false }: { sex: Sex; on
         const form = new FormData()
         reports.forEach(file => form.append('files', file))
         form.append('sex', sex)
+        if (age != null) form.append('age', String(age))
         const response = await fetch('/api/admin/fm-analysis', { method: 'POST', body: form })
         const result = await response.json()
         if (!response.ok) throw new Error(result.error || 'The lab report could not be read.')
@@ -114,7 +115,7 @@ export function ImportPanel({ sex, onImported, another = false }: { sex: Sex; on
     setError('')
     setBusy(true)
     try {
-      const response = await fetch('/api/admin/fm-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'extract', text: pasted, sex }) })
+      const response = await fetch('/api/admin/fm-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'extract', text: pasted, sex, age }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'The results could not be read.')
       if (!result.entries?.length) throw new Error('No results were found in the pasted text.')
@@ -152,7 +153,7 @@ export function ImportPanel({ sex, onImported, another = false }: { sex: Sex; on
   </div>
 }
 
-function MarkerPicker({ entries, sex, onAdd }: { entries: FmEntry[]; sex: Sex; onAdd: (entries: FmEntry[]) => void }) {
+function MarkerPicker({ entries, sex, age, onAdd }: { entries: FmEntry[]; sex: Sex; age?: number | null; onAdd: (entries: FmEntry[]) => void }) {
   const [search, setSearch] = useState('')
   const query = search.trim().toLowerCase()
   const present = new Set(entries.map(entry => entry.markerId).filter(Boolean))
@@ -160,7 +161,7 @@ function MarkerPicker({ entries, sex, onAdd }: { entries: FmEntry[]; sex: Sex; o
     panel,
     markers: FM_BIOMARKERS.filter(marker => marker.panel === panel.id && (!query || panel.name.toLowerCase().includes(query) || marker.name.toLowerCase().includes(query) || (marker.aliases || []).some(alias => alias.includes(query)))),
   })).filter(group => group.markers.length)
-  const add = (ids: string[]) => onAdd(ids.filter(id => !present.has(id)).map(id => createEntry(markerById(id), sex)))
+  const add = (ids: string[]) => onAdd(ids.filter(id => !present.has(id)).map(id => createEntry(markerById(id), sex, {}, age)))
 
   return <div className="p-4 pt-0">
     <div className="relative"><MagnifyingGlassIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-mid" /><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search markers or panels…" className={`${inputClass} pl-9`} /></div>
@@ -184,7 +185,7 @@ function StatusPill({ label, color }: { label: string; color: string }) {
 
 const columns = 'lg:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1fr)_2rem]'
 
-export function ResultsTable({ entries, sex, onChange }: { entries: FmEntry[]; sex: Sex; onChange: Dispatch<SetStateAction<FmEntry[]>> }) {
+export function ResultsTable({ entries, sex, age, onChange }: { entries: FmEntry[]; sex: Sex; age?: number | null; onChange: Dispatch<SetStateAction<FmEntry[]>> }) {
   const [open, setOpen] = useState<Set<number>>(new Set())
   const update = (index: number, changes: Partial<FmEntry>) => onChange(current => current.map((row, i) => {
     if (i !== index) return row
@@ -192,14 +193,14 @@ export function ResultsTable({ entries, sex, onChange }: { entries: FmEntry[]; s
     // A new unit makes the old ranges wrong; take the catalogue's in that unit.
     if (changes.unit !== undefined && changes.unit !== row.unit) {
       const marker = markerById(row.markerId)
-      const ranges = marker ? defaultRanges(marker, changes.unit, sex) : null
+      const ranges = marker ? defaultRanges(marker, changes.unit, sex, age) : null
       if (marker) { next.fmRange = ranges?.fm || ''; next.labRange = ranges?.lab || row.labRange }
     }
     return next
   }))
   const remove = (index: number) => { onChange(current => current.filter((_, i) => i !== index)); setOpen(new Set()) }
   const toggle = (index: number) => setOpen(current => { const next = new Set(current); if (next.has(index)) next.delete(index); else next.add(index); return next })
-  const addCustom = () => { setOpen(new Set([entries.length])); onChange(current => [...current, createEntry(null, sex, { name: 'New marker' })]) }
+  const addCustom = () => { setOpen(new Set([entries.length])); onChange(current => [...current, createEntry(null, sex, { name: 'New marker' }, age)]) }
 
   const sections = FM_PANELS.map(panel => ({ panel, items: entries.map((row, index) => ({ row, index })).filter(({ row }) => row.panel === panel.id) })).filter(section => section.items.length)
   const filled = entries.filter(entry => entry.value.trim()).length
@@ -247,7 +248,7 @@ export function ResultsTable({ entries, sex, onChange }: { entries: FmEntry[]; s
 
     <details open={!entries.length || undefined} className="mt-4 rounded-xl border border-green-deep/10 bg-white">
       <summary className="cursor-pointer p-4 text-sm font-semibold text-green-deep"><SparkleIcon size={14} className="mr-1 inline text-green-mid" />Add markers from the FM catalogue</summary>
-      <MarkerPicker entries={entries} sex={sex} onAdd={added => onChange(current => [...current, ...added])} />
+      <MarkerPicker entries={entries} sex={sex} age={age} onAdd={added => onChange(current => [...current, ...added])} />
     </details>
   </div>
 }

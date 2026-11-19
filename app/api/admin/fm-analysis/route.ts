@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isReadable, type ReportAttachment } from '@/lib/ai/clinical-report'
 import { cleanText, emrErrorMessage, getEmrContext, isUuid, writeEmrAudit } from '@/lib/emr'
 import { extractLabResults, interpretLabResults } from '@/lib/fmAnalysisAi'
-import { FM_PANELS, type FmEntry, type FmNarrative, type FmPatient, type PanelId, type Sex } from '@/lib/fmBiomarkers'
+import { FM_PANELS, ageInYears, type FmEntry, type FmNarrative, type FmPatient, type PanelId, type Sex } from '@/lib/fmBiomarkers'
 import type { PatientRecordResults, RecordFile, RecordReport } from '@/lib/fmRecordResults'
 import { REPORT_COLUMNS, mapReportRow } from '@/lib/investigations'
 
@@ -241,7 +241,7 @@ async function readUpload(request: NextRequest) {
     if (!files.length) return fail('Choose the lab report to upload.')
     let extracted
     try {
-      extracted = await extractLabResults(files, '', sex(form.get('sex')))
+      extracted = await extractLabResults(files, '', sex(form.get('sex')), ageInYears(str(form.get('age'), 10)))
     } catch (error) {
       return readError(error)
     }
@@ -259,7 +259,7 @@ async function readPasted(request: NextRequest, body: Record<string, any>) {
   const pasted = cleanText(body.text, 40000) || ''
   if (pasted.length < 10) return fail('Paste the lab results first.')
   try {
-    const extracted = await extractLabResults([], pasted, sex(body.sex))
+    const extracted = await extractLabResults([], pasted, sex(body.sex), ageInYears(str(body.age, 10)))
     await writeEmrAudit(database, user, { action: 'read_fm_lab_text', entityType: 'fm_lab_analysis', metadata: { results: extracted.entries.length, provider: extracted.provider } })
     return NextResponse.json(extracted)
   } catch (error) {
@@ -364,7 +364,7 @@ async function readRecordFiles(request: NextRequest, body: Record<string, any>) 
     if (!files.length) return fail('This document could not be opened for reading.')
     let extracted
     try {
-      extracted = await extractLabResults(files, '', sex(body.sex))
+      extracted = await extractLabResults(files, '', sex(body.sex), ageInYears(str(body.age, 10)))
     } catch (error) {
       return readError(error)
     }
