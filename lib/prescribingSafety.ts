@@ -36,7 +36,7 @@ const classPatterns: Record<DrugClass, string[]> = {
   thiazide: ['hydrochlorothiazide', 'chlorthalidone', 'indapamide', 'bendroflumethiazide', 'thiazide'],
   statin: ['atorvastatin', 'rosuvastatin', 'simvastatin', 'pravastatin', 'statin'],
   anticoagulant: ['warfarin', 'rivaroxaban', 'apixaban', 'dabigatran', 'enoxaparin', 'heparin'],
-  antiplatelet: ['clopidogrel', 'ticagrelor', 'aspirin (low dose)'],
+  antiplatelet: ['clopidogrel', 'ticagrelor'],
   ppi: ['omeprazole', 'esomeprazole', 'pantoprazole', 'lansoprazole', 'rabeprazole'],
   nitrate: ['isosorbide', 'glyceryl trinitrate', 'nitroglycerin'],
   pde5: ['sildenafil', 'tadalafil', 'vardenafil'],
@@ -76,6 +76,13 @@ const classLabels: Partial<Record<DrugClass, string>> = {
 const topical = /\b(cream|gel|ointment|shampoo|pessary|spray|drops|lotion|emulsion|patch|suppository)\b/
 
 const normalise = (value: string) => ` ${value.toLowerCase().replace(/\s+/g, ' ').trim()} `
+// Whole-word match within normalised text, so an allergy to "sulfa" does not
+// match "ferrous sulfate" and a short drug name does not match inside a word.
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const containsWords = (text: string, words: string) => {
+  const needle = words.trim()
+  return needle.length > 0 && new RegExp(`(^|[^a-z0-9])${escapeRegExp(needle)}([^a-z0-9]|$)`).test(text)
+}
 
 function classesOf(name: string): Set<DrugClass> {
   const text = normalise(name)
@@ -139,7 +146,7 @@ export function checkPrescription(drug: SafetyInput, context: SafetyContext, opt
     const allergyClasses = classesOf(allergy.allergen)
     const reaction = allergy.reaction ? ` (reaction: ${allergy.reaction})` : ''
     const shared = Array.from(drugClasses).filter((drugClass) => allergyClasses.has(drugClass) && drugClass !== 'qt' && drugClass !== 'serotonergic')
-    const direct = drugText.includes(allergen.trim()) || allergen.includes(normalise(drug.medication_name).trim())
+    const direct = containsWords(drugText, allergen) || containsWords(allergen, normalise(drug.medication_name))
     if (direct || shared.length) {
       const via = !direct && shared.length ? `; ${drug.medication_name.trim()} is one of the ${classLabels[shared[0]] || shared[0].replace(/_/g, ' ')}` : ''
       warnings.push({ kind: 'allergy', severity: 'contraindicated', message: `Patient is allergic to ${allergy.allergen.trim()}${reaction}${via}.` })
@@ -152,7 +159,7 @@ export function checkPrescription(drug: SafetyInput, context: SafetyContext, opt
 
   if (isTopical) return warnings
 
-  const current = context.medications.filter((item) => (item.status || 'active') === 'active' && item.id !== options.ignoreMedicationId && !topical.test(normalise(item.medication_name)))
+  const current = context.medications.filter((item) => (item.status || 'active') === 'active' && (!options.ignoreMedicationId || item.id !== options.ignoreMedicationId) && !topical.test(normalise(item.medication_name)))
   for (const medication of current) {
     const otherName = [medication.medication_name, medication.generic_name].filter(Boolean).join(' ')
     const otherClasses = classesOf(otherName)

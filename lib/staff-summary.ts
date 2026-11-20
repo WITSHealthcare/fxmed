@@ -1,5 +1,5 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js'
-import { canAccessTab, getUserAdminRole } from '@/lib/admin-auth'
+import { canAccessTab, getUserAdminRole, type AdminRole } from '@/lib/admin-auth'
 import { notificationSources, type Notification, type NotificationKind } from '@/lib/admin-notifications'
 import { siteUrl } from '@/lib/seo'
 import { staffEmail } from '@/lib/staff-alerts'
@@ -40,7 +40,11 @@ export function summarise(notifications: Notification[], counts: Partial<Record<
   return { title, followUps: followUps.length, ...email }
 }
 
-/** Active dashboard users with the clinical role, as on the Users & Roles page. */
+// The summary shows what the Clinical role sees (including CRM items), so it goes
+// to the roles with exactly that access: Doctor and the legacy Clinical role.
+const summaryRoles: AdminRole[] = ['clinical', 'doctor']
+
+/** Active dashboard users with full clinical access, as on the Users & Roles page. */
 export async function clinicalTeam(database: SupabaseClient) {
   const team: User[] = []
   for (let page = 1; page <= 5; page++) {
@@ -48,7 +52,7 @@ export async function clinicalTeam(database: SupabaseClient) {
     if (error) throw error
     for (const user of data.users) {
       const banned = Boolean(user.banned_until && new Date(user.banned_until).getTime() > Date.now())
-      if (user.email && !banned && getUserAdminRole(user) === 'clinical') team.push(user)
+      if (user.email && !banned && summaryRoles.includes(getUserAdminRole(user) as AdminRole)) team.push(user)
     }
     if (data.users.length < 1000) break
   }

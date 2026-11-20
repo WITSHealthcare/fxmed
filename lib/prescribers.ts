@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // Who signed a prescription, for printing: name, job title and professional
 // registration (MDCN for doctors, PCN for pharmacists, NMCN for nurses and
 // midwives), taken from the staff member's HR file. Expired, suspended or
-// superseded registrations are left off.
+// superseded registrations, and ones not yet verified, are left off.
 export type Prescriber = { name: string; title: string | null; registrations: Array<{ body: string; number: string }> }
 
 const registrationBodies: Record<string, string> = { MDCN: 'MDCN', PCN: 'PCN', NMCN_RN: 'NMCN (RN)', NMCN_RM: 'NMCN (RM)', dietitians_council: 'Dietitians Council' }
@@ -22,7 +22,7 @@ export async function loadPrescribers(database: SupabaseClient, userIds: string[
       name: employee.legal_name,
       title: employee.job_title,
       registrations: (credentials || [])
-        .filter((item) => item.employee_id === employee.id && (item.registration_number || item.licence_number) && ['current', 'expiring_soon', 'pending_verification'].includes(item.status))
+        .filter((item) => item.employee_id === employee.id && (item.registration_number || item.licence_number) && ['current', 'expiring_soon'].includes(item.status))
         .map((item) => ({ body: registrationBodies[item.credential_type], number: (item.registration_number || item.licence_number) as string })),
     }
   }
