@@ -9,6 +9,7 @@ import { EmployeeForm, PayrollForm } from './EmployeeForm'
 import Onboarding from './Onboarding'
 import type { FileDetail } from './types'
 import { Alert, Badge, buttonSecondary, call, formatDay, peopleApi } from './ui'
+import { Tabs } from '@/components/admin/ui/SectionNav'
 
 type Section = 'details' | 'onboarding' | 'credentials' | 'documents'
 
@@ -36,7 +37,7 @@ export default function EmployeeFile({ id, employees = [], onBack, onChanged }: 
       <p className="mt-1 text-sm text-text-mid">{employee.job_title} · {employee.department} · {employee.employment_type}{employee.level ? ` · ${employee.level}` : ''}</p>
       <p className="mt-1 text-xs text-gray-500">{self ? 'Your file' : file.relation === 'report' ? 'Your direct report: work details only' : 'Admin view'} · viewing is logged</p></div>
       {admin && <div className="flex gap-2"><button onClick={() => setEditing('file')} className={buttonSecondary}>Edit file</button><button onClick={() => setEditing('payroll')} className={buttonSecondary}>Pay details</button></div>}</div>
-      <nav aria-label="File sections" className="mt-5 flex flex-wrap gap-2">{sections.map((s) => <button key={s.id} onClick={() => setSection(s.id)} aria-current={section === s.id ? 'page' : undefined} className={`rounded-full px-4 py-2 text-xs font-bold ${section === s.id ? 'bg-green-deep text-white' : 'bg-green-50 text-green-deep'}`}>{s.label}{s.count ? ` (${s.count})` : ''}</button>)}</nav>
+      <div className="mt-5"><Tabs label="File sections" items={sections} value={section} onChange={setSection} /></div>
     </section>
     {section === 'details' && <div className="grid gap-5 lg:grid-cols-2">
       <Panel title="Job"><Rows rows={[['Staff number', employee.staff_number], ['Start date', formatDay(employee.start_date)], ['Probation ends', formatDay(employee.probation_end_date)], ['Confirmed', employee.confirmed_at ? formatDay(employee.confirmed_at) : null], ['Location', employee.location], ['Work pattern', labelOf(workPatterns, employee.work_pattern || null)], ['Line manager', name(employee.line_manager_id)], ['Buddy', name(employee.buddy_id)], ['Clinical supervisor', name(employee.clinical_supervisor_id)], ['Portal account', employee.auth_user_id ? `Linked (${employee.portal_role})` : 'Not linked'], ['Work email', employee.work_email], ['Phone', employee.phone]]} /></Panel>

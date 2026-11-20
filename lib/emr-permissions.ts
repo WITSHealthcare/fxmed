@@ -31,9 +31,35 @@ const salesPermissions: EmrPermission[] = [
   'view_patients', 'view_follow_ups', 'view_financial_records', 'manage_financial_records',
 ]
 
+// Nurses: register and update patients, take vitals, write and sign nursing
+// notes, record allergies, upload documents and work follow-ups. No
+// prescribing, diagnoses, orders, results review or billing.
+const nursePermissions: EmrPermission[] = [
+  'view_patients', 'create_patients', 'edit_patients', 'view_clinical_records',
+  'create_encounters', 'create_notes', 'finalize_notes', 'record_vitals',
+  'manage_allergies', 'upload_documents', 'view_follow_ups',
+]
+
+// Lab scientists: read the chart for context, enter results and attach
+// reports. Reviewing results stays with the doctor.
+const labPermissions: EmrPermission[] = [
+  'view_patients', 'view_clinical_records', 'record_results', 'upload_documents',
+]
+
+// Front desk: registration, demographics, insurance cover, billing and
+// follow-up calls. No clinical records.
+const frontDeskPermissions: EmrPermission[] = [
+  'view_patients', 'create_patients', 'edit_patients', 'view_follow_ups',
+  'view_financial_records', 'manage_financial_records', 'manage_coverage',
+]
+
 export const emrRolePermissions: Record<AdminRole, EmrPermission[]> = {
   admin: clinicalPermissions,
   clinical: clinicalPermissions,
+  doctor: clinicalPermissions,
+  nurse: nursePermissions,
+  lab: labPermissions,
+  front_desk: frontDeskPermissions,
   sales: salesPermissions,
 }
 

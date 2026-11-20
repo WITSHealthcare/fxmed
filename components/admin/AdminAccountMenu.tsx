@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import {
   CaretDownIcon,
   CheckCircleIcon,
+  DeviceMobileIcon,
   EyeIcon,
   EyeSlashIcon,
   KeyIcon,
@@ -13,6 +14,8 @@ import {
   XIcon,
 } from '@phosphor-icons/react'
 import { supabase } from '@/lib/supabase-auth'
+import { Modal } from '@/components/admin/ui'
+import TwoStepSetup from '@/components/admin/TwoStepSetup'
 
 type Props = { roleLabel: string }
 
@@ -20,6 +23,7 @@ export default function AdminAccountMenu({ roleLabel }: Props) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [twoStepOpen, setTwoStepOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -114,10 +118,12 @@ export default function AdminAccountMenu({ roleLabel }: Props) {
 
       {menuOpen && <div className="absolute right-0 top-full z-50 mt-3 w-72 overflow-hidden rounded-[18px] border border-green-deep/10 bg-white shadow-[0_20px_60px_rgba(26,61,46,0.18)]">
         <div className="bg-[#f7f5ee] p-4"><p className="truncate text-sm font-bold text-green-deep">{email || 'Dashboard account'}</p><p className="mt-1 text-xs text-text-mid">{roleLabel}</p></div>
-        <div className="p-2"><button type="button" onClick={openPasswordModal} className="flex w-full items-center gap-3 rounded-[12px] px-3 py-3 text-left text-sm font-bold text-green-deep transition hover:bg-[#FCFFF0]"><span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-gold/35"><KeyIcon size={19} weight="fill" /></span><span><span className="block">Change password</span><span className="mt-0.5 block text-[11px] font-normal text-text-mid">Update your dashboard login</span></span></button></div>
+        <div className="p-2"><button type="button" onClick={openPasswordModal} className="flex w-full items-center gap-3 rounded-[12px] px-3 py-3 text-left text-sm font-bold text-green-deep transition hover:bg-[#FCFFF0]"><span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-gold/35"><KeyIcon size={19} weight="fill" /></span><span><span className="block">Change password</span><span className="mt-0.5 block text-[11px] font-normal text-text-mid">Update your dashboard login</span></span></button><button type="button" onClick={() => { setMenuOpen(false); setTwoStepOpen(true) }} className="flex w-full items-center gap-3 rounded-[12px] px-3 py-3 text-left text-sm font-bold text-green-deep transition hover:bg-[#FCFFF0]"><span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-gold/35"><DeviceMobileIcon size={19} weight="fill" /></span><span><span className="block">Two-step sign-in</span><span className="mt-0.5 block text-[11px] font-normal text-text-mid">A code from your phone at sign-in</span></span></button></div>
       </div>}
     </div>
 
+    {/* Portalled out of the blurred header, which would otherwise clip it. */}
+    {twoStepOpen && typeof document !== 'undefined' && createPortal(<Modal title="Two-step sign-in" eyebrow="Account security" onClose={() => setTwoStepOpen(false)}><TwoStepSetup /></Modal>, document.body)}
     {modalOpen && typeof document !== 'undefined' && createPortal(<div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-green-deep/60 p-3 py-6 backdrop-blur-sm sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="change-password-title" onMouseDown={event => { if (event.target === event.currentTarget) closeModal() }}>
       <section className="relative my-auto max-h-[calc(100dvh-3rem)] w-full max-w-lg overflow-y-auto rounded-[24px] border border-white/20 bg-white p-5 shadow-[0_28px_80px_rgba(17,45,33,0.35)] sm:max-h-[calc(100dvh-4rem)] sm:rounded-[26px] sm:p-8">
         <button type="button" onClick={closeModal} disabled={saving} aria-label="Close password dialog" className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-[#f7f5ee] text-green-deep transition hover:bg-green-deep hover:text-white disabled:opacity-50"><XIcon size={20} weight="bold" /></button>

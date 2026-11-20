@@ -1,12 +1,30 @@
 import type { User } from '@supabase/supabase-js'
 
-export type AdminRole = 'admin' | 'clinical' | 'sales'
+// 'clinical' is the original all-round clinician role; existing accounts keep
+// it. New clinical staff get a narrower role for their job: doctor, nurse,
+// lab scientist or front desk.
+export type AdminRole = 'admin' | 'clinical' | 'doctor' | 'nurse' | 'lab' | 'front_desk' | 'sales'
+
+export const adminRoles: AdminRole[] = ['admin', 'doctor', 'nurse', 'lab', 'front_desk', 'clinical', 'sales']
+
+// Roles that count as clinical staff, so material shared with "Clinical"
+// (training courses, staff forms) reaches doctors, nurses and lab staff too.
+export const clinicalFamily: AdminRole[] = ['clinical', 'doctor', 'nurse', 'lab']
+
+export function roleMatchesAudience(role: AdminRole | null, audienceRoles: string[]) {
+  if (!role) return false
+  return audienceRoles.includes(role) || (clinicalFamily.includes(role) && audienceRoles.includes('clinical'))
+}
 export type AdminTab = 'blog' | 'crm' | 'seo' | 'messages' | 'requests' | 'ambassador' | 'careers' | 'training' | 'tools' | 'users' | 'zara' | 'contacts' | 'healthcare' | 'fm_analysis' | 'hr' | 'forms'
 export type CrmAccess = 'clinical' | 'financial'
 
 export const adminRoleLabels: Record<AdminRole, string> = {
   admin: 'Admin',
   clinical: 'Clinical Team Member',
+  doctor: 'Doctor',
+  nurse: 'Nurse',
+  lab: 'Lab Scientist',
+  front_desk: 'Front Desk',
   sales: 'Sales Rep',
 }
 
@@ -22,6 +40,24 @@ export const adminRolePermissions: Record<AdminRole, { tabs: AdminTab[]; crmView
   clinical: {
     tabs: ['blog', 'crm', 'requests', 'training', 'forms', 'hr', 'tools', 'contacts', 'healthcare', 'fm_analysis'],
     crmViews: ['clinical'],
+  },
+  doctor: {
+    tabs: ['blog', 'crm', 'requests', 'training', 'forms', 'hr', 'tools', 'contacts', 'healthcare', 'fm_analysis'],
+    crmViews: ['clinical'],
+  },
+  nurse: {
+    tabs: ['requests', 'training', 'forms', 'hr', 'tools', 'contacts', 'healthcare'],
+    crmViews: [],
+  },
+  lab: {
+    tabs: ['training', 'forms', 'hr', 'healthcare'],
+    crmViews: [],
+  },
+  front_desk: {
+    // Reception: registration, bookings, messages, billing and cover. No
+    // clinical records (see lib/emr-permissions.ts).
+    tabs: ['messages', 'requests', 'training', 'forms', 'hr', 'contacts', 'healthcare'],
+    crmViews: [],
   },
   sales: {
     // Healthcare is limited for sales: see lib/emr-permissions.ts.
@@ -52,8 +88,7 @@ export function getUserAdminRole(user: User | null): AdminRole | null {
   const role = appMetadata?.role || (trustUserMetadata ? userMetadata?.role : undefined)
 
   if (role === 'admin' || appMetadata?.is_admin === true || (trustUserMetadata && userMetadata?.is_admin === true)) return 'admin'
-  if (role === 'clinical') return 'clinical'
-  if (role === 'sales') return 'sales'
+  if (typeof role === 'string' && role !== 'admin' && (adminRoles as string[]).includes(role)) return role as AdminRole
   if (email && getConfiguredAdminEmails().includes(email)) return 'admin'
 
   return null

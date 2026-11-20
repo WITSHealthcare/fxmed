@@ -10,6 +10,8 @@ import {
   ClockCounterClockwiseIcon,
   EnvelopeSimpleIcon,
   FirstAidKitIcon,
+  FlaskIcon,
+  IdentificationBadgeIcon,
   KeyIcon,
   LockKeyIcon,
   ProhibitIcon,
@@ -20,7 +22,7 @@ import {
   UsersThreeIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { adminRoleLabels, adminRolePermissions, type AdminRole, type AdminTab } from '@/lib/admin-auth'
+import { clinicalFamily, adminRoleLabels, adminRolePermissions, type AdminRole, type AdminTab } from '@/lib/admin-auth'
 
 type ManagedUser = {
   id: string
@@ -80,9 +82,37 @@ const roleOptions: Array<{
     tone: 'bg-[#E5E4FF] text-[#76508C]',
   },
   {
+    id: 'doctor',
+    label: adminRoleLabels.doctor,
+    description: 'Full clinical access: diagnose, prescribe, order and review investigations, sign notes and encounters, referrals and billing.',
+    Icon: StethoscopeIcon,
+    tone: 'bg-[#EAF7EE] text-[#2D6A4F]',
+  },
+  {
+    id: 'nurse',
+    label: adminRoleLabels.nurse,
+    description: 'Register patients, take vitals, write and sign nursing notes, record allergies, upload documents and work follow-ups. No prescribing or diagnoses.',
+    Icon: FirstAidKitIcon,
+    tone: 'bg-[#FFEAE3] text-[#C7654C]',
+  },
+  {
+    id: 'lab',
+    label: adminRoleLabels.lab,
+    description: 'Read patient charts, enter investigation results and attach lab reports. Results are reviewed by a doctor.',
+    Icon: FlaskIcon,
+    tone: 'bg-[#EAF2FE] text-[#3374A8]',
+  },
+  {
+    id: 'front_desk',
+    label: adminRoleLabels.front_desk,
+    description: 'Registration, bookings, messages, insurance cover, billing and follow-up calls. No access to clinical records.',
+    Icon: IdentificationBadgeIcon,
+    tone: 'bg-[#F3EEFF] text-[#6A4FA3]',
+  },
+  {
     id: 'clinical',
-    label: adminRoleLabels.clinical,
-    description: 'Clinical operations, patient records, health analysis, appointments, and care delivery.',
+    label: `${adminRoleLabels.clinical} (legacy)`,
+    description: 'The original all-round clinical role, same access as Doctor. Kept for existing accounts; choose a specific role for new staff.',
     Icon: StethoscopeIcon,
     tone: 'bg-[#EAF7EE] text-[#2D6A4F]',
   },
@@ -148,12 +178,12 @@ export default function UserManagement() {
   const [activityMigrationRequired, setActivityMigrationRequired] = useState(false)
   const [error, setError] = useState('')
   const [createdLogin, setCreatedLogin] = useState<{ email: string; password: string; role: string } | null>(null)
-  const [form, setForm] = useState({ email: '', password: '', role: 'clinical' as AdminRole })
+  const [form, setForm] = useState({ email: '', password: '', role: 'doctor' as AdminRole })
 
   const counts = useMemo(() => ({
     total: users.length,
     admin: users.filter(user => user.role === 'admin').length,
-    clinical: users.filter(user => user.role === 'clinical').length,
+    clinical: users.filter(user => clinicalFamily.includes(user.role) || user.role === 'front_desk').length,
     sales: users.filter(user => user.role === 'sales').length,
   }), [users])
 
@@ -355,7 +385,7 @@ export default function UserManagement() {
         {[
           ['Dashboard users', counts.total, UsersThreeIcon, 'bg-[#EAF2FE] text-[#3374A8]'],
           ['Administrators', counts.admin, ShieldCheckIcon, 'bg-[#E5E4FF] text-[#76508C]'],
-          ['Clinical team', counts.clinical, StethoscopeIcon, 'bg-[#EAF7EE] text-[#2D6A4F]'],
+          ['Clinical & front desk', counts.clinical, StethoscopeIcon, 'bg-[#EAF7EE] text-[#2D6A4F]'],
           ['Sales team', counts.sales, TrendUpIcon, 'bg-[#FFF4D6] text-[#A36A00]'],
         ].map(([label, value, Icon, tone]: any) => (
           <div key={label} className="rounded-[20px] border border-green-deep/10 bg-white p-5 shadow-[0_8px_30px_rgba(26,61,46,0.05)]">
@@ -370,7 +400,7 @@ export default function UserManagement() {
         <button type="button" onClick={() => setShowRolePermissions(open => !open)} aria-expanded={showRolePermissions} aria-controls="role-permissions-content" className="flex w-full items-center justify-between gap-5 p-5 text-left transition hover:bg-[#FCFFF0] sm:p-7">
           <div className="flex min-w-0 items-center gap-4">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#E5E4FF] text-[#76508C]"><ShieldCheckIcon size={25} weight="fill" /></span>
-            <div className="min-w-0"><h3 className="text-xl font-bold tracking-[-0.02em] text-green-deep">Role permissions</h3><p className="mt-1 text-sm leading-5 text-text-mid">View what Admin, Clinical Team, and Sales users can access.</p></div>
+            <div className="min-w-0"><h3 className="text-xl font-bold tracking-[-0.02em] text-green-deep">Role permissions</h3><p className="mt-1 text-sm leading-5 text-text-mid">See what each role can open and do.</p></div>
           </div>
           <span className="flex shrink-0 items-center gap-2 text-xs font-bold text-green-mid"><span className="hidden sm:inline">{showRolePermissions ? 'Hide details' : 'View details'}</span><CaretDownIcon size={20} weight="bold" className={`transition-transform duration-200 ${showRolePermissions ? 'rotate-180' : ''}`} /></span>
         </button>
@@ -378,7 +408,7 @@ export default function UserManagement() {
         {showRolePermissions && <div id="role-permissions-content" className="border-t border-green-deep/10 p-5 sm:p-7">
           <div className="flex items-start gap-3 rounded-[15px] border border-green-mid/15 bg-[#FCFFF0] p-4">
             <FirstAidKitIcon size={22} weight="fill" className="mt-0.5 shrink-0 text-green-mid" />
-            <p className="text-xs leading-5 text-text-mid"><strong className="text-green-deep">EMR protection:</strong> Healthcare / EMR and Health Analysis are available only to Administrators and Clinical Team Members.</p>
+            <p className="text-xs leading-5 text-text-mid"><strong className="text-green-deep">Patient records:</strong> clinical notes, results and prescriptions open only for Admin, Doctor, Nurse, Lab Scientist and Clinical Team Member. Front Desk and Sales see contact, booking and billing details only. Only Doctor, Admin and Clinical Team Member can prescribe or diagnose.</p>
           </div>
           <div className="mt-5 grid gap-4 xl:grid-cols-3">
             {roleOptions.map(role => (
@@ -398,7 +428,7 @@ export default function UserManagement() {
       </section>
 
         <section className="rounded-[22px] border border-green-deep/10 bg-white p-5 shadow-[0_8px_30px_rgba(26,61,46,0.05)] sm:p-7">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-xl font-bold text-green-deep">Dashboard users</h3><p className="mt-1 text-sm text-text-mid">Only admin, clinical, and sales dashboard accounts appear here.</p></div><button type="button" onClick={() => void fetchUsers()} disabled={loading} className="rounded-full border border-green-deep/15 px-4 py-2 text-xs font-bold text-green-deep transition hover:bg-green-deep hover:text-white disabled:opacity-50">Refresh</button></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-xl font-bold text-green-deep">Dashboard users</h3><p className="mt-1 text-sm text-text-mid">Everyone with a dashboard role appears here.</p></div><button type="button" onClick={() => void fetchUsers()} disabled={loading} className="rounded-full border border-green-deep/15 px-4 py-2 text-xs font-bold text-green-deep transition hover:bg-green-deep hover:text-white disabled:opacity-50">Refresh</button></div>
           <div className="mt-6 space-y-3">
             {loading ? <div className="py-12 text-center text-sm text-text-mid">Loading dashboard users…</div> : users.length === 0 ? <div className="rounded-[16px] border border-dashed border-green-deep/15 py-12 text-center"><UsersThreeIcon size={38} weight="duotone" className="mx-auto text-green-mid" /><p className="mt-3 text-sm text-text-mid">No dashboard users found.</p></div> : users.map(user => {
               const role = roleOptions.find(option => option.id === user.role) || roleOptions[0]

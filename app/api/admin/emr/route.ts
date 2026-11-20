@@ -17,6 +17,8 @@ import {
 import { lagosDate, parseFollowUpDue } from '@/lib/follow-ups'
 import { ORDER_COLUMNS, REPORT_COLUMNS, mapOrderRow, mapReportRow } from '@/lib/investigations'
 import { syncReviewFollowUps } from '@/lib/reviewFollowUps'
+import { checkPrescription, needsOverride, type SafetyWarning } from '@/lib/prescribingSafety'
+import { loadPrescribers } from '@/lib/prescribers'
 
 export const runtime = 'nodejs'
 
@@ -268,7 +270,11 @@ export async function GET(request: NextRequest) {
       if (error) throw error
       const [unlinked, unlinkedAppointments] = await Promise.all([unlinkedInvestigationMatches(database, patient.data), unlinkedAppointmentMatches(database, patient.data)])
       await writeEmrAudit(database, user, { action: 'view_patient_chart', entityType: 'emr_patient', entityId: patientId, patientId })
-      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: prescriptions.data || [], investigations: orders.data || [], results: results.data || [], investigationOrders: (investigationOrders.data || []).map(mapOrderRow), investigationReports: (investigationReports.data || []).map(mapReportRow), investigationError: investigationLoadError(investigationOrders.error || investigationReports.error), unlinkedInvestigationOrders: unlinked.orders, unlinkedInvestigationReports: unlinked.reports, imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], unlinkedAppointments, assessments: assessments.data || [], financialRecords: financialRecords.data || [], financialPayments: financialPayments.data || [], audit: audit.data || [] })
+      // Earlier versions of notes, newest first, for the note's version history.
+      const { data: noteRevisions, error: revisionsError } = await database.from('emr_audit_logs').select('entity_id,user_email,created_at,metadata').eq('patient_id', patientId).eq('action', 'revise_note').order('created_at', { ascending: false }).limit(200)
+      if (revisionsError) console.error('EMR: note history could not be loaded:', revisionsError)
+      const prescribers = await loadPrescribers(database, (prescriptions.data || []).map((item: { prescriber_id: string }) => item.prescriber_id))
+      return NextResponse.json({ patient: patient.data, encounters: encounters.data || [], notes: notes.data || [], vitals: vitals.data || [], diagnoses: diagnoses.data || [], allergies: allergies.data || [], medications: medications.data || [], prescriptions: (prescriptions.data || []).map((item: { prescriber_id: string }) => ({ ...item, prescriber: prescribers[item.prescriber_id] || null })), investigations: orders.data || [], results: results.data || [], investigationOrders: (investigationOrders.data || []).map(mapOrderRow), investigationReports: (investigationReports.data || []).map(mapReportRow), investigationError: investigationLoadError(investigationOrders.error || investigationReports.error), unlinkedInvestigationOrders: unlinked.orders, unlinkedInvestigationReports: unlinked.reports, imaging: imaging.data || [], documents: documents.data || [], carePlans: carePlans.data || [], tasks: tasks.data || [], appointments: appointments.data || [], unlinkedAppointments, assessments: assessments.data || [], financialRecords: financialRecords.data || [], financialPayments: financialPayments.data || [], audit: audit.data || [], noteRevisions: (noteRevisions || []).map((item: { entity_id: string; user_email: string | null; created_at: string; metadata: Record<string, unknown> }) => ({ note_id: item.entity_id, by: item.user_email, at: item.created_at, reason: item.metadata?.reason || null, signed_edit: Boolean(item.metadata?.signed_edit) || item.metadata?.previous_status === 'final' || item.metadata?.previous_status === 'amended', previous_content: item.metadata?.previous_content || '' })), noteRevisionsError: revisionsError ? 'Note version history could not be loaded.' : null })
     }
 
     if (resource === 'follow_ups') {
@@ -378,6 +384,23 @@ export async function POST(request: NextRequest) {
     if (!record) return NextResponse.json({ error: 'This clinical resource cannot be created directly.' }, { status: 400 })
     const validationError = validateRecord(resource as ResourceName, record)
     if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
+    // Prescribing safety: check the patient's active allergies and medicines.
+    // A serious warning blocks the prescription until the prescriber gives a
+    // reason, which is kept in the audit log with the warnings shown.
+    let safety: { warnings: SafetyWarning[]; override_reason: string | null } | null = null
+    if (resource === 'medications') {
+      const [allergies, medications] = await Promise.all([
+        database.from('emr_allergies').select('allergen,reaction,severity,status').eq('patient_id', patientId),
+        database.from('emr_medications').select('id,medication_name,generic_name,status').eq('patient_id', patientId),
+      ])
+      if (allergies.error) throw allergies.error
+      if (medications.error) throw medications.error
+      const medication = record as { medication_name?: string | null; generic_name?: string | null }
+      const warnings = checkPrescription({ medication_name: medication.medication_name || '', generic_name: medication.generic_name }, { allergies: allergies.data || [], medications: medications.data || [] })
+      const reason = cleanText(body.safety_override_reason, 1000)
+      if (needsOverride(warnings) && !reason) return NextResponse.json({ error: 'Prescribing safety check: give a reason to prescribe despite these warnings.', safety_warnings: warnings }, { status: 409 })
+      if (warnings.length) safety = { warnings, override_reason: reason || null }
+    }
     const config = resources[resource as ResourceName]
     // The table is selected dynamically after the resource/permission check;
     // give Supabase the common JSON payload shape instead of inferring one
@@ -407,7 +430,7 @@ export async function POST(request: NextRequest) {
       const { error: prescriptionError } = await database.from('emr_prescriptions').insert({ patient_id: patientId, encounter_id: record.encounter_id, medication_id: data.id, prescriber_id: user.id, status: 'signed', signed_at: new Date().toISOString() })
       if (prescriptionError) throw prescriptionError
     }
-    await writeEmrAudit(database, user, { action: `create_${resource}`, entityType: config.table, entityId: data.id, patientId: patientId || null })
+    await writeEmrAudit(database, user, { action: `create_${resource}`, entityType: config.table, entityId: data.id, patientId: patientId || null, ...(safety ? { metadata: { prescribing_safety: safety } } : {}) })
     return NextResponse.json({ record: data, warning }, { status: 201 })
   } catch (error) {
     return responseError(error)
@@ -482,18 +505,44 @@ export async function PATCH(request: NextRequest) {
     }
     const updates = buildUpdate(resource as ResourceName, body, user.id)
     // Finalized notes are part of the clinical record. Editing is allowed, but
-    // the previous version is written to the audit log first so the history of
-    // what the note said stays reconstructable.
-    if (resource === 'notes' && 'content' in body) {
+    // the previous version is written to the append-only audit log first so
+    // what the note said stays reconstructable. A signed note (final or
+    // amended) needs a reason, and the edit is refused if its history can't be
+    // saved.
+    // Returning a signed note to draft counts as changing it too, so a note
+    // can't be un-signed first and then rewritten without a reason.
+    if (resource === 'notes' && ('content' in body || 'status' in body)) {
       const { data: previous } = await database.from('emr_clinical_notes').select('content,note_type,status,patient_id').eq('id', id).maybeSingle()
-      if (previous && previous.content !== updates.content) {
-        await writeEmrAudit(database, user, {
-          action: 'revise_note',
-          entityType: 'emr_clinical_notes',
-          entityId: id,
-          patientId: previous.patient_id,
-          metadata: { previous_content: previous.content, previous_note_type: previous.note_type, previous_status: previous.status },
+      const signed = previous?.status === 'final' || previous?.status === 'amended'
+      const contentChanged = 'content' in body && previous?.content !== updates.content
+      const unsigned = signed && updates.status === 'draft'
+      if (previous && (contentChanged || unsigned)) {
+        const reason = cleanText(body.edit_reason, 1000)
+        if (signed && !reason) return NextResponse.json({ error: 'This note is signed. Give a reason for changing it.', needs_edit_reason: true }, { status: 409 })
+        const { error: historyError } = await database.from('emr_audit_logs').insert({
+          user_id: user.id, user_email: user.email || null, action: 'revise_note', entity_type: 'emr_clinical_notes', entity_id: id, patient_id: previous.patient_id,
+          metadata: { previous_content: previous.content, previous_note_type: previous.note_type, previous_status: previous.status, signed_edit: signed, reason },
         })
+        if (historyError) { console.error('EMR: note history not saved:', historyError); return NextResponse.json({ error: 'The note could not be changed because its history could not be saved. Try again.' }, { status: 500 }) }
+      }
+    }
+    // Restarting a stopped medicine is a new prescribing decision, so it gets
+    // the same safety check (and override reason) as a new prescription.
+    let reactivationSafety: { warnings: SafetyWarning[]; override_reason: string | null } | null = null
+    if (resource === 'medications' && updates.status === 'active') {
+      const { data: current, error: currentError } = await database.from('emr_medications').select('patient_id,medication_name,generic_name,status').eq('id', id).maybeSingle()
+      if (currentError) throw currentError
+      if (current && current.status !== 'active') {
+        const [allergies, medications] = await Promise.all([
+          database.from('emr_allergies').select('allergen,reaction,severity,status').eq('patient_id', current.patient_id),
+          database.from('emr_medications').select('id,medication_name,generic_name,status').eq('patient_id', current.patient_id),
+        ])
+        if (allergies.error) throw allergies.error
+        if (medications.error) throw medications.error
+        const warnings = checkPrescription({ medication_name: current.medication_name || '', generic_name: current.generic_name }, { allergies: allergies.data || [], medications: medications.data || [] }, { ignoreMedicationId: id })
+        const reason = cleanText(body.safety_override_reason, 1000)
+        if (needsOverride(warnings) && !reason) return NextResponse.json({ error: 'Prescribing safety check: give a reason to restart this medicine despite these warnings.', safety_warnings: warnings }, { status: 409 })
+        if (warnings.length) reactivationSafety = { warnings, override_reason: reason || null }
       }
     }
     if (resource === 'encounters' && body.status === 'completed') {
@@ -522,7 +571,7 @@ export async function PATCH(request: NextRequest) {
     if (resource === 'encounters') await syncReviewFollowUps(database, { force: true })
     if (resource === 'care_plan_items') await notifyCarePlanChange(database, data.care_plan_id, 'Your care team updated your care plan')
     if (resource === 'care_plans') await notifyCarePlanChange(database, data.id, 'Your care team updated your care plan')
-    await writeEmrAudit(database, user, { action: `update_${resource}`, entityType: config.table, entityId: id, patientId: data.patient_id || null, metadata: { status: data.status } })
+    await writeEmrAudit(database, user, { action: `update_${resource}`, entityType: config.table, entityId: id, patientId: data.patient_id || null, metadata: { status: data.status, ...(reactivationSafety ? { prescribing_safety: reactivationSafety } : {}) } })
     return NextResponse.json({ record: data })
   } catch (error) {
     return responseError(error)

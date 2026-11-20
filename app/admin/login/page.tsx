@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { EyeIcon, EyeSlashIcon } from '@phosphor-icons/react'
 import { signIn, signOut } from '@/lib/supabase-auth'
 import { isDashboardUser } from '@/lib/admin-auth'
+import { getTwoStepStatus, verifyTwoStepCode } from '@/lib/two-step-client'
 
 export default function AdminLogin() {
   const router = useRouter()
@@ -14,6 +15,43 @@ export default function AdminLogin() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  // Second step: the code from the authenticator app, for accounts with
+  // two-step sign-in on. The proxy also sends people here (?step=code) when
+  // their session has the password but not yet the code.
+  const [factorId, setFactorId] = useState<string | null>(null)
+  const [code, setCode] = useState('')
+
+  const goNext = () => {
+    // Back to the page that sent them here (e.g. a shared course link), never off the dashboard.
+    const next = new URLSearchParams(window.location.search).get('next') || ''
+    router.push(/^\/admin(?!\/login)([/?]|$)/.test(next) && !next.startsWith('//') ? next : '/admin')
+    router.refresh()
+  }
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('step') !== 'code') return
+    getTwoStepStatus().then((status) => { if (status.enrolled && !status.verified && status.factorId) setFactorId(status.factorId) }).catch(() => {})
+  }, [])
+
+  const handleCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!factorId) return
+    setError('')
+    setLoading(true)
+    try {
+      await verifyTwoStepCode(factorId, code)
+      goNext()
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : 'That code did not work.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const startOver = async () => {
+    await signOut()
+    setFactorId(null); setCode(''); setPassword(''); setError('')
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,10 +69,14 @@ export default function AdminLogin() {
         throw new Error('Access denied. Dashboard role required.')
       }
 
-      // Back to the page that sent them here (e.g. a shared course link), never off the dashboard.
-      const next = new URLSearchParams(window.location.search).get('next') || ''
-      router.push(/^\/admin(?!\/login)([/?]|$)/.test(next) && !next.startsWith('//') ? next : '/admin')
-      router.refresh()
+      // Only accounts that turned on two-step sign-in are asked for a code.
+      // If the check fails, carry on: the server asks again where needed.
+      const status = await getTwoStepStatus().catch(() => null)
+      if (status?.enrolled && !status.verified && status.factorId) {
+        setFactorId(status.factorId)
+        return
+      }
+      goNext()
     } catch (error: any) {
       console.error('Login error:', error)
       setError(error.message || 'Invalid email or password')
@@ -71,6 +113,18 @@ export default function AdminLogin() {
             </div>
           )}
 
+          {factorId ? (
+            <form onSubmit={handleCode} className="space-y-6">
+              <div>
+                <label htmlFor="code" className="block font-dm-sans font-semibold text-green-deep mb-2">Code from your authenticator app</label>
+                <input id="code" value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" autoFocus required maxLength={7} placeholder="000000"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-[12px] text-center font-mono text-2xl tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-green-mid focus:border-transparent" />
+                <p className="mt-2 text-sm text-text-mid">Two-step sign-in is on for this account. Open Google Authenticator, Microsoft Authenticator or Authy and enter the 6-digit FXMed code.</p>
+              </div>
+              <button type="submit" disabled={loading || code.replace(/\s/g, '').length !== 6} className="w-full bg-gold text-green-deep px-6 py-4 rounded-[50px] font-dm-sans font-bold text-[1rem] transition-all hover:bg-gold-light disabled:opacity-50 disabled:cursor-not-allowed">{loading ? 'Checking…' : 'Verify and sign in'}</button>
+              <button type="button" onClick={startOver} className="w-full text-sm font-semibold text-green-mid hover:text-green-deep">Use a different account</button>
+            </form>
+          ) : (
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label htmlFor="email" className="block font-dm-sans font-semibold text-green-deep mb-2">
@@ -119,6 +173,7 @@ export default function AdminLogin() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+          )}
 
         </div>
 

@@ -15,6 +15,12 @@ export async function getRequestAdminUser(request: NextRequest) {
     const { data: { user }, error } = await client.auth.getUser()
     if (error || !user) return null
 
+    // Optional two-step sign-in: an account that turned it on gets no admin
+    // access until the code is entered. Accounts without it are unaffected,
+    // and a failed lookup never blocks a password sign-in.
+    const level = await client.auth.mfa.getAuthenticatorAssuranceLevel().then(({ data }) => data).catch(() => null)
+    if (level?.nextLevel === 'aal2' && level.currentLevel !== 'aal2') return null
+
     // Check the authoritative auth record so deactivation takes effect even
     // while a previously issued browser token is still valid.
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY

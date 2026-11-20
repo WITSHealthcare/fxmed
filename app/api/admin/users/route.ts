@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { adminRoleLabels, getConfiguredAdminEmails, type AdminRole, isAdminUser } from '@/lib/admin-auth'
+import { adminRoleLabels, getConfiguredAdminEmails, type AdminRole, isAdminUser, adminRoles } from '@/lib/admin-auth'
 import { getRequestAdminUser } from '@/lib/admin-api-auth'
 import { writeAdminActivity } from '@/lib/admin-activity'
 
-const validRoles = new Set<AdminRole>(['admin', 'clinical', 'sales'])
+const validRoles = new Set<AdminRole>(adminRoles)
 
 function getStoredDashboardRole(user: { email?: string; app_metadata?: Record<string, any>; user_metadata?: Record<string, any> }): AdminRole | null {
   const role = user.app_metadata?.role || user.user_metadata?.role

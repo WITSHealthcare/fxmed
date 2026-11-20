@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   BellIcon,
   CalendarCheckIcon,
@@ -54,6 +55,7 @@ const kindLabels: Record<NotificationKind, string> = {
 }
 
 export default function Notifications() {
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [degraded, setDegraded] = useState<NotificationKind[]>([])
@@ -118,7 +120,13 @@ export default function Notifications() {
         // Navigating still shows the item, so a failed mark-as-read is not fatal.
       }
     }
-    window.location.href = notification.link
+    // In-app links open without reloading the portal; anything else is a normal page load.
+    if (notification.link.startsWith('/admin')) {
+      setIsOpen(false)
+      router.push(notification.link)
+    } else {
+      window.location.href = notification.link
+    }
   }
 
   useEffect(() => {
