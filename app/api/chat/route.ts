@@ -6,6 +6,7 @@ import { checkRateLimit } from '@/lib/request-security'
 import { bookingProblem, bookingRulesForZara, clockTime, parseTime, type ConsultationType } from '@/lib/bookingTimes'
 import { upcomingClosures } from '@/lib/bookingClosures'
 import { alertStaff } from '@/lib/staff-alerts'
+import { ZARA_RATE_LIMITED_MESSAGE, ZARA_UNAVAILABLE_MESSAGE } from '@/lib/zaraFallback'
 
 function getSupabase() {
   return createClient(
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest) {
   try {
     const rateLimit = checkRateLimit(request, 'zara-chat', 25, 15 * 60 * 1000)
     if (!rateLimit.allowed) {
-      return NextResponse.json({ message: 'Too many messages. Please wait a moment and try again.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } })
+      return NextResponse.json({ message: ZARA_RATE_LIMITED_MESSAGE }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } })
     }
     const { messages: rawMessages, sessionId, context } = await request.json()
     if (!Array.isArray(rawMessages) || rawMessages.length === 0 || rawMessages.length > 30) {
@@ -317,7 +318,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Chat API error:', error)
     return NextResponse.json(
-      { message: "I'm having trouble connecting right now. Please try again or contact us at fxmed@wellnesswits.com" },
+      { message: ZARA_UNAVAILABLE_MESSAGE },
       { status: 500 }
     )
   }

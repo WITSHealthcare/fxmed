@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import Image from 'next/image'
+import { ZARA_UNAVAILABLE_MESSAGE } from '@/lib/zaraFallback'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -89,7 +90,7 @@ export default function ChatAssistant({ context = 'general', open, onOpenChange,
     } catch {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: "I'm having trouble connecting right now. Please try again or contact us at fxmed@wellnesswits.com",
+        content: ZARA_UNAVAILABLE_MESSAGE,
       }])
     } finally {
       setIsTyping(false)
