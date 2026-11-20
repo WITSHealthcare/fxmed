@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { FormFill } from '@/components/forms/FormKit'
+import LessonContent from './LessonContent'
 import { formatMinutes, hasForm, isLessonUnlocked, isOverdue, programLessons, videoEmbedUrl, type TrainingAnswer, type TrainingProgram } from '@/lib/training'
 
 type Props = {
@@ -75,7 +76,7 @@ export default function CoursePlayer({ program, onTick, onSubmit, onBack, backLa
         <p className="text-xs font-bold uppercase tracking-wide text-green-mid">Lesson {index + 1} of {lessons.length}{lesson.durationMinutes ? ` · ${formatMinutes(lesson.durationMinutes)}` : ''}</p>
         <h3 className="mt-1 text-2xl font-bold text-green-deep">{lesson.title}</h3>
         {embed && <div className="mt-5 aspect-video overflow-hidden rounded-xl bg-black"><iframe src={embed} title={lesson.title} className="h-full w-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen" allowFullScreen loading="lazy" /></div>}
-        {lesson.content && <div className="mt-5 whitespace-pre-wrap text-[15px] leading-7 text-text-dark">{lesson.content}</div>}
+        {lesson.content && <div className="mt-5"><LessonContent content={lesson.content} /></div>}
         {lesson.resourceUrl && !embed && <a href={lesson.resourceUrl} target="_blank" rel="noopener noreferrer" className="mt-5 inline-block rounded-full border px-4 py-2 text-sm font-bold text-green-mid">Open lesson resource ↗</a>}
 
         {hasForm(lesson) ? <div className="mt-6 border-t pt-6">
