@@ -245,7 +245,7 @@ export default function Programs() {
             onClick={() => setShowAppointmentModal(true)}
             className="font-dm-sans bg-gold text-green-deep px-8 py-4 rounded-[50px] font-semibold text-lg transition-all hover:bg-gold-light hover:transform hover:translate-y-[-2px] hover:shadow-lg"
           >
-            Book Free Consultation
+            Book a Consultation
           </button>
         </div>
       </section>
