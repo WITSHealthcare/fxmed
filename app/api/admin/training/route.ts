@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserAdminRole } from '@/lib/admin-auth'
+import { getUserAdminRole, adminRoles } from '@/lib/admin-auth'
 import { getRequestAdminUser } from '@/lib/admin-api-auth'
 import { cleanTrainingForm, cleanTrainingText, getTrainingDatabase, slugify, toPreview, type TrainingEnrolment, type TrainingLesson, type TrainingModule, type TrainingProgram } from '@/lib/training'
 import { accessProgram, canOpenProgram, canSelfEnrol, isAssigned, loadProgram, tickLesson, trainingErrorMessage, uuidPattern, withLearnerState } from '@/lib/training-access'
@@ -37,7 +37,7 @@ function payload(body: Record<string, unknown>) {
   if (!title) return { error: 'Add a program title.' }
   const visibility = body.visibility === 'public' || body.visibility === 'both' ? body.visibility : 'internal'
   const audienceRoles = Array.isArray(body.audience_roles)
-    ? Array.from(new Set(body.audience_roles.filter((role): role is string => role === 'admin' || role === 'clinical' || role === 'sales')))
+    ? Array.from(new Set(body.audience_roles.filter((role): role is string => (adminRoles as string[]).includes(role))))
     : []
   const assignedEmails = Array.isArray(body.assigned_emails)
     ? Array.from(new Set(body.assigned_emails.map((email) => cleanTrainingText(email, 254).toLowerCase()).filter((email) => emailPattern.test(email)))).slice(0, 500)

@@ -1,10 +1,10 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js'
-import { getUserAdminRole, type AdminRole } from './admin-auth'
+import { adminRoles, getUserAdminRole, roleMatchesAudience, type AdminRole } from './admin-auth'
 import { cleanFormDefinition, cleanFormText } from './forms'
 import type { FormAudience, FormRecord } from './forms-types'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const staffRoles: AdminRole[] = ['admin', 'clinical', 'sales']
+const staffRoles: AdminRole[] = adminRoles
 
 export function cleanEmails(value: unknown) {
   return Array.isArray(value)
@@ -44,7 +44,7 @@ export function staffCanFill(form: Pick<FormRecord, 'audience' | 'status' | 'aud
   if (!user || !role || form.audience !== 'staff' || form.status !== 'published') return false
   const email = user.email?.toLowerCase() || ''
   if (!form.audience_roles.length && !form.assigned_emails.length) return true
-  return form.audience_roles.includes(role) || form.assigned_emails.includes(email)
+  return roleMatchesAudience(role, form.audience_roles) || form.assigned_emails.includes(email)
 }
 
 // Patient forms with no emails are open to every portal patient.

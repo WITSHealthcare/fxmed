@@ -10,6 +10,7 @@ import {
   referralStatuses,
   tierCommissionDefaults,
 } from '@/lib/ambassador-portal'
+import { Tabs } from '@/components/admin/ui/SectionNav'
 
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 })
 const date = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -74,9 +75,9 @@ export default function AmbassadorProgram() {
 
   return <div className="space-y-6">
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"><Stat label="Active ambassadors" value={String(totals.active)} /><Stat label="Successful referrals" value={String(totals.converted)} /><Stat label="Commission pending / due" value={money.format(totals.due)} /></div>
-    <div className="flex gap-2 overflow-x-auto rounded-2xl border border-green-deep/10 bg-white p-2 shadow-sm">{[
-      ['applications','Applications'], ['ambassadors','Ambassadors'], ['referrals','Referrals'], ['payouts','Payouts'], ['content','Content'],
-    ].map(([id, label]) => <button key={id} onClick={() => setTab(id as typeof tab)} className={`shrink-0 rounded-xl px-5 py-3 font-dm-sans text-sm font-bold ${tab === id ? 'bg-green-deep text-white' : 'text-text-mid hover:bg-green-50'}`}>{label}</button>)}</div>
+    <Tabs label="Ambassador programme sections" value={tab} onChange={setTab} items={[
+      { id: 'applications', label: 'Applications' }, { id: 'ambassadors', label: 'Ambassadors' }, { id: 'referrals', label: 'Referrals' }, { id: 'payouts', label: 'Payouts' }, { id: 'content', label: 'Content' },
+    ]} />
     {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 font-dm-sans text-sm text-red-700">{error}</div>}
     {tab === 'applications' && <AmbassadorApplications onPortalChanged={load} />}
     {tab === 'ambassadors' && <Panel title="FXMed Ambassadors" subtitle="Review portal access and the bank account supplied by each ambassador." loading={loading}><Table headers={['Ambassador','Code','Payout account','Joined','Referrals','Account status']} rows={data.ambassadors.map((item) => {

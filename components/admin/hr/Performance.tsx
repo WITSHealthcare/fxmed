@@ -10,6 +10,7 @@ import { DecideLeave } from './performance/Leave'
 import AdminOffboarding from './performance/Offboarding'
 import AdminPay from './performance/Pay'
 import { Alert, Badge, Card, Empty, Stat, call, nameOf, smallButton, statusTone } from './performance/ui'
+import { Tabs } from '@/components/admin/ui/SectionNav'
 
 type PendingLeave = HrLeaveRequest & { can_decide: boolean }
 type ReviewRow = { id: string; employee_id: string; review_type: ReviewType; review_year: number | null; scheduled_date: string | null; status: ReviewStatus; second_review_requested_at: string | null; second_review_outcome: string | null }
@@ -35,7 +36,7 @@ export default function Performance({ role }: { role: AdminRole }) {
   const views: [View, string][] = admin ? [['overview', 'Overview'], ['people', 'People'], ['leave', 'Leave & holidays'], ['pay', 'Pay'], ['offboarding', 'Offboarding'], ...(data.viewer.employeeId ? [['mine', 'My file'] as [View, string]] : [])]
     : [['mine', 'My performance'], ...(reports.length ? [['team', `My team (${reports.length})`] as [View, string]] : [])]
   return <div className="space-y-6">
-    <nav aria-label="Performance sections" className="flex flex-wrap gap-2">{views.map(([id, label]) => <button key={id} onClick={() => { setView(id); setPerson(null) }} aria-current={view === id ? 'page' : undefined} className={`rounded-full px-4 py-2 text-sm font-bold ${view === id ? 'bg-green-mid text-white' : 'border border-green-deep/15 bg-white text-green-deep hover:bg-green-50'}`}>{label}</button>)}</nav>
+    <Tabs label="Performance sections" items={views.map(([id, label]) => ({ id, label }))} value={view} onChange={(id) => { setView(id); setPerson(null) }} />
     {error && <Alert>{error}</Alert>}{notice && <Alert tone="info">{notice}</Alert>}
     {view === 'overview' && <AdminOverview data={data} onOpen={open} onDecide={setDeciding} />}
     {(view === 'people' || view === 'team') && (person ? <EmployeeFile key={person} employeeId={person} employees={data.employees} holidays={data.holidays} onBack={() => setPerson(null)} reloadOverview={load} />
@@ -79,7 +80,7 @@ function AdminOverview({ data, onOpen, onDecide }: { data: Overview; onOpen: (id
   const lapsedAccess = data.offboarding.filter((item) => !item.portal_access_removed_at && item.last_working_day && item.last_working_day <= data.today)
   return <div className="space-y-6">
     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"><Stat label="Leave to decide" value={data.pendingLeave.filter((item) => item.can_decide).length} tone={data.pendingLeave.length ? 'warn' : undefined} /><Stat label="On probation" value={probation.length} /><Stat label="Open reviews" value={data.reviews.length} /><Stat label="Leavers" value={data.offboarding.length} tone={lapsedAccess.length ? 'warn' : undefined} /></div>
-    {lapsedAccess.length > 0 && <Alert>Portal access not recorded as removed for {lapsedAccess.map((item) => nameOf(data.employees, item.employee_id)).join(', ')} after their last working day. Deactivate in <a href="/admin?tab=users" className="font-bold underline">Users & Roles</a>, then record it in Offboarding.</Alert>}
+    {lapsedAccess.length > 0 && <Alert>Portal access not recorded as removed for {lapsedAccess.map((item) => nameOf(data.employees, item.employee_id)).join(', ')} after their last working day. Deactivate in <a href="/admin/settings/users" className="font-bold underline">Users & Roles</a>, then record it in Offboarding.</Alert>}
     {dueSoon.length > 0 && <Card title="Probation ending soon" description="The written outcome goes to the employee within 5 working days of day 90."><div className="divide-y">{dueSoon.map((item) => <button key={item.id} onClick={() => onOpen(item.id)} className="flex w-full justify-between px-5 py-3 text-left text-sm hover:bg-[#fbfaf6]"><span className="font-bold text-green-deep">{displayName(item)}</span><span className="text-text-mid">ends {displayDate(item.probation_end_date)}</span></button>)}</div></Card>}
     <LeaveQueue data={data} items={data.pendingLeave} onDecide={onDecide} />
     <ReviewList data={data} rows={data.reviews} onOpen={onOpen} />

@@ -25,10 +25,11 @@ import {
 import AddBookingDialog from '@/components/admin/AddBookingDialog'
 import ProspectFollowUps from '@/components/admin/ProspectFollowUps'
 import { bookingAmount, bookingTypeName, type BookingType } from '@/lib/bookingTimes'
+import { Tabs } from '@/components/admin/ui/SectionNav'
 
 type Stage = "Outreach" | "Follow Up" | "Enrolment" | "Onboarding" | "Active"
 type NavItem = "overview" | "pipeline" | "coordinator" | "documents" | "reporting" | "ai-agent"
-type Risk = "High" | "Medium" | "Low"
+export type Risk = "High" | "Medium" | "Low"
 type CrmView = "clinical" | "financial"
 
 type Note = {
@@ -36,7 +37,7 @@ type Note = {
   timestamp: string
 }
 
-type Patient = {
+export type Patient = {
   id: string
   name: string
   age: number
@@ -63,24 +64,6 @@ type Patient = {
   note?: string // Temporary field for edit modal
 }
 
-type Task = {
-  id: number
-  title: string
-  priority: "High" | "Medium" | "Low"
-  due: string
-  owner: string
-}
-
-type Appointment = {
-  id: number
-  patientId: string
-  title: string
-  date: string
-  time: string
-  mode: string
-  owner: string
-}
-
 type WebsiteAppointment = {
   id: string
   first_name: string
@@ -98,21 +81,6 @@ type WebsiteAppointment = {
   payment_status: 'pending' | 'paid' | 'failed'
   created_at: string
   updated_at: string
-}
-
-type DocumentItem = {
-  name: string
-  category: string
-  status: string
-}
-
-type Reminder = {
-  id: number
-  type: string
-  patientId: string
-  channel: string
-  status: string
-  sendAt: string
 }
 
 type AgentMessage = {
@@ -256,192 +224,6 @@ interface CrmDashboardProps {
   createLead: () => Promise<void>
 }
 
-const patientsSeed: Patient[] = [
-  {
-    id: "FX001",
-    name: "Amara Okafor",
-    age: 52,
-    program: "Cardiometabolic Care",
-    risk: "High",
-    stage: "Outreach",
-    source: "Physician Referral",
-    specifySource: "",
-    owner: "Tola",
-    phone: "(713) 555-0189",
-    email: "amara@sample.com",
-    lastTouch: "Today",
-    nextStep: "Call to discuss enrollment",
-    nextDate: "Mar 24",
-    progress: 15,
-    tags: ["Hypertension", "Prediabetes"],
-    preferred: "Phone",
-    appointment: "Mar 24 • 10:30 AM",
-    consentStatus: "Pending",
-    documentCount: 2,
-    reminderStatus: "Urgent",
-  },
-  {
-    id: "FX002",
-    name: "Chinedu Adeyemi",
-    age: 46,
-    program: "Executive Concierge",
-    risk: "Medium",
-    stage: "Enrolment",
-    source: "Website Lead",
-    specifySource: "",
-    owner: "Maya",
-    phone: "(832) 555-0127",
-    email: "chinedu@sample.com",
-    lastTouch: "Yesterday",
-    nextStep: "Send consent forms",
-    nextDate: "Mar 25",
-    progress: 35,
-    tags: ["Busy executive", "Needs labs"],
-    preferred: "Email",
-    appointment: "Mar 25 • 1:00 PM",
-    consentStatus: "Sent",
-    documentCount: 4,
-    reminderStatus: "Scheduled",
-  },
-  {
-    id: "FX003",
-    name: "Nneka Johnson",
-    age: 39,
-    program: "Weight & Metabolic Reset",
-    risk: "Low",
-    stage: "Onboarding",
-    source: "Community Event",
-    specifySource: "",
-    owner: "Tola",
-    phone: "(281) 555-0110",
-    email: "nneka@sample.com",
-    lastTouch: "2 days ago",
-    nextStep: "Complete intake questionnaire",
-    nextDate: "Mar 26",
-    progress: 60,
-    tags: ["Postpartum", "Nutrition"],
-    preferred: "Text",
-    appointment: "Mar 26 • 11:15 AM",
-    consentStatus: "Signed",
-    documentCount: 6,
-    reminderStatus: "Scheduled",
-  },
-  {
-    id: "FX004",
-    name: "Kemi Brown",
-    age: 58,
-    program: "Cardiometabolic Care",
-    risk: "High",
-    stage: "Follow Up",
-    source: "Hospital Partner",
-    specifySource: "",
-    owner: "Ade",
-    phone: "(346) 555-0141",
-    email: "kemi@sample.com",
-    lastTouch: "Today",
-    nextStep: "Review BP logs and refill needs",
-    nextDate: "Mar 24",
-    progress: 85,
-    tags: ["Diabetes", "RPM"],
-    preferred: "Phone",
-    appointment: "Mar 24 • 3:45 PM",
-    consentStatus: "Signed",
-    documentCount: 8,
-    reminderStatus: "Sent",
-  },
-  {
-    id: "FX005",
-    name: "Tunde Ellis",
-    age: 50,
-    program: "Executive Concierge",
-    risk: "Medium",
-    stage: "Active",
-    source: "Employer Partnership",
-    specifySource: "",
-    owner: "Maya",
-    phone: "(713) 555-0172",
-    email: "tunde@sample.com",
-    lastTouch: "3 days ago",
-    nextStep: "Schedule quarterly check-in",
-    nextDate: "Mar 29",
-    progress: 100,
-    tags: ["Travel-heavy", "Preventive"],
-    preferred: "Email",
-    appointment: "Mar 29 • 9:00 AM",
-    consentStatus: "Signed",
-    documentCount: 10,
-    reminderStatus: "Scheduled",
-  },
-  {
-    id: "FX006",
-    name: "Folake Mensah",
-    age: 61,
-    program: "Weight & Metabolic Reset",
-    risk: "High",
-    stage: "Enrolment",
-    source: "Past Patient Referral",
-    specifySource: "",
-    owner: "Ade",
-    phone: "(832) 555-0193",
-    email: "folake@sample.com",
-    lastTouch: "Yesterday",
-    nextStep: "Verify insurance and payment option",
-    nextDate: "Mar 24",
-    progress: 40,
-    tags: ["Obesity", "Sleep issues"],
-    preferred: "Phone",
-    appointment: "Mar 24 • 4:30 PM",
-    consentStatus: "Sent",
-    documentCount: 3,
-    reminderStatus: "Urgent",
-  },
-]
-
-const tasksSeed: Task[] = [
-  { id: 1, title: "Call 6 high-risk outreach leads", priority: "High", due: "Today", owner: "Tola" },
-  { id: 2, title: "Review incomplete onboarding forms", priority: "Medium", due: "Today", owner: "Ade" },
-  { id: 3, title: "Send welcome packet to new enrollees", priority: "Medium", due: "Tomorrow", owner: "Maya" },
-  { id: 4, title: "Prepare follow-up list for RPM patients", priority: "High", due: "Tomorrow", owner: "Ade" },
-]
-
-const appointmentsSeed: Appointment[] = [
-  { id: 1, patientId: "FX001", title: "Enrollment Call", date: "Mar 24", time: "10:30 AM", mode: "Phone", owner: "Tola" },
-  { id: 2, patientId: "FX004", title: "Follow-Up Review", date: "Mar 24", time: "3:45 PM", mode: "Virtual", owner: "Ade" },
-  { id: 3, patientId: "FX006", title: "Benefits Verification", date: "Mar 24", time: "4:30 PM", mode: "Phone", owner: "Ade" },
-  { id: 4, patientId: "FX002", title: "Consent Walkthrough", date: "Mar 25", time: "1:00 PM", mode: "Virtual", owner: "Maya" },
-  { id: 5, patientId: "FX003", title: "Onboarding Session", date: "Mar 26", time: "11:15 AM", mode: "In Person", owner: "Tola" },
-  { id: 6, patientId: "FX005", title: "Quarterly Concierge Check-In", date: "Mar 29", time: "9:00 AM", mode: "Virtual", owner: "Maya" },
-]
-
-const documentsSeed: Record<string, DocumentItem[]> = {
-  FX001: [
-    { name: "Referral Summary.pdf", category: "Referral", status: "Received" },
-    { name: "Consent Packet.pdf", category: "Consent", status: "Pending Signature" },
-  ],
-  FX002: [
-    { name: "Membership Agreement.pdf", category: "Consent", status: "Sent" },
-    { name: "Insurance Intake.pdf", category: "Enrollment", status: "Received" },
-    { name: "Executive Labs Order.pdf", category: "Clinical", status: "Ready" },
-  ],
-  FX003: [
-    { name: "Onboarding Questionnaire.pdf", category: "Onboarding", status: "Completed" },
-    { name: "Nutrition Starter Guide.pdf", category: "Education", status: "Shared" },
-  ],
-  FX004: [
-    { name: "RPM Device Consent.pdf", category: "Consent", status: "Signed" },
-    { name: "BP Log March.pdf", category: "Monitoring", status: "Updated" },
-  ],
-  FX005: [{ name: "Quarterly Review.pdf", category: "Follow-Up", status: "Ready" }],
-  FX006: [{ name: "Benefits Verification.pdf", category: "Enrollment", status: "Pending" }],
-}
-
-const remindersSeed: Reminder[] = [
-  { id: 1, type: "Consent Reminder", patientId: "FX001", channel: "SMS", status: "Queued", sendAt: "Today • 5:00 PM" },
-  { id: 2, type: "Appointment Reminder", patientId: "FX004", channel: "Call", status: "Sent", sendAt: "Today • 2:00 PM" },
-  { id: 3, type: "Lab Completion Reminder", patientId: "FX002", channel: "Email", status: "Scheduled", sendAt: "Tomorrow • 8:00 AM" },
-  { id: 4, type: "Follow-up Check-in", patientId: "FX006", channel: "SMS", status: "Queued", sendAt: "Tomorrow • 9:30 AM" },
-]
-
 const revenueStreamSeed: RevenueStreamPlan[] = [
   { id: "corporate", name: "Corporate Wellness Screenings", target: 27000000, secured: 0, source_type: "default" },
   { id: "government", name: "Government Pilot (LASPEC)", target: 12000000, secured: 0, source_type: "default" },
@@ -456,13 +238,6 @@ const mergeRevenueStreamDefaults = (streams: RevenueStreamPlan[]) => {
   const missingDefaults = revenueStreamSeed.filter((stream) => !streamIds.has(stream.id))
   return [...streams, ...missingDefaults]
 }
-
-const financialDealSeed: FinancialDeal[] = [
-  { id: "d1", company: "GTBank", type: "Corporate", value: 2500000, status: "warm", notes: "CHRO meeting scheduled" },
-  { id: "d2", company: "LASPEC", type: "Government", value: 6000000, status: "cold", notes: "Awaiting intro" },
-  { id: "d3", company: "The Haven", type: "Elderly Care", value: 450000, status: "warm", notes: "Site visit planned" },
-  { id: "d4", company: "Hygeia HMO", type: "HMO", value: 1500000, status: "hot", notes: "Proposal sent" },
-]
 
 const specificSourceTagPrefix = "Specific Source: "
 
@@ -517,7 +292,7 @@ export default function CrmDashboard({
   const [financialTasks, setFinancialTasks] = useState<FinancialTaskItem[]>([])
   const [financialTaskFilter, setFinancialTaskFilter] = useState<"all" | FinancialTaskItem["category"]>("all")
   const [financialTaskDateFilter, setFinancialTaskDateFilter] = useState("")
-  const [financialDeals, setFinancialDeals] = useState<FinancialDeal[]>(financialDealSeed)
+  const [financialDeals, setFinancialDeals] = useState<FinancialDeal[]>([])
   const [financialExpenses, setFinancialExpenses] = useState<FinancialExpense[]>([])
   const [openRevenueMenuId, setOpenRevenueMenuId] = useState<string | null>(null)
   const [showNewStreamModal, setShowNewStreamModal] = useState(false)
@@ -624,7 +399,7 @@ export default function CrmDashboard({
       })))
     } catch (error) {
       console.error('Error fetching financial deals:', error)
-      setFinancialDeals(financialDealSeed)
+      setFinancialDeals([])
     }
   }
 
@@ -865,7 +640,6 @@ export default function CrmDashboard({
   }, [patients, search, stageFilter, riskFilter])
 
   const selectedPatient = filteredPatients.find((p) => p.id === selectedId) ?? filteredPatients[0] ?? patients[0]
-  const selectedDocuments = documentsSeed[selectedPatient?.id] ?? []
   const coordinatorPatients = patients.filter((p) => p.owner === selectedPatient?.owner)
 
   const dashboard = useMemo(() => {
@@ -1571,70 +1345,35 @@ export default function CrmDashboard({
     setAgentMessages((prev) => [...prev, { role: "user", text: prompt }, { role: "assistant", text: response }])
   }
 
-  if (showProspects) return <div className="space-y-5"><button onClick={() => setShowProspects(false)} className="font-semibold text-green-mid">← Back to CRM dashboard</button><ProspectFollowUps /></div>
+  // One row of sections for each CRM view. Prospect follow-ups is a section
+  // of its own rather than a separate button.
+  const sectionTabs = crmView === "clinical"
+    ? [...navItems.slice(0, 2).map(({ id, label }) => ({ id, label })), { id: "follow-ups", label: "Prospect follow-ups" }, ...navItems.slice(2).map(({ id, label }) => ({ id, label }))]
+    : [{ id: "dashboard", label: "Command dashboard" }, { id: "tasks", label: "Task planner" }, { id: "pipeline", label: "Sales pipeline" }, { id: "scenarios", label: "Scenarios" }, { id: "follow-ups", label: "Prospect follow-ups" }]
+  const openSection = showProspects ? "follow-ups" : crmView === "clinical" ? activeSection : financialSection
+  const chooseSection = (id: string) => {
+    setShowProspects(id === "follow-ups")
+    if (id === "follow-ups") return
+    if (crmView === "clinical") setActiveSection(id as NavItem)
+    else setFinancialSection(id as FinancialSection)
+  }
+  const crmHeader = (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="min-w-0 flex-1"><Tabs label="CRM sections" items={sectionTabs} value={openSection} onChange={chooseSection} /></div>
+      {crmView === "clinical" && (
+        <button onClick={() => setShowLeadModal(true)} className="px-4 py-2.5 bg-gold text-green-deep rounded-full font-dm-sans font-bold text-sm hover:bg-gold-light transition-colors shadow-sm whitespace-nowrap">+ New lead</button>
+      )}
+    </div>
+  )
+
+  if (showProspects) return <div className="space-y-6">{crmHeader}<ProspectFollowUps /></div>
 
   return (
     <div className="space-y-6">
-      <button onClick={() => setShowProspects(true)} className="rounded-lg border border-green-deep/20 bg-white px-5 py-3 font-semibold text-green-deep hover:bg-green-50">Prospect follow-ups · Individuals & Corporate →</button>
-      <div className="flex items-start justify-between gap-4 mb-6">
-        {crmView === "clinical" ? (
-          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg overflow-x-auto">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveSection(item.id as NavItem)}
-                className={`px-4 py-3 rounded-lg font-dm-sans text-[0.9rem] font-medium transition-colors whitespace-nowrap ${
-                  activeSection === item.id
-                    ? 'bg-green-deep text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <item.Icon size={19} weight={activeSection === item.id ? 'fill' : 'duotone'} className="mr-2 inline-block align-[-0.2em]" />
-                {item.label}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-text-mid font-dm-sans py-2">
-            Financial CRM focuses on payments, collections, and booking revenue.
-          </div>
-        )}
-
-        <div className="flex items-center gap-3">
-          {crmView === "clinical" && (
-            <button
-              onClick={() => setShowLeadModal(true)}
-              className="px-4 py-3 bg-gold text-green-deep rounded-lg font-dm-sans font-semibold text-[0.9rem] hover:bg-gold-light transition-colors shadow-sm whitespace-nowrap"
-            >
-              + New Lead
-            </button>
-          )}
-        </div>
-      </div>
+      {crmHeader}
 
       {crmView === "financial" && (
         <div className="space-y-6">
-          <div className="flex flex-wrap gap-2 bg-gray-100 p-1 rounded-lg w-fit">
-            {[
-              { id: "dashboard", label: "Command Dashboard" },
-              { id: "tasks", label: "Task Planner" },
-              { id: "pipeline", label: "Sales Pipeline" },
-              { id: "scenarios", label: "Scenarios" },
-            ].map((section) => (
-              <button
-                key={section.id}
-                onClick={() => setFinancialSection(section.id as FinancialSection)}
-                className={`px-4 py-2 rounded-lg font-dm-sans text-sm font-medium transition-colors ${
-                  financialSection === section.id
-                    ? "bg-green-deep text-white shadow-sm"
-                    : "text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                {section.label}
-              </button>
-            ))}
-          </div>
-
           {financialSection === "dashboard" && (
             <>
               {financialExecution.runwayMonths < 5 && (
@@ -2249,33 +1988,16 @@ export default function CrmDashboard({
           {/* Recent Activity & Tasks */}
           <div className="space-y-6">
             <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
-              <h3 className="text-lg font-dm-sans font-semibold text-green-deep mb-4">Today's Tasks</h3>
-              <div className="space-y-3">
-                {tasksSeed.slice(0, 4).map((task) => (
-                  <div key={task.id} className="flex items-start gap-3">
-                    <div className={`w-2 h-2 rounded-full mt-2 ${
-                      task.priority === "High" ? "bg-red-500" :
-                      task.priority === "Medium" ? "bg-yellow-500" : "bg-green-500"
-                    }`} />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium font-dm-sans">{task.title}</p>
-                      <p className="text-xs text-gray-500 font-dm-sans">{task.owner} • {task.due}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-[16px] p-6 shadow-sm border border-green-deep/10">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-dm-sans font-semibold text-green-deep">Quick Actions</h3>
-              </div>
+              <h3 className="text-lg font-dm-sans font-semibold text-green-deep mb-4">Quick Actions</h3>
               <div className="space-y-2">
-                <button className="w-full text-left px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-dm-sans text-[0.9rem] hover:bg-gray-200 transition-colors">
-                  Generate Report
+                <button type="button" onClick={() => setShowLeadModal(true)} className="w-full text-left px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-dm-sans text-[0.9rem] hover:bg-gray-200 transition-colors">
+                  + New lead
                 </button>
-                <button className="w-full text-left px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-dm-sans text-[0.9rem] hover:bg-gray-200 transition-colors">
-                  Send Reminders
+                <button type="button" onClick={() => setShowProspects(true)} className="w-full text-left px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-dm-sans text-[0.9rem] hover:bg-gray-200 transition-colors">
+                  Prospect follow-ups
+                </button>
+                <button type="button" onClick={() => setActiveSection('pipeline')} className="w-full text-left px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-dm-sans text-[0.9rem] hover:bg-gray-200 transition-colors">
+                  Open pipeline
                 </button>
               </div>
             </div>

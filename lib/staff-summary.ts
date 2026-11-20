@@ -35,7 +35,7 @@ export function summarise(notifications: Notification[], counts: Partial<Record<
     title,
     detail: followUps.length ? 'Due today or overdue:' : 'Still waiting in the dashboard:',
     items: followUps.length ? [...followUps, ...waiting.map(line => `Also waiting: ${line}`)] : waiting,
-    link: `${siteUrl}${followUps.length ? '/admin?tab=healthcare&view=follow_ups' : '/admin'}`,
+    link: `${siteUrl}${followUps.length ? '/admin/clinical?view=follow_ups' : '/admin'}`,
   })
   return { title, followUps: followUps.length, ...email }
 }

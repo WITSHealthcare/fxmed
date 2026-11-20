@@ -5,6 +5,7 @@ import { applicationStages, candidateSources, credentialStatuses, credentialType
 import { communicationChannels, interviewLoops, isClosedStage, manualStageTargets, missingApprovals, offerApprovalRoles, referenceQuestions, type DecisionCheck, type HrApplication, type HrApplicationEvent, type HrCandidate, type HrInterview, type HrOffer, type HrReferenceCheck, type HrRequisition, type HrScorecard, type HrScorecardTemplate, type SalaryBandSummary, type offerApprovalRules } from '@/lib/hr-recruiting'
 import { dueLabel } from '@/lib/follow-ups'
 import { Alert, Badge, Empty, Field, Modal, api, call, danger, fromLocalInput, outline, primary, showDate, showTime } from './ui'
+import { Tabs } from '@/components/admin/ui/SectionNav'
 
 export type Staff = { id: string; email: string; name: string; role: string }
 type Credential = { id: string; credential_type: CredentialType; issuing_body: string | null; registration_number: string | null; licence_number: string | null; issued_on: string | null; expires_on: string | null; status: CredentialStatus; verification_method: string | null; verified_at: string | null; notes: string; employee_id: string | null }
@@ -35,7 +36,7 @@ export default function ApplicationDetail({ id, onClose, onChanged }: { id: stri
   if (!detail) return <Modal title="Application" onClose={onClose} wide>{error ? <Alert>{error}</Alert> : <p className="text-text-mid">Loading…</p>}</Modal>
   const { application } = detail; const closed = isClosedStage(application.stage)
   return <Modal title={application.candidate?.full_name || 'Candidate'} eyebrow={`${application.opening_title} · ${labelOf(applicationStages, application.stage)}`} onClose={onClose} wide>
-    <nav className="mb-5 flex flex-wrap gap-2">{tabs.map((item) => <button key={item.id} onClick={() => setTab(item.id)} className={`rounded-full px-4 py-2 text-xs font-bold ${tab === item.id ? 'bg-green-deep text-white' : 'border text-green-deep'}`}>{item.label}</button>)}</nav>
+    <div className="mb-5"><Tabs label="Application sections" items={tabs} value={tab} onChange={setTab} /></div>
     <div className="space-y-5"><Alert>{error}</Alert>
       {tab === 'overview' && <Overview detail={detail} run={run} busy={busy} closed={closed} />}
       {tab === 'interviews' && <Interviews detail={detail} run={run} busy={busy} closed={closed} />}

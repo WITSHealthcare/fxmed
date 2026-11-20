@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { AdminRole } from './admin-auth'
+import { roleMatchesAudience, type AdminRole } from './admin-auth'
 import {
   gradeTrainingResponse, hasForm, uuidPattern, isLessonUnlocked, programLessons, progressPercent,
   type TrainingAnswer, type TrainingAttemptSummary, type TrainingEnrolment, type TrainingLesson, type TrainingProgram,
@@ -21,7 +21,7 @@ export const isPublic = (program: Pick<TrainingProgram, 'visibility'>) => progra
 /** Assigned to a staff member by role or email (an admin has no automatic assignment). */
 export function isAssigned(program: TrainingProgram, learner: TrainingLearner) {
   if (learner.kind !== 'staff' || program.status !== 'published' || !isInternal(program)) return false
-  return (program.audience_roles || []).includes(learner.role) || (program.assigned_emails || []).includes(learner.email.toLowerCase())
+  return roleMatchesAudience(learner.role, program.audience_roles || []) || (program.assigned_emails || []).includes(learner.email.toLowerCase())
 }
 
 /** Whether a learner may join the course themselves (free staff self-enrol, or a public course). */

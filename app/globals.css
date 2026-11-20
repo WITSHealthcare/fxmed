@@ -223,3 +223,74 @@ h1, h2, h3 {
   .form-confetti { display: none; }
   .form-tick circle, .form-tick path { animation: none; stroke-dashoffset: 0; }
 }
+
+/*
+ * Admin theme. Everything inside the signed-in admin (.admin-theme, set by
+ * components/admin/shell/AdminShell.tsx) uses Inter, sits on a soft gradient
+ * and shows its panels as frosted glass. Scoped here so the public site keeps
+ * its own look, and so older admin screens pick it up without edits.
+ */
+.admin-theme {
+  --glass: rgb(255 255 255 / 0.66);
+  --glass-strong: rgb(255 255 255 / 0.82);
+  --glass-border: rgb(255 255 255 / 0.7);
+  --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.6) inset, 0 12px 40px -12px rgb(16 45 33 / 0.18);
+  font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  letter-spacing: -0.006em;
+  background:
+    radial-gradient(1100px 600px at 8% -10%, rgb(201 226 101 / 0.28), transparent 60%),
+    radial-gradient(900px 600px at 100% 0%, rgb(82 183 136 / 0.22), transparent 55%),
+    radial-gradient(900px 700px at 60% 110%, rgb(45 106 79 / 0.16), transparent 60%),
+    linear-gradient(180deg, #f6f8f3 0%, #eef4ee 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+.admin-theme h1, .admin-theme h2, .admin-theme h3, .admin-theme .font-dm-sans {
+  font-family: inherit;
+}
+.admin-theme h1, .admin-theme h2, .admin-theme h3 { letter-spacing: -0.025em; }
+
+/* White panels become translucent so the gradient shows through. Pop-ups and
+   form fields stay solid for legibility. */
+.admin-theme main .bg-white { background-color: var(--glass-strong); }
+.admin-theme main section.bg-white,
+.admin-theme main [class*='rounded-['].bg-white,
+.admin-theme main .rounded-2xl.bg-white,
+.admin-theme main .rounded-xl.bg-white { border-color: var(--glass-border); box-shadow: var(--glass-shadow); }
+.admin-theme .fixed .bg-white, .admin-theme .fixed.bg-white,
+.admin-theme input.bg-white, .admin-theme select.bg-white, .admin-theme textarea.bg-white { background-color: #fff; }
+.admin-theme .bg-gray-100 { background-color: rgb(16 45 33 / 0.05); }
+.admin-theme .bg-gray-50 { background-color: rgb(16 45 33 / 0.035); }
+
+/* Reusable pieces. */
+.admin-theme .glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+/* Real blur only where content scrolls underneath (the top bar). A blur makes
+   an element the frame for anything position:fixed inside it, which would
+   trap pop-ups opened from inside a card. */
+.admin-theme .glass-blur {
+  background: rgb(255 255 255 / 0.6);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+.admin-theme .brand-gradient { background-image: linear-gradient(135deg, #133a2a 0%, #1f5b41 55%, #2d7a55 100%); }
+.admin-theme .accent-gradient { background-image: linear-gradient(135deg, #d8f085 0%, #c9e265 45%, #9fd27a 100%); }
+.admin-theme .text-gradient { background-image: linear-gradient(135deg, #133a2a, #2d7a55); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+.admin-theme .primary,
+.admin-theme .bg-green-deep.text-white.rounded-full {
+  background-image: linear-gradient(135deg, #133a2a 0%, #1f5b41 60%, #2d7a55 100%);
+  box-shadow: 0 6px 18px -6px rgb(19 58 42 / 0.55);
+}
+.admin-theme .secondary { background-color: rgb(255 255 255 / 0.7); }
+.admin-theme .input { background-color: rgb(255 255 255 / 0.9); border-radius: 12px; }
+.admin-theme .input:focus { border-color: #2d7a55; box-shadow: 0 0 0 4px rgb(82 183 136 / 0.18); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .admin-theme .glass, .admin-theme .glass-blur { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .admin-theme main .bg-white { background-color: #fff; }
+}

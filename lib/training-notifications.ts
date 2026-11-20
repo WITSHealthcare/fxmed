@@ -41,7 +41,7 @@ export async function loadOverdueTraining(supabase: SupabaseClient, role: AdminR
       id: `training_overdue:${row.id}`, kind: 'training_overdue',
       title: role === 'admin' ? `${names.get(row.user_id) || 'A learner'} is overdue on ${course}` : `Overdue: ${course}`,
       detail: `Was due ${lagosDate(new Date(row.due_at))}`,
-      timestamp: row.due_at, link: '/admin?tab=training', dismissable: false,
+      timestamp: row.due_at, link: '/admin/people/training', dismissable: false,
     }
   })
   return { failed: false, items }

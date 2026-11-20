@@ -12,6 +12,7 @@ import LicenceReport from './people/LicenceReport'
 import Templates from './people/Templates'
 import type { AdminList, Progress, StaffList } from './people/types'
 import { Alert, Badge, Card, Empty, Stat, buttonPrimary, call, peopleApi } from './people/ui'
+import { Tabs } from '@/components/admin/ui/SectionNav'
 
 // People & Onboarding. Admin: staff files, licence report, onboarding
 // templates and NDPA requests. Staff: their own file and, for line managers,
@@ -32,7 +33,7 @@ function AdminPeople() {
   const active = (data?.employees || []).filter((e) => e.status !== 'exited')
   const views: [AdminView, string][] = [['staff', 'Staff files'], ['licences', 'Licence report'], ['templates', 'Onboarding templates'], ['requests', `Data requests${data?.dataRequests.open ? ` (${data.dataRequests.open})` : ''}`]]
   return <div className="space-y-6">
-    <nav aria-label="People sections" className="flex flex-wrap gap-2">{views.map(([id, label]) => <button key={id} onClick={() => setView(id)} aria-current={view === id ? 'page' : undefined} className={`rounded-full px-4 py-2 text-xs font-bold ${view === id ? 'bg-green-deep text-white' : 'border bg-white text-green-deep'}`}>{label}</button>)}</nav>
+    <Tabs label="People sections" items={views.map(([id, label]) => ({ id, label }))} value={view} onChange={setView} />
     <Alert>{error}</Alert>
     {view === 'licences' && <LicenceReport onOpen={setOpen} />}
     {view === 'templates' && <Templates />}

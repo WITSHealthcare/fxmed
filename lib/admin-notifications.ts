@@ -68,7 +68,7 @@ export const notificationSources: Array<{
     // `subject` rather than `source`, so this keeps working before migration
     // 029 adds the column.
     select: 'id, name, email, subject, message, created_at',
-    link: '/admin?tab=messages',
+    link: '/admin/inbox/messages',
     dismissable: true,
     describe: row => {
       const fromAssessment = /^health assessment:/i.test(String(row.subject || ''))
@@ -92,7 +92,7 @@ export const notificationSources: Array<{
     status: 'pending',
     timeField: 'created_at',
     select: 'id, first_name, last_name, consultation_type, preferred_date, preferred_time, created_at',
-    link: '/admin?tab=requests',
+    link: '/admin/inbox/requests',
     dismissable: false,
     describe: row => ({
       title: `New booking from ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'a patient'}`,
@@ -107,7 +107,7 @@ export const notificationSources: Array<{
     status: 'pending',
     timeField: 'created_at',
     select: 'id, package_name, booked_for, buyer_first_name, buyer_last_name, recipient_name, preferred_date, created_at',
-    link: '/admin?tab=requests',
+    link: '/admin/inbox/requests',
     dismissable: false,
     describe: row => ({
       title: `Festive package booked by ${[row.buyer_first_name, row.buyer_last_name].filter(Boolean).join(' ') || 'a visitor'}`,
@@ -122,7 +122,7 @@ export const notificationSources: Array<{
     status: 'pending',
     timeField: 'submitted_at',
     select: 'id, first_name, last_name, phone, source, submitted_at',
-    link: '/admin?tab=requests',
+    link: '/admin/inbox/requests',
     dismissable: false,
     describe: row => ({
       title: `Registration awaiting review — ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'unnamed'}`,
@@ -137,7 +137,7 @@ export const notificationSources: Array<{
     status: 'new',
     timeField: 'created_at',
     select: 'id, full_name, phone, health_concern, outreach_event, created_at',
-    link: '/admin?tab=contacts',
+    link: '/admin/growth/contacts',
     dismissable: false,
     describe: row => ({
       title: `New enquiry from ${row.full_name || 'a contact'}`,
@@ -169,7 +169,7 @@ export const notificationSources: Array<{
     timeField: 'due_at',
     filter: query => query.lte('due_at', `${lagosDate()}T23:59:59.999+01:00`),
     select: 'id, title, due_at, patient:emr_patients(first_name, last_name)',
-    link: '/admin?tab=healthcare&view=follow_ups',
+    link: '/admin/clinical?view=follow_ups',
     dismissable: false,
     describe: row => ({
       title: `Follow up with ${[row.patient?.first_name, row.patient?.last_name].filter(Boolean).join(' ') || 'a patient'}`,
@@ -186,7 +186,7 @@ export const notificationSources: Array<{
     filter: query => query.neq('source', 'clinic'),
     timeField: 'submitted_at',
     select: 'id, assessment_data, submitted_at',
-    link: '/admin?tab=healthcare',
+    link: '/admin/clinical',
     dismissable: false,
     describe: row => {
       const person = row.assessment_data?.personalInfo || {}
@@ -209,8 +209,8 @@ export const notificationSources: Array<{
     filter: query => query.eq('sender', 'patient'),
     timeField: 'created_at',
     select: 'id, patient_id, sender_name, body, created_at',
-    link: '/admin?tab=healthcare',
-    linkFor: row => `/admin?tab=healthcare&patient=${row.patient_id}&chart=portal`,
+    link: '/admin/clinical',
+    linkFor: row => `/admin/clinical?view=patients&patient=${row.patient_id}&chart=portal`,
     dismissable: false,
     describe: row => ({
       title: `Portal message from ${row.sender_name || 'a patient'}`,
@@ -226,9 +226,9 @@ export const notificationSources: Array<{
     statusField: 'portal_status',
     timeField: 'created_at',
     select: 'id, patient_id, title, category, created_at, patient:emr_patients(first_name, last_name)',
-    link: '/admin?tab=healthcare',
+    link: '/admin/clinical',
     // Lab results open on the chart's Investigations tab, where they are entered.
-    linkFor: row => `/admin?tab=healthcare&patient=${row.patient_id}&chart=${row.category === 'laboratory' ? 'investigations' : 'portal'}`,
+    linkFor: row => `/admin/clinical?view=patients&patient=${row.patient_id}&chart=${row.category === 'laboratory' ? 'investigations' : 'portal'}`,
     dismissable: false,
     describe: row => ({
       title: `${[row.patient?.first_name, row.patient?.last_name].filter(Boolean).join(' ') || 'A patient'} uploaded ${row.category === 'laboratory' ? 'lab results' : 'a document'}`,

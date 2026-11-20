@@ -11,6 +11,7 @@ import { PayHistory } from './Pay'
 import Plans from './Plans'
 import Reviews from './Reviews'
 import { Alert, Badge, call, nameOf } from './ui'
+import { Tabs } from '@/components/admin/ui/SectionNav'
 
 type Tab = 'reviews' | 'goals' | 'leave' | 'pay' | 'leaving'
 
@@ -36,7 +37,7 @@ export default function EmployeeFile({ employeeId, employees, holidays, onBack, 
       <p className="mt-1 text-sm text-text-mid">{employee.job_title} · {employee.department}{employee.level ? ` · ${employee.level}` : ''} · {employee.employment_type}{employee.line_manager_id && nameOf(employees, employee.line_manager_id) !== '—' ? ` · reports to ${nameOf(employees, employee.line_manager_id)}` : ''}</p>
       <p className="mt-1 text-xs text-gray-500">Started {displayDate(employee.start_date)}{employee.probation_end_date && !employee.confirmed_at ? ` · probation ends ${displayDate(employee.probation_end_date)}` : ''}{employee.confirmed_at ? ` · confirmed ${displayDate(employee.confirmed_at)}` : ''}{employee.end_date ? ` · left ${displayDate(employee.end_date)}` : ''}</p></div>
       <Badge tone={employee.status === 'exited' ? 'gray' : ['notice', 'suspended', 'probation_extended'].includes(employee.status) ? 'amber' : 'green'}>{labelOf(employeeStatuses, employee.status)}</Badge></div>
-      <nav className="mt-5 flex flex-wrap gap-2" aria-label="Performance file sections">{tabs.map(([id, label]) => <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined} className={`rounded-full px-4 py-2 text-xs font-bold ${tab === id ? 'bg-green-deep text-white' : 'border text-green-deep hover:bg-green-50'}`}>{label}</button>)}</nav>
+      <div className="mt-5"><Tabs label="Performance file sections" items={tabs.map(([id, label]) => ({ id, label }))} value={tab} onChange={setTab} /></div>
     </section>
     {error && <Alert>{error}</Alert>}{notice && <Alert tone="info">{notice}</Alert>}
     {tab === 'reviews' && <Reviews file={file} reload={reload} onError={report} onNotice={inform} />}

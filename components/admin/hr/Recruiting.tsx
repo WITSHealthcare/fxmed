@@ -10,6 +10,7 @@ import Requisitions from './recruiting/Requisitions'
 import Retention from './recruiting/Retention'
 import Templates from './recruiting/Templates'
 import { Alert, api, call } from './recruiting/ui'
+import { Tabs } from '@/components/admin/ui/SectionNav'
 
 // Applicant tracking (docs/hr/recruiting-process.md). Admin runs the
 // pipeline; everyone else sees only "My interviews".
@@ -27,7 +28,7 @@ function RecruitingAdmin() {
   const load = useCallback(async () => { const result = await call<Overview>(api); result.ok ? (setData(result.data), setError('')) : setError(result.data.error || 'Could not load recruiting.') }, [])
   useEffect(() => { load() }, [load])
   return <div className="space-y-6">
-    <nav aria-label="Recruiting" className="flex flex-wrap gap-2">{views.map((item) => <button key={item.id} onClick={() => setView(item.id)} aria-current={view === item.id ? 'page' : undefined} className={`rounded-full px-4 py-2 text-xs font-bold ${view === item.id ? 'bg-green-mid text-white' : 'border bg-white text-green-deep'}`}>{item.label}</button>)}</nav>
+    <Tabs label="Recruiting sections" items={views} value={view} onChange={setView} />
     <Alert>{error}</Alert>
     {view === 'mine' ? <MyInterviews admin /> : view === 'retention' ? <Retention /> : !data ? !error && <div className="rounded-2xl border bg-white p-16 text-center text-text-mid">Loading recruiting…</div>
       : view === 'pipeline' ? <Pipeline applications={data.applications} openings={data.openings} staff={data.staff} today={data.today} reload={load} />

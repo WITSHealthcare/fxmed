@@ -7,11 +7,12 @@ import { CheckCircleIcon, ImageIcon, XCircleIcon, XIcon } from '@phosphor-icons/
 import 'react-quill-new/dist/quill.snow.css'
 import ContentGenerationPanel from './AIGenerationPanel'
 import { sanitizeRichText } from '@/lib/content-sanitizer'
+import { Tabs } from '@/components/admin/ui/SectionNav'
 
 // Dynamically import ReactQuill to avoid SSR issues
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false })
 
-interface BlogPost {
+export interface BlogPost {
   id: string
   title: string
   slug: string
@@ -539,22 +540,7 @@ export default function BlogManagement({ posts, setPosts }: BlogManagementProps)
         />
       )}
       
-      {/* Blog Navigation */}
-      <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
-        {blogNavItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActiveBlogSection(item.id as BlogNavItem)}
-            className={`px-4 py-2 rounded-lg font-dm-sans text-sm font-medium transition-colors ${
-              activeBlogSection === item.id
-                ? 'bg-green-deep text-white shadow-md'
-                : 'text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <div className="mb-6"><Tabs label="Blog sections" items={blogNavItems} value={activeBlogSection} onChange={(id) => setActiveBlogSection(id as BlogNavItem)} /></div>
 
       {activeBlogSection === "new-blog" && (
         <>

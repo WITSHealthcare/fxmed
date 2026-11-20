@@ -9,7 +9,7 @@ import { Alert, Badge, Buttons, Card, Empty, Field, Modal, call, nameOf, primary
 type CaseRow = Pick<HrOffboardingCase, 'id' | 'employee_id' | 'exit_type' | 'notice_received_at' | 'last_working_day' | 'status' | 'portal_access_removed_at' | 're_employable' | 'created_at'>
 type Portal = { hasAccount: boolean; deactivatedAt: string | null }
 type Detail = { case: HrOffboardingCase & { items: HrOffboardingItem[] }; employee: HrEmployee; portal: Portal }
-const usersTab = '/admin?tab=users'
+const usersTab = '/admin/settings/users'
 
 // The leaver's own view on their file: the checklist (they tick their own items) and final pay.
 export function OffboardingSummary({ record, isSelf, seesPay, onChanged, onError }: { record: HrOffboardingCase & { items: HrOffboardingItem[] }; isSelf: boolean; seesPay: boolean; onChanged: () => Promise<void>; onError: (message: string) => void }) {

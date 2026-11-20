@@ -5,10 +5,11 @@ import { CourseFacts, CourseOutline } from '@/components/training/CoursePreview'
 import { Alert, Badge, Field, Modal, Stat } from '@/components/admin/hr/people/ui'
 import { formatPrice, hasForm, slugify, toPreview, type TrainingModule, type TrainingProgram, type TrainingVisibility } from '@/lib/training'
 import { FormBuilder, ResponsesModal, newTrainingForm } from '../TrainingForms'
+import { adminRoles } from '@/lib/admin-auth'
 
 const api = '/api/admin/training'
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-const roles = ['admin', 'clinical', 'sales'] as const
+const roles = adminRoles
 
 type Form = {
   title: string; description: string; status: 'draft' | 'published'; audience_roles: string[]; assigned_emails: string; modules: TrainingModule[]
@@ -33,7 +34,7 @@ const origin = () => typeof window === 'undefined' ? '' : window.location.origin
 function shareLinks(program: TrainingProgram) {
   const links: { key: string; label: string; url: string }[] = []
   if (program.visibility !== 'internal' && program.slug) links.push({ key: 'public', label: program.listed === false ? 'Public link (unlisted)' : 'Public link', url: `${origin()}/courses/${program.slug}` })
-  if (program.visibility !== 'public') links.push({ key: 'staff', label: 'Staff link', url: `${origin()}/admin?tab=training&course=${program.id}` })
+  if (program.visibility !== 'public') links.push({ key: 'staff', label: 'Staff link', url: `${origin()}/admin/people/training?course=${program.id}` })
   return links
 }
 
