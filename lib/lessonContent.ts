@@ -17,7 +17,7 @@ export type VisualKind = typeof visualKinds[number]
 export type Block =
   | { t: 'heading'; level: 2 | 3 | 4; c: Inline[] }
   | { t: 'paragraph'; c: Inline[] }
-  | { t: 'list'; ordered: boolean; items: Inline[][] }
+  | { t: 'list'; ordered: boolean; start: number; items: Inline[][] }
   | { t: 'table'; head: Inline[][]; rows: Inline[][][]; align: ('left' | 'center' | 'right')[] }
   | { t: 'callout'; kind: CalloutKind; title: string; body: Block[] }
   | { t: 'quote'; body: Block[] }
@@ -181,6 +181,8 @@ export function parseLesson(content: string): Block[] {
 
     if (isListItem(line)) {
       const ordered = /^\s*\d+[.)]\s/.test(line)
+      // A numbered list keeps its first number, so "2." after a paragraph still reads 2.
+      const start = ordered ? Number(line.match(/^\s*(\d+)/)![1]) : 1
       const items: string[] = []
       while (i < lines.length && lines[i].trim()) {
         if (isListItem(lines[i])) items.push(lines[i].replace(/^\s*([-*•]|\d+[.)])\s+/, ''))
@@ -188,7 +190,7 @@ export function parseLesson(content: string): Block[] {
         else items[items.length - 1] += `\n${lines[i].trim()}`
         i += 1
       }
-      blocks.push({ t: 'list', ordered, items: items.map(parseInline) })
+      blocks.push({ t: 'list', ordered, start, items: items.map(parseInline) })
       continue
     }
 
