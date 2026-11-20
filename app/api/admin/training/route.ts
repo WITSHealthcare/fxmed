@@ -22,7 +22,7 @@ function cleanModules(value: unknown): TrainingModule[] {
       return [{
         id: cleanTrainingText(lesson.id, 80) || `lesson-${moduleIndex + 1}-${lessonIndex + 1}`,
         title: lessonTitle,
-        content: cleanTrainingText(lesson.content, 20000),
+        content: cleanTrainingText(lesson.content, 60000),
         resourceUrl: cleanTrainingText(lesson.resourceUrl, 2000),
         durationMinutes: Math.max(0, Math.min(1440, Math.trunc(Number(lesson.durationMinutes) || 0))),
         form: cleanTrainingForm(lesson.form),
