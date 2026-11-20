@@ -38,7 +38,7 @@ function Blocks({ blocks, editing }: { blocks: Block[]; editing?: boolean }): Re
       case 'paragraph': return <p key={i} className="mt-4 first:mt-0"><Inlines nodes={block.c} /></p>
       case 'list': {
         const Tag = block.ordered ? 'ol' : 'ul'
-        return <Tag key={i} className={`mt-4 space-y-1.5 pl-6 first:mt-0 ${block.ordered ? 'list-decimal' : 'list-disc'} marker:text-green-mid`}>{block.items.map((item, j) => <li key={j} className="pl-1"><Inlines nodes={item} /></li>)}</Tag>
+        return <Tag key={i} start={block.ordered && block.start !== 1 ? block.start : undefined} className={`mt-4 space-y-1.5 pl-6 first:mt-0 ${block.ordered ? 'list-decimal' : 'list-disc'} marker:text-green-mid`}>{block.items.map((item, j) => <li key={j} className="pl-1"><Inlines nodes={item} /></li>)}</Tag>
       }
       case 'table': return <div key={i} className="my-5 overflow-x-auto rounded-xl border border-green-deep/10">
         <table className="w-full min-w-[420px] border-collapse text-sm">
