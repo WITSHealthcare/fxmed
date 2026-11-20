@@ -6,6 +6,11 @@ export const referralStatuses = ['submitted', 'contacted', 'consultation_booked'
 export const commissionStatuses = ['not_earned', 'pending', 'approved', 'paid'] as const
 export const ambassadorAccountStatuses = ['active', 'suspended', 'inactive'] as const
 export const membershipTiers = ['essential', 'premium', 'elite'] as const
+// Stored tier keys stay as they are (the database checks them). Premium is sold as Gold and
+// Elite as Platinum; Essential is no longer offered but older referrals may still carry it.
+export const offeredMembershipTiers = ['premium', 'elite'] as const
+export const membershipTierLabels: Record<string, string> = { essential: 'Essential (retired)', premium: 'Gold', elite: 'Platinum' }
+export const formatMembershipTier = (tier: string) => membershipTierLabels[tier] || formatPortalLabel(tier)
 export const payoutStatuses = ['scheduled', 'processing', 'paid', 'failed'] as const
 
 export type ReferralStatus = typeof referralStatuses[number]

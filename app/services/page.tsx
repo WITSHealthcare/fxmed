@@ -29,11 +29,11 @@ const services = [
     icon: '/Hospital.svg',
     title: 'Concierge Medicine',
     shortDesc: 'Priority access to a dedicated physician, extended consultations, and home visits tailored to your schedule.',
-    fullDesc: 'Our Concierge Medicine service provides you with priority access to a dedicated functional medicine physician who knows your health history and goals. Enjoy extended consultation times, same-day or next-day appointments, direct messaging access, and the convenience of home or office visits. This premium service ensures you receive unhurried, personalized care that addresses the root causes of your health concerns.',
+    fullDesc: 'Our Concierge Medicine service provides you with priority access to a dedicated functional medicine physician who knows your health history and goals. Enjoy extended consultation times, next-day appointments, direct messaging access, and the convenience of home or office visits. This premium service ensures you receive unhurried, personalized care that addresses the root causes of your health concerns.',
     features: [
       'Dedicated personal physician',
       'Extended consultation times (60-90 minutes)',
-      'Same-day or next-day appointments',
+      'Next-day appointments',
       'Home and office visits',
       'Direct physician messaging',
       'Comprehensive health coordination',
