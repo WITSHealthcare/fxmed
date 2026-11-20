@@ -22,7 +22,7 @@ const packages = [
       },
       {
         title: "Lab Tests",
-        items: ["Full Blood Count", "Liver Function Test (AST/ALT)", "Kidney Function Test", "Fasting Blood Sugar (FBS) + HbA1C", "Lipid Profile", "Urinalysis"]
+        items: ["Full Blood Count", "Hormonal Screen", "Liver Function Test (AST/ALT)", "Kidney Function Test", "Fasting Blood Sugar (FBS) + HbA1C", "Lipid Profile", "Urinalysis", "HIV, Hepatitis B, Blood Group & Genotype"]
       },
       {
         title: "Nutrition and Lifestyle Guidance",

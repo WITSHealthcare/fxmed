@@ -121,7 +121,7 @@ export default function Pricing() {
               <ul className="space-y-3 mb-8">
                 <li className="flex items-start">
                   <span className="text-green-mid mr-3 mt-1">✓</span>
-                  <span className="font-dm-sans text-text-mid text-[0.95rem]">Same-day appointments available</span>
+                  <span className="font-dm-sans text-text-mid text-[0.95rem]">Book from 24 hours ahead</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-mid mr-3 mt-1">✓</span>
@@ -157,7 +157,7 @@ export default function Pricing() {
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-mid mr-3 mt-1">✓</span>
-                  <span className="font-dm-sans text-text-mid text-[0.95rem]">Full blood count + hormonal screen</span>
+                  <span className="font-dm-sans text-text-mid text-[0.95rem]">Full blood count, hormonal screen, liver, kidney, blood sugar (FBS + HbA1c), lipids and urinalysis</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-green-mid mr-3 mt-1">✓</span>

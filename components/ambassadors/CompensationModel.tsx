@@ -3,9 +3,8 @@
 import { useState } from 'react'
 
 const tiers = [
-  { name: 'Tier 1', level: 'Essential', monthly: 65000, rate: 10, annual: 780000, commission: 78000 },
-  { name: 'Tier 2', level: 'Premium', monthly: 450000, rate: 15, annual: 5400000, commission: 810000 },
-  { name: 'Tier 3', level: 'Elite', monthly: 700000, rate: 20, annual: 8400000, commission: 1680000 },
+  { name: 'Tier 1', level: 'Gold', monthly: 450000, rate: 15, annual: 5400000, commission: 810000 },
+  { name: 'Tier 2', level: 'Platinum', monthly: 700000, rate: 20, annual: 8400000, commission: 1680000 },
 ]
 
 const signupCounts = [5, 10, 15, 20, 25]
@@ -17,32 +16,32 @@ const naira = new Intl.NumberFormat('en-NG', {
 })
 
 export default function CompensationModel() {
-  const [tierIndex, setTierIndex] = useState(1)
+  const [tierIndex, setTierIndex] = useState(0)
   const [signups, setSignups] = useState(5)
   const selectedTier = tiers[tierIndex]
   const estimatedCommission = selectedTier.commission * signups
 
   return (
     <>
-      <div className="grid gap-5 md:grid-cols-3">
+      <div className="mx-auto grid max-w-4xl gap-5 md:grid-cols-2">
         {tiers.map((tier, index) => (
           <article
             key={tier.name}
-            className={`relative overflow-hidden rounded-[24px] border p-7 transition-all duration-300 ${index === 1 ? 'border-gold bg-green-deep text-white shadow-[0_18px_45px_rgba(20,55,42,0.18)]' : 'border-green-deep/10 bg-white text-green-deep hover:-translate-y-1 hover:shadow-custom'}`}
+            className={`relative overflow-hidden rounded-[24px] border p-7 transition-all duration-300 ${index === 0 ? 'border-gold bg-green-deep text-white shadow-[0_18px_45px_rgba(20,55,42,0.18)]' : 'border-green-deep/10 bg-white text-green-deep hover:-translate-y-1 hover:shadow-custom'}`}
           >
-            {index === 1 && <span className="absolute right-5 top-5 rounded-full bg-gold px-3 py-1 font-dm-sans text-[0.65rem] font-bold uppercase tracking-[0.12em] text-green-deep">Popular</span>}
-            <p className={`font-dm-sans text-sm font-semibold ${index === 1 ? 'text-gold' : 'text-green-mid'}`}>{tier.name}</p>
+            {index === 0 && <span className="absolute right-5 top-5 rounded-full bg-gold px-3 py-1 font-dm-sans text-[0.65rem] font-bold uppercase tracking-[0.12em] text-green-deep">Popular</span>}
+            <p className={`font-dm-sans text-sm font-semibold ${index === 0 ? 'text-gold' : 'text-green-mid'}`}>{tier.name}</p>
             <h3 className="mt-1 font-dm-sans text-2xl font-bold">{tier.level}</h3>
-            <p className={`mt-5 font-dm-sans text-sm ${index === 1 ? 'text-cream/70' : 'text-text-mid'}`}>Monthly membership</p>
+            <p className={`mt-5 font-dm-sans text-sm ${index === 0 ? 'text-cream/70' : 'text-text-mid'}`}>Monthly membership</p>
             <p className="mt-1 font-dm-sans text-2xl font-bold">{naira.format(tier.monthly)}</p>
-            <div className={`my-6 h-px ${index === 1 ? 'bg-white/15' : 'bg-green-deep/10'}`} />
+            <div className={`my-6 h-px ${index === 0 ? 'bg-white/15' : 'bg-green-deep/10'}`} />
             <div className="flex items-end justify-between gap-4">
               <div>
-                <p className={`font-dm-sans text-sm ${index === 1 ? 'text-cream/70' : 'text-text-mid'}`}>Commission rate</p>
-                <p className={`mt-1 font-dm-sans text-3xl font-bold ${index === 1 ? 'text-gold' : 'text-green-deep'}`}>{tier.rate}%</p>
+                <p className={`font-dm-sans text-sm ${index === 0 ? 'text-cream/70' : 'text-text-mid'}`}>Commission rate</p>
+                <p className={`mt-1 font-dm-sans text-3xl font-bold ${index === 0 ? 'text-gold' : 'text-green-deep'}`}>{tier.rate}%</p>
               </div>
               <div className="text-right">
-                <p className={`font-dm-sans text-sm ${index === 1 ? 'text-cream/70' : 'text-text-mid'}`}>Per annual signup</p>
+                <p className={`font-dm-sans text-sm ${index === 0 ? 'text-cream/70' : 'text-text-mid'}`}>Per annual signup</p>
                 <p className="mt-1 font-dm-sans text-lg font-bold">{naira.format(tier.commission)}</p>
               </div>
             </div>

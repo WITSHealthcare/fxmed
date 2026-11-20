@@ -282,9 +282,9 @@ export default function FunctionalHealthResults() {
     }
     
     // Contact info on the right
-    addRightText('+234 XXX XXX XXXX', yPosition + 2, 10, 'normal', textDark)
-    addRightText('www.fxmed.com', yPosition + 7, 10, 'normal', textDark)
-    addRightText('info@fxmed.com', yPosition + 12, 10, 'normal', textDark)
+    addRightText('+234 907 703 1311', yPosition + 2, 10, 'normal', textDark)
+    addRightText('www.fxmed.ng', yPosition + 7, 10, 'normal', textDark)
+    addRightText('fxmed@wellnesswits.com', yPosition + 12, 10, 'normal', textDark)
     addRightText('Lagos, Nigeria', yPosition + 17, 10, 'normal', textDark)
     
     yPosition += 25

@@ -10,7 +10,7 @@ const clientServices = [
   { icon: '/AmbulanceIcon.svg', iconBackground: 'bg-[#FFD2E2]', title: 'Concierge care', text: 'Fully equipped luxury medical vans, tele-consultations, and personalized in-home care.' },
   { icon: '/Dna.svg', iconColor: '#2D6A4F', title: 'Functional medicine', text: 'Root-cause, lifestyle-oriented healthcare focused on prevention and chronic-condition management.' },
   { icon: '/ShieldCheckered.svg', iconBackground: 'bg-[#FFEAE3]', title: 'Privacy and convenience', text: 'A discreet, accessible healthcare experience designed around each member.' },
-  { icon: '/SealCheck.svg', iconColor: '#874EAA', iconBackground: 'bg-[#E5E4FF]', title: 'Exclusive membership tiers', text: 'Membership plans ranging from ₦65,000 to ₦700,000 per month, with tier-specific benefits.' },
+  { icon: '/SealCheck.svg', iconColor: '#874EAA', iconBackground: 'bg-[#E5E4FF]', title: 'Exclusive membership tiers', text: 'Gold (₦450,000) and Platinum (₦700,000) monthly membership plans, with tier-specific benefits.' },
   { icon: '/Sparkle.svg', iconBackground: 'bg-[#EAF2FE]', title: 'Wellness add-ons', text: 'Enhanced services including IV drips, massages, detox chef sessions, fitness coaching, and more.' },
 ]
 

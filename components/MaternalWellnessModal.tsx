@@ -31,11 +31,13 @@ const maternalPackages: Package[] = [
         title: "Lab Tests",
         items: [
           "Full Blood Count",
+          "Hormonal Screen",
           "Liver Function Test (AST/ALT)",
           "Kidney Function Test",
           "Fasting Blood Sugar (FBS) + HbA1C",
           "Lipid Profile",
-          "Urinalysis"
+          "Urinalysis",
+          "HIV, Hepatitis B, Blood Group & Genotype"
         ]
       },
       {

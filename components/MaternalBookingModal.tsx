@@ -320,7 +320,7 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-sm text-yellow-800">
-                  <strong>Important:</strong> After confirming, you will be redirected to complete payment. Our team will send a confirmation within 24 hours.
+                  <strong>Important:</strong> After confirming, you will be redirected to pay ₦85,000 for your first GP home visit, which is your deposit for the {pkg.name}. Our team will confirm within 24 hours and invoice the rest of the package.
                 </p>
               </div>
             </div>
