@@ -376,7 +376,7 @@ function Body({ v }: { v: BodyVisual }) {
             const art = ART[item.system]; const on = active === null || active === i
             if (!art) {
               const [x, y] = SPOTS[item.system]
-              return <span key={i} aria-hidden className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#9bbf2e] bg-gold/55 transition-opacity" style={{ left: pct(x, BODY_W), top: pct(y, BODY_H), width: `${8 / zoom.scale}%`, height: `${5.33 / zoom.scale}%`, boxShadow: '0 0 10px 3px rgba(155,191,46,0.55)', opacity: on ? 1 : 0.3 }} />
+              return <span key={i} aria-hidden className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#8db02a] transition-opacity" style={{ left: pct(x, BODY_W), top: pct(y, BODY_H), boxShadow: '0 0 0 2px rgba(141,176,42,0.35), 0 0 6px 1px rgba(141,176,42,0.45)', opacity: on ? 1 : 0.3 }} />
             }
             const h = art.w / art.aspect
             const centres = art.gap ? [art.ix - art.gap, art.ix + art.gap] : [art.ix]
