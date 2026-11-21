@@ -36,12 +36,12 @@ export const bodySystems = ['brain', 'thyroid', 'heart', 'lungs', 'liver', 'stom
 export type BodySystem = typeof bodySystems[number]
 
 export type ChartVisual = { kind: 'chart'; type: 'bar' | 'column' | 'line' | 'donut'; title: string; caption: string; unit: string; labels: string[]; series: { name: string; values: number[] }[] }
-export type StepsVisual = { kind: 'steps'; title: string; steps: { title: string; text: string }[] }
-export type CompareVisual = { kind: 'compare'; title: string; columns: { heading: string; tone: Tone; points: string[] }[] }
-export type StatsVisual = { kind: 'stats'; title: string; items: { value: string; label: string; note: string }[] }
-export type CycleVisual = { kind: 'cycle'; title: string; center: string; items: string[] }
-export type TimelineVisual = { kind: 'timeline'; title: string; items: { when: string; title: string; text: string }[] }
-export type HubVisual = { kind: 'hub'; title: string; center: string; items: { label: string; text: string }[] }
+export type StepsVisual = { kind: 'steps'; title: string; steps: { title: string; text: string; icon: string }[] }
+export type CompareVisual = { kind: 'compare'; title: string; columns: { heading: string; tone: Tone; icon: string; points: string[] }[] }
+export type StatsVisual = { kind: 'stats'; title: string; items: { value: string; label: string; note: string; icon: string }[] }
+export type CycleVisual = { kind: 'cycle'; title: string; center: string; items: string[]; icons: string[] }
+export type TimelineVisual = { kind: 'timeline'; title: string; items: { when: string; title: string; text: string; icon: string }[] }
+export type HubVisual = { kind: 'hub'; title: string; center: string; centerIcon: string; items: { label: string; text: string; icon: string }[] }
 export type RangeVisual = { kind: 'range'; title: string; unit: string; min: number; max: number; bands: { from: number; to: number; label: string; tone: Tone }[]; markers: { value: number; label: string }[]; caption: string }
 export type BodyVisual = { kind: 'body'; title: string; items: { system: BodySystem; label: string; text: string }[] }
 export type Visual = ChartVisual | StepsVisual | CompareVisual | StatsVisual | CycleVisual | TimelineVisual | HubVisual | RangeVisual | BodyVisual
@@ -50,6 +50,8 @@ const str = (value: unknown, max = 200) => typeof value === 'string' ? value.tri
 const num = (value: unknown) => { const n = typeof value === 'number' ? value : Number(value); return Number.isFinite(n) ? n : null }
 const arr = (value: unknown, limit: number) => Array.isArray(value) ? value.slice(0, limit) : []
 const obj = (value: unknown) => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+// An author may name an icon; the renderer otherwise picks one from the words.
+const icon = (value: unknown) => typeof value === 'string' ? value.trim().toLowerCase().slice(0, 30) : ''
 const tone = (value: unknown): Tone => tones.includes(value as Tone) ? value as Tone : 'neutral'
 
 function need<T>(list: T[], min: number, what: string) {
@@ -73,12 +75,13 @@ export function validateVisual(kind: VisualKind, raw: unknown): Visual {
       if (series.some((s) => s.values.length !== labels.length)) throw new Error('Each series needs one value per label.')
       return { kind, type, title, caption: str(v.caption, 300), unit: str(v.unit, 20), labels, series }
     }
-    case 'steps': return { kind, title, steps: need(arr(v.steps, 8).map(obj).map((s) => ({ title: str(s.title, 80), text: str(s.text, 300) })).filter((s) => s.title), 2, 'steps') }
-    case 'compare': return { kind, title, columns: need(arr(v.columns, 3).map(obj).map((c) => ({ heading: str(c.heading, 80), tone: tone(c.tone), points: arr(c.points, 8).map((p) => str(p, 240)).filter(Boolean) })).filter((c) => c.heading), 2, 'columns') }
-    case 'stats': return { kind, title, items: need(arr(v.items, 4).map(obj).map((s) => ({ value: str(s.value, 24), label: str(s.label, 80), note: str(s.note, 160) })).filter((s) => s.value), 1, 'item') }
-    case 'cycle': return { kind, title, center: str(v.center, 40), items: need(arr(v.items, 8).map((i) => str(i, 40)).filter(Boolean), 3, 'items') }
-    case 'timeline': return { kind, title, items: need(arr(v.items, 10).map(obj).map((s) => ({ when: str(s.when, 40), title: str(s.title, 80), text: str(s.text, 240) })).filter((s) => s.title), 2, 'items') }
-    case 'hub': return { kind, title, center: str(v.center, 40), items: need(arr(v.items, 8).map(obj).map((s) => ({ label: str(s.label, 40), text: str(s.text, 160) })).filter((s) => s.label), 3, 'items') }
+    case 'steps': return { kind, title, steps: need(arr(v.steps, 8).map(obj).map((s) => ({ title: str(s.title, 80), text: str(s.text, 300), icon: icon(s.icon) })).filter((s) => s.title), 2, 'steps') }
+    case 'compare': return { kind, title, columns: need(arr(v.columns, 3).map(obj).map((c) => ({ heading: str(c.heading, 80), tone: tone(c.tone), icon: icon(c.icon), points: arr(c.points, 8).map((p) => str(p, 240)).filter(Boolean) })).filter((c) => c.heading), 2, 'columns') }
+    case 'stats': return { kind, title, items: need(arr(v.items, 4).map(obj).map((s) => ({ value: str(s.value, 24), label: str(s.label, 80), note: str(s.note, 160), icon: icon(s.icon) })).filter((s) => s.value), 1, 'item') }
+    case 'cycle': { const items = arr(v.items, 8).map((i) => typeof i === 'object' && i ? { label: str(obj(i).label, 40), icon: icon(obj(i).icon) } : { label: str(i, 40), icon: '' }).filter((i) => i.label)
+      need(items, 3, 'items'); return { kind, title, center: str(v.center, 40), items: items.map((i) => i.label), icons: items.map((i) => i.icon) } }
+    case 'timeline': return { kind, title, items: need(arr(v.items, 10).map(obj).map((s) => ({ when: str(s.when, 40), title: str(s.title, 80), text: str(s.text, 240), icon: icon(s.icon) })).filter((s) => s.title), 2, 'items') }
+    case 'hub': return { kind, title, center: str(v.center, 40), centerIcon: icon(v.icon), items: need(arr(v.items, 8).map(obj).map((s) => ({ label: str(s.label, 40), text: str(s.text, 160), icon: icon(s.icon) })).filter((s) => s.label), 3, 'items') }
     case 'range': {
       const min = num(v.min), max = num(v.max)
       if (min === null || max === null || max <= min) throw new Error('Give a "min" below "max".')
