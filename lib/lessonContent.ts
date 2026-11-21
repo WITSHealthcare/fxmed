@@ -75,13 +75,13 @@ export function validateVisual(kind: VisualKind, raw: unknown): Visual {
       if (series.some((s) => s.values.length !== labels.length)) throw new Error('Each series needs one value per label.')
       return { kind, type, title, caption: str(v.caption, 300), unit: str(v.unit, 20), labels, series }
     }
-    case 'steps': return { kind, title, steps: need(arr(v.steps, 8).map(obj).map((s) => ({ title: str(s.title, 80), text: str(s.text, 300), icon: icon(s.icon) })).filter((s) => s.title), 2, 'steps') }
-    case 'compare': return { kind, title, columns: need(arr(v.columns, 3).map(obj).map((c) => ({ heading: str(c.heading, 80), tone: tone(c.tone), icon: icon(c.icon), points: arr(c.points, 8).map((p) => str(p, 240)).filter(Boolean) })).filter((c) => c.heading), 2, 'columns') }
-    case 'stats': return { kind, title, items: need(arr(v.items, 4).map(obj).map((s) => ({ value: str(s.value, 24), label: str(s.label, 80), note: str(s.note, 160), icon: icon(s.icon) })).filter((s) => s.value), 1, 'item') }
+    case 'steps': return { kind, title, steps: need(arr(v.steps, 8).map(obj).map((s) => ({ title: str(s.title, 80), text: str(s.text, 360), icon: icon(s.icon) })).filter((s) => s.title), 2, 'steps') }
+    case 'compare': return { kind, title, columns: need(arr(v.columns, 3).map(obj).map((c) => ({ heading: str(c.heading, 80), tone: tone(c.tone), icon: icon(c.icon), points: arr(c.points, 8).map((p) => str(p, 320)).filter(Boolean) })).filter((c) => c.heading), 2, 'columns') }
+    case 'stats': return { kind, title, items: need(arr(v.items, 4).map(obj).map((s) => ({ value: str(s.value, 24), label: str(s.label, 80), note: str(s.note, 240), icon: icon(s.icon) })).filter((s) => s.value), 1, 'item') }
     case 'cycle': { const items = arr(v.items, 8).map((i) => typeof i === 'object' && i ? { label: str(obj(i).label, 40), icon: icon(obj(i).icon) } : { label: str(i, 40), icon: '' }).filter((i) => i.label)
       need(items, 3, 'items'); return { kind, title, center: str(v.center, 40), items: items.map((i) => i.label), icons: items.map((i) => i.icon) } }
-    case 'timeline': return { kind, title, items: need(arr(v.items, 10).map(obj).map((s) => ({ when: str(s.when, 40), title: str(s.title, 80), text: str(s.text, 240), icon: icon(s.icon) })).filter((s) => s.title), 2, 'items') }
-    case 'hub': return { kind, title, center: str(v.center, 40), centerIcon: icon(v.icon), items: need(arr(v.items, 8).map(obj).map((s) => ({ label: str(s.label, 40), text: str(s.text, 160), icon: icon(s.icon) })).filter((s) => s.label), 3, 'items') }
+    case 'timeline': return { kind, title, items: need(arr(v.items, 10).map(obj).map((s) => ({ when: str(s.when, 40), title: str(s.title, 80), text: str(s.text, 360), icon: icon(s.icon) })).filter((s) => s.title), 2, 'items') }
+    case 'hub': return { kind, title, center: str(v.center, 40), centerIcon: icon(v.icon), items: need(arr(v.items, 8).map(obj).map((s) => ({ label: str(s.label, 40), text: str(s.text, 320), icon: icon(s.icon) })).filter((s) => s.label), 3, 'items') }
     case 'range': {
       const min = num(v.min), max = num(v.max)
       if (min === null || max === null || max <= min) throw new Error('Give a "min" below "max".')
@@ -90,7 +90,7 @@ export function validateVisual(kind: VisualKind, raw: unknown): Visual {
       const markers = arr(v.markers, 3).map(obj).flatMap((m) => { const value = num(m.value); return value === null ? [] : [{ value: clamp(value), label: str(m.label, 40) }] })
       return { kind, title, unit: str(v.unit, 20), min, max, bands, markers, caption: str(v.caption, 300) }
     }
-    case 'body': return { kind, title, items: need(arr(v.items, 10).map(obj).flatMap((s) => bodySystems.includes(s.system as BodySystem) ? [{ system: s.system as BodySystem, label: str(s.label, 40) || String(s.system), text: str(s.text, 200) }] : []), 1, 'body system (one of: ' + bodySystems.join(', ') + ')') }
+    case 'body': return { kind, title, items: need(arr(v.items, 10).map(obj).flatMap((s) => bodySystems.includes(s.system as BodySystem) ? [{ system: s.system as BodySystem, label: str(s.label, 40) || String(s.system), text: str(s.text, 320) }] : []), 1, 'body system (one of: ' + bodySystems.join(', ') + ')') }
   }
 }
 
