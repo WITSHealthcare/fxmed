@@ -3,10 +3,10 @@
 import type { ReactNode } from 'react'
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
 import {
-  AmbulanceIcon, ArrowsClockwiseIcon, AtomIcon, BabyIcon, BandaidsIcon, BarbellIcon, BedIcon, BoneIcon, BrainIcon, BreadIcon, BriefcaseIcon,
+  AmbulanceIcon, ArrowsClockwiseIcon, AtomIcon, BabyIcon, BandaidsIcon, BarbellIcon, BedIcon, BoneIcon,  BreadIcon, BriefcaseIcon,
   BugIcon, CalendarCheckIcon, CameraIcon, CarrotIcon, ChartLineUpIcon, ChatCircleIcon, CheckCircleIcon, CigaretteIcon, ClipboardTextIcon,
   ClockIcon, CoffeeIcon, CurrencyNgnIcon, DnaIcon, DropIcon, EggIcon, EnvelopeIcon, EyeIcon, FireIcon, FirstAidKitIcon, FishIcon, FlaskIcon,
-  FlowerIcon, ForkKnifeIcon, FunnelIcon, GaugeIcon, GearIcon, GenderFemaleIcon, GenderMaleIcon, HandshakeIcon, HeartIcon, HeartbeatIcon,
+  FlowerIcon, ForkKnifeIcon, FunnelIcon, GaugeIcon, GearIcon, GenderFemaleIcon, GenderMaleIcon, HandshakeIcon,  HeartbeatIcon,
   HospitalIcon, HourglassIcon, HouseIcon, IdentificationCardIcon, KeyIcon, LeafIcon, LightbulbIcon, LightningIcon, LockIcon, MagnifyingGlassIcon,
   MegaphoneIcon, MicroscopeIcon, MoneyIcon, MoonStarsIcon, PersonSimpleRunIcon, PhoneIcon, PillIcon, PlantIcon, PrescriptionIcon, RecycleIcon,
   ScalesIcon, ShieldCheckIcon, SirenIcon, SmileySadIcon, SmileyIcon, SparkleIcon, StethoscopeIcon, SunIcon, SyringeIcon, TargetIcon,
@@ -33,26 +33,9 @@ const GutIcon = (p: IconProps) => <Organ {...p}>
   <path d="M38 34 Q38 40 32 40 H22" fill="none" />
   <path d="M16 16 Q16 13 20 13 H28 Q32 13 32 17 Q32 21 28 21 H20 Q16 21 16 25 Q16 29 20 29 H28 Q32 29 32 33" fill="none" stroke="#c2694a" />
 </Organ>
-const LiverIcon = (p: IconProps) => <Organ {...p}>
-  <path d="M5 20 Q6 11 18 10 Q34 9 43 14 Q46 18 40 22 Q30 30 18 36 Q8 40 6 30 Z" fill="#b5523f" fillOpacity={0.85} />
-  <path d="M24 12 Q22 22 26 34" stroke="#7d2f22" />
-</Organ>
-const StomachIcon = (p: IconProps) => <Organ {...p}>
-  <path d="M20 6 V14 Q12 16 10 26 Q8 38 20 41 Q32 43 38 34 Q41 28 34 26 Q28 25 27 18 Q26 12 28 6" fill="#e9a08b" />
-  <path d="M34 26 Q40 27 42 22" />
-</Organ>
 const ThyroidIcon = (p: IconProps) => <Organ {...p}>
   <path d="M24 20 Q20 10 13 12 Q6 15 8 27 Q10 37 18 35 Q22 33 24 28 Q26 33 30 35 Q38 37 40 27 Q42 15 35 12 Q28 10 24 20 Z" fill="#d98a7a" />
   <path d="M24 4 V44" stroke="#9fb3a8" strokeDasharray="3 3" />
-</Organ>
-const KidneyIcon = (p: IconProps) => <Organ {...p}>
-  <path d="M8 14 Q4 24 9 34 Q13 40 18 35 Q15 30 18 24 Q21 19 17 13 Q12 9 8 14 Z" fill="#c0614c" />
-  <path d="M40 14 Q44 24 39 34 Q35 40 30 35 Q33 30 30 24 Q27 19 31 13 Q36 9 40 14 Z" fill="#c0614c" />
-</Organ>
-const LungsIcon = (p: IconProps) => <Organ {...p}>
-  <path d="M24 6 V20 M24 20 Q20 22 18 26 M24 20 Q28 22 30 26" />
-  <path d="M19 14 Q9 14 7 28 Q6 40 14 40 Q20 40 20 32 V18 Z" fill="#e7a3a3" />
-  <path d="M29 14 Q39 14 41 28 Q42 40 34 40 Q28 40 28 32 V18 Z" fill="#e7a3a3" />
 </Organ>
 const PancreasIcon = (p: IconProps) => <Organ {...p}>
   <path d="M6 28 Q6 18 16 20 Q26 22 34 18 Q42 15 43 21 Q44 26 36 27 Q26 29 18 33 Q6 38 6 28 Z" fill="#f0c27a" />
@@ -75,6 +58,19 @@ const HormoneIcon = (p: IconProps) => <Organ {...p}>
   <path d="M19 19 L25 29 M29 18 L30 27" />
 </Organ>
 
+// Organ illustrations (Servier Medical Art, CC BY 4.0, via the Pain OS body
+// scan) for the organs that have one; the drawn icons above cover the rest.
+function organArt(file: string, label: string) {
+  const Art = ({ size = 28, className }: IconProps) => (
+    // eslint-disable-next-line @next/next/no-img-element -- small static organ art from /public
+    <img src={`/training/body/${file}.png`} alt="" aria-hidden width={size} height={size} loading="lazy" className={`object-contain ${className || ''}`} style={{ width: size, height: size }} />
+  )
+  Art.displayName = `${label}Art`
+  return Art
+}
+const BrainArt = organArt('brain', 'Brain'), HeartArt = organArt('heart', 'Heart'), LungsArt = organArt('lungs', 'Lungs')
+const LiverArt = organArt('liver', 'Liver'), StomachArt = organArt('stomach', 'Stomach'), KidneyArt = organArt('kidney', 'Kidney')
+
 // ---------------------------------------------------------------------------
 // Named icons. Authors can write any of these names in an "icon" field.
 
@@ -85,9 +81,9 @@ const phosphor = (C: PhosphorIcon) => {
 }
 
 export const lessonIcons: Record<string, (p: IconProps) => ReactNode> = {
-  gut: GutIcon, intestine: GutIcon, liver: LiverIcon, stomach: StomachIcon, thyroid: ThyroidIcon, kidney: KidneyIcon, lungs: LungsIcon,
+  gut: GutIcon, intestine: GutIcon, liver: LiverArt, stomach: StomachArt, thyroid: ThyroidIcon, kidney: KidneyArt, lungs: LungsArt,
   pancreas: PancreasIcon, gallbladder: GallbladderIcon, cell: CellIcon, molecule: MoleculeIcon, hormone: HormoneIcon,
-  brain: phosphor(BrainIcon), heart: phosphor(HeartIcon), heartbeat: phosphor(HeartbeatIcon), blood: phosphor(DropIcon), drop: phosphor(DropIcon),
+  brain: BrainArt, heart: HeartArt, heartbeat: phosphor(HeartbeatIcon), blood: phosphor(DropIcon), drop: phosphor(DropIcon),
   pill: phosphor(PillIcon), prescription: phosphor(PrescriptionIcon), syringe: phosphor(SyringeIcon), food: phosphor(ForkKnifeIcon),
   vegetable: phosphor(CarrotIcon), fish: phosphor(FishIcon), egg: phosphor(EggIcon), bread: phosphor(BreadIcon), plant: phosphor(PlantIcon),
   leaf: phosphor(LeafIcon), flower: phosphor(FlowerIcon), dna: phosphor(DnaIcon), virus: phosphor(VirusIcon), bug: phosphor(BugIcon),
@@ -133,6 +129,7 @@ const keywordIcons: [RegExp, string][] = [
   [/\b(infect|virus|viral|parasit|pathogen|bacteri)/i, 'virus'],
   [/\b(cell|mitochond|membrane)/i, 'cell'],
   [/\b(toxin|toxic|mould|mold|pollut|chemical|plastic|bpa|heavy metal|lead (poisoning|exposure)|mercury|carbon monoxide)/i, 'toxin'],
+  [/\b(exhaust|fatigue|tired|low energy|energy)/i, 'energy'],
   [/\b(sleep|insomnia|melatonin|night|bedtime|circadian)/i, 'sleep'],
   [/\b(stress|cortisol|burnout|trauma|fight or flight|sympathetic)/i, 'stress'],
   [/\b(relax|calm|rest and digest|parasympathetic|breathing exercise|meditat)/i, 'leaf'],
