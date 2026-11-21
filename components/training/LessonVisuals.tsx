@@ -323,64 +323,88 @@ function Hub({ v }: { v: HubVisual }) {
 }
 
 // ---------------------------------------------------------------------------
-// Body map: a drawn figure with its organs; the systems the lesson is about
-// are coloured and numbered, the rest stay faint.
+// Body map: a rendered body scan with organ illustrations for the systems
+// the lesson is about, numbered to the list beside it. Figure and placement
+// geometry come from the Pain OS body scan (1024 × 1536 image space). Organ
+// art is Servier Medical Art (CC BY 4.0), credited under the figure.
 
-const ORGANS: Partial<Record<BodySystem, { d: string; color: string }>> = {
-  brain: { d: 'M82,28 Q84,12 100,11 Q116,12 118,28 Q119,40 108,44 Q100,46 92,44 Q81,40 82,28 Z', color: '#e7a3b4' },
-  thyroid: { d: 'M100,92 Q96,86 92,88 Q88,91 90,97 Q92,101 96,99 Q98,98 100,95 Q102,98 104,99 Q108,101 110,97 Q112,91 108,88 Q104,86 100,92 Z', color: '#d98a7a' },
-  lungs: { d: 'M96,118 Q82,116 76,132 Q72,150 78,164 Q86,168 94,160 Z M104,118 Q118,116 124,132 Q128,150 122,164 Q114,168 106,160 Z', color: '#eab0b0' },
-  heart: { d: 'M104,140 Q100,132 94,135 Q88,140 94,150 Q100,158 106,162 Q114,154 118,146 Q120,136 112,134 Q106,134 104,140 Z', color: '#d14d4d' },
-  liver: { d: 'M74,176 Q78,168 98,168 Q112,170 108,180 Q100,194 84,198 Q72,198 72,188 Z', color: '#b5523f' },
-  stomach: { d: 'M108,172 Q120,170 124,180 Q126,194 114,200 Q104,204 100,196 Q106,190 106,182 Z', color: '#e9a08b' },
-  gallbladder: { d: 'M88,196 Q92,192 96,198 Q96,206 90,206 Q85,203 88,196 Z', color: '#9cc56a' },
-  pancreas: { d: 'M90,208 Q100,204 116,206 Q122,208 118,212 Q104,214 92,214 Q86,212 90,208 Z', color: '#f0c27a' },
-  adrenals: { d: 'M80,214 Q84,208 88,214 Z M112,214 Q116,208 120,214 Z', color: '#c9a23a' },
-  kidneys: { d: 'M78,218 Q72,228 78,240 Q84,242 85,232 Q86,222 78,218 Z M122,218 Q128,228 122,240 Q116,242 115,232 Q114,222 122,218 Z', color: '#c0614c' },
-  gut: { d: 'M74,240 Q74,228 86,228 H114 Q126,228 126,240 V272 Q126,284 114,284 H104 V276 H113 Q118,276 118,270 V242 Q118,236 112,236 H88 Q82,236 82,242 V284 H74 Z', color: '#e9a88f' },
-  reproductive: { d: 'M88,292 Q100,286 112,292 Q110,302 100,304 Q90,302 88,292 Z', color: '#e0a3c9' },
+const BODY_W = 1024, BODY_H = 1536
+const ART: Partial<Record<BodySystem, { src: string; aspect: number; ix: number; iy: number; w: number; gap?: number }>> = {
+  brain: { src: '/training/body/brain.png', aspect: 580 / 592, ix: 512, iy: 160, w: 92 },
+  lungs: { src: '/training/body/lungs.png', aspect: 408 / 363, ix: 512, iy: 428, w: 160 },
+  heart: { src: '/training/body/heart.png', aspect: 741 / 853, ix: 534, iy: 456, w: 56 },
+  liver: { src: '/training/body/liver.png', aspect: 748 / 587, ix: 486, iy: 522, w: 118 },
+  stomach: { src: '/training/body/stomach.png', aspect: 822 / 790, ix: 546, iy: 546, w: 70 },
+  kidneys: { src: '/training/body/kidney.png', aspect: 289 / 389, ix: 512, iy: 604, w: 30, gap: 50 },
 }
-const PINS: Record<BodySystem, [number, number]> = {
-  brain: [100, 28], thyroid: [100, 94], lungs: [82, 140], heart: [106, 148], liver: [88, 184], stomach: [114, 186], gallbladder: [91, 201],
-  pancreas: [104, 210], adrenals: [116, 212], kidneys: [80, 230], gut: [100, 256], reproductive: [100, 296], skin: [150, 214], muscles: [78, 340],
-  bones: [122, 372], immune: [66, 112], blood: [44, 200], nerves: [100, 120],
+// Systems without organ art get a glowing marker at their place on the figure.
+const SPOTS: Record<BodySystem, [number, number]> = {
+  brain: [512, 160], thyroid: [512, 292], lungs: [512, 428], heart: [534, 456], liver: [486, 522], stomach: [546, 546], gallbladder: [470, 566],
+  pancreas: [526, 590], adrenals: [512, 582], kidneys: [512, 604], gut: [512, 662], reproductive: [512, 742], skin: [338, 520], muscles: [421, 846],
+  bones: [427, 1016], immune: [404, 372], blood: [686, 500], nerves: [512, 350],
 }
+const pct = (n: number, of: number) => `${(n / of) * 100}%`
 
 function Body({ v }: { v: BodyVisual }) {
   const [active, setActive] = useState<number | null>(null)
-  const chosen = new Map(v.items.map((item, i) => [item.system, i]))
-  return <Figure title={v.title}><div className="grid items-center gap-6 sm:grid-cols-[minmax(240px,300px)_1fr]">
-    <svg viewBox="28 0 144 420" className="mx-auto h-[440px] w-auto sm:h-[520px]" role="img" aria-label={`Body diagram: ${v.items.map((i) => i.label).join(', ')}`}>
-      <defs><linearGradient id="body-skin" x1="0" x2="1"><stop offset="0" stopColor="#f3efe6" /><stop offset="1" stopColor="#e9e4d8" /></linearGradient></defs>
-      <g fill="url(#body-skin)" stroke={chosen.has('skin') ? '#d98a7a' : '#cfc8b8'} strokeWidth={chosen.has('skin') ? 3 : 1.5}>
-        <ellipse cx={100} cy={34} rx={24} ry={28} />
-        <path d="M90,60 Q90,72 86,78 L114,78 Q110,72 110,60 Z" />
-        <path d="M58,86 Q66,78 86,78 L114,78 Q134,78 142,86 Q150,96 150,120 L152,200 Q150,240 140,280 Q134,300 128,304 L72,304 Q66,300 60,280 Q50,240 48,200 L50,120 Q50,96 58,86 Z" />
-        <path d="M58,88 Q42,96 40,130 L34,226 Q34,240 42,242 Q48,240 50,228 L58,140 Z" /><path d="M142,88 Q158,96 160,130 L166,226 Q166,240 158,242 Q152,240 150,228 L142,140 Z" />
-        <path d="M74,302 Q72,350 76,406 Q80,414 90,412 Q96,410 96,400 L99,306 Z" /><path d="M126,302 Q128,350 124,406 Q120,414 110,412 Q104,410 104,400 L101,306 Z" />
-      </g>
-      {chosen.has('nerves') && <path d="M100,62 V300" stroke="#5a46c4" strokeWidth={2.5} strokeDasharray="5 4" />}
-      {chosen.has('blood') && <path d="M100,150 Q60,170 44,200 M100,150 Q140,170 156,200 M100,150 V290" fill="none" stroke="#d14d4d" strokeWidth={2} strokeOpacity={0.7} />}
-      {chosen.has('bones') && <path d="M100,80 V300 M70,120 H130 M84,306 L86,404 M116,306 L114,404" stroke="#b8ae98" strokeWidth={3} strokeLinecap="round" />}
-      {(Object.entries(ORGANS) as [BodySystem, { d: string; color: string }][]).map(([system, organ]) => {
-        const on = chosen.has(system); const lit = on && (active === null || active === chosen.get(system))
-        return <path key={system} d={organ.d} fill={on ? organ.color : '#d9d2c2'} fillOpacity={on ? (lit ? 1 : 0.7) : 0.45} stroke={on ? '#1a3d2e' : '#c9c1ae'} strokeWidth={on ? 1.2 : 0.6} />
-      })}
-      <path d="M88,244 Q86,240 92,240 H108 Q114,240 112,246 Q110,250 104,250 H96 Q90,250 90,256 Q90,262 96,262 H104 Q110,262 110,268 Q110,274 104,274 H94" fill="none" stroke={chosen.has('gut') ? '#c2694a' : '#cfc6b3'} strokeWidth={chosen.has('gut') ? 3 : 2} strokeLinecap="round" />
-      {v.items.map((item, i) => { const [x, y] = PINS[item.system]; const on = active === i
-        return <g key={i} onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)} className="cursor-default">
-          <circle cx={x + 14} cy={y - 12} r={on ? 10.5 : 9} fill={on ? '#C9E265' : '#1a3d2e'} stroke="#fff" strokeWidth={2} />
-          <line x1={x} y1={y} x2={x + 8} y2={y - 6} stroke="#1a3d2e" strokeWidth={1.2} />
-          <circle cx={x} cy={y} r={2.2} fill="#1a3d2e" />
-          <text x={x + 14} y={y - 8.5} textAnchor="middle" fontSize={10.5} fontWeight={700} fill={on ? '#1a3d2e' : '#C9E265'}>{i + 1}</text>
-        </g> })}
-    </svg>
-    <ol className="space-y-2">{v.items.map((item, i) => <li key={i} className={`flex items-start gap-3 rounded-2xl p-2.5 transition ${active === i ? 'bg-gold/25' : ''}`} onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)}>
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-deep text-xs font-bold text-gold">{i + 1}</span>
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm"><LessonIcon text={item.system} name={item.system === 'kidneys' ? 'kidney' : item.system === 'adrenals' ? 'hormone' : item.system === 'reproductive' ? 'hormone' : item.system === 'skin' ? 'flower' : item.system === 'muscles' ? 'strength' : item.system === 'bones' ? 'bone' : item.system === 'nerves' ? 'brain' : item.system} size={24} /></span>
-      <span className="pt-0.5"><span className="font-bold text-green-deep">{item.label}</span>{item.text && <span className="block text-sm leading-6 text-text-mid">{item.text}</span>}</span>
-    </li>)}</ol>
-  </div></Figure>
+  const icons = pickIcons(v.items.map((item) => ({ text: `${item.system} ${item.label}`, detail: item.text })))
+  // Zoom to fit the spots this lesson uses (with room for organ art), so the organs are big but nothing is cut off.
+  const ys = v.items.map((item) => (SPOTS[item.system][1] / BODY_H) * 100)
+  const top = Math.max(0, Math.min(...ys) - 9), bottom = Math.min(100, Math.max(...ys) + 9)
+  const scale = Math.min(1.75, Math.max(1.05, 96 / (bottom - top)))
+  const zoom = { scale, ox: 50, oy: Math.min(100, Math.max(0, (2 - top * scale) / (1 - scale))) }
+  const toBox = (x: number, y: number) => ({ x: zoom.ox + ((x / BODY_W) * 100 - zoom.ox) * zoom.scale, y: zoom.oy + ((y / BODY_H) * 100 - zoom.oy) * zoom.scale })
+  // Labels sit in a column either side of the figure, spread so they never overlap, with a leader line to each spot.
+  const labels = v.items.map((item, i) => { const [x, y] = SPOTS[item.system]; return { i, spot: toBox(x, y), side: x < 512 ? 'left' : x > 512 ? 'right' : '' } })
+  labels.filter((l) => !l.side).forEach((l, k) => { const left = labels.filter((m) => m.side === 'left').length, right = labels.filter((m) => m.side === 'right').length; l.side = left < right || (left === right && k % 2 === 0) ? 'left' : 'right' })
+  const placed = new Map<number, number>()
+  for (const side of ['left', 'right']) {
+    const column = labels.filter((l) => l.side === side).sort((a, b) => a.spot.y - b.spot.y)
+    let last = -Infinity
+    column.forEach((l) => { const y = Math.min(95, Math.max(6, l.spot.y, last + 9)); placed.set(l.i, y); last = y })
+    // If the column ran off the bottom, pull it back up evenly.
+    const over = (column.length ? placed.get(column[column.length - 1].i)! : 0) - 95
+    if (over > 0) column.forEach((l) => placed.set(l.i, Math.max(6, placed.get(l.i)! - over)))
+  }
+  return <Figure title={v.title} caption="Organ art: Servier Medical Art (CC BY 4.0)">
+    <div className="grid items-center gap-6 sm:grid-cols-[minmax(260px,360px)_1fr]">
+      <div className="relative mx-auto aspect-[2/3] w-full max-w-[360px] overflow-hidden rounded-2xl border border-green-deep/10 bg-[radial-gradient(ellipse_at_50%_40%,#ffffff_0%,#f1f4ec_70%,#e4ebdf_100%)]" role="img" aria-label={`Body diagram: ${v.items.map((i) => i.label).join(', ')}`}>
+        <div className="absolute inset-0" style={{ transform: `scale(${zoom.scale})`, transformOrigin: `${zoom.ox}% ${zoom.oy}%` }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- static figure from /public */}
+          <img src="/training/body/body-front.jpg" alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover mix-blend-multiply" />
+          {v.items.map((item, i) => {
+            const art = ART[item.system]; const on = active === null || active === i
+            if (!art) {
+              const [x, y] = SPOTS[item.system]
+              return <span key={i} aria-hidden className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#9bbf2e] bg-gold/55 transition-opacity" style={{ left: pct(x, BODY_W), top: pct(y, BODY_H), width: `${8 / zoom.scale}%`, height: `${5.33 / zoom.scale}%`, boxShadow: '0 0 10px 3px rgba(155,191,46,0.55)', opacity: on ? 1 : 0.3 }} />
+            }
+            const h = art.w / art.aspect
+            const centres = art.gap ? [art.ix - art.gap, art.ix + art.gap] : [art.ix]
+            return centres.map((cx, k) => (
+              // eslint-disable-next-line @next/next/no-img-element -- small static organ art
+              <img key={`${i}-${k}`} src={art.src} alt="" loading="lazy" className={`absolute transition ${k === 1 ? '-scale-x-100' : ''}`}
+                style={{ left: pct(cx - art.w / 2, BODY_W), top: pct(art.iy - h / 2, BODY_H), width: pct(art.w, BODY_W), opacity: on ? 1 : 0.35, filter: active === i ? 'drop-shadow(0 0 6px rgba(155,191,46,1))' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))' }} />
+            ))
+          })}
+        </div>
+        <svg aria-hidden viewBox="0 0 100 150" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full">
+          {labels.map((l) => { const y = placed.get(l.i)!; const lx = l.side === 'left' ? 10 : 90
+            return <g key={l.i} opacity={active === null || active === l.i ? 1 : 0.3}>
+              <polyline points={`${l.spot.x},${l.spot.y * 1.5} ${l.side === 'left' ? 16 : 84},${y * 1.5} ${lx},${y * 1.5}`} fill="none" stroke="#1a3d2e" strokeWidth={0.5} vectorEffect="non-scaling-stroke" />
+              <circle cx={l.spot.x} cy={l.spot.y * 1.5} r={0.9} fill="#1a3d2e" />
+            </g> })}
+        </svg>
+        {labels.map((l) => <button key={l.i} type="button" aria-label={`${l.i + 1}: ${v.items[l.i].label}`} onMouseEnter={() => setActive(l.i)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(l.i)} onBlur={() => setActive(null)}
+          className={`absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs font-bold shadow-md ring-2 ring-white transition ${active === l.i ? 'bg-gold text-green-deep' : 'bg-green-deep text-gold'}`}
+          style={{ left: l.side === 'left' ? '8%' : '92%', top: `${placed.get(l.i)}%` }}>{l.i + 1}</button>)}
+      </div>
+      <ol className="space-y-2">{v.items.map((item, i) => <li key={i} className={`flex items-start gap-3 rounded-2xl p-2.5 transition ${active === i ? 'bg-gold/25' : ''}`} onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)}>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-deep text-xs font-bold text-gold">{i + 1}</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm"><LessonIcon text={item.label} name={icons[i]} size={24} /></span>
+        <span className="pt-0.5"><span className="font-bold text-green-deep">{item.label}</span>{item.text && <span className="block text-sm leading-6 text-text-mid">{item.text}</span>}</span>
+      </li>)}</ol>
+    </div>
+  </Figure>
 }
 
 function Range({ v }: { v: RangeVisual }) {
@@ -394,6 +418,7 @@ function Range({ v }: { v: RangeVisual }) {
     <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs">{v.bands.map((b, i) => <li key={i} className="flex items-center gap-1.5 text-text-dark"><span aria-hidden className="flex h-4 min-w-4 items-center justify-center rounded px-0.5 text-[9px] font-bold text-white" style={{ background: STATUS[b.tone].ink }}>{STATUS[b.tone].icon}</span>{b.label || STATUS[b.tone].label} <span className="tabular-nums text-text-mid">{fmt(b.from)}–{fmt(b.to)}{v.unit ? ` ${v.unit}` : ''}</span></li>)}</ul>
   </Figure>
 }
+
 
 
 export function LessonVisual({ visual }: { visual: Visual }) {
