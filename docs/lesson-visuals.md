@@ -127,6 +127,20 @@ Up to 6 bands and 3 markers. Values outside `min`–`max` are clamped.
 
 `system` is one of: brain, thyroid, heart, lungs, liver, stomach, gallbladder, pancreas, gut, adrenals, kidneys, reproductive, skin, muscles, bones, immune, blood, nerves. Up to 10 items.
 
+## Icons and illustrations
+
+Every item in `steps`, `hub`, `compare`, `stats`, `cycle` and `timeline` shows an icon. It's chosen from the item's own words (its label first, then its description), and each item in a visual gets a different one. To choose it yourself, add `"icon": "<name>"` to the item. For `hub`, add `"icon"` at the top level to set the centre's icon. For `cycle`, an item may be `{ "label": "…", "icon": "…" }`.
+
+**Drawn organs:** gut, liver, stomach, thyroid, kidney, lungs, pancreas, gallbladder, cell, molecule, hormone.
+
+**Icons:**
+- Body and health: brain, heart, heartbeat, blood, bone, tooth, eye, dna, virus, bug, immune, inflammation, temperature.
+- Medicine and labs: pill, prescription, syringe, lab, test, microscope, stethoscope, hospital, emergency, alarm, firstaid, bandage.
+- Food and lifestyle: food, vegetable, fish, egg, bread, plant, leaf, flower, sleep, bed, exercise, strength, weight, scales, sun, coffee, alcohol, smoking, toxin, stress, mood, energy.
+- People: baby, female, male, people, person.
+- Work and admin: clipboard, chart, gauge, calendar, clock, timer, hourglass, chat, phone, email, money, price, handshake, megaphone, camera, lock, key, id, home, work, funnel, settings.
+- General: warning, check, cross, target, idea, search, cycle, recycle, trophy, sparkle.
+
 ## Writing guidance
 
 - Add a visual where it makes the idea easier to grasp: a process (steps), a comparison (compare or a table), a loop (cycle), connected causes (hub), lab interpretation (range), where symptoms appear (body). Roughly 1–3 per module, not one per paragraph.
