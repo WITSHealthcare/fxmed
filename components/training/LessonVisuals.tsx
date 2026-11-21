@@ -294,13 +294,15 @@ function Hub({ v }: { v: HubVisual }) {
   const icons = pickIcons(v.items.map((item) => ({ text: item.label, detail: item.text, name: item.icon })))
   const spot = (i: number) => { const a = -Math.PI / 2 + (i / n) * Math.PI * 2; return { x: r2(50 + 37 * Math.cos(a)), y: r2(50 + 38 * Math.sin(a)) } }
   const tall = n > 5
+  // Long explanations don't fit on a spoke: the diagram then shows labels only, with the explanations in cards below.
+  const detailed = v.items.some((item) => item.text.length > 90)
   const centre = <div className="flex flex-col items-center justify-center rounded-full bg-green-deep text-center text-gold shadow-lg ring-8 ring-[#e7ede3]" style={{ width: 150, height: 150 }}>
     <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-green-deep"><LessonIcon text={v.center} detail={v.title} name={v.centerIcon} size={34} fallback="target" /></span>
     <span className="mt-1 px-3 text-[13px] font-bold leading-tight">{v.center}</span>
   </div>
   return <Figure title={v.title}>
     {/* A true hub on wider screens: the idea in the middle, spokes out to each factor. */}
-    <div className={`relative mx-auto hidden w-full max-w-3xl sm:block ${tall ? 'h-[640px]' : 'h-[520px]'}`}>
+    <div className={`relative mx-auto hidden w-full max-w-3xl sm:block ${detailed ? (tall ? 'h-[500px]' : 'h-[420px]') : tall ? 'h-[640px]' : 'h-[520px]'}`}>
       <svg aria-hidden viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
         {v.items.map((_, i) => { const p = spot(i); return <line key={i} x1={50} y1={50} x2={p.x} y2={p.y} stroke="#2d6a4f" strokeOpacity={0.35} strokeWidth={2} strokeDasharray="4 4" vectorEffect="non-scaling-stroke" /> })}
       </svg>
@@ -308,9 +310,13 @@ function Hub({ v }: { v: HubVisual }) {
       {v.items.map((item, i) => { const p = spot(i); return <div key={i} className="absolute flex w-[31%] max-w-[210px] -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center" style={{ left: `${p.x}%`, top: `${p.y}%` }}>
         <Badge text={item.label} icon={icons[i]} index={i} />
         <p className="mt-1.5 rounded bg-[#fcfcfb]/90 px-1 text-sm font-bold leading-snug text-green-deep">{item.label}</p>
-        {item.text && <p className={`mt-0.5 rounded bg-[#fcfcfb]/90 px-1 text-xs leading-[18px] text-text-mid`}>{item.text}</p>}
+        {item.text && !detailed && <p className="mt-0.5 rounded bg-[#fcfcfb]/90 px-1 text-xs leading-[18px] text-text-mid">{item.text}</p>}
       </div> })}
     </div>
+    {detailed && <ol className="mt-2 hidden gap-3 sm:grid sm:grid-cols-2">{v.items.map((item, i) => <li key={i} className="flex gap-3 rounded-2xl border border-green-deep/10 bg-white p-4 shadow-sm">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: tint(i).bg, color: tint(i).fg }}><LessonIcon text={item.label} name={icons[i]} size={24} /></span>
+      <div><p className="font-bold text-green-deep">{item.label}</p>{item.text && <p className="mt-0.5 text-sm leading-6 text-text-mid">{item.text}</p>}</div>
+    </li>)}</ol>}
     {/* Phones: the idea on top, the factors branching down a spine. */}
     <div className="sm:hidden">
       <div className="flex justify-center">{centre}</div>
