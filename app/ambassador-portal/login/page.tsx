@@ -21,7 +21,7 @@ export default function AmbassadorPortalLogin() {
     setMessage('')
     try {
       const { user } = await signIn(email.trim(), password)
-      if (user.app_metadata?.account_type !== 'ambassador' && user.user_metadata?.account_type !== 'ambassador') {
+      if (user.app_metadata?.account_type !== 'ambassador') {
         await signOut()
         throw new Error('This account does not have Ambassador Portal access.')
       }

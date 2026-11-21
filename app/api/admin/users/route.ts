@@ -7,7 +7,8 @@ import { writeAdminActivity } from '@/lib/admin-activity'
 const validRoles = new Set<AdminRole>(adminRoles)
 
 function getStoredDashboardRole(user: { email?: string; app_metadata?: Record<string, any>; user_metadata?: Record<string, any> }): AdminRole | null {
-  const role = user.app_metadata?.role || user.user_metadata?.role
+  // Only app_metadata counts: user_metadata is editable by the user themselves.
+  const role = user.app_metadata?.role
   if (validRoles.has(role)) return role
   if (user.email && getConfiguredAdminEmails().includes(user.email.toLowerCase())) return 'admin'
   return null
@@ -211,10 +212,6 @@ export async function POST(request: NextRequest) {
         role,
         is_admin: role === 'admin',
         dashboard_active: true,
-      },
-      user_metadata: {
-        role,
-        is_admin: role === 'admin',
       },
     })
 
