@@ -352,7 +352,11 @@ const SPOTS: Record<BodySystem, [number, number]> = {
 const pct = (n: number, of: number) => `${(n / of) * 100}%`
 
 function Body({ v }: { v: BodyVisual }) {
-  const [active, setActive] = useState<number | null>(null)
+  // One organ at a time: tap a number (on the figure or in the chips) to read what happens there.
+  const [selected, setSelected] = useState(0)
+  const [hover, setHover] = useState<number | null>(null)
+  const [showAll, setShowAll] = useState(false)
+  const focus = hover ?? selected
   const icons = pickIcons(v.items.map((item) => ({ text: `${item.system} ${item.label}`, detail: item.text })))
   // Zoom to fit the spots this lesson uses (with room for organ art), so the organs are big but nothing is cut off.
   const ys = v.items.map((item) => (SPOTS[item.system][1] / BODY_H) * 100)
@@ -372,43 +376,74 @@ function Body({ v }: { v: BodyVisual }) {
     const over = (column.length ? placed.get(column[column.length - 1].i)! : 0) - 95
     if (over > 0) column.forEach((l) => placed.set(l.i, Math.max(6, placed.get(l.i)! - over)))
   }
+  const item = v.items[selected]
+  const art = ART[item.system]
+  const step = (by: number) => setSelected((i) => (i + by + v.items.length) % v.items.length)
   return <Figure title={v.title} caption="Organ art: Servier Medical Art (CC BY 4.0)">
-    <div className="grid items-center gap-6 sm:grid-cols-[minmax(260px,360px)_1fr]">
-      <div className="relative mx-auto aspect-[2/3] w-full max-w-[360px] overflow-hidden rounded-2xl border border-green-deep/10 bg-[radial-gradient(ellipse_at_50%_40%,#ffffff_0%,#f1f4ec_70%,#e4ebdf_100%)]" role="img" aria-label={`Body diagram: ${v.items.map((i) => i.label).join(', ')}`}>
+    <div className="grid items-start gap-6 sm:grid-cols-[minmax(240px,340px)_1fr]">
+      <div className="relative mx-auto aspect-[2/3] w-full max-w-[340px] overflow-hidden rounded-2xl border border-green-deep/10 bg-[radial-gradient(ellipse_at_50%_40%,#ffffff_0%,#f1f4ec_70%,#e4ebdf_100%)]" role="img" aria-label={`Body diagram: ${v.items.map((i) => i.label).join(', ')}`}>
         <div className="absolute inset-0" style={{ transform: `scale(${zoom.scale})`, transformOrigin: `${zoom.ox}% ${zoom.oy}%` }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- static figure from /public */}
           <img src="/training/body/body-front.jpg" alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover mix-blend-multiply" />
-          {v.items.map((item, i) => {
-            const art = ART[item.system]; const on = active === null || active === i
-            if (!art) {
-              const [x, y] = SPOTS[item.system]
-              return <span key={i} aria-hidden className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#8db02a] transition-opacity" style={{ left: pct(x, BODY_W), top: pct(y, BODY_H), boxShadow: '0 0 0 2px rgba(141,176,42,0.35), 0 0 6px 1px rgba(141,176,42,0.45)', opacity: on ? 1 : 0.3 }} />
+          {v.items.map((it, i) => {
+            const organ = ART[it.system]; const on = focus === i
+            if (!organ) {
+              const [x, y] = SPOTS[it.system]
+              return <span key={i} aria-hidden className={`absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white transition-all ${on ? 'scale-125 bg-gold' : 'bg-[#8db02a]'}`} style={{ left: pct(x, BODY_W), top: pct(y, BODY_H), boxShadow: on ? '0 0 0 3px rgba(26,61,46,0.8), 0 0 10px 2px rgba(201,226,101,0.9)' : '0 0 0 2px rgba(141,176,42,0.35)', opacity: on ? 1 : 0.55 }} />
             }
-            const h = art.w / art.aspect
-            const centres = art.gap ? [art.ix - art.gap, art.ix + art.gap] : [art.ix]
+            const h = organ.w / organ.aspect
+            const centres = organ.gap ? [organ.ix - organ.gap, organ.ix + organ.gap] : [organ.ix]
             return centres.map((cx, k) => (
               // eslint-disable-next-line @next/next/no-img-element -- small static organ art
-              <img key={`${i}-${k}`} src={art.src} alt="" loading="lazy" className={`absolute transition ${k === 1 ? '-scale-x-100' : ''}`}
-                style={{ left: pct(cx - art.w / 2, BODY_W), top: pct(art.iy - h / 2, BODY_H), width: pct(art.w, BODY_W), opacity: on ? 1 : 0.35, filter: active === i ? 'drop-shadow(0 0 6px rgba(155,191,46,1))' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))' }} />
+              <img key={`${i}-${k}`} src={organ.src} alt="" loading="lazy" className={`absolute transition ${k === 1 ? '-scale-x-100' : ''}`}
+                style={{ left: pct(cx - organ.w / 2, BODY_W), top: pct(organ.iy - h / 2, BODY_H), width: pct(organ.w, BODY_W), opacity: on ? 1 : 0.72, filter: on ? 'drop-shadow(0 0 6px rgba(155,191,46,1))' : 'saturate(0.7)' }} />
             ))
           })}
         </div>
         <svg aria-hidden viewBox="0 0 100 150" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full">
-          {labels.map((l) => { const y = placed.get(l.i)!; const lx = l.side === 'left' ? 10 : 90
-            return <g key={l.i} opacity={active === null || active === l.i ? 1 : 0.3}>
-              <polyline points={`${l.spot.x},${l.spot.y * 1.5} ${l.side === 'left' ? 16 : 84},${y * 1.5} ${lx},${y * 1.5}`} fill="none" stroke="#1a3d2e" strokeWidth={0.5} vectorEffect="non-scaling-stroke" />
+          {labels.map((l) => { const y = placed.get(l.i)!; const lx = l.side === 'left' ? 10 : 90; const on = focus === l.i
+            return <g key={l.i} opacity={on ? 1 : 0.35}>
+              <polyline points={`${l.spot.x},${l.spot.y * 1.5} ${l.side === 'left' ? 16 : 84},${y * 1.5} ${lx},${y * 1.5}`} fill="none" stroke="#1a3d2e" strokeWidth={on ? 1.2 : 0.6} vectorEffect="non-scaling-stroke" />
               <circle cx={l.spot.x} cy={l.spot.y * 1.5} r={0.9} fill="#1a3d2e" />
             </g> })}
         </svg>
-        {labels.map((l) => <button key={l.i} type="button" aria-label={`${l.i + 1}: ${v.items[l.i].label}`} onMouseEnter={() => setActive(l.i)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(l.i)} onBlur={() => setActive(null)}
-          className={`absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs font-bold shadow-md ring-2 ring-white transition ${active === l.i ? 'bg-gold text-green-deep' : 'bg-green-deep text-gold'}`}
+        {labels.map((l) => <button key={l.i} type="button" aria-label={`Show ${v.items[l.i].label}`} aria-pressed={selected === l.i} onClick={() => setSelected(l.i)} onMouseEnter={() => setHover(l.i)} onMouseLeave={() => setHover(null)}
+          className={`absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs font-bold shadow-md ring-2 transition ${selected === l.i ? 'scale-110 bg-gold text-green-deep ring-green-deep' : 'bg-green-deep text-gold ring-white hover:scale-105'}`}
           style={{ left: l.side === 'left' ? '8%' : '92%', top: `${placed.get(l.i)}%` }}>{l.i + 1}</button>)}
       </div>
-      <ol className="space-y-2">{v.items.map((item, i) => <li key={i} className={`flex items-start gap-3 rounded-2xl p-2.5 transition ${active === i ? 'bg-gold/25' : ''}`} onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)}>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-deep text-xs font-bold text-gold">{i + 1}</span>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm"><LessonIcon text={item.label} name={icons[i]} size={24} /></span>
-        <span className="pt-0.5"><span className="font-bold text-green-deep">{item.label}</span>{item.text && <span className="block text-sm leading-6 text-text-mid">{item.text}</span>}</span>
-      </li>)}</ol>
+
+      <div className="space-y-4">
+        {/* The selected organ */}
+        <div aria-live="polite" className="rounded-2xl border border-green-deep/10 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-4">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl" style={{ background: tint(selected).bg }}>
+              {art
+                // eslint-disable-next-line @next/next/no-img-element -- small static organ art
+                ? <img src={art.src} alt="" className="h-12 w-12 object-contain" />
+                : <span style={{ color: tint(selected).fg }}><LessonIcon text={item.label} name={icons[selected]} size={34} /></span>}
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wide text-green-mid">{selected + 1} of {v.items.length}</p>
+              <p className="text-xl font-bold leading-tight text-green-deep">{item.label}</p>
+            </div>
+          </div>
+          {item.text && <p className="mt-4 text-[15px] leading-7 text-text-dark">{item.text}</p>}
+          <div className="mt-5 flex items-center justify-between gap-2">
+            <button type="button" onClick={() => step(-1)} className="rounded-full border px-4 py-2 text-xs font-bold text-green-deep hover:border-green-mid">← Previous</button>
+            <button type="button" onClick={() => step(1)} className="rounded-full bg-green-deep px-4 py-2 text-xs font-bold text-white">Next →</button>
+          </div>
+        </div>
+        {/* Jump to any organ */}
+        <div className="flex flex-wrap gap-2">{v.items.map((it, i) => <button key={i} type="button" aria-pressed={selected === i} onClick={() => setSelected(i)} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}
+          className={`flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-3 text-xs font-bold transition ${selected === i ? 'border-green-deep bg-green-deep text-white' : 'border-green-deep/15 bg-white text-green-deep hover:border-green-mid'}`}>
+          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${selected === i ? 'bg-gold text-green-deep' : 'bg-green-deep text-gold'}`}>{i + 1}</span>{it.label}
+        </button>)}</div>
+        <button type="button" onClick={() => setShowAll((s) => !s)} aria-expanded={showAll} className="text-xs font-bold text-green-mid underline underline-offset-2">{showAll ? 'Hide the full list' : 'See all explanations'}</button>
+        {showAll && <ol className="space-y-3 rounded-2xl bg-[#f7f8f3] p-4">{v.items.map((it, i) => <li key={i} className="flex gap-3 text-sm leading-6">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-deep text-[11px] font-bold text-gold">{i + 1}</span>
+          <span><strong className="text-green-deep">{it.label}.</strong> <span className="text-text-mid">{it.text}</span></span>
+        </li>)}</ol>}
+      </div>
     </div>
   </Figure>
 }
