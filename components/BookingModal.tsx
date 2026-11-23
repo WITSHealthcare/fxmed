@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { BOOKING_TIMES, displayDate, displayTime, firstOpenDate, nextOpenDate, openTimes } from '@/lib/bookingTimes'
 import { useBookingClosures } from '@/lib/useBookingClosures'
+import { payForBooking } from '@/lib/booking-checkout'
 
 interface BookingModalProps {
   isOpen: boolean
@@ -110,14 +111,14 @@ export default function BookingModal({ isOpen, onClose, consultationType }: Book
         throw new Error(result.error || 'Failed to save appointment')
       }
 
-      await response.json()
-      
-      // Redirect to appropriate Paystack payment link based on consultation type
-      const paymentLink = consultationType === 'telemedicine' 
+      const { appointment } = await response.json().catch(() => ({})) as { appointment?: { id?: string } }
+
+      // Pay for this booking on Paystack. The clinic's payment pages are the
+      // fallback when online checkout isn't available.
+      const paymentLink = consultationType === 'telemedicine'
         ? 'https://paystack.shop/pay/x1ui5e7uw3'
         : 'https://paystack.shop/pay/pxog7uys-t'
-      
-      window.open(paymentLink, '_blank')
+      if (await payForBooking(appointment?.id, paymentLink) === 'checkout') return
       
       // Close the modal and reset form
       onClose()
