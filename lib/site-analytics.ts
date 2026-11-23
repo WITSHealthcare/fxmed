@@ -3,7 +3,7 @@ import { createHash } from 'crypto'
 // Recording visits to the public website (see migration 046). Server only.
 
 /** Staff and patient areas are never recorded. */
-const privatePrefixes = ['/admin', '/patient-portal', '/ambassador-portal', '/api']
+const privatePrefixes = ['/admin', '/patient-portal', '/ambassador-portal', '/api', '/dev']
 export function isPrivatePath(path: string) {
   return privatePrefixes.some(prefix => path === prefix || path.startsWith(`${prefix}/`))
 }

@@ -18,6 +18,27 @@ module.exports = {
         'text-dark': '#1c2b22',
         'text-mid': '#4a5e52',
         'white': '#ffffff',
+        // The sage clinic theme for the signed-in admin and the patient portal
+        // (scoped by .clinic-theme in app/globals.css). The public site keeps
+        // the deep green and cream above.
+        'clinic': {
+          'bg': '#ecece9',
+          'card': '#f8f8f6',
+          'ink': '#161a15',
+          'muted': '#6d726b',
+          'sage': '#6f9a4e',
+          'sage-light': '#dfe8cf',
+          'sage-tint': '#c9d8ae',
+          'forest': '#13261a',
+          'lilac': '#d8b4e6',
+          'mustard': '#dcc54a',
+          'flag': '#d0574f',
+          'watch': '#d6a23a',
+          'clear': '#6f9a4e',
+        },
+      },
+      borderRadius: {
+        'card': '28px',
       },
       typography: (theme) => ({
         DEFAULT: {
@@ -41,6 +62,7 @@ module.exports = {
       boxShadow: {
         'custom': '0 8px 40px rgba(26,61,46,0.12)',
         'custom-hover': '0 16px 60px rgba(26,61,46,0.22)',
+        'card': '0 1px 2px rgba(22,26,21,0.04), 0 8px 24px -12px rgba(22,26,21,0.08)',
       },
       animation: {
         'fade-in-up': 'fadeInUp 0.6s ease',

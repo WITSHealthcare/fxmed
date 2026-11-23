@@ -110,10 +110,10 @@ export default function AdminAccountMenu({ roleLabel }: Props) {
 
   return <>
     <div ref={menuRef} className="relative">
-      <button type="button" onClick={() => setMenuOpen(open => !open)} aria-expanded={menuOpen} className="flex items-center gap-3 rounded-full border border-green-deep/10 bg-white px-3 py-2 text-left shadow-sm transition hover:border-green-mid/30 hover:shadow-md sm:px-4">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-deep text-gold"><UserCircleIcon size={20} weight="fill" /></span>
-        <span className="hidden min-w-0 md:block"><span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-text-mid/60">My account</span><span className="mt-0.5 block truncate text-xs font-bold text-green-deep">{roleLabel}</span></span>
-        <CaretDownIcon size={15} weight="bold" className={`hidden text-green-mid transition-transform sm:block ${menuOpen ? 'rotate-180' : ''}`} />
+      <button type="button" onClick={() => setMenuOpen(open => !open)} aria-expanded={menuOpen} className="flex h-11 items-center gap-2.5 rounded-full bg-clinic-forest p-1.5 text-left text-white transition hover:bg-clinic-forest/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-clinic-sage focus-visible:ring-offset-2 sm:pr-4">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-clinic-sage-tint text-clinic-forest"><UserCircleIcon size={20} weight="fill" /></span>
+        <span className="hidden min-w-0 md:block"><span className="block text-[10px] font-medium uppercase tracking-[0.12em] text-white/55">My account</span><span className="block truncate text-xs font-medium text-white">{roleLabel}</span></span>
+        <CaretDownIcon size={14} weight="bold" className={`hidden text-white/60 transition-transform sm:block ${menuOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {menuOpen && <div className="absolute right-0 top-full z-50 mt-3 w-72 overflow-hidden rounded-[18px] border border-green-deep/10 bg-white shadow-[0_20px_60px_rgba(26,61,46,0.18)]">

@@ -7,8 +7,8 @@ import { XIcon } from '@phosphor-icons/react'
 // (hr/*/ui.tsx, emr/ui.tsx) re-export from here so every area looks the same.
 
 export const button = {
-  primary: 'brand-gradient inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_18px_-6px_rgba(19,58,42,0.55)] transition hover:-translate-y-px hover:shadow-[0_10px_24px_-8px_rgba(19,58,42,0.6)] disabled:opacity-50',
-  secondary: 'inline-flex items-center justify-center gap-2 rounded-full border border-green-deep/10 bg-white/70 px-4 py-2 text-xs font-semibold text-green-deep backdrop-blur transition hover:bg-white disabled:opacity-50',
+  primary: 'inline-flex items-center justify-center gap-2 rounded-full bg-clinic-forest px-5 py-2.5 text-sm font-medium text-white transition hover:bg-clinic-forest/90 disabled:opacity-50',
+  secondary: 'inline-flex items-center justify-center gap-2 rounded-full border border-clinic-ink/[0.07] bg-clinic-card px-4 py-2 text-xs font-medium text-clinic-ink transition hover:bg-white disabled:opacity-50',
   danger: 'inline-flex items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50',
   ghost: 'inline-flex items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-bold text-text-mid transition hover:bg-green-deep/5 hover:text-green-deep disabled:opacity-50',
 }
@@ -29,11 +29,11 @@ export function Badge({ children, tone = 'green' }: { children: ReactNode; tone?
 
 export function Stat({ label, value, tone }: { label: string; value: ReactNode; tone?: 'warn' | 'danger' | string }) {
   const toneClass = tone === 'warn' ? 'text-amber-600' : tone === 'danger' ? 'text-red-600' : tone || 'text-green-deep'
-  return <div className="glass rounded-[20px] p-4 sm:p-5"><p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-green-mid/80">{label}</p><p className={`mt-2 text-2xl font-bold tracking-tight sm:text-3xl ${tone ? toneClass : 'text-gradient'}`}>{value}</p></div>
+  return <div className="clinic-card rounded-card p-5 sm:p-6"><p className="text-[13px] font-medium text-clinic-muted">{label}</p><p className={`clinic-number mt-3 text-3xl sm:text-[2.6rem] sm:leading-none ${tone ? toneClass : 'text-clinic-ink'}`}>{value}</p></div>
 }
 
 export function Card({ title, description, action, children }: { title: string; description?: string; action?: ReactNode; children: ReactNode }) {
-  return <section className="glass overflow-hidden rounded-[24px]"><div className="flex flex-wrap items-center justify-between gap-4 border-b border-green-deep/[0.06] p-5 sm:p-6"><div><h3 className="text-lg font-semibold tracking-tight text-green-deep">{title}</h3>{description && <p className="mt-1 text-sm text-text-mid">{description}</p>}</div>{action}</div>{children}</section>
+  return <section className="clinic-card overflow-hidden rounded-card"><div className="flex flex-wrap items-center justify-between gap-4 border-b border-clinic-ink/[0.06] p-5 sm:p-6"><div><h3 className="text-xl text-clinic-ink">{title}</h3>{description && <p className="mt-1 text-sm text-text-mid">{description}</p>}</div>{action}</div>{children}</section>
 }
 
 export function Alert({ children, tone = 'error' }: { children: ReactNode; tone?: 'error' | 'info' | 'warn' }) {
