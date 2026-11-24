@@ -615,7 +615,7 @@ export function buildFmReportPages(data: FmReportData) {
 
   const out = analysis.summary.assessed.filter(entry => directionOf(entry)).sort((a, b) => SEVERITY[bandOf(a)] - SEVERITY[bandOf(b)])
   if (out.length) {
-    add('results', 'Off Target', () => `${title('Off Target')}${lead('These markers sit outside the FXMed optimal range, the furthest out first. For each one: what it measures, and the usual reasons it runs high or low. Your clinician will read them alongside your history and symptoms.')}${bandCounts(analysis)}`)
+    add('results', 'Off Target', () => `${title('Off Target')}${lead('These markers sit outside the FXMed optimal range, the furthest out first. For each one: what it measures, and the usual reasons it runs high or low. Your clinician will read them alongside your history and symptoms. Every marker is also explained in the FXMed Lab Library at www.fxmed.ng/lab-library.')}${bandCounts(analysis)}`)
     for (const [name, list] of [['Running high', out.filter(entry => directionOf(entry) === 'high')], ['Running low', out.filter(entry => directionOf(entry) === 'low')]] as const) {
       chunk(list, 8).forEach((part, page) => add('results', 'Off Target', () =>
         `<div style="font-size:2.1em;color:${GREEN};line-height:1.3;margin:1.3em 0 1em">${name}${page ? ' (continued)' : ''}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:2em 2.2em">${part.map(outOfRangeCard).join('')}</div>`))

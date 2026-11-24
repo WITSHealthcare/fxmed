@@ -238,6 +238,9 @@ const CONVERSIONS: Record<string, Record<string, number>> = {
   tsh: { 'miu/l': 1 },
 }
 
+/** Other units a marker is commonly reported in, with the factor from the catalogue unit. */
+export const alternateUnits = (markerId: string) => Object.entries(CONVERSIONS[markerId] || {}).map(([unit, factor]) => ({ unit, factor }))
+
 /** The factor from a marker's catalogue unit to `unit`, already normalised. */
 function conversion(markerId: string, unit: string) {
   const match = Object.entries(CONVERSIONS[markerId] || {}).find(([key]) => normalizeUnit(key) === unit)
