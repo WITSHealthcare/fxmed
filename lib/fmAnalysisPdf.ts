@@ -849,7 +849,7 @@ function dividerBody(section: (typeof SECTIONS)[number], toc: TocIndex) {
     <div style="position:absolute;left:3.4em;top:3.4em"><img src="/logo-trimmed.png" style="height:2.2em;display:block" /></div>
     <div style="position:absolute;left:3.4em;right:3.4em;bottom:7.5em">
       <div style="font-size:.95em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">Part</div>
-      <div style="font-size:15em;font-weight:300;line-height:.95;letter-spacing:-.05em;color:${LIME}">${section.number}</div>
+      <div data-fm-lift style="font-size:15em;font-weight:300;line-height:.95;letter-spacing:-.05em;color:${LIME}">${section.number}</div>
       <div style="font-size:3.4em;font-weight:500;line-height:1.1;letter-spacing:-.02em;color:#fff;margin-top:.15em">${esc(section.title)}</div>
       <div style="font-size:1.15em;line-height:1.55;color:${ON_DARK};margin-top:.8em;width:32em">${esc(section.blurb)}</div>
       <div style="width:3.2em;height:.42em;background:${LIME};border-radius:1em;margin:2em 0 1.2em"></div>
@@ -1249,6 +1249,43 @@ export function fitPage(root: HTMLElement) {
   }
 }
 
+/**
+ * How far below its true place html2canvas (1.4) draws a line of text, in px.
+ * It puts the baseline at the text's top plus a distance measured in a probe on
+ * document.body, which inherits the page's line-height (1.5) and so lands
+ * about a third of an em too low: barely visible in body text, but 59px for
+ * the 15em part number on a divider. Measured the same way html2canvas does
+ * (see FontMetrics.parseMetrics), less the font's real ascent.
+ */
+function html2canvasDrop(element: HTMLElement) {
+  const style = getComputedStyle(element)
+  const probe = document.createElement('div')
+  probe.style.cssText = `visibility:hidden;font-family:${style.fontFamily};font-size:${style.fontSize};margin:0;padding:0;white-space:nowrap`
+  const span = document.createElement('span')
+  span.style.cssText = `font-family:${style.fontFamily};font-size:${style.fontSize};margin:0;padding:0`
+  span.textContent = 'Hidden Text'
+  const img = document.createElement('img')
+  img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+  img.width = img.height = 1
+  img.style.cssText = 'margin:0;padding:0;vertical-align:baseline'
+  probe.append(span, img)
+  document.body.appendChild(probe)
+  const measured = img.offsetTop - span.offsetTop + 2
+  probe.remove()
+  const context = document.createElement('canvas').getContext('2d')!
+  context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+  return measured - context.measureText(element.textContent || '').fontBoundingBoxAscent
+}
+
+/** Raises large text marked data-fm-lift in html2canvas's copy of the page, so the PDF matches the preview. */
+function liftForCanvas(root: HTMLElement, clone: HTMLElement) {
+  const copies = clone.querySelectorAll<HTMLElement>('[data-fm-lift]')
+  root.querySelectorAll<HTMLElement>('[data-fm-lift]').forEach((element, index) => {
+    const drop = html2canvasDrop(element)
+    if (copies[index] && drop) Object.assign(copies[index].style, { position: 'relative', top: `${-drop}px` })
+  })
+}
+
 // Rendered at about 230 dpi so text stays sharp on screen and in print. The
 // pages share a size budget, kept under the EMR's 15 MB document limit: each
 // is encoded at the best JPEG quality that keeps the running total on budget.
@@ -1294,7 +1331,7 @@ export async function renderFmReportPdf(data: FmReportData): Promise<Blob> {
       const root = host.firstElementChild as HTMLElement
       await Promise.all(Array.from(root.querySelectorAll('img')).map(img => img.complete ? null : new Promise(resolve => { img.onload = img.onerror = resolve })))
       fitPage(root)
-      const canvas = await html2canvas(root, { scale: RENDER_SCALE, useCORS: true, backgroundColor: '#ffffff', width: PAGE_W, height: PAGE_H })
+      const canvas = await html2canvas(root, { scale: RENDER_SCALE, useCORS: true, backgroundColor: '#ffffff', width: PAGE_W, height: PAGE_H, onclone: (_doc, clone) => liftForCanvas(root, clone) })
       if (index) pdf.addPage('letter', 'portrait')
       // A dense page may take more than an even share; the pages after it make up the difference.
       const image = encode(canvas, (1.5 * (PDF_BUDGET - used)) / (pages.length - index))
