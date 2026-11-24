@@ -15,6 +15,8 @@ import {
 } from './fmAssessment'
 import { ageInYears, deviation, FM_PANELS, PRIORITY_COLOR, type AssessedEntry, type FmEntry, type FmNarrative, type FmPatient } from './fmBiomarkers'
 import { markerExplanation } from './fmMarkerInfo'
+import { assessStool, gutEvidence, type GutAssessment } from './stoolAssessment'
+import { parseStoolNumber, parseStoolReference, stoolNeedsReview, stoolStatus, STOOL_STATUS_LABEL, type StoolEntry, type StoolTest } from './stoolMarkers'
 
 export const PAGE_W = 816
 export const PAGE_H = 1056
@@ -61,6 +63,8 @@ export type FmReportData = {
   patient: FmPatient
   entries: FmEntry[]
   narrative: FmNarrative
+  /** The patient's stool test, read beside the blood results (lib/stoolMarkers.ts). */
+  stool?: StoolTest | null
   generatedAt?: Date
 }
 
@@ -716,8 +720,11 @@ function targets(item: AreaResult) {
   </div>`
 }
 
-function improvementPage(item: AreaResult, narrative: FmNarrative, child: boolean) {
-  const plan = planFor(item.area, narrative, child)
+function improvementPage(item: AreaResult, narrative: FmNarrative, child: boolean, gut?: GutAssessment) {
+  const base = planFor(item.area, narrative, child)
+  // With a stool test done, the plan does not ask for one again.
+  const plan = gut?.tested ? { ...base, tests: base.tests.filter(test => !/^stool test/i.test(test)) } : base
+  const stool = gut?.tested ? gutEvidence(gut, item.area.id) : null
   const priority = priorityOf(item)
   return `${dash('1.4em 0 .9em')}
     <div style="display:grid;grid-template-columns:1fr 11.5em;gap:2em;align-items:start">
@@ -725,6 +732,7 @@ function improvementPage(item: AreaResult, narrative: FmNarrative, child: boolea
         <div style="font-size:.8em;font-weight:800;letter-spacing:.14em;color:${PRIORITY_COLOR[priority]};text-transform:uppercase">${priority === 'urgent' ? 'See your doctor promptly' : `${priority} priority`}</div>
         <div style="font-size:2.1em;font-weight:800;line-height:1.25;letter-spacing:-.01em;margin-top:.2em">${esc(item.area.name)}</div>
         <div style="font-size:1.04em;line-height:1.65;color:${BODY};margin-top:.7em">${esc(item.area.finding || item.area.about)}</div>
+        ${stool && stool.findings.length ? `<div style="font-size:.95em;line-height:1.55;margin-top:.7em;background:${CREAM};border-radius:.8em;padding:.6em .9em"><b style="color:${GREEN}">Your stool test also shows:</b> ${esc(stool.findings.map(finding => finding.title.toLowerCase()).join(', '))}. See Your Gut.</div>` : ''}
       </div>
       ${gaugeColumn(item.score)}
     </div>
@@ -881,6 +889,97 @@ function snapshotBody(analysis: Analysis, narrative: FmNarrative) {
 }
 
 // ---------------------------------------------------------------------------
+// Your gut: the stool test, read beside the blood results
+
+/** A plain number from a printed stool value, 2.1e7 for big counts. */
+function sciText(value: number) {
+  if (!Number.isFinite(value)) return '—'
+  if (value !== 0 && (Math.abs(value) >= 1e4 || Math.abs(value) < 0.01)) return value.toExponential(1).replace('e+', 'e')
+  return Number(value.toFixed(value >= 100 ? 0 : 2)).toString()
+}
+
+function gutTone(entry: StoolEntry): Tone {
+  const status = stoolStatus(entry)
+  if (stoolNeedsReview(entry, status)) return 'flag'
+  return status === 'high' || status === 'low' || status === 'detected' ? 'watch' : 'clear'
+}
+
+/**
+ * One stool result on a soft three-zone bar: below the lab's range, within it
+ * (sage), above it. Bacteria use a log scale, since counts run over many
+ * powers of ten; a one-sided range gets a band two steps wide.
+ */
+function stoolBar(entry: StoolEntry, log: boolean) {
+  const reference = parseStoolReference(entry.reference)
+  const number = parseStoolNumber(entry.value)
+  const below = /<\s*d\.?l|not\s*detected/i.test(entry.value) || number === null || (log && number <= 0)
+  const scale = (value: number) => log ? Math.log10(value) : value
+  let low = reference?.low != null && (!log || reference.low > 0) ? scale(reference.low) : null
+  let high = reference?.high != null && (!log || reference.high > 0) ? scale(reference.high) : null
+  const realLow = low, realHigh = high
+  if (log) { low = low ?? (high !== null ? high - 2 : null); high = high ?? (low !== null ? low + 2 : null) }
+  const span = low !== null && high !== null ? high - low : Math.abs(low ?? high ?? 1) || 1
+  // Below the detection limit: well under the range on a log scale, zero on a plain one.
+  const value = below ? (log ? (low ?? high ?? 0) - 1.2 : 0) : scale(number!)
+  let start = Math.min(value, low ?? high ?? value) - span * 0.35
+  if (!log) start = Math.max(0, start)
+  const end = Math.max(value, high ?? low ?? value) + span * 0.35
+  const at = (point: number) => Math.max(0, Math.min(100, ((point - start) / (end - start || 1)) * 100))
+  const a = low !== null ? at(low) : 0, b = high !== null ? at(high) : 100
+  const tone = gutTone(entry)
+  const label = (point: number | null, real: number | null) => point === null || real === null ? '' : `<span style="position:absolute;left:${at(point)}%;top:1.75em;margin-left:-2.5em;width:5em;text-align:center;font-size:.72em;color:${MUTED}">${esc(log ? sciText(10 ** point) : sciText(point))}</span>`
+  return `<div style="position:relative;height:2.7em">
+    <div style="position:absolute;left:0;right:0;top:.55em;height:.6em;display:flex;gap:2px">
+      ${a > 0 ? `<div style="width:${a}%;background:${TONE.flag.tint};border-radius:1em 0 0 1em"></div>` : ''}
+      <div style="flex:1;background:${TONE.clear.light};border-radius:${a > 0 ? '0' : '1em'} ${b < 100 ? '0' : '1em'} ${b < 100 ? '0' : '1em'} ${a > 0 ? '0' : '1em'}"></div>
+      ${b < 100 ? `<div style="width:${100 - b}%;background:${TONE.flag.tint};border-radius:0 1em 1em 0"></div>` : ''}
+    </div>
+    <div style="position:absolute;left:${at(value)}%;top:.1em;width:1.5em;height:1.5em;margin-left:-.75em;border-radius:50%;background:#fff;border:.32em solid ${TONE[tone].solid};box-sizing:border-box"></div>
+    ${label(low, realLow)}${label(high, realHigh)}
+  </div>`
+}
+
+function stoolRow(entry: StoolEntry, log: boolean) {
+  const status = stoolStatus(entry), tone = gutTone(entry)
+  return `<div style="display:grid;grid-template-columns:15em 6.5em 1fr 7em;gap:1.2em;align-items:center;padding:.55em 0;border-bottom:1px solid ${LINE}">
+    <div style="font-size:.95em;line-height:1.3">${esc(entry.name)}</div>
+    <div style="font-size:1.1em;letter-spacing:-.01em">${esc(entry.value)} <span style="font-size:.72em;color:${MUTED}">${esc(entry.unit === 'GE/g' ? '' : entry.unit)}</span></div>
+    ${stoolBar(entry, log)}
+    <div style="text-align:right;font-size:.82em;font-weight:700;color:${TONE[tone].text}">${esc(STOOL_STATUS_LABEL[status])}</div>
+  </div>`
+}
+
+function gutFindingCard(finding: GutAssessment['findings'][number]) {
+  return `<div style="background:${CREAM};border-radius:1em;padding:.9em 1em;${finding.tone === 'nodata' ? 'opacity:.7' : ''}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5em"><div style="font-size:1em;font-weight:700;line-height:1.3">${esc(finding.title)}</div>${twinChip(finding.tone as TwinStatus)}</div>
+    <div style="font-size:.85em;line-height:1.5;color:${BODY};margin-top:.4em">${esc(finding.tone === 'nodata' ? 'Not part of this stool test.' : finding.summary || 'Nothing outside the lab\'s range.')}</div>
+  </div>`
+}
+
+/** The "Your Gut" pages, as blocks for the page flow. Empty when there is no stool test. */
+function gutBlocks(gut: GutAssessment, stool: StoolTest): Block[] {
+  if (!gut.tested) return []
+  const tab = 'Your Gut'
+  const filled = stool.entries.filter(entry => entry.value.trim() && stoolStatus(entry) !== 'unknown')
+  const bacteria = filled.filter(entry => (entry.section === 'commensal' || entry.section === 'phyla') && entry.markerId !== 'firmicutes_bacteroidetes_ratio' && parseStoolReference(entry.reference))
+  const markers = filled.filter(entry => ['digestion', 'gi_markers', 'immune', 'inflammation', 'barrier'].includes(entry.section) && parseStoolReference(entry.reference))
+  const found = filled.filter(entry => ['pathogen', 'h_pylori', 'overgrowth', 'inflammatory', 'fungi', 'virus', 'parasite', 'worm'].includes(entry.section) && (stoolStatus(entry) === 'high' || stoolStatus(entry) === 'detected'))
+  const source = `${esc(stool.lab || 'stool test')}${stool.collectedAt ? `, collected ${esc(stool.collectedAt)}` : ''}`
+  const blocks: Block[] = [{
+    tab,
+    html: `${title('Your Gut')}
+      ${lead('Your stool test shows what blood cannot: the bacteria living in your gut, how well you digest food, and how calm or inflamed the gut lining is. Each result is read against the laboratory\'s own range.')}
+      <div style="font-size:.85em;color:${MUTED};margin-top:.6em">From your ${source}.</div>
+      ${gut.review.length ? `<div style="margin-top:1.4em;background:${TONE.flag.tint};border-radius:1em;padding:1em 1.2em;color:${TONE.flag.text};font-size:.95em;line-height:1.55"><b>Talk these through with your clinician:</b> ${esc(gut.review.map(result => result.entry.name).join(', '))}. Your clinician decides what they mean alongside your symptoms; this report does not suggest treatment for them.</div>` : ''}
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.9em;margin-top:1.6em">${gut.findings.map(gutFindingCard).join('')}</div>
+      ${found.length ? `<div style="margin-top:1.6em">${heading('Found above the laboratory\'s threshold')}<div style="display:flex;flex-wrap:wrap;gap:.6em">${found.map(entry => `<span style="background:${CREAM};border-radius:2em;padding:.45em .9em;font-size:.88em">${esc(entry.name)} <b style="color:${TONE[gutTone(entry)].text}">${esc(entry.value)}</b> <span style="color:${MUTED}">(${esc(entry.reference)})</span></span>`).join('')}</div></div>` : ''}`,
+  }]
+  if (bacteria.length) blocks.push({ tab, html: `${subtitle('Your microbiome')}${lead('The main groups of helpful bacteria, counted in your stool. The scale is logarithmic: each step along it is ten times more. The green band is the laboratory\'s range.')}<div style="margin-top:1.2em">${bacteria.map(entry => stoolRow(entry, true)).join('')}</div>` })
+  if (markers.length) blocks.push({ tab, html: `${subtitle('Digestion, immunity and the gut lining')}${lead('How well food is being broken down, how the gut\'s immune defences are working, and signs of inflammation or a leaky gut lining.')}<div style="margin-top:1.2em">${markers.map(entry => stoolRow(entry, false)).join('')}</div>` })
+  return blocks
+}
+
+// ---------------------------------------------------------------------------
 // Digital twin snapshot
 
 /**
@@ -909,19 +1008,35 @@ const TWIN_WHOLE_BODY: Array<{ label: string; areas: string[] }> = [
 type TwinStatus = Tone | 'nodata'
 const TWIN_WORDS: Record<TwinStatus, string> = { flag: 'Needs support', watch: 'Worth watching', clear: 'Low priority', nodata: 'Not tested' }
 
-/** The status of a group of areas: from the highest support score among those these results could score. */
-function twinStatus(analysis: Analysis, ids: string[]) {
+const TWIN_RANK: Record<TwinStatus, number> = { flag: 3, watch: 2, clear: 1, nodata: 0 }
+
+/**
+ * The status of a group of areas: from the highest support score among those
+ * these results could score. Where a stool test speaks to one of the areas,
+ * the status is the higher of the two, and the stool findings are named; the
+ * blood score itself is unchanged.
+ */
+function twinStatus(analysis: Analysis, ids: string[], gut?: GutAssessment) {
   const scored = ids.map(id => analysis.areas.find(item => item.area.id === id)).filter((item): item is AreaResult => !!item && item.considered.length > 0)
-  if (!scored.length) return { status: 'nodata' as TwinStatus, word: TWIN_WORDS.nodata, worst: null, markers: '', untested: false }
+  const evidence = gut ? ids.map(id => gutEvidence(gut, id)).filter((item): item is NonNullable<ReturnType<typeof gutEvidence>> => !!item) : []
+  const stoolTone = evidence.reduce<TwinStatus>((worst, item) => TWIN_RANK[item.tone as TwinStatus] > TWIN_RANK[worst] ? item.tone as TwinStatus : worst, 'nodata')
+  const stool = Array.from(new Set(evidence.flatMap(item => item.findings.map(finding => finding.title.toLowerCase())))).join(', ')
+  const stoolTested = evidence.length > 0
+  if (!scored.length) return { status: stoolTone, word: TWIN_WORDS[stoolTone], worst: null, markers: '', stool, stoolTested, untested: false }
   const worst = scored.reduce((top, item) => item.score > top.score ? item : top)
   const seen = new Set<string>()
   const contributors = scored.flatMap(item => item.contributors).filter(({ entry }) => !seen.has(entry.name) && !!seen.add(entry.name))
-  const status = toneOf(worst.score) as TwinStatus
+  const blood = toneOf(worst.score) as TwinStatus
+  const status = TWIN_RANK[stoolTone] > TWIN_RANK[blood] ? stoolTone : blood
   const statuses = scored.map(item => scoreStatus(item).key)
-  // Low scores only reassure where a direct test was read.
-  if (status === 'clear' && statuses.every(key => key === 'not_direct' || key === 'indirect')) return { status: 'nodata' as TwinStatus, word: 'Not tested directly', worst, markers: '', untested: true }
+  // Low blood scores only reassure where a direct test was read. A stool finding can still raise the status.
+  if (status === 'clear' && statuses.every(key => key === 'not_direct' || key === 'indirect')) {
+    return stoolTone === 'clear'
+      ? { status, word: TWIN_WORDS.clear, worst, markers: '', stool, stoolTested, untested: true }
+      : { status: 'nodata' as TwinStatus, word: 'Not tested directly', worst, markers: '', stool, stoolTested, untested: true }
+  }
   const word = status === 'clear' && statuses.every(key => key === 'on_target') ? 'On target' : TWIN_WORDS[status]
-  return { status, word, worst, markers: markerList(contributors.slice(0, 3)), untested: false }
+  return { status, word, worst, markers: markerList(contributors.slice(0, 3)), stool, stoolTested, untested: false }
 }
 
 /** A status pill. SVG, because html2canvas draws text in small boxes too low. */
@@ -940,11 +1055,13 @@ function twinCard(label: string, state: ReturnType<typeof twinStatus>, style: st
       ? `<span style="color:${MUTED}">Its main tests were not in these results.${state.worst.missing.length ? ` Consider ${esc(state.worst.missing.slice(0, 2).join(', '))}.` : ''}</span>`
       : state.worst
       ? `${esc(state.worst.area.name)} <b style="color:${TONE[toneOf(state.worst.score)].text}">${state.worst.score}%</b>${state.markers ? `<br/><span style="color:${MUTED}">${state.markers}</span>` : ''}`
-      : `<span style="color:${MUTED}">These results did not include its markers.</span>`}</div>
+      : state.stoolTested ? '' : `<span style="color:${MUTED}">These results did not include its markers.</span>`}${state.stool
+      ? `${state.worst ? '<br/>' : ''}<b style="color:${GREEN}">From your stool test:</b> ${esc(state.stool)}`
+      : state.stoolTested && !state.worst ? `<span style="color:${MUTED}">Stool test: nothing outside the lab's range.</span>` : ''}</div>
   </div>`
 }
 
-function twinBody(analysis: Analysis) {
+function twinBody(analysis: Analysis, gut?: GutAssessment) {
   // The map in em, against the page's base size: a cropped figure in the
   // middle, callouts down either side, joined by lines drawn in one SVG.
   // The picture is drawn 46em wide and cropped to the torso (22–78% across,
@@ -952,7 +1069,7 @@ function twinBody(analysis: Analysis) {
   const width = 69, picture = 46, cropX = 0.22, cropY = 0.02
   const figureWidth = picture * 0.56, visible = picture * 1.5 * 0.64, figureLeft = (width - figureWidth) / 2
   const cardWidth = 19.5, cardHeight = 6.4, gap = 0.8
-  const organs = TWIN_ORGANS.map(organ => ({ ...organ, ...twinStatus(analysis, organ.areas),
+  const organs = TWIN_ORGANS.map(organ => ({ ...organ, ...twinStatus(analysis, organ.areas, gut),
     hx: figureLeft + (organ.x / 100 - cropX) * picture, hy: (organ.y / 100 - cropY) * picture * 1.5 }))
   // Each side's callouts at their organ's height, nudged apart so none overlap.
   const placed = new Map<string, number>()
@@ -990,9 +1107,9 @@ function twinBody(analysis: Analysis) {
       ${cards}
     </div>
     <div style="margin-top:1.6em">${heading('Through the whole body')}</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.9em">${TWIN_WHOLE_BODY.map(item => twinCard(item.label, twinStatus(analysis, item.areas), 'min-height:6.4em')).join('')}</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.9em">${TWIN_WHOLE_BODY.map(item => twinCard(item.label, twinStatus(analysis, item.areas, gut), 'min-height:6.4em')).join('')}</div>
     <div style="margin-top:1.2em;font-size:.84em;color:${BODY}">${legend}</div>
-    <div style="margin-top:.6em;font-size:.78em;line-height:1.5;color:${MUTED}">A map of where your blood results point, drawn on the FxMed Digital Twin. It is not a picture of your own body and not a diagnosis; your clinician reads it with your history and symptoms.</div>`
+    <div style="margin-top:.6em;font-size:.78em;line-height:1.5;color:${MUTED}">A map of where your results point, drawn on the FxMed Digital Twin. It is not a picture of your own body and not a diagnosis; your clinician reads it with your history and symptoms.</div>`
 }
 
 function next90Body(analysis: Analysis, narrative: FmNarrative, patient: FmPatient) {
@@ -1075,7 +1192,8 @@ export function buildFmReportPages(data: FmReportData) {
 
   // Part 2. Your body, system by system
   divider('body')
-  add('body', 'Digital Twin', () => twinBody(analysis))
+  const gut = assessStool(data.stool ?? null)
+  add('body', 'Digital Twin', () => twinBody(analysis, gut.tested ? gut : undefined))
   if (analysis.group('system').some(item => item.considered.length)) add('body', 'Systems Map', () => systemsMapBody(analysis))
   const bodyBlocks: Block[] = []
   for (const group of ['system', 'accessory', 'nutrient', 'deficiency'] as const) {
@@ -1089,12 +1207,13 @@ export function buildFmReportPages(data: FmReportData) {
     detail.forEach((item, index) => bodyBlocks.push({ tab, html: `${index ? '' : closer}${areaDetail(item)}`, resume: index ? `${subtitle(`A closer look: ${info.title} (continued)`)}<div style="height:1.2em"></div>` : undefined }))
   }
   flow('body', bodyBlocks)
+  if (gut.tested && data.stool) flow('body', gutBlocks(gut, data.stool))
 
   // Part 3. Your care plan
   divider('plan')
   const planBlocks: Block[] = []
   planBlocks.push({ tab: 'Focus Areas', html: `${title('Your Focus Areas')}${lead(AREA_GROUPS.plan.intro)}${lead(analysis.plan.length ? 'Each focus area has its own page: the results behind it, your targets, and what we will do about it through food, daily habits, supplements to discuss with your clinician, and tests to repeat.' : 'No area scored high enough to need a plan of its own. Keep up the basics on the Next 90 Days page and retest as advised.')}${analysis.plan.length ? likelihoodChart(analysis.plan) : ''}<div style="height:1.4em"></div>` })
-  analysis.plan.forEach(item => planBlocks.push({ tab: 'Focus Areas', html: `${improvementPage(item, narrative, analysis.child)}<div style="height:2.2em"></div>` }))
+  analysis.plan.forEach(item => planBlocks.push({ tab: 'Focus Areas', html: `${improvementPage(item, narrative, analysis.child, gut)}<div style="height:2.2em"></div>` }))
   const recommendations = narrative.recommendations.length ? narrative.recommendations : defaultRecommendations(analysis)
   const movesIntro = `${title('Your First Moves')}${lead('If you do nothing else, start here. These are the most important actions from your plan, most pressing first; anything marked urgent needs a doctor before the rest.')}<div style="height:1.8em"></div>`
   chunk(recommendations, 2).forEach((pair, index) => planBlocks.push({ tab: 'First Moves', html: `${index ? '' : movesIntro}<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em;margin-bottom:1.2em">${pair.map(recommendationCard).join('')}</div>` }))

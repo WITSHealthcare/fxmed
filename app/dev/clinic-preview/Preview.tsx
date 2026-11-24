@@ -123,7 +123,7 @@ function Report({ initial }: { initial: FmEntry[] }) {
     const analysis = analyse(initial, 'female', 40)
     return { ...emptyNarrative(), summary: defaultSummary(analysis), findings: defaultFindings(analysis), recommendations: defaultRecommendations(analysis), nextSteps: defaultNextSteps(analysis) }
   })
-  return <ReportBuilder patient={samplePatient} entries={entries} setEntries={setEntries} narrative={narrative} setNarrative={setNarrative} emrPatientId={null} onSaveAnalysis={async () => true} />
+  return <ReportBuilder patient={samplePatient} entries={entries} setEntries={setEntries} narrative={narrative} setNarrative={setNarrative} emrPatientId={null} onSaveAnalysis={async () => true} stool={sampleStool().test} />
 }
 
 function Kit() {
