@@ -867,6 +867,115 @@ function snapshotBody(analysis: Analysis, narrative: FmNarrative) {
     </div>`
 }
 
+// ---------------------------------------------------------------------------
+// Digital twin snapshot
+
+/**
+ * Organs on the FxMed Digital Twin's body picture, with the report areas each
+ * one stands for. x and y are the Twin's hotspot positions, as a percentage of
+ * the picture's width and height; side is where its callout sits.
+ */
+const TWIN_ORGANS: Array<{ id: string; label: string; x: number; y: number; side: 'left' | 'right'; areas: string[] }> = [
+  { id: 'thyroid', label: 'Thyroid', x: 50, y: 17, side: 'left', areas: ['thyroid'] },
+  { id: 'heart', label: 'Heart & circulation', x: 53.5, y: 26, side: 'right', areas: ['cardiovascular', 'lipids'] },
+  { id: 'liver', label: 'Liver & gallbladder', x: 45, y: 33, side: 'left', areas: ['liver', 'gallbladder'] },
+  { id: 'pancreas', label: 'Pancreas & sugar', x: 53.5, y: 36.5, side: 'right', areas: ['blood_sugar'] },
+  { id: 'kidneys', label: 'Kidneys & adrenals', x: 43, y: 39.5, side: 'left', areas: ['kidney', 'adrenal'] },
+  { id: 'gut', label: 'Stomach & gut', x: 50, y: 45.5, side: 'right', areas: ['digestion'] },
+  { id: 'hormones', label: 'Sex hormones', x: 50, y: 52.5, side: 'right', areas: ['sex_hormones'] },
+  { id: 'muscle', label: 'Bones & muscle', x: 42, y: 62, side: 'left', areas: ['bone', 'protein_status'] },
+]
+/** Systems that run through the whole body, shown under the figure. */
+const TWIN_WHOLE_BODY: Array<{ label: string; areas: string[] }> = [
+  { label: 'Blood & iron', areas: ['red_blood', 'iron_status'] },
+  { label: 'Immune system', areas: ['immune'] },
+  { label: 'Inflammation', areas: ['inflammation', 'oxidative'] },
+  { label: 'Nourishment', areas: ['vitamin_status', 'mineral_status', 'hydration', 'electrolytes'] },
+]
+
+type TwinStatus = Tone | 'nodata'
+const TWIN_WORDS: Record<TwinStatus, string> = { flag: 'Needs support', watch: 'Worth watching', clear: 'Holding steady', nodata: 'Not tested' }
+
+/** The status of a group of areas: from the highest support score among those these results could score. */
+function twinStatus(analysis: Analysis, ids: string[]) {
+  const scored = ids.map(id => analysis.areas.find(item => item.area.id === id)).filter((item): item is AreaResult => !!item && item.considered.length > 0)
+  if (!scored.length) return { status: 'nodata' as TwinStatus, worst: null, markers: '' }
+  const worst = scored.reduce((top, item) => item.score > top.score ? item : top)
+  const seen = new Set<string>()
+  const contributors = scored.flatMap(item => item.contributors).filter(({ entry }) => !seen.has(entry.name) && !!seen.add(entry.name))
+  return { status: toneOf(worst.score) as TwinStatus, worst, markers: markerList(contributors.slice(0, 3)) }
+}
+
+/** A status pill. SVG, because html2canvas draws text in small boxes too low. */
+function twinChip(status: TwinStatus) {
+  const text = TWIN_WORDS[status]
+  const colors = status === 'nodata' ? { tint: TRACK, text: MUTED } : { tint: TONE[status].tint, text: TONE[status].text }
+  const width = text.length * 0.5 + 1.5
+  return `<span style="display:block;flex:none;font-size:.8em"><svg width="${width}em" height="1.8em" viewBox="0 0 ${width * 10} 18" style="display:block">
+    <rect width="${width * 10}" height="18" rx="9" fill="${colors.tint}"/>
+    <text x="${width * 5}" y="12.2" text-anchor="middle" font-family="${SVG_FONT}" font-size="9" font-weight="700" fill="${colors.text}">${esc(text)}</text></svg></span>`
+}
+
+function twinCard(label: string, state: ReturnType<typeof twinStatus>, style: string) {
+  return `<div style="${style};background:${CREAM};border-radius:1em;padding:.75em .9em;box-sizing:border-box">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5em"><div style="font-size:1em;font-weight:700;line-height:1.3;color:${INK}">${esc(label)}</div>${twinChip(state.status)}</div>
+    <div style="font-size:.84em;line-height:1.45;color:${BODY};margin-top:.35em">${state.worst
+      ? `${esc(state.worst.area.name)} <b style="color:${TONE[toneOf(state.worst.score)].text}">${state.worst.score}%</b>${state.markers ? `<br/><span style="color:${MUTED}">${state.markers}</span>` : ''}`
+      : `<span style="color:${MUTED}">These results did not include its markers.</span>`}</div>
+  </div>`
+}
+
+function twinBody(analysis: Analysis) {
+  // The map in em, against the page's base size: a cropped figure in the
+  // middle, callouts down either side, joined by lines drawn in one SVG.
+  // The picture is drawn 46em wide and cropped to the torso (22–78% across,
+  // 2–66% down), so the organs read at a useful size.
+  const width = 69, picture = 46, cropX = 0.22, cropY = 0.02
+  const figureWidth = picture * 0.56, visible = picture * 1.5 * 0.64, figureLeft = (width - figureWidth) / 2
+  const cardWidth = 19.5, cardHeight = 6.4, gap = 0.8
+  const organs = TWIN_ORGANS.map(organ => ({ ...organ, ...twinStatus(analysis, organ.areas),
+    hx: figureLeft + (organ.x / 100 - cropX) * picture, hy: (organ.y / 100 - cropY) * picture * 1.5 }))
+  // Each side's callouts at their organ's height, nudged apart so none overlap.
+  const placed = new Map<string, number>()
+  for (const side of ['left', 'right'] as const) {
+    const list = organs.filter(organ => organ.side === side).sort((a, b) => a.hy - b.hy)
+    const tops = list.map(organ => organ.hy - cardHeight / 2)
+    for (let index = 0; index < tops.length; index++) tops[index] = Math.max(tops[index], index ? tops[index - 1] + cardHeight + gap : 0)
+    const overflow = tops.length ? tops[tops.length - 1] + cardHeight - visible : 0
+    if (overflow > 0) for (let index = tops.length - 1; index >= 0; index--) tops[index] = Math.min(tops[index] - (index === tops.length - 1 ? overflow : 0), index < tops.length - 1 ? tops[index + 1] - cardHeight - gap : Infinity)
+    list.forEach((organ, index) => placed.set(organ.id, Math.max(0, tops[index])))
+  }
+  const u = (value: number) => (value * 10).toFixed(1)
+  const lines = organs.map(organ => {
+    const top = placed.get(organ.id)!, y = top + cardHeight / 2
+    const edge = organ.side === 'left' ? cardWidth : width - cardWidth
+    const elbow = organ.side === 'left' ? edge + 1.6 : edge - 1.6
+    const tone = organ.status === 'nodata' ? FAINT : TONE[organ.status].solid
+    return `<polyline points="${u(edge)},${u(y)} ${u(elbow)},${u(y)} ${u(organ.hx)},${u(organ.hy)}" fill="none" stroke="${tone}" stroke-width="1.6" stroke-opacity=".75" stroke-linejoin="round"/>
+      <circle cx="${u(organ.hx)}" cy="${u(organ.hy)}" r="9.5" fill="#fff" stroke="${tone}" stroke-width="3"/>
+      <circle cx="${u(organ.hx)}" cy="${u(organ.hy)}" r="3.6" fill="${tone}"/>
+      <circle cx="${u(edge)}" cy="${u(y)}" r="3" fill="${tone}"/>`
+  }).join('')
+  const cards = organs.map(organ => twinCard(organ.label, organ, `position:absolute;top:${placed.get(organ.id)!.toFixed(2)}em;${organ.side}:0;width:${cardWidth}em;height:${cardHeight}em`)).join('')
+  const legend = (['flag', 'watch', 'clear', 'nodata'] as TwinStatus[]).map(status => `<span style="display:inline-flex;align-items:center;gap:.45em;margin-right:1.4em"><span style="width:.8em;height:.8em;border-radius:50%;background:${status === 'nodata' ? FAINT : TONE[status].solid}"></span>${TWIN_WORDS[status]}</span>`).join('')
+  return `${title('Your Digital Twin')}
+    ${lead('Your results mapped onto the body, as in the FxMed Digital Twin. Each organ takes the highest support score among the areas it stands for, with the markers behind it.')}
+    <div style="position:relative;height:${visible.toFixed(2)}em;margin-top:1.8em">
+      <div style="position:absolute;left:${figureLeft}em;top:0;width:${figureWidth}em;height:${visible.toFixed(2)}em;overflow:hidden;border-radius:1.2em">
+        <img src="/fm-report/digital-twin-body.jpg" style="position:absolute;left:${(-cropX * picture).toFixed(2)}em;top:${(-cropY * picture * 1.5).toFixed(2)}em;width:${picture}em;height:${picture * 1.5}em;max-width:none" />
+        <div style="position:absolute;left:0;top:0;bottom:0;width:4em;background:linear-gradient(90deg,#fff,rgba(255,255,255,0))"></div>
+        <div style="position:absolute;right:0;top:0;bottom:0;width:4em;background:linear-gradient(270deg,#fff,rgba(255,255,255,0))"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:5em;background:linear-gradient(0deg,#fff,rgba(255,255,255,0))"></div>
+      </div>
+      <span style="position:absolute;left:0;top:0"><svg width="${width}em" height="${visible.toFixed(2)}em" viewBox="0 0 ${width * 10} ${u(visible)}" style="display:block">${lines}</svg></span>
+      ${cards}
+    </div>
+    <div style="margin-top:1.6em">${heading('Through the whole body')}</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.9em">${TWIN_WHOLE_BODY.map(item => twinCard(item.label, twinStatus(analysis, item.areas), 'min-height:6.4em')).join('')}</div>
+    <div style="margin-top:1.2em;font-size:.84em;color:${BODY}">${legend}</div>
+    <div style="margin-top:.6em;font-size:.78em;line-height:1.5;color:${MUTED}">A map of where your blood results point, drawn on the FxMed Digital Twin. It is not a picture of your own body and not a diagnosis; your clinician reads it with your history and symptoms.</div>`
+}
+
 function next90Body(analysis: Analysis, narrative: FmNarrative, patient: FmPatient) {
   const steps = narrative.nextSteps.length ? narrative.nextSteps : defaultNextSteps(analysis)
   return `${title('Your Next 90 Days')}
@@ -947,6 +1056,7 @@ export function buildFmReportPages(data: FmReportData) {
 
   // Part 2. Your body, system by system
   divider('body')
+  add('body', 'Digital Twin', () => twinBody(analysis))
   if (analysis.group('system').some(item => item.considered.length)) add('body', 'Systems Map', () => systemsMapBody(analysis))
   const bodyBlocks: Block[] = []
   for (const group of ['system', 'accessory', 'nutrient', 'deficiency'] as const) {
