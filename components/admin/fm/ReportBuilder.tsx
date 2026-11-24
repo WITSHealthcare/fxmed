@@ -39,7 +39,7 @@ function Preview({ pages }: { pages: string[] }) {
   const host = useRef<HTMLDivElement>(null)
   const scale = 0.62
   useEffect(() => { host.current?.querySelectorAll<HTMLElement>('[data-fm-page]').forEach(fitPage) }, [pages])
-  return <div ref={host} className="grid justify-center gap-5 rounded-[20px] bg-[#E9EFEC] p-5 xl:grid-cols-2">
+  return <div ref={host} className="grid justify-center gap-5 rounded-card bg-clinic-bg p-5 xl:grid-cols-2">
     {pages.map((html, index) => <div key={index} className="overflow-hidden rounded bg-white shadow-lg" style={{ width: PAGE_W * scale, height: PAGE_H * scale }}>
       <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', width: PAGE_W, height: PAGE_H }} dangerouslySetInnerHTML={{ __html: html }} />
     </div>)}

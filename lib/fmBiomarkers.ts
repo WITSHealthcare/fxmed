@@ -600,8 +600,10 @@ export function summarize(entries: FmEntry[]) {
 
 export const FM_STATUS_LABEL: Record<FmStatus, string> = { low: 'LOW ↓', borderline: 'BORDERLINE ~', normal: 'NORMAL ✓', optimal: 'OPTIMAL ✓', high: 'HIGH ↑', unknown: '—' }
 export const LAB_STATUS_LABEL: Record<LabStatus, string> = { low: 'LOW ↓', normal: 'NORMAL ✓', high: 'HIGH ↑', unknown: '—' }
-export const STATUS_COLOR: Record<FmStatus | LabStatus, string> = { low: '#1D64C8', borderline: '#C8730F', normal: '#1A6B53', optimal: '#0E9F6E', high: '#C53030', unknown: '#6B7C74' }
-export const PRIORITY_COLOR: Record<Priority, string> = { urgent: '#B5102B', high: '#C53030', moderate: '#C8730F', low: '#2D8A6A' }
+// Text colours in the clinic palette (flag / watch / clear), dark enough to read on white.
+// Direction is carried by the arrow in each label, not the colour.
+export const STATUS_COLOR: Record<FmStatus | LabStatus, string> = { low: '#b8433b', borderline: '#a87a1c', normal: '#4f7a35', optimal: '#4f7a35', high: '#b8433b', unknown: '#6d726b' }
+export const PRIORITY_COLOR: Record<Priority, string> = { urgent: '#9e2f29', high: '#b8433b', moderate: '#a87a1c', low: '#4f7a35' }
 
 /** How far a result sits outside a range, as a percentage of the limit it crossed. */
 export function deviation(value: number | null, range: Range | null) {

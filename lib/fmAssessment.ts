@@ -29,8 +29,8 @@ export const BAND_LABEL: Record<Band, string> = {
 }
 
 export const BAND_COLOR: Record<Band, string> = {
-  alarm_low: '#B8326A', below_standard: '#E0674F', below_optimal: '#E9A93B', optimal: '#52B788',
-  above_optimal: '#E9A93B', above_standard: '#E0674F', alarm_high: '#B8326A', unknown: '#A9B5AD',
+  alarm_low: '#9e2f29', below_standard: '#d0574f', below_optimal: '#d6a23a', optimal: '#6f9a4e',
+  above_optimal: '#d6a23a', above_standard: '#d0574f', alarm_high: '#9e2f29', unknown: '#b9bcb4',
 }
 
 /** Which side of the optimal range a borderline result leans towards. */
@@ -546,10 +546,10 @@ export function priorityOf(item: AreaResult): Priority {
 
 /** The four parts of an improvement area's plan, in report order. */
 export const PLAN_PARTS: Array<{ key: keyof AreaPlan; title: string; color: string }> = [
-  { key: 'nutrition', title: 'Nutrition', color: '#2D6A4F' },
-  { key: 'lifestyle', title: 'Lifestyle', color: '#3A7CA5' },
-  { key: 'supplements', title: 'Supplements to discuss', color: '#A8742A' },
-  { key: 'tests', title: 'Follow-up tests', color: '#6E5BA7' },
+  { key: 'nutrition', title: 'Nutrition', color: '#4f7a35' },
+  { key: 'lifestyle', title: 'Lifestyle', color: '#3f6f6a' },
+  { key: 'supplements', title: 'Supplements to discuss', color: '#a87a1c' },
+  { key: 'tests', title: 'Follow-up tests', color: '#86579a' },
 ]
 
 const EMPTY_PLAN: AreaPlan = { nutrition: [], lifestyle: [], supplements: [], tests: [] }

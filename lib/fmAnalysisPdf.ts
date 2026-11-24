@@ -19,20 +19,42 @@ export const PAGE_W = 816
 export const PAGE_H = 1056
 const BASE_FONT = 11
 const MIN_FONT = 8
-// The FxMed palette: forest green and lime on warm cream.
-const DEEP = '#1A3D2E'
-const GREEN = '#2D6A4F'
-const LIME = '#C9E265'
-const CREAM = '#F8F3EA'
-const TRACK = '#EDE7DA'
-const INK = '#1C2B22'
-const BODY = '#4A5E52'
-const MUTED = '#6B7C72'
-const FAINT = '#A9B5AD'
-const LINE = '#E6E0D3'
-const ON_DARK = 'rgba(248,243,234,.78)'
-const FONT = "'DM Sans', 'Lato', Arial, Helvetica, sans-serif"
-const GRADIENT = 'linear-gradient(90deg, #52B788 0%, #C9E265 34%, #F2C14E 58%, #EE8B4F 80%, #D9534F 100%)'
+// The clinic palette shared with the admin and the FxMed Twin: forest and sage
+// on soft grey, with flag / watch / clear for results.
+const DEEP = '#13261A'
+const GREEN = '#4F7A35'
+const SAGE = '#6F9A4E'
+const LIME = '#C9D8AE'
+const CREAM = '#F3F3F0'
+const TRACK = '#E9EAE4'
+const INK = '#161A15'
+const BODY = '#4F544D'
+const MUTED = '#6D726B'
+const FAINT = '#B9BCB4'
+const LINE = '#E6E6E1'
+const ON_DARK = 'rgba(255,255,255,.72)'
+// The brand mark keeps its own colours.
+const BRAND_LIME = '#C9E265'
+// Inter where the page can reach it (the admin sets --font-inter), otherwise Arial.
+const FONT = "var(--font-inter), Inter, Arial, Helvetica, sans-serif"
+const SVG_FONT = 'Arial, Helvetica, sans-serif'
+const ACCENT = `linear-gradient(90deg, ${LIME}, ${SAGE})`
+
+/** A tone for a 0–100 likelihood, on the report's own scale: possible from 50%, likely from 70%. */
+type Tone = 'clear' | 'watch' | 'flag'
+const toneOf = (score: number): Tone => score >= 70 ? 'flag' : score >= 50 ? 'watch' : 'clear'
+const TONE: Record<Tone, { solid: string; light: string; text: string; tint: string }> = {
+  clear: { solid: SAGE, light: '#A9C98A', text: GREEN, tint: '#DFE8CF' },
+  watch: { solid: '#D6A23A', light: '#EAD39A', text: '#8A6312', tint: '#F3E5BF' },
+  flag: { solid: '#D0574F', light: '#E3A19B', text: '#9E2F29', tint: '#F2D3CF' },
+}
+/** Soft fills and readable text for each result band: discs, legends and labels. */
+const BAND_STYLE: Record<Band, { tint: string; text: string }> = {
+  alarm_low: { tint: '#ECC4C0', text: '#9E2F29' }, below_standard: { tint: TONE.flag.tint, text: '#B8433B' },
+  below_optimal: { tint: TONE.watch.tint, text: TONE.watch.text }, optimal: { tint: TONE.clear.tint, text: GREEN },
+  above_optimal: { tint: TONE.watch.tint, text: TONE.watch.text }, above_standard: { tint: TONE.flag.tint, text: '#B8433B' },
+  alarm_high: { tint: '#ECC4C0', text: '#9E2F29' }, unknown: { tint: TRACK, text: MUTED },
+}
 
 export type FmReportData = {
   patient: FmPatient
@@ -79,7 +101,7 @@ function logoMark(size: number) {
   return `<svg width="${size}em" height="${size}em" viewBox="0 0 100 100" style="display:block">
     <defs><clipPath id="${id}"><circle cx="50" cy="50" r="50"/></clipPath></defs>
     <g clip-path="url(#${id})">
-      <rect width="100" height="100" fill="${LIME}"/>
+      <rect width="100" height="100" fill="${BRAND_LIME}"/>
       <path d="M -2 26 C 22 18 34 40 46 56 C 58 72 74 70 102 86 L 102 102 L -2 102 Z" fill="#14693E"/>
       <path d="M -2 26 C 22 18 34 40 46 56 C 58 72 74 70 102 86" fill="none" stroke="${DEEP}" stroke-width="3"/>
     </g>
@@ -91,7 +113,7 @@ function pill(text: string, active: boolean) {
   const width = text.length * 0.56 + 1.9
   return `<span style="display:block;font-size:.8em"><svg width="${width}em" height="2.1em" viewBox="0 0 ${width * 10} 21" style="display:block">
     ${active ? `<rect width="${width * 10}" height="21" rx="10.5" fill="${LIME}"/>` : ''}
-    <text x="${width * 5}" y="14.3" text-anchor="middle" font-family="${FONT.replace(/"/g, "'")}" font-size="10" font-weight="${active ? 800 : 500}" fill="${active ? DEEP : ON_DARK}">${esc(text)}</text>
+    <text x="${width * 5}" y="14.3" text-anchor="middle" font-family="${SVG_FONT}" font-size="10" font-weight="${active ? 700 : 500}" fill="${active ? DEEP : ON_DARK}">${esc(text)}</text>
   </svg></span>`
 }
 
@@ -104,7 +126,7 @@ function header(section: SectionId, tab: string, tabs: string[]) {
         ${tabs.map(item => pill(item, item === tab)).join('')}
       </div>
     </div>
-    <div style="height:.32em;background:linear-gradient(90deg, ${LIME}, #52B788)"></div>`
+    <div style="height:.32em;background:${ACCENT}"></div>`
 }
 
 function footer(patient: FmPatient, number: number, dark: boolean) {
@@ -126,7 +148,7 @@ function shell(content: string, chrome: string, patient: FmPatient, number: numb
 const dash = (margin = '1.6em 0 1em') => `<div style="width:3.2em;height:.42em;background:${LIME};border-radius:1em;margin:${margin}"></div>`
 
 function title(text: string) {
-  return `${dash()}<div style="font-size:2.9em;font-weight:800;letter-spacing:-.025em;line-height:1.2;color:${DEEP}">${esc(text)}</div>`
+  return `${dash()}<div style="font-size:2.9em;font-weight:500;letter-spacing:-.03em;line-height:1.2;color:${DEEP}">${esc(text)}</div>`
 }
 
 const subtitle = (text: string) => `<div style="font-size:2.1em;font-weight:400;color:${GREEN};line-height:1.3;margin:1.4em 0 .7em">${esc(text)}</div>`
@@ -140,15 +162,17 @@ const heading = (text: string) => `<div style="font-size:1.05em;font-weight:800;
 /** The gauge arc's length in SVG units (a half circle of radius 46). Safari ignores pathLength when it draws an SVG as an image, so the dash is measured in real units. */
 const ARC_LENGTH = Math.PI * 46
 
-/** A half-circle gauge of a likelihood, green to red. */
+/** A half-circle gauge of a likelihood: one smooth arc in its tone over a soft track, with a rounded cap. */
 function gauge(score: number, size = 9) {
   const id = `fmg${svgId++}`
+  const tone = TONE[toneOf(score)]
   const arc = 'M 14 64 A 46 46 0 0 1 106 64'
+  const share = Math.min(Math.max(score, 0), 100) / 100
   return `<svg width="${size}em" height="${size * 0.62}em" viewBox="0 0 120 74" style="display:block;margin:0 auto">
-    <defs><linearGradient id="${id}" x1="14" y1="0" x2="106" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#52B788"/><stop offset=".35" stop-color="${LIME}"/><stop offset=".65" stop-color="#F2C14E"/><stop offset="1" stop-color="#D9534F"/></linearGradient></defs>
-    <path d="${arc}" fill="none" stroke="${TRACK}" stroke-width="13" stroke-linecap="round"/>
-    ${score > 0 ? `<path d="${arc}" fill="none" stroke="url(#${id})" stroke-width="13" stroke-linecap="round" stroke-dasharray="${(Math.min(score, 100) / 100) * ARC_LENGTH} 400"/>` : ''}
-    <text x="60" y="62" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="${INK}">${score}%</text>
+    <defs><linearGradient id="${id}" x1="14" y1="0" x2="106" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${tone.light}"/><stop offset="1" stop-color="${tone.solid}"/></linearGradient></defs>
+    <path d="${arc}" fill="none" stroke="${TRACK}" stroke-width="11" stroke-linecap="round"/>
+    ${score > 0 ? `<path d="${arc}" fill="none" stroke="url(#${id})" stroke-width="11" stroke-linecap="round" stroke-dasharray="${share * ARC_LENGTH} 400"/>` : ''}
+    <text x="60" y="61" text-anchor="middle" font-family="${SVG_FONT}" font-size="18" fill="${INK}">${score}<tspan font-size="10" fill="${MUTED}">%</tspan></text>
   </svg>`
 }
 
@@ -158,26 +182,34 @@ function disc(color: string, lines: Array<[string, number, number?]>, size: numb
   let y = 50 - total / 2
   const texts = lines.map(([label, font, weight], index) => {
     y += (index ? 4 : 0) + font * 0.85
-    const line = `<text x="50" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${font}" font-weight="${weight || 400}" fill="${outline ? INK : text}">${esc(label)}</text>`
+    const line = `<text x="50" y="${y}" text-anchor="middle" font-family="${SVG_FONT}" font-size="${font}" font-weight="${weight || 400}" fill="${outline ? INK : text}">${esc(label)}</text>`
     y += font * 0.15
     return line
   }).join('')
   return `<svg width="${size}em" height="${size}em" viewBox="0 0 100 100" style="display:block;flex:none"><circle cx="50" cy="50" r="${outline ? 48 : 50}" fill="${outline ? '#fff' : color}" stroke="${outline ? '#9CA3AF' : 'none'}" stroke-width="${outline ? 2 : 0}"/>${texts}</svg>`
 }
 
+/** A rounded bar that fills to the likelihood with a soft gradient in its tone, over a light track. */
 function likelihoodBar(score: number, grow = true, labelled = true) {
   const width = Math.max(0, Math.min(score, 100))
+  const tone = TONE[toneOf(score)]
   // The percentage is SVG text outside the clipped track: html2canvas draws
   // HTML text a few pixels low, which a clipped bar would cut off.
   const inside = width >= 12
   // html2canvas skips an SVG that is itself absolutely positioned, so a span carries the position.
-  const label = !labelled ? '' : `<span style="position:absolute;top:0;${inside ? `right:${100 - width}%` : `left:${width}%`}"><svg width="3.6em" height="1.3em" viewBox="0 0 36 13" style="display:block">
-    <text x="${inside ? 31 : 5}" y="9.4" text-anchor="${inside ? 'end' : 'start'}" font-family="Arial, Helvetica, sans-serif" font-size="7.6" font-weight="700" fill="${inside ? '#fff' : INK}">${score}%</text></svg></span>`
-  return `<div style="position:relative;${grow ? 'flex:1;' : ''}height:1.3em">
+  const label = !labelled ? '' : `<span style="position:absolute;top:0;${inside ? `right:${100 - width}%` : `left:${width}%`}"><svg width="3.6em" height="1.1em" viewBox="0 0 36 11" style="display:block">
+    <text x="${inside ? 31 : 5}" y="8" text-anchor="${inside ? 'end' : 'start'}" font-family="${SVG_FONT}" font-size="7.2" font-weight="700" fill="${inside && toneOf(score) !== 'watch' ? '#fff' : INK}">${score}%</text></svg></span>`
+  return `<div style="position:relative;${grow ? 'flex:1;' : ''}height:1.1em">
     <div style="position:absolute;inset:0;background:${TRACK};border-radius:1em;overflow:hidden">
-      ${width ? `<div style="position:absolute;left:0;top:0;bottom:0;width:${width}%;overflow:hidden;border-radius:1em"><div style="width:${10000 / width}%;height:100%;background:${GRADIENT}"></div></div>` : ''}
+      ${width ? `<div style="position:absolute;left:0;top:0;bottom:0;width:${width}%;border-radius:1em;background:linear-gradient(90deg, ${tone.light}, ${tone.solid})"></div>` : ''}
     </div>${label}
   </div>`
+}
+
+/** The likelihood scale as one bar: clear under 50%, watch to 70%, flag above. */
+function likelihoodScale() {
+  const part = (width: number, color: string, radius: string) => `<div style="width:${width}%;height:100%;background:${color};border-radius:${radius}"></div>`
+  return `<div style="display:flex;gap:2px;height:.75em">${part(50, `linear-gradient(90deg, ${TONE.clear.tint}, ${TONE.clear.light})`, '1em 0 0 1em')}${part(20, `linear-gradient(90deg, ${TONE.watch.light}, ${TONE.watch.solid})`, '0')}${part(30, `linear-gradient(90deg, ${TONE.flag.light}, ${TONE.flag.solid})`, '0 1em 1em 0')}</div>`
 }
 
 function likelihoodChart(items: AreaResult[], label = 'Probability of dysfunction') {
@@ -204,7 +236,7 @@ function bandCounts(analysis: Analysis) {
     ['alarm_high', 'Alarm High', analysis.bands.alarm_high], ['total', 'Total', analysis.summary.total - analysis.bands.unknown],
   ]
   return `<div style="display:grid;grid-template-columns:repeat(8,1fr);margin-top:1.8em">${items.map(([band, label, count]) => `<div style="text-align:center">
-      <div style="display:flex;justify-content:center">${disc(band === 'total' ? '#fff' : BAND_COLOR[band], [[String(count), 30, 700]], 3.9, band === 'total')}</div>
+      <div style="display:flex;justify-content:center">${band === 'total' ? disc('#fff', [[String(count), 32, 400]], 3.9, true) : disc(BAND_STYLE[band].tint, [[String(count), 32, 400]], 3.9, false, BAND_STYLE[band].text)}</div>
       <div style="border-left:1px solid ${FAINT};margin-top:.9em;padding:0 .3em;font-size:.82em;font-weight:800;line-height:1.35">${esc(label)}</div>
     </div>`).join('')}</div>`
 }
@@ -273,15 +305,15 @@ function rangeBar(entry: AssessedEntry) {
   const labels = ['Below standard', 'Below optimal', 'Optimal', 'Above optimal', 'Above standard']
   return `<div>
     <div style="position:relative;height:1.7em;margin-top:.5em">
-      <div style="position:absolute;left:0;right:0;top:.38em;height:.95em;border-radius:1em;background:linear-gradient(90deg,#D9534F 0%,#F2C14E 24%,#52B788 41%,#52B788 59%,#F2C14E 76%,#D9534F 100%)"></div>
-      ${[20, 40, 60, 80].map(left => `<div style="position:absolute;left:${left}%;top:.38em;height:.95em;width:2px;margin-left:-1px;background:#fff"></div>`).join('')}
-      <div style="position:absolute;left:${position}%;top:-.2em;width:2.1em;height:2.1em;margin-left:-1.05em;border-radius:50%;background:#fff;border:.3em solid ${BAND_COLOR[band]};box-sizing:border-box"></div>
+      <div style="position:absolute;left:0;right:0;top:.55em;height:.6em;display:flex;gap:2px">${[TONE.flag.tint, TONE.watch.tint, TONE.clear.light, TONE.watch.tint, TONE.flag.tint].map((color, index) =>
+        `<div style="flex:1;background:${color};border-radius:${index === 0 ? '1em 0 0 1em' : index === 4 ? '0 1em 1em 0' : '0'}"></div>`).join('')}</div>
+      <div style="position:absolute;left:${position}%;top:.1em;width:1.5em;height:1.5em;margin-left:-.75em;border-radius:50%;background:#fff;border:.32em solid ${BAND_COLOR[band]};box-sizing:border-box;box-shadow:0 1px 3px rgba(22,26,21,.18)"></div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);margin-top:.35em">${labels.map((label, index) => {
       const on = index === active
       const empty = cuts[index + 1] === cuts[index]
       return `<div style="text-align:center;border-left:${index ? 0 : 1}px solid ${FAINT};line-height:1.35">
-        <div style="font-size:.72em;font-weight:800;color:${on ? INK : FAINT}">${label}</div>
+        <div style="font-size:.72em;font-weight:${on ? 700 : 500};color:${on ? BAND_STYLE[band].text : FAINT}">${label}</div>
         <div style="font-size:.82em;color:${on ? INK : FAINT}">${empty ? '—' : `${fmt(cuts[index])} – ${fmt(cuts[index + 1])}`}</div></div>`
     }).join('')}</div>
   </div>`
@@ -290,7 +322,7 @@ function rangeBar(entry: AssessedEntry) {
 function resultRow(entry: AssessedEntry) {
   return `<div style="display:grid;grid-template-columns:14.5em 1fr;gap:1.6em;margin-bottom:1.55em">
     <div><div style="font-size:1em;line-height:1.35">${esc(entry.name)}${entry.calculated ? ` <span style="font-size:.78em;color:${MUTED}">(calculated)</span>` : ''}</div>
-      <div style="line-height:1.3"><span style="font-size:1.85em;font-weight:300;color:${INK}">${esc(entry.value)}</span> <span style="font-size:.92em;color:${MUTED}">${esc(entry.unit)}</span></div></div>
+      <div style="line-height:1.3"><span style="font-size:1.85em;font-weight:400;letter-spacing:-.02em;color:${INK}">${esc(entry.value)}</span> <span style="font-size:.92em;color:${MUTED}">${esc(entry.unit)}</span></div></div>
     ${rangeBar(entry)}
   </div>`
 }
@@ -305,9 +337,9 @@ function outOfRangeCard(entry: AssessedEntry) {
   const text = markerExplanation(entry.markerId, direction) || `${entry.name} is ${direction === 'low' ? 'below' : 'above'} the optimal range of ${entry.fmRange || entry.labRange} ${entry.unit}.`
   const font = entry.value.length > 6 ? 20 : entry.value.length > 4 ? 23 : 26
   return `<div style="display:flex;gap:1.1em;align-items:flex-start">
-    ${disc(BAND_COLOR[band], [[entry.value, font], [entry.unit.slice(0, 14), 12]], 7.6)}
-    <div style="flex:1"><div style="font-size:1.02em;font-weight:800;text-transform:uppercase;line-height:1.35">${esc(entry.name)}${alarm ? ` <span style="color:${BAND_COLOR[band]}">▲</span>` : ''}</div>
-      <div style="font-size:.78em;font-weight:800;color:${BAND_COLOR[band]};letter-spacing:.04em;text-transform:uppercase;margin-top:.15em">${esc(BAND_LABEL[band])} · optimal ${esc(entry.fmRange || '—')}</div>
+    ${disc(BAND_STYLE[band].tint, [[entry.value, font], [entry.unit.slice(0, 14), 12]], 7.6, false, BAND_STYLE[band].text)}
+    <div style="flex:1"><div style="font-size:1.02em;font-weight:800;text-transform:uppercase;line-height:1.35">${esc(entry.name)}${alarm ? ` <span style="color:${BAND_STYLE[band].text}">▲</span>` : ''}</div>
+      <div style="font-size:.78em;font-weight:800;color:${BAND_STYLE[band].text};letter-spacing:.04em;text-transform:uppercase;margin-top:.15em">${esc(BAND_LABEL[band])} · optimal ${esc(entry.fmRange || '—')}</div>
       <div style="font-size:.9em;line-height:1.55;color:${BODY};margin-top:.4em">${esc(text)}</div>
       ${entry.note && !entry.calculated ? `<div style="font-size:.86em;line-height:1.5;color:${GREEN};margin-top:.35em;font-style:italic">${esc(entry.note)}</div>` : ''}
     </div></div>`
@@ -330,9 +362,9 @@ function targets(item: AreaResult) {
       <tbody>${item.contributors.map(({ entry, direction }) => {
         const band = bandOf(entry)
         return `<tr><td style="${cell};font-weight:700">${esc(entry.name)}</td>
-          <td style="${cell};font-weight:800;color:${BAND_COLOR[band]}">${esc(entry.value)} ${esc(entry.unit)} ${arrow(direction)}</td>
+          <td style="${cell};font-weight:800;color:${BAND_STYLE[band].text}">${esc(entry.value)} ${esc(entry.unit)} ${arrow(direction)}</td>
           <td style="${cell};color:${BODY}">${esc(entry.fmRange || '—')} ${esc(entry.unit)}</td>
-          <td style="${cell};color:${BAND_COLOR[band]};font-weight:700">${esc(band === 'optimal' ? 'Borderline' : BAND_LABEL[band])}</td></tr>`
+          <td style="${cell};color:${BAND_STYLE[band].text};font-weight:700">${esc(band === 'optimal' ? 'Borderline' : BAND_LABEL[band])}</td></tr>`
       }).join('')}</tbody>
     </table>
     ${item.missing.length ? `<div style="font-size:.88em;line-height:1.5;margin-top:.7em;color:${BODY}"><span style="font-weight:800;color:${GREEN}">Not in these results — consider testing:</span> ${esc(item.missing.join(', '))}</div>` : ''}
@@ -391,11 +423,11 @@ function coverBody(data: FmReportData) {
   const who = [patient.age ? `${patient.age} years` : '', patient.sex ? patient.sex[0].toUpperCase() + patient.sex.slice(1) : ''].filter(Boolean).join(' · ')
   const field = (label: string, value: string) => `<div><div style="font-size:.74em;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:${GREEN}">${label}</div><div style="font-size:1.12em;font-weight:700;color:${INK};margin-top:.3em;line-height:1.4">${value || '—'}</div></div>`
   return `<div style="position:absolute;right:-17em;top:17em;opacity:.95">${logoMark(50)}</div>
-    <div style="position:absolute;left:0;right:0;top:0;height:.5em;background:linear-gradient(90deg, ${LIME}, #52B788)"></div>
+    <div style="position:absolute;left:0;right:0;top:0;height:.5em;background:${ACCENT}"></div>
     <div style="position:relative;padding:4.6em 0.8em 0">
       <img src="/logo-trimmed.png" style="height:3em;display:block" />
       <div style="margin-top:11em;font-size:.9em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">Functional Medicine &nbsp;·&nbsp; Blood Chemistry Analysis</div>
-      <div style="font-size:5em;font-weight:800;line-height:1.15;letter-spacing:-.035em;color:#fff;margin-top:.3em">Functional<br/>Health Report</div>
+      <div style="font-size:5em;font-weight:500;line-height:1.15;letter-spacing:-.04em;color:#fff;margin-top:.3em">Functional<br/>Health Report</div>
       <div style="font-size:1.25em;line-height:1.55;color:${ON_DARK};margin-top:1.5em;width:25em">Your blood results read for optimal health, not just for disease, with a personal plan to get there.</div>
     </div>
     <div style="position:absolute;left:3.4em;right:3.4em;bottom:3.4em;background:${CREAM};border-radius:1.4em;padding:1.9em 2.2em">
@@ -435,19 +467,19 @@ function readingKey() {
       ${bands.map(([band, text]) => `<div style="display:flex;align-items:center;gap:.8em;margin-bottom:.7em"><span style="flex:none;width:1.1em;height:1.1em;border-radius:50%;background:${BAND_COLOR[band]}"></span><span style="font-size:.95em;line-height:1.4;color:${BODY}">${text}</span></div>`).join('')}</div>
     <div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${GREEN};margin-bottom:1em">How to read the scores</div>
       <div style="font-size:.95em;line-height:1.6;color:${BODY}">Each body system, nutrient and improvement area is scored from 0 to 100%: the likelihood, from your results, that it needs support. Areas at 50% or more are explained in full, and those in the health improvement plan come with a personal plan.</div>
-      <div style="margin-top:1em">${likelihoodBar(75, false, false)}</div>
+      <div style="margin-top:1em">${likelihoodScale()}</div>
       <div style="display:flex;justify-content:space-between;font-size:.8em;color:${MUTED};margin-top:.4em"><span>Less likely</span><span>Possible</span><span>Likely</span><span>Highly likely</span></div></div>
   </div>`
 }
 
 function dividerBody(section: (typeof SECTIONS)[number], toc: TocIndex) {
   return `<div style="position:absolute;right:-12em;top:-8em;opacity:.95">${logoMark(36)}</div>
-    <div style="position:absolute;left:0;right:0;top:0;height:.5em;background:linear-gradient(90deg, ${LIME}, #52B788)"></div>
+    <div style="position:absolute;left:0;right:0;top:0;height:.5em;background:${ACCENT}"></div>
     <div style="position:absolute;left:3.4em;top:3.4em"><img src="/logo-trimmed.png" style="height:2.2em;display:block" /></div>
     <div style="position:absolute;left:3.4em;right:3.4em;bottom:7.5em">
       <div style="font-size:.95em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">Section</div>
-      <div style="font-size:15em;font-weight:900;line-height:.95;letter-spacing:-.04em;color:${LIME}">${String(section.number).padStart(2, '0')}</div>
-      <div style="font-size:3.4em;font-weight:800;line-height:1.1;letter-spacing:-.02em;color:#fff;margin-top:.15em">${esc(section.title)}</div>
+      <div style="font-size:15em;font-weight:300;line-height:.95;letter-spacing:-.05em;color:${LIME}">${String(section.number).padStart(2, '0')}</div>
+      <div style="font-size:3.4em;font-weight:500;line-height:1.1;letter-spacing:-.03em;color:#fff;margin-top:.15em">${esc(section.title)}</div>
       <div style="font-size:1.15em;line-height:1.55;color:${ON_DARK};margin-top:.8em;width:32em">${esc(section.blurb)}</div>
       <div style="width:3.2em;height:.42em;background:${LIME};border-radius:1em;margin:2em 0 1.2em"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 2.4em;width:40em">${contentsList(section.id, toc, true)}</div>
@@ -466,7 +498,7 @@ function glanceBody(analysis: Analysis, narrative: FmNarrative) {
     ${bandCounts(analysis)}
     <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:2.2em;margin-top:2.6em">
       <div>${heading('Areas needing attention')}
-        ${top.length ? top.map(item => `<div style="margin-bottom:.95em"><div style="display:flex;justify-content:space-between;font-size:.95em;line-height:1.4;margin-bottom:.35em"><span>${esc(item.area.name)}</span><span style="font-weight:800">${item.score}%</span></div>${likelihoodBar(item.score, false, false)}</div>`).join('') : `<div style="color:${MUTED}">No area shows a strong pattern of dysfunction.</div>`}</div>
+        ${top.length ? top.map(item => `<div style="margin-bottom:.95em"><div style="display:flex;justify-content:space-between;font-size:.95em;line-height:1.4;margin-bottom:.6em"><span>${esc(item.area.name)}</span><span style="font-weight:800">${item.score}%</span></div>${likelihoodBar(item.score, false, false)}</div>`).join('') : `<div style="color:${MUTED}">No area shows a strong pattern of dysfunction.</div>`}</div>
       <div>${heading('Key findings')}
         ${findings.length ? findings.map(findingCard).join('') : `<div style="color:${MUTED}">No significant findings.</div>`}</div>
     </div>`
@@ -621,6 +653,9 @@ export async function renderFmReportPdf(data: FmReportData): Promise<Blob> {
   const pages = buildFmReportPages(data)
   const host = document.createElement('div')
   Object.assign(host.style, { position: 'absolute', left: '-10000px', top: '0' })
+  // The pages are drawn outside the admin frame, so carry its Inter font variable across.
+  const inter = document.querySelector('.clinic-theme') && getComputedStyle(document.querySelector('.clinic-theme')!).getPropertyValue('--font-inter')
+  if (inter) host.style.setProperty('--font-inter', inter)
   document.body.appendChild(host)
   try {
     if (document.fonts?.ready) await document.fonts.ready
