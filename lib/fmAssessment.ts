@@ -475,6 +475,12 @@ export type AreaResult = {
   missing: string[]
   /** A key result for this area (weight 2 or more) is past an alarm limit. */
   urgent: boolean
+  /**
+   * Whether the area's direct test (a marker carrying full weight, such as
+   * serum folate for folate need) was among the results; null when the area
+   * is only ever read from related markers.
+   */
+  direct: boolean | null
 }
 
 /** Markers that are the same test reported another way, so one stands in for the other. */
@@ -504,9 +510,12 @@ function scoreArea(area: Area, byMarker: Map<string, AssessedEntry>, sex: Sex): 
   const considered: AssessedEntry[] = []
   const contributors: Contributor[] = []
   let healthy = 1
+  const hasDirect = rules.some(rule => rule.weight >= 3)
+  let readDirect = false
   for (const rule of [...rules].sort((a, b) => b.weight - a.weight)) {
     const entry = byMarker.get(rule.id)
     if (!entry || seen.has(rule.id)) continue
+    if (rule.weight >= 3) readDirect = true
     seen.add(rule.id)
     considered.push(entry)
     const found = strength(entry, rule.dir)
@@ -524,6 +533,7 @@ function scoreArea(area: Area, byMarker: Map<string, AssessedEntry>, sex: Sex): 
     considered,
     missing: Array.from(new Set(missing)),
     urgent: contributors.some(item => item.entry.urgent && item.weight >= 2),
+    direct: hasDirect ? readDirect : null,
   }
 }
 
@@ -554,7 +564,27 @@ export function likelihoodLabel(score: number) {
   if (score >= 90) return { label: 'Priority support', advice: 'Act on this first, with your clinician.' }
   if (score >= 70) return { label: 'Needs support', advice: 'Build this into your plan now.' }
   if (score >= 50) return { label: 'Worth watching', advice: 'Small changes now, then recheck.' }
-  return { label: 'Holding steady', advice: 'No specific action needed.' }
+  return { label: 'Low priority', advice: 'Nothing to act on now; recheck at your next test.' }
+}
+
+export type ScoreStatus = 'priority' | 'support' | 'watching' | 'low' | 'on_target' | 'not_direct' | 'indirect'
+
+/**
+ * What a support score can honestly say. From 50% it is the level. Below
+ * that, a low score only reassures when the area's direct test was read: with
+ * nothing off target and no direct test, the area is reported as not tested
+ * directly (or read from related markers only), not as reassuring.
+ */
+export function scoreStatus(item: AreaResult): { key: ScoreStatus; label: string; advice: string } {
+  if (item.score >= 50) {
+    const { label, advice } = likelihoodLabel(item.score)
+    return { key: item.score >= 90 ? 'priority' : item.score >= 70 ? 'support' : 'watching', label, advice }
+  }
+  const consider = item.missing.length ? `Consider testing: ${item.missing.join(', ')}.` : ''
+  if (!item.contributors.length && item.direct === false) return { key: 'not_direct', label: 'Not tested directly', advice: consider || 'Its main test was not in these results.' }
+  if (!item.contributors.length && item.direct === null) return { key: 'indirect', label: 'Indirect markers only', advice: 'Read from related markers, none off target. There is no single direct test in this panel.' }
+  if (item.score === 0) return { key: 'on_target', label: 'On target', advice: 'Every marker read is on target.' }
+  return { key: 'low', label: 'Low priority', advice: item.direct === false ? `Nothing to act on now, but its main test was not done. ${consider}`.trim() : 'Nothing to act on now; recheck at your next test.' }
 }
 
 export function priorityOf(item: AreaResult): Priority {

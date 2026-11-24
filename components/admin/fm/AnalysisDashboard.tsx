@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { CheckCircleIcon, FileTextIcon, MagnifyingGlassIcon, TrendDownIcon, TrendUpIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
-import { AREAS, AREA_GROUPS, PLAN_PARTS, analyse, planFor, priorityOf, type AreaGroup, type AreaResult } from '@/lib/fmAssessment'
+import { AREAS, AREA_GROUPS, PLAN_PARTS, analyse, planFor, priorityOf, scoreStatus, type AreaGroup, type AreaResult } from '@/lib/fmAssessment'
 import {
   FM_STATUS_LABEL, LAB_STATUS_LABEL, PRIORITY_COLOR, STATUS_COLOR, deviation, panelById,
   type AssessedEntry, type FmEntry, type FmNarrative, type Sex,
@@ -47,7 +47,15 @@ const toneOf = (entry: AssessedEntry): RangeTone => entry.lab === 'high' || entr
 const TONE_TEXT: Record<RangeTone, string> = { flag: '#b8433b', watch: '#a87a1c', clear: '#4f7a35' }
 
 /** A system's status chip on the report's support-score scale. */
-const chipOf = (item: AreaResult): ChipTone => !item.considered.length ? 'nodata' : item.score >= 70 ? 'flag' : item.score >= 50 ? 'watch' : 'clear'
+/** A system's chip: Flag or Watch from 50%, then what a low score actually rests on. */
+function chipOf(item: AreaResult): { tone: ChipTone; text: string } {
+  if (!item.considered.length) return { tone: 'nodata', text: 'No data' }
+  if (item.score >= 70) return { tone: 'flag', text: 'Flag' }
+  if (item.score >= 50) return { tone: 'watch', text: 'Watch' }
+  const status = scoreStatus(item)
+  if (status.key === 'not_direct' || status.key === 'indirect') return { tone: 'nodata', text: status.key === 'not_direct' ? 'Not tested directly' : 'Indirect only' }
+  return { tone: 'clear', text: status.label }
+}
 const SEVERITY: Record<RangeTone, number> = { clear: 0.35, watch: 0.68, flag: 1 }
 const rangeText = (range: AssessedEntry['fmRangeParsed']) => !range ? '—' : range.low !== null && range.high !== null ? `${range.low}–${range.high}` : range.low !== null ? `≥ ${range.low}` : `≤ ${range.high}`
 /** A worded result (H. pylori) has no numeric range to show: negative is the expected result. */
@@ -71,20 +79,25 @@ function SystemCard({ item, gut, onMarker }: { item: AreaResult; gut: GutAssessm
   // Stool evidence sits beside the blood score: the chip takes the higher of the two, and says where it came from.
   const stool = gutEvidence(gut, item.area.id)
   const blood = chipOf(item)
-  const chip = stool ? worstTone([blood, stool.tone]) as ChipTone : blood
+  const tone = stool ? worstTone([blood.tone, stool.tone]) as ChipTone : blood.tone
+  // The blood chip keeps its wording unless the stool test raised it.
+  const chip = { tone, text: tone === blood.tone ? blood.text : undefined }
+  const status = scoreStatus(item)
+  const untested = status.key === 'not_direct' || status.key === 'indirect'
   return <div className="flex flex-col rounded-[22px] bg-clinic-bg/60 p-4">
-    <div className="flex items-start justify-between gap-3"><h5 className="text-[15px] font-semibold leading-snug tracking-[-0.01em] text-clinic-ink">{item.area.name}</h5><StatusChip tone={chip} /></div>
+    <div className="flex items-start justify-between gap-3"><h5 className="text-[15px] font-semibold leading-snug tracking-[-0.01em] text-clinic-ink">{item.area.name}</h5><StatusChip tone={chip.tone}>{chip.text}</StatusChip></div>
     <div className="mt-2 space-y-1 text-[13px] leading-snug">
       {item.contributors.slice(0, 3).map(({ entry, direction }) => <button key={entry.name} type="button" onClick={() => onMarker(entry)} className="block text-left text-clinic-ink hover:underline">
         {entry.name} {entry.value} <span className="text-clinic-muted">{entry.unit}</span> <span style={{ color: TONE_TEXT[toneOf(entry)] }}>{direction === 'low' ? '↓' : '↑'}</span>
         <span className="block text-xs text-clinic-muted">{entry.textResult ? 'expected negative' : `outside FM range ${rangeText(entry.fmRangeParsed ?? entry.labRangeParsed)}`}</span>
       </button>)}
-      {!item.contributors.length && <p className="text-clinic-muted">{item.considered.length ? `${item.considered.length} marker${item.considered.length === 1 ? '' : 's'} in range` : `Not tested${item.missing.length ? `: consider ${item.missing.slice(0, 2).join(', ')}` : ''}`}</p>}
+      {!item.contributors.length && <p className="text-clinic-muted">{untested ? status.advice : item.considered.length ? `${item.considered.length} marker${item.considered.length === 1 ? '' : 's'} on target` : `Not tested${item.missing.length ? `: consider ${item.missing.slice(0, 2).join(', ')}` : ''}`}</p>}
+      {item.contributors.length > 0 && item.score < 50 && item.direct === false && <p className="text-xs text-clinic-muted">Main test not done{item.missing.length ? `: consider ${item.missing.slice(0, 2).join(', ')}` : ''}</p>}
       {item.contributors.length > 3 && <p className="text-xs text-clinic-muted">+{item.contributors.length - 3} more</p>}
       {stool && stool.findings.length > 0 && <p className="pt-1 text-xs"><span className="font-semibold" style={{ color: stool.tone === 'flag' ? TONE_TEXT.flag : TONE_TEXT.watch }}>From stool:</span> <span className="text-clinic-ink">{stool.findings.map(finding => finding.title.toLowerCase()).join(', ')}</span></p>}
       {stool && !stool.findings.length && <p className="pt-1 text-xs text-clinic-muted">Stool test: nothing outside reference</p>}
     </div>
-    {item.considered.length > 0 && <div className="mt-auto pt-3">
+    {item.considered.length > 0 && !untested && <div className="mt-auto pt-3">
       <div className="flex justify-between text-[11px] text-clinic-muted"><span>Support score</span><span className="tabular-nums">{item.score}%</span></div>
       <div className="mt-1"><Likelihood score={item.score} name={item.area.name} /></div>
     </div>}
