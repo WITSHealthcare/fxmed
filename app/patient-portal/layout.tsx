@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Inter } from 'next/font/google'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import { createMetadata } from '@/lib/seo'
 
 export const metadata = createMetadata({
@@ -10,9 +10,9 @@ export const metadata = createMetadata({
 })
 
 // The portal wears the clinic theme (.clinic-theme in app/globals.css), which
-// sets Inter through this variable, as the admin does.
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
+// sets Plus Jakarta Sans through this variable, as the admin does.
+const clinicFont = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-clinic', display: 'swap' })
 
 export default function PatientPortalLayout({ children }: { children: ReactNode }) {
-  return <div className={inter.variable}>{children}</div>
+  return <div className={clinicFont.variable}>{children}</div>
 }

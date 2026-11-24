@@ -46,7 +46,8 @@ export default function RangeIndicator({ value, standard, optimal, tone, label, 
   for (let index = 1; index < cuts.length; index++) cuts[index] = Math.max(cuts[index], cuts[index - 1])
   const at = (point: number) => clamp(((point - start) / (end - start || 1)) * 100, 0, 100)
   const position = at(value)
-  const widths = cuts.slice(1).map((cut, index) => cut - cuts[index])
+  // As shares of 100: flex-grow values that sum below 1 would leave the track part-empty.
+  const widths = cuts.slice(1).map((cut, index) => ((cut - cuts[index]) / (end - start || 1)) * 100)
   const optimalText = optimal && (optimal.low !== null || optimal.high !== null) ? `optimal ${optimal.low ?? '<'}${optimal.low !== null && optimal.high !== null ? '–' : ''}${optimal.high ?? ''}` : ''
   const text = `${format(value)}${unit ? ` ${unit}` : ''}`
 

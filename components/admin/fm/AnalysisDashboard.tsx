@@ -9,12 +9,13 @@ import {
 } from '@/lib/fmBiomarkers'
 import { markerExplanation } from '@/lib/fmMarkerInfo'
 import { inputClass } from './ResultsEntry'
-import { Gauge, ProgressRing, RangeIndicator, SegmentedBar, clinic, type RangeTone } from '@/components/charts'
+import { Gauge, MiniBars, RangeIndicator, SegmentedBar, StatusChip, clinic, type ChipTone, type RangeTone } from '@/components/charts'
 
-// The analysis as a clinician reads it on screen: headline counts, the health
-// improvement plan, likelihood scores for each body system and nutrient, the
-// out-of-range results ranked by how far out they are, panel scores, and a
-// searchable table where any marker opens its detail.
+// The analysis as a clinician reads it on screen, laid out like the FxMed Twin:
+// headline counts, a tile for each panel, a systems view with a status for each
+// body system and nutrient, the results outside range against both ranges, the
+// health improvement plan, and a searchable table where any marker opens its
+// detail.
 
 function Stat({ label, value, sub, color, Icon }: { label: string; value: number; sub?: string; color: string; Icon: typeof FileTextIcon }) {
   return <div className="clinic-card rounded-card p-5">
@@ -42,6 +43,44 @@ function Likelihood({ score, name }: { score: number; name: string }) {
 const toneOf = (entry: AssessedEntry): RangeTone => entry.lab === 'high' || entry.lab === 'low' ? 'flag' : entry.fm === 'high' || entry.fm === 'low' || entry.fm === 'borderline' ? 'watch' : 'clear'
 const TONE_TEXT: Record<RangeTone, string> = { flag: '#b8433b', watch: '#a87a1c', clear: '#4f7a35' }
 
+/** A system's status chip on the report's likelihood scale. */
+const chipOf = (item: AreaResult): ChipTone => !item.considered.length ? 'nodata' : item.score >= 70 ? 'flag' : item.score >= 50 ? 'watch' : 'clear'
+const SEVERITY: Record<RangeTone, number> = { clear: 0.35, watch: 0.68, flag: 1 }
+const rangeText = (range: AssessedEntry['fmRangeParsed']) => !range ? '—' : range.low !== null && range.high !== null ? `${range.low}–${range.high}` : range.low !== null ? `≥ ${range.low}` : `≤ ${range.high}`
+
+/** A panel as a check-in style tile: its score, a bar for each marker, and how many sit outside range. */
+function PanelTile({ name, score, entries, onOpen }: { name: string; score: number | null; entries: AssessedEntry[]; onOpen: () => void }) {
+  const tones = entries.map(toneOf)
+  const out = tones.filter(tone => tone !== 'clear').length
+  const flagged = tones.filter(tone => tone === 'flag').length
+  return <button type="button" onClick={onOpen} className="rounded-[22px] bg-clinic-bg/60 p-4 text-left transition hover:bg-clinic-bg" aria-label={`${name}: score ${score ?? 'not scored'}, ${out} of ${entries.length} outside FM optimal`}>
+    <p className="truncate text-[13px] text-clinic-muted">{name}</p>
+    <p className="mt-1.5 text-[1.9rem] leading-none tracking-[-0.03em] text-clinic-ink">{score ?? '—'}<span className="ml-0.5 text-sm text-clinic-muted">{score !== null ? '/100' : ''}</span></p>
+    <div className="mt-3"><MiniBars bars={entries.map((entry, index) => ({ value: SEVERITY[tones[index]], tone: tones[index], label: entry.name }))} height={28} /></div>
+    <p className="mt-2.5 text-xs font-medium" style={{ color: out ? TONE_TEXT[flagged ? 'flag' : 'watch'] : TONE_TEXT.clear }}>{out ? `${flagged ? '▲' : '●'} ${out} of ${entries.length} outside optimal` : `✓ all ${entries.length} in range`}</p>
+  </button>
+}
+
+/** A body system or nutrient as a Systems view card: status chip, the results behind it, and its likelihood. */
+function SystemCard({ item, onMarker }: { item: AreaResult; onMarker: (entry: AssessedEntry) => void }) {
+  const chip = chipOf(item)
+  return <div className="flex flex-col rounded-[22px] bg-clinic-bg/60 p-4">
+    <div className="flex items-start justify-between gap-3"><h5 className="text-[15px] font-semibold leading-snug tracking-[-0.01em] text-clinic-ink">{item.area.name}</h5><StatusChip tone={chip} /></div>
+    <div className="mt-2 space-y-1 text-[13px] leading-snug">
+      {item.contributors.slice(0, 3).map(({ entry, direction }) => <button key={entry.name} type="button" onClick={() => onMarker(entry)} className="block text-left text-clinic-ink hover:underline">
+        {entry.name} {entry.value} <span className="text-clinic-muted">{entry.unit}</span> <span style={{ color: TONE_TEXT[toneOf(entry)] }}>{direction === 'low' ? '↓' : '↑'}</span>
+        <span className="block text-xs text-clinic-muted">outside FM range {rangeText(entry.fmRangeParsed ?? entry.labRangeParsed)}</span>
+      </button>)}
+      {!item.contributors.length && <p className="text-clinic-muted">{item.considered.length ? `${item.considered.length} marker${item.considered.length === 1 ? '' : 's'} in range` : `Not tested${item.missing.length ? `: consider ${item.missing.slice(0, 2).join(', ')}` : ''}`}</p>}
+      {item.contributors.length > 3 && <p className="text-xs text-clinic-muted">+{item.contributors.length - 3} more</p>}
+    </div>
+    {item.considered.length > 0 && <div className="mt-auto pt-3">
+      <div className="flex justify-between text-[11px] text-clinic-muted"><span>Likelihood</span><span className="tabular-nums">{item.score}%</span></div>
+      <div className="mt-1"><Likelihood score={item.score} name={item.area.name} /></div>
+    </div>}
+  </div>
+}
+
 const SCORE_GROUPS: Array<[Exclude<AreaGroup, 'plan'>, string]> = [['system', 'Body systems'], ['accessory', 'Accessory'], ['nutrient', 'Nutrient status'], ['deficiency', 'Nutrient needs']]
 
 export default function AnalysisDashboard({ entries, narrative, sex, age }: { entries: FmEntry[]; narrative: FmNarrative; sex: Sex; age?: number | null }) {
@@ -66,10 +105,13 @@ export default function AnalysisDashboard({ entries, narrative, sex, age }: { en
   const query = search.trim().toLowerCase()
   const rows = summary.assessed.filter(entry => (panel === 'all' || entry.panel === panel) && (!query || entry.name.toLowerCase().includes(query)))
 
+  const card = 'clinic-card rounded-card p-5 sm:p-6'
+  const toggle = (active: boolean) => `rounded-full px-3 py-1.5 font-medium transition ${active ? 'bg-clinic-forest text-white' : 'text-clinic-muted hover:text-clinic-ink'}`
+
   return <div className="space-y-6">
     <section className="grid gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
-      <div className="clinic-card flex flex-col rounded-card p-6">
-        <h4 className="text-lg font-medium text-clinic-ink">Markers against FM optimal</h4>
+      <div className={`${card} flex flex-col`}>
+        <h4 className="text-lg text-clinic-ink">Markers against FM optimal</h4>
         <Gauge className="mt-4" label="Markers against FM optimal" total={summary.total} segments={[
           { value: summary.inRange, label: 'In range', color: clinic.sage },
           { value: summary.high, label: 'High', color: clinic.mustard },
@@ -88,94 +130,101 @@ export default function AnalysisDashboard({ entries, narrative, sex, age }: { en
       </div>
     </section>
 
+    <section className={card}>
+      <h4 className="text-lg text-clinic-ink">Panels at a glance</h4>
+      <p className="mt-1 text-sm text-clinic-muted">Each panel&apos;s health score (share of its markers within FM optimal, borderline counting half), with a bar for each marker: taller and warmer the further it sits from optimal.</p>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(190px,1fr))]">
+        {summary.panels.map(item => <PanelTile key={item.panel.id} name={item.panel.name} score={item.score} entries={item.entries} onOpen={() => { setPanel(item.panel.id); document.getElementById('fm-all-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }} />)}
+      </div>
+    </section>
+
+    <section className={card}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><h4 className="text-lg text-clinic-ink">Systems view</h4><p className="mt-1 max-w-3xl text-sm text-clinic-muted">{AREA_GROUPS[group].intro}</p></div>
+        <div className="flex flex-wrap gap-1 rounded-full bg-clinic-bg p-1 text-xs">{SCORE_GROUPS.map(([id, label]) => <button key={id} type="button" onClick={() => setGroup(id)} className={toggle(group === id)}>{label}</button>)}</div>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        {analysis.group(group).map(item => <SystemCard key={item.area.id} item={item} onMarker={setSelected} />)}
+      </div>
+      {!analysis.group(group).length && <p className="mt-4 text-sm text-clinic-muted">No results for these areas.</p>}
+    </section>
+
+    <section className={card}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h4 className="text-lg text-clinic-ink" style={{ color: '#4f7a35' }}>Results outside range <span className="text-clinic-muted">({outOfRange.length})</span></h4>
+        <div className="flex rounded-full bg-clinic-bg p-1 text-xs">{(['fm', 'lab'] as const).map(item => <button key={item} type="button" onClick={() => setBasis(item)} className={toggle(basis === item)}>{item === 'fm' ? 'vs FM optimal' : 'vs lab range'}</button>)}</div>
+      </div>
+      {outOfRange.length ? <>
+        <table className="mt-3 hidden w-full text-sm md:table">
+          <thead><tr className="border-b border-clinic-ink/10 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-clinic-muted"><th className="py-2.5 pr-3 font-medium">Marker</th><th className="py-2.5 pr-3 font-medium">Latest</th><th className="py-2.5 pr-3 font-medium">Standard</th><th className="py-2.5 pr-3 font-medium">Functional</th><th className="w-[34%] py-2.5 font-medium">Where it sits</th></tr></thead>
+          <tbody>{outOfRange.map(({ entry, status, amount }) => {
+            const tone = toneOf(entry)
+            return <tr key={`${entry.panel}:${entry.name}`} onClick={() => setSelected(entry)} className="cursor-pointer border-b border-clinic-ink/[0.06] align-middle transition hover:bg-clinic-bg/60">
+              <td className="py-3 pr-3"><span className="flex items-center gap-2 text-clinic-ink">{entry.name}{entry.urgent && <StatusChip tone="flag">Urgent</StatusChip>}</span></td>
+              <td className="py-3 pr-3 tabular-nums"><span className="font-semibold" style={{ color: TONE_TEXT[tone] }}>{entry.value}</span> <span className="text-clinic-muted">{entry.unit}</span> <span className="text-xs" style={{ color: TONE_TEXT[tone] }}>{status === 'low' ? '↓' : '↑'}{amount >= 1 ? ` ${amount.toFixed(0)}%` : ''}</span></td>
+              <td className="py-3 pr-3 tabular-nums text-clinic-muted">{rangeText(entry.labRangeParsed)}</td>
+              <td className="py-3 pr-3 tabular-nums text-clinic-ink">{rangeText(entry.fmRangeParsed)}</td>
+              <td className="py-1">{entry.numeric !== null && <RangeIndicator value={entry.numeric} standard={entry.labRangeParsed} optimal={entry.fmRangeParsed} tone={tone} label={entry.name} unit={entry.unit} hideValue />}</td>
+            </tr>
+          })}</tbody>
+        </table>
+        <div className="mt-3 space-y-2.5 md:hidden">{outOfRange.map(({ entry, status, amount }) => {
+          const tone = toneOf(entry)
+          return <button key={`${entry.panel}:${entry.name}`} type="button" onClick={() => setSelected(entry)} className="block w-full rounded-[20px] bg-clinic-bg/60 px-4 pb-2 pt-3.5 text-left">
+            <div className="flex items-center justify-between gap-3 text-sm"><span className="truncate text-clinic-ink">{entry.name}</span><span className="shrink-0 text-xs font-medium" style={{ color: TONE_TEXT[tone] }}>{status === 'low' ? '↓' : '↑'} {amount >= 1 ? `${amount.toFixed(0)}% ${status === 'low' ? 'below' : 'above'}` : status}</span></div>
+            {entry.numeric !== null && <div className="mt-1.5"><RangeIndicator value={entry.numeric} standard={entry.labRangeParsed} optimal={entry.fmRangeParsed} tone={tone} label={entry.name} unit={entry.unit} /></div>}
+            <p className="text-[11px] text-clinic-muted">Standard {rangeText(entry.labRangeParsed)} · Functional {rangeText(entry.fmRangeParsed)} {entry.unit}</p>
+          </button>
+        })}</div>
+      </> : <p className="py-6 text-center text-sm text-clinic-muted">Every result is within range.</p>}
+    </section>
+
     <section className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
-      <div className="clinic-card rounded-card p-6">
-        <h4 className="text-lg font-medium text-clinic-ink">Health improvement plan ({analysis.plan.length})</h4>
-        <p className="mt-1 text-xs text-text-mid">Areas at 50% likelihood or more, worked out from the results. Each has a plan on the report, which you can edit on the Report step.</p>
+      <div className={card}>
+        <h4 className="text-lg text-clinic-ink">Health improvement plan ({analysis.plan.length})</h4>
+        <p className="mt-1 text-xs text-clinic-muted">Areas at 50% likelihood or more, worked out from the results. Each has a plan on the report, which you can edit on the Report step.</p>
         <div className="mt-4 space-y-2.5">{analysis.plan.length ? analysis.plan.map(item => {
           const priority = priorityOf(item)
           const plan = planFor(item.area, narrative, analysis.child)
           return <details key={item.area.id} className="group rounded-[18px] bg-clinic-bg/60 px-4 py-3">
             <summary className="cursor-pointer list-none">
               <div className="flex items-center justify-between gap-3 text-sm"><span className="font-medium text-clinic-ink">{item.area.name}</span>
-                <span className="flex items-center gap-2"><span className="rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase text-white" style={{ background: PRIORITY_COLOR[priority] }}>{priority}</span><span className="font-bold">{item.score}%</span></span></div>
+                <span className="flex items-center gap-2"><StatusChip tone={priority === 'urgent' || priority === 'high' ? 'flag' : priority === 'moderate' ? 'watch' : 'clear'}>{priority[0].toUpperCase() + priority.slice(1)}</StatusChip><span className="font-semibold tabular-nums">{item.score}%</span></span></div>
               <div className="mt-2"><Likelihood score={item.score} name={item.area.name} /></div>
-              <p className="mt-1.5 text-[11px] text-text-mid">{markers(item)} · <span className="font-semibold text-green-mid group-open:hidden">Show plan</span><span className="hidden font-semibold text-green-mid group-open:inline">Hide plan</span></p>
+              <p className="mt-1.5 text-[11px] text-clinic-muted">{markers(item)} · <span className="font-semibold text-clinic-ink group-open:hidden">Show plan</span><span className="hidden font-semibold text-clinic-ink group-open:inline">Hide plan</span></p>
             </summary>
-            <p className="mt-3 text-sm text-text-mid">{item.area.finding}</p>
+            <p className="mt-3 text-sm text-clinic-muted">{item.area.finding}</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">{PLAN_PARTS.filter(part => plan[part.key].length).map(part => <div key={part.key} className="rounded-[14px] bg-clinic-card p-3">
-              <p className="text-xs font-bold" style={{ color: part.color }}>{part.title}</p>
-              <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs text-text-dark">{plan[part.key].map(point => <li key={point}>{point}</li>)}</ul>
+              <p className="text-xs font-semibold" style={{ color: part.color }}>{part.title}</p>
+              <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs text-clinic-ink">{plan[part.key].map(point => <li key={point}>{point}</li>)}</ul>
             </div>)}</div>
-            {item.missing.length > 0 && <p className="mt-2 text-[11px] text-text-mid"><span className="font-semibold">Consider testing:</span> {item.missing.join(', ')}</p>}
+            {item.missing.length > 0 && <p className="mt-2 text-[11px] text-clinic-muted"><span className="font-semibold">Consider testing:</span> {item.missing.join(', ')}</p>}
           </details>
-        }) : <p className="py-6 text-center text-sm text-text-mid">No improvement area reached 50%.</p>}</div>
+        }) : <p className="py-6 text-center text-sm text-clinic-muted">No improvement area reached 50%.</p>}</div>
       </div>
-
-      <div className="clinic-card rounded-card p-6">
-        <h4 className="text-lg font-medium text-clinic-ink">Likelihood of dysfunction</h4>
-        <div className="mt-3 flex flex-wrap gap-1 rounded-full bg-clinic-bg p-1 text-xs font-bold">{SCORE_GROUPS.map(([id, label]) => <button key={id} type="button" onClick={() => setGroup(id)} className={`rounded-full px-3 py-1.5 ${group === id ? 'bg-green-deep text-white' : 'text-text-mid'}`}>{label}</button>)}</div>
-        <p className="mt-3 text-xs text-text-mid">{AREA_GROUPS[group].intro}</p>
-        <div className="mt-4 space-y-3">{analysis.group(group).map(item => <div key={item.area.id} title={markers(item)}>
-          <div className="flex justify-between text-sm"><span className="font-semibold text-green-deep">{item.area.name}</span><span className="font-bold">{item.score}%</span></div>
-          <div className="mt-1.5"><Likelihood score={item.score} name={item.area.name} /></div>
-          {item.contributors.length > 0 && <p className="mt-1 text-[11px] text-text-mid">{markers(item)}</p>}
-        </div>)}{!analysis.group(group).length && <p className="text-sm text-text-mid">No results for these areas.</p>}</div>
+      <div className={card}>
+        <h4 className="text-lg text-clinic-ink">Key findings</h4>
+        {narrative.findings.length ? <div className="mt-3 space-y-2">{narrative.findings.map((item, index) => {
+          const tone: ChipTone = item.priority === 'urgent' || item.priority === 'high' ? 'flag' : item.priority === 'moderate' ? 'watch' : 'clear'
+          return <div key={index} className="rounded-[18px] bg-clinic-bg/60 p-3.5 text-sm"><div className="flex items-start justify-between gap-3"><p className="font-semibold text-clinic-ink">{item.title}</p><StatusChip tone={tone}>{item.priority[0].toUpperCase() + item.priority.slice(1)}</StatusChip></div><p className="mt-1 text-xs leading-5 text-clinic-muted">{item.detail}</p></div>
+        })}</div> : <p className="mt-3 text-sm text-clinic-muted">Findings appear here once they are written on the Report step.</p>}
       </div>
     </section>
 
-    <section className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
-      <div className="clinic-card rounded-card p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h4 className="flex items-center gap-2 text-lg font-medium text-clinic-ink"><WarningIcon size={20} className="text-clinic-flag" />Out-of-range results ({outOfRange.length})</h4>
-          <div className="flex rounded-full bg-clinic-bg p-1 text-xs font-bold">{(['fm', 'lab'] as const).map(item => <button key={item} type="button" onClick={() => setBasis(item)} className={`rounded-full px-3 py-1.5 ${basis === item ? 'bg-green-deep text-white' : 'text-text-mid'}`}>{item === 'fm' ? 'vs FM optimal' : 'vs lab range'}</button>)}</div>
-        </div>
-        <div className="mt-4 space-y-2.5">{outOfRange.length ? outOfRange.map(({ entry, status, amount }) => {
-          const tone = toneOf(entry), color = TONE_TEXT[tone]
-          return <button key={`${entry.panel}:${entry.name}`} type="button" onClick={() => setSelected(entry)} className="block w-full rounded-[20px] bg-clinic-bg/60 px-4 pb-3 pt-3.5 text-left transition hover:bg-clinic-bg">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="flex min-w-0 items-center gap-2 font-medium text-clinic-ink">{status === 'low' ? <TrendDownIcon size={16} weight="bold" style={{ color }} /> : <TrendUpIcon size={16} weight="bold" style={{ color }} />}<span className="truncate">{entry.name}</span>{entry.urgent && <span className="shrink-0 rounded-full bg-clinic-flag px-2 py-0.5 text-[9px] font-semibold text-white">URGENT</span>}</span>
-              <span className="shrink-0 text-xs font-medium tabular-nums" style={{ color }}>{amount >= 1 ? `${amount.toFixed(0)}% ${status === 'low' ? 'below' : 'above'}` : status === 'low' ? 'Low' : 'High'}</span>
-            </div>
-            {entry.numeric !== null && <RangeIndicator value={entry.numeric} standard={entry.labRangeParsed} optimal={entry.fmRangeParsed} tone={tone} label={entry.name} unit={entry.unit} />}
-            <p className="mt-0.5 text-[11px] text-clinic-muted">{basis === 'fm' ? 'FM optimal' : 'Lab range'}: {(basis === 'fm' ? entry.fmRange : entry.labRange) || '—'} {entry.unit} · {panelById(entry.panel).name}{entry.note ? ` · ${entry.note}` : ''}</p>
-          </button>
-        }) : <p className="py-6 text-center text-sm text-text-mid">Every result is within range.</p>}</div>
-      </div>
-
-      <div className="space-y-6">
-        <div className="clinic-card rounded-card p-6">
-          <h4 className="text-lg font-medium text-clinic-ink">Panel health scores</h4>
-          <p className="mt-1 text-xs text-text-mid">Share of each panel&apos;s markers within FM optimal; borderline counts half.</p>
-          <div className="mt-4 space-y-3">{summary.panels.map(item => <div key={item.panel.id} className="flex items-center gap-4">
-            <ProgressRing value={item.score ?? 0} label={`${item.panel.name} health score`} size={60} thickness={7}>
-              <span className="clinic-number text-sm tabular-nums text-clinic-ink">{item.score ?? '—'}</span>
-            </ProgressRing>
-            <div className="min-w-0"><p className="text-sm font-medium text-clinic-ink">{item.panel.name}</p>
-              {narrative.panels[item.panel.id]?.summary && <p className="mt-0.5 text-[11px] text-clinic-muted">{narrative.panels[item.panel.id]!.summary}</p>}</div>
-          </div>)}</div>
-        </div>
-        {narrative.findings.length > 0 && <div className="clinic-card rounded-card p-6">
-          <h4 className="text-lg font-medium text-clinic-ink">Key findings</h4>
-          <div className="mt-3 space-y-2">{narrative.findings.map((item, index) => <div key={index} className={`rounded-lg border-l-4 p-3 text-sm ${item.priority === 'urgent' ? 'border-red-700 bg-red-50' : item.priority === 'high' ? 'border-red-500 bg-red-50/60' : 'border-amber-500 bg-amber-50'}`}><p className="font-bold">{item.title}</p><p className="mt-1 text-xs text-text-mid">{item.detail}</p></div>)}</div>
-        </div>}
-      </div>
-    </section>
-
-    <section className="clinic-card rounded-card p-6">
-      <h4 className="text-lg font-medium text-clinic-ink">All results with clinical context</h4>
+    <section id="fm-all-results" className={`${card} scroll-mt-28`}>
+      <h4 className="text-lg text-clinic-ink">All results with clinical context</h4>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="relative"><MagnifyingGlassIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-mid" /><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search biomarkers…" className={`${inputClass} pl-9`} /></div>
         <select value={panel} onChange={event => setPanel(event.target.value)} className={inputClass}><option value="all">All panels</option>{summary.panels.map(item => <option key={item.panel.id} value={item.panel.id}>{item.panel.name}</option>)}</select>
       </div>
       <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[760px] text-sm">
-        <thead><tr className="bg-green-deep text-left text-xs uppercase tracking-wide text-white"><th className="px-3 py-2.5">Panel</th><th className="px-3 py-2.5">Biomarker</th><th className="px-3 py-2.5 text-right">Result</th><th className="px-3 py-2.5">Lab range</th><th className="px-3 py-2.5">FM optimal</th><th className="px-3 py-2.5">Lab</th><th className="px-3 py-2.5">FM</th></tr></thead>
-        <tbody>{rows.map((entry, index) => <tr key={`${entry.panel}:${entry.name}:${index}`} onClick={() => setSelected(entry)} className={`cursor-pointer border-b border-green-deep/5 hover:bg-cream/40 ${index % 2 ? 'bg-[#F7FAF8]' : ''}`}>
+        <thead><tr className="border-b border-clinic-ink/10 text-left text-[11px] uppercase tracking-[0.08em] text-clinic-muted">{['Panel', 'Biomarker', 'Result', 'Standard', 'Functional', 'Lab', 'FM'].map(name => <th key={name} className={`px-3 py-2.5 font-medium ${name === 'Result' ? 'text-right' : ''}`}>{name}</th>)}</tr></thead>
+        <tbody>{rows.map((entry, index) => <tr key={`${entry.panel}:${entry.name}:${index}`} onClick={() => setSelected(entry)} className="cursor-pointer border-b border-clinic-ink/[0.06] transition hover:bg-clinic-bg/60">
           <td className="px-3 py-2 text-xs text-text-mid">{panelById(entry.panel).short}</td>
-          <td className="px-3 py-2 font-semibold text-green-deep">{entry.name}{entry.calculated && <span className="ml-1.5 text-[10px] font-normal text-text-mid">calculated</span>}</td>
-          <td className="px-3 py-2 text-right font-bold" style={{ color: STATUS_COLOR[entry.fm] }}>{entry.value} <span className="text-xs font-normal text-text-mid">{entry.unit}</span></td>
+          <td className="px-3 py-2.5 text-clinic-ink">{entry.name}{entry.calculated && <span className="ml-1.5 text-[10px] font-normal text-text-mid">calculated</span>}</td>
+          <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: STATUS_COLOR[entry.fm] }}>{entry.value} <span className="text-xs font-normal text-text-mid">{entry.unit}</span></td>
           <td className="px-3 py-2 text-xs text-text-mid">{entry.labRange || '—'}</td>
-          <td className="px-3 py-2 text-xs font-semibold text-green-mid">{entry.fmRange || '—'}</td>
+          <td className="px-3 py-2 text-xs text-clinic-ink">{entry.fmRange || '—'}</td>
           <td className="px-3 py-2 text-[11px] font-bold" style={{ color: STATUS_COLOR[entry.lab] }}>{LAB_STATUS_LABEL[entry.lab]}</td>
           <td className="px-3 py-2 text-[11px] font-bold" style={{ color: STATUS_COLOR[entry.fm] }}>{FM_STATUS_LABEL[entry.fm]}</td>
         </tr>)}</tbody>

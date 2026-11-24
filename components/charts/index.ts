@@ -7,3 +7,5 @@ export { default as SegmentedBar, type Segment, type Marker } from './SegmentedB
 export { default as Gauge, type GaugeSegment } from './Gauge'
 export { default as RangeIndicator, type RangeTone } from './RangeIndicator'
 export { clinic } from './shared'
+export { default as MiniBars, type MiniBar } from './MiniBars'
+export { default as StatusChip, type ChipTone } from './StatusChip'

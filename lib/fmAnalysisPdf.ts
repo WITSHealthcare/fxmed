@@ -35,8 +35,8 @@ const LINE = '#E6E6E1'
 const ON_DARK = 'rgba(255,255,255,.72)'
 // The brand mark keeps its own colours.
 const BRAND_LIME = '#C9E265'
-// Inter where the page can reach it (the admin sets --font-inter), otherwise Arial.
-const FONT = "var(--font-inter), Inter, Arial, Helvetica, sans-serif"
+// Plus Jakarta Sans where the page can reach it (the admin sets --font-clinic), otherwise Arial.
+const FONT = "var(--font-clinic), 'Plus Jakarta Sans', Arial, Helvetica, sans-serif"
 const SVG_FONT = 'Arial, Helvetica, sans-serif'
 const ACCENT = `linear-gradient(90deg, ${LIME}, ${SAGE})`
 
@@ -148,7 +148,7 @@ function shell(content: string, chrome: string, patient: FmPatient, number: numb
 const dash = (margin = '1.6em 0 1em') => `<div style="width:3.2em;height:.42em;background:${LIME};border-radius:1em;margin:${margin}"></div>`
 
 function title(text: string) {
-  return `${dash()}<div style="font-size:2.9em;font-weight:500;letter-spacing:-.03em;line-height:1.2;color:${DEEP}">${esc(text)}</div>`
+  return `${dash()}<div style="font-size:2.9em;font-weight:500;letter-spacing:-.02em;line-height:1.2;color:${DEEP}">${esc(text)}</div>`
 }
 
 const subtitle = (text: string) => `<div style="font-size:2.1em;font-weight:400;color:${GREEN};line-height:1.3;margin:1.4em 0 .7em">${esc(text)}</div>`
@@ -427,7 +427,7 @@ function coverBody(data: FmReportData) {
     <div style="position:relative;padding:4.6em 0.8em 0">
       <img src="/logo-trimmed.png" style="height:3em;display:block" />
       <div style="margin-top:11em;font-size:.9em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">Functional Medicine &nbsp;·&nbsp; Blood Chemistry Analysis</div>
-      <div style="font-size:5em;font-weight:500;line-height:1.15;letter-spacing:-.04em;color:#fff;margin-top:.3em">Functional<br/>Health Report</div>
+      <div style="font-size:5em;font-weight:500;line-height:1.15;letter-spacing:-.03em;color:#fff;margin-top:.3em">Functional<br/>Health Report</div>
       <div style="font-size:1.25em;line-height:1.55;color:${ON_DARK};margin-top:1.5em;width:25em">Your blood results read for optimal health, not just for disease, with a personal plan to get there.</div>
     </div>
     <div style="position:absolute;left:3.4em;right:3.4em;bottom:3.4em;background:${CREAM};border-radius:1.4em;padding:1.9em 2.2em">
@@ -479,7 +479,7 @@ function dividerBody(section: (typeof SECTIONS)[number], toc: TocIndex) {
     <div style="position:absolute;left:3.4em;right:3.4em;bottom:7.5em">
       <div style="font-size:.95em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">Section</div>
       <div style="font-size:15em;font-weight:300;line-height:.95;letter-spacing:-.05em;color:${LIME}">${String(section.number).padStart(2, '0')}</div>
-      <div style="font-size:3.4em;font-weight:500;line-height:1.1;letter-spacing:-.03em;color:#fff;margin-top:.15em">${esc(section.title)}</div>
+      <div style="font-size:3.4em;font-weight:500;line-height:1.1;letter-spacing:-.02em;color:#fff;margin-top:.15em">${esc(section.title)}</div>
       <div style="font-size:1.15em;line-height:1.55;color:${ON_DARK};margin-top:.8em;width:32em">${esc(section.blurb)}</div>
       <div style="width:3.2em;height:.42em;background:${LIME};border-radius:1em;margin:2em 0 1.2em"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 2.4em;width:40em">${contentsList(section.id, toc, true)}</div>
@@ -653,9 +653,9 @@ export async function renderFmReportPdf(data: FmReportData): Promise<Blob> {
   const pages = buildFmReportPages(data)
   const host = document.createElement('div')
   Object.assign(host.style, { position: 'absolute', left: '-10000px', top: '0' })
-  // The pages are drawn outside the admin frame, so carry its Inter font variable across.
-  const inter = document.querySelector('.clinic-theme') && getComputedStyle(document.querySelector('.clinic-theme')!).getPropertyValue('--font-inter')
-  if (inter) host.style.setProperty('--font-inter', inter)
+  // The pages are drawn outside the admin frame, so carry its font variable across.
+  const font = document.querySelector('.clinic-theme') && getComputedStyle(document.querySelector('.clinic-theme')!).getPropertyValue('--font-clinic')
+  if (font) host.style.setProperty('--font-clinic', font)
   document.body.appendChild(host)
   try {
     if (document.fonts?.ready) await document.fonts.ready
