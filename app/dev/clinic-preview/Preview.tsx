@@ -166,6 +166,6 @@ export default function Preview() {
       {[['kit', 'Chart kit'], ['seo', 'SEO analytics'], ['fm', 'Health analysis: labs'], ['report', 'Health analysis: lab report'], ['stool', 'Health analysis: stool test']].map(([id, label]) => <Link key={id} href={`?page=${id}`} className="underline underline-offset-2">{label}</Link>)}
       <Link href="?view=portal" className="underline underline-offset-2">Patient portal</Link>
     </p>
-    {page === 'seo' ? <SeoAnalytics /> : page === 'stool' ? <Stool /> : page === 'report' ? <Report initial={entries} /> : page === 'fm' ? <AnalysisDashboard entries={entries} narrative={emptyNarrative()} sex="female" age={40} /> : <Kit />}
+    {page === 'seo' ? <SeoAnalytics /> : page === 'stool' ? <Stool /> : page === 'report' ? <Report initial={entries} /> : page === 'fm' ? <AnalysisDashboard entries={entries} narrative={emptyNarrative()} sex="female" age={40} stool={sampleStool().test} /> : <Kit />}
   </AdminFrame>
 }

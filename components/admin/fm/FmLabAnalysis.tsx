@@ -335,9 +335,9 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       <ImportPanel sex={patient.sex} age={age} onImported={imported} another={entries.length > 0} />
       <ResultsTable entries={entries} sex={patient.sex} age={age} onChange={setEntries} />
       <StoolTestCard stool={stool} onChange={setStool} emrPatientId={emrPatientId} />
-      {summary.total > 0 && <div className="flex justify-end"><button type="button" className="primary" onClick={() => setStep('analysis')}><ChartBarIcon size={16} />See the analysis</button></div>}
+      {(summary.total > 0 || !!stool) && <div className="flex justify-end"><button type="button" className="primary" onClick={() => setStep('analysis')}><ChartBarIcon size={16} />See the analysis</button></div>}
     </div>}
-    {step === 'analysis' && <AnalysisDashboard entries={entries} narrative={narrative} sex={patient.sex} age={age} />}
+    {step === 'analysis' && <AnalysisDashboard entries={entries} narrative={narrative} sex={patient.sex} age={age} stool={stool} />}
     {step === 'report' && <ReportBuilder patient={patient} entries={entries} setEntries={setEntries} narrative={narrative} setNarrative={setNarrative} emrPatientId={emrPatientId} onSaveAnalysis={save} />}
   </div>
 }

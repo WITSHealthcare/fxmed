@@ -2,13 +2,16 @@
 
 import { useMemo, useState } from 'react'
 import { CheckCircleIcon, FileTextIcon, MagnifyingGlassIcon, TrendDownIcon, TrendUpIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
-import { AREA_GROUPS, PLAN_PARTS, analyse, planFor, priorityOf, type AreaGroup, type AreaResult } from '@/lib/fmAssessment'
+import { AREAS, AREA_GROUPS, PLAN_PARTS, analyse, planFor, priorityOf, type AreaGroup, type AreaResult } from '@/lib/fmAssessment'
 import {
   FM_STATUS_LABEL, LAB_STATUS_LABEL, PRIORITY_COLOR, STATUS_COLOR, deviation, panelById,
   type AssessedEntry, type FmEntry, type FmNarrative, type Sex,
 } from '@/lib/fmBiomarkers'
 import { markerExplanation } from '@/lib/fmMarkerInfo'
 import { inputClass } from './ResultsEntry'
+import GutPanel from './GutPanel'
+import { GUT_AREAS, assessStool, gutEvidence, worstTone, type GutAssessment } from '@/lib/stoolAssessment'
+import type { StoolTest } from '@/lib/stoolMarkers'
 import { Gauge, MiniBars, RangeIndicator, SegmentedBar, StatusChip, clinic, type ChipTone, type RangeTone } from '@/components/charts'
 
 // The clinical read on screen, laid out like the FxMed Twin: headline counts,
@@ -62,8 +65,11 @@ function PanelTile({ name, score, entries, onOpen }: { name: string; score: numb
 }
 
 /** A body system or nutrient as a Systems view card: status chip, the results behind it, and its support score. */
-function SystemCard({ item, onMarker }: { item: AreaResult; onMarker: (entry: AssessedEntry) => void }) {
-  const chip = chipOf(item)
+function SystemCard({ item, gut, onMarker }: { item: AreaResult; gut: GutAssessment; onMarker: (entry: AssessedEntry) => void }) {
+  // Stool evidence sits beside the blood score: the chip takes the higher of the two, and says where it came from.
+  const stool = gutEvidence(gut, item.area.id)
+  const blood = chipOf(item)
+  const chip = stool ? worstTone([blood, stool.tone]) as ChipTone : blood
   return <div className="flex flex-col rounded-[22px] bg-clinic-bg/60 p-4">
     <div className="flex items-start justify-between gap-3"><h5 className="text-[15px] font-semibold leading-snug tracking-[-0.01em] text-clinic-ink">{item.area.name}</h5><StatusChip tone={chip} /></div>
     <div className="mt-2 space-y-1 text-[13px] leading-snug">
@@ -73,6 +79,8 @@ function SystemCard({ item, onMarker }: { item: AreaResult; onMarker: (entry: As
       </button>)}
       {!item.contributors.length && <p className="text-clinic-muted">{item.considered.length ? `${item.considered.length} marker${item.considered.length === 1 ? '' : 's'} in range` : `Not tested${item.missing.length ? `: consider ${item.missing.slice(0, 2).join(', ')}` : ''}`}</p>}
       {item.contributors.length > 3 && <p className="text-xs text-clinic-muted">+{item.contributors.length - 3} more</p>}
+      {stool && stool.findings.length > 0 && <p className="pt-1 text-xs"><span className="font-semibold" style={{ color: stool.tone === 'flag' ? TONE_TEXT.flag : TONE_TEXT.watch }}>From stool:</span> <span className="text-clinic-ink">{stool.findings.map(finding => finding.title.toLowerCase()).join(', ')}</span></p>}
+      {stool && !stool.findings.length && <p className="pt-1 text-xs text-clinic-muted">Stool test: nothing outside reference</p>}
     </div>
     {item.considered.length > 0 && <div className="mt-auto pt-3">
       <div className="flex justify-between text-[11px] text-clinic-muted"><span>Support score</span><span className="tabular-nums">{item.score}%</span></div>
@@ -81,10 +89,24 @@ function SystemCard({ item, onMarker }: { item: AreaResult; onMarker: (entry: As
   </div>
 }
 
+/** An area the blood results could not score, shown from the stool test alone. */
+function StoolOnlyCard({ name, gut, areaId }: { name: string; gut: GutAssessment; areaId: string }) {
+  const stool = gutEvidence(gut, areaId)
+  if (!stool) return null
+  return <div className="flex flex-col rounded-[22px] bg-clinic-bg/60 p-4">
+    <div className="flex items-start justify-between gap-3"><h5 className="text-[15px] font-semibold leading-snug tracking-[-0.01em] text-clinic-ink">{name}</h5><StatusChip tone={stool.tone as ChipTone} /></div>
+    <p className="mt-2 text-[13px] leading-snug text-clinic-muted">Not scored from blood in these results.</p>
+    <p className="mt-1 text-xs">{stool.findings.length
+      ? <><span className="font-semibold" style={{ color: stool.tone === 'flag' ? TONE_TEXT.flag : TONE_TEXT.watch }}>From stool:</span> <span className="text-clinic-ink">{stool.findings.map(finding => finding.title.toLowerCase()).join(', ')}</span></>
+      : <span className="text-clinic-muted">Stool test: nothing outside reference</span>}</p>
+  </div>
+}
+
 const SCORE_GROUPS: Array<[Exclude<AreaGroup, 'plan'>, string]> = [['system', 'Core systems'], ['accessory', 'Whole-body'], ['nutrient', 'Nourishment'], ['deficiency', 'Nutrient gaps']]
 
-export default function AnalysisDashboard({ entries, narrative, sex, age }: { entries: FmEntry[]; narrative: FmNarrative; sex: Sex; age?: number | null }) {
+export default function AnalysisDashboard({ entries, narrative, sex, age, stool = null }: { entries: FmEntry[]; narrative: FmNarrative; sex: Sex; age?: number | null; stool?: StoolTest | null }) {
   const analysis = useMemo(() => analyse(entries, sex, age), [entries, sex, age])
+  const gut = useMemo(() => assessStool(stool), [stool])
   const summary = analysis.summary
   const [group, setGroup] = useState<Exclude<AreaGroup, 'plan'>>('system')
   const [search, setSearch] = useState('')
@@ -92,7 +114,9 @@ export default function AnalysisDashboard({ entries, narrative, sex, age }: { en
   const [basis, setBasis] = useState<'fm' | 'lab'>('fm')
   const [selected, setSelected] = useState<AssessedEntry | null>(null)
 
-  if (!summary.total) return <div className="rounded-[20px] border border-green-deep/10 bg-white p-10 text-center text-sm text-text-mid">Enter or import results to see the analysis.</div>
+  if (!summary.total) return stool && gut.tested
+    ? <div className="space-y-6"><p className="clinic-card rounded-card p-5 text-sm text-clinic-muted">No blood results yet: this read shows the stool test only. Add blood results to see the full analysis.</p><GutPanel stool={stool} assessment={gut} /></div>
+    : <div className="rounded-[20px] border border-green-deep/10 bg-white p-10 text-center text-sm text-text-mid">Enter or import results to see the analysis.</div>
 
   const outOfRange = summary.assessed
     .map(entry => {
@@ -138,13 +162,16 @@ export default function AnalysisDashboard({ entries, narrative, sex, age }: { en
       </div>
     </section>
 
+    {stool && gut.tested && <GutPanel stool={stool} assessment={gut} />}
+
     <section className={card}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><h4 className="text-lg text-clinic-ink">Systems view</h4><p className="mt-1 max-w-3xl text-sm text-clinic-muted">{AREA_GROUPS[group].intro}</p></div>
         <div className="flex flex-wrap gap-1 rounded-full bg-clinic-bg p-1 text-xs">{SCORE_GROUPS.map(([id, label]) => <button key={id} type="button" onClick={() => setGroup(id)} className={toggle(group === id)}>{label}</button>)}</div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-        {analysis.group(group).map(item => <SystemCard key={item.area.id} item={item} onMarker={setSelected} />)}
+        {analysis.group(group).map(item => <SystemCard key={item.area.id} item={item} gut={gut} onMarker={setSelected} />)}
+        {AREAS.filter(area => area.group === group && GUT_AREAS[area.id] && !analysis.group(group).some(item => item.area.id === area.id)).map(area => <StoolOnlyCard key={area.id} name={area.name} gut={gut} areaId={area.id} />)}
       </div>
       {!analysis.group(group).length && <p className="mt-4 text-sm text-clinic-muted">No results for these areas.</p>}
     </section>
