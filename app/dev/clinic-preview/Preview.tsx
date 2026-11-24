@@ -75,8 +75,12 @@ function answer(url: string, init?: RequestInit) {
   return null
 }
 
+// The first 36 markers, plus the nutrient panels without their direct tests
+// (folate, zinc, magnesium, selenium), so "not tested directly" shows too.
+const SAMPLE_SKIP = new Set(['folate', 'zinc', 'rbc_magnesium', 'magnesium', 'selenium'])
 function sampleEntries(): FmEntry[] {
-  return FM_BIOMARKERS.slice(0, 36).flatMap((marker, index) => {
+  const nutrients = FM_BIOMARKERS.slice(36).filter(marker => ['hematology', 'vitamins', 'electrolytes', 'methylation'].includes(marker.panel) && !SAMPLE_SKIP.has(marker.id))
+  return [...FM_BIOMARKERS.slice(0, 36), ...nutrients].flatMap((marker, index) => {
     const entry = createEntry(marker, 'female', {}, 40)
     const range = parseRange(entry.fmRange || entry.labRange)
     if (!range) return []

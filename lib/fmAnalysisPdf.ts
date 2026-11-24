@@ -10,7 +10,7 @@
 
 import {
   analyse, AREA_GROUPS, BAND_COLOR, BANDS, BAND_LABEL, bandOf, defaultFindings, defaultNextSteps, defaultRecommendations,
-  defaultSummary, directionOf, likelihoodLabel, needsDetail, planFor, PLAN_PARTS, priorityOf,
+  defaultSummary, directionOf, likelihoodLabel, needsDetail, planFor, PLAN_PARTS, priorityOf, scoreStatus,
   type Analysis, type AreaGroup, type AreaResult, type Band,
 } from './fmAssessment'
 import { ageInYears, deviation, FM_PANELS, PRIORITY_COLOR, type AssessedEntry, type FmEntry, type FmNarrative, type FmPatient } from './fmBiomarkers'
@@ -208,7 +208,7 @@ function disc(color: string, lines: Array<[string, number, number?]>, size: numb
 
 /** The four support levels, on the report's 50 / 70 / 90 thresholds (see likelihoodLabel). */
 const LEVELS = [
-  { name: 'Holding steady', short: 'Holding steady', from: 0, solid: SAGE, tint: '#DFE8CF', faint: '#EEF3E6', text: GREEN },
+  { name: 'Low priority', short: 'Low priority', from: 0, solid: SAGE, tint: '#DFE8CF', faint: '#EEF3E6', text: GREEN },
   { name: 'Worth watching', short: 'Watching', from: 50, solid: '#D6A23A', tint: '#F1DFAE', faint: '#F7EFD8', text: '#8A6312' },
   { name: 'Needs support', short: 'Support', from: 70, solid: '#D0574F', tint: '#ECC0BB', faint: '#F6E3E0', text: '#B8433B' },
   { name: 'Priority support', short: 'Priority', from: 90, solid: '#9E2F29', tint: '#DDA9A5', faint: '#F2DEDC', text: '#9E2F29' },
@@ -223,16 +223,20 @@ function signalBars(score: number, size = 5.6) {
 }
 
 /** A dot scale: ten dots, one for each 10% of the score, coloured by its level. */
-function dotScale(score: number, width = 12) {
+function dotScale(score: number, width = 12, state: 'score' | 'untested' | 'pass' = 'score') {
   const level = levelOf(score), tone = LEVELS[level]
   const filled = Math.round(Math.max(0, Math.min(score, 100)) / 10)
-  const dots = Array.from({ length: 10 }, (_, index) => `<circle cx="${7 + index * 18}" cy="8" r="6.5" fill="${index < filled ? tone.solid : index === filled ? tone.faint : '#E9EAE4'}"/>`).join('')
+  // Not tested directly: hollow grey rings. On target: a soft sage row, nothing filled.
+  const dots = Array.from({ length: 10 }, (_, index) => state === 'untested'
+    ? `<circle cx="${7 + index * 18}" cy="8" r="5.6" fill="none" stroke="#C9CBC3" stroke-width="1.6" stroke-dasharray="2.2 2"/>`
+    : `<circle cx="${7 + index * 18}" cy="8" r="6.5" fill="${state === 'pass' ? LEVELS[0].tint : index < filled ? tone.solid : index === filled ? tone.faint : '#E9EAE4'}"/>`).join('')
   return `${svgOpen(width, 176, 16, 'start')}${dots}</svg></div>`
 }
 
 /** A level meter: the four levels as one bar, the score's level in full colour, and a pin at the score. */
-function levelMeter(score: number, width = 30) {
+function levelMeter(score: number, width = 30, untested = false) {
   const level = levelOf(score), W = 300
+  if (untested) return `${svgOpen(width, W, 20, 'start')}<rect x="1" y="5.5" width="${W - 2}" height="9" rx="4.5" fill="none" stroke="#C9CBC3" stroke-width="1.4" stroke-dasharray="4 3"/></svg></div>`
   const x = (value: number) => (value / 100) * W
   const ends = [0, 50, 70, 90, 100]
   const parts = LEVELS.map((tone, index) => {
@@ -248,7 +252,7 @@ function levelMeter(score: number, width = 30) {
 
 /** The four levels as a key: a dot in each colour and its name. */
 function levelKey() {
-  return `<div style="display:flex;flex-wrap:wrap;gap:.2em 1.4em;font-size:.82em;color:${BODY}">${LEVELS.map((tone, index) => `<span style="white-space:nowrap"><span style="color:${tone.solid}">●</span> ${tone.name} <span style="color:${MUTED}">${index === 3 ? '90%+' : `${tone.from}–${LEVELS[index + 1].from}%`}</span></span>`).join('')}</div>`
+  return `<div style="display:flex;flex-wrap:wrap;gap:.2em 1.4em;font-size:.82em;color:${BODY}">${LEVELS.map((tone, index) => `<span style="white-space:nowrap"><span style="color:${tone.solid}">●</span> ${tone.name} <span style="color:${MUTED}">${index === 3 ? '90%+' : `${tone.from}–${LEVELS[index + 1].from}%`}</span></span>`).join('')}<span style="white-space:nowrap"><span style="color:#B5B8AF">○</span> Not tested directly</span></div>`
 }
 
 /** The support scores of a group of areas: a row each with a dot scale, or (for the core body systems) a level meter. */
@@ -256,11 +260,20 @@ function likelihoodChart(items: AreaResult[], style: 'dots' | 'meter' = 'dots') 
   const nameW = 16.5, chartW = style === 'meter' ? 30 : 16
   const row = (item: AreaResult) => {
     const tone = LEVELS[levelOf(item.score)]
+    const status = scoreStatus(item)
+    const untested = status.key === 'not_direct' || status.key === 'indirect'
+    const chart = style === 'meter' ? levelMeter(item.score, chartW, untested) : dotScale(item.score, chartW, untested ? 'untested' : status.key === 'on_target' ? 'pass' : 'score')
+    const figure = untested ? `<span style="color:${MUTED};font-weight:400">—</span>` : status.key === 'on_target' ? `<span style="color:${GREEN}">✓</span>` : `${item.score}%`
+    // Below 50% the level alone says little, so say what the score rests on.
+    const note = untested ? `<span style="color:${MUTED}">${esc(status.label)}${item.missing.length ? ` · consider ${esc(item.missing.slice(0, 2).join(', '))}` : ''}</span>`
+      : status.key === 'on_target' ? `<span style="color:${GREEN}">On target</span>`
+      : status.key === 'low' ? `<span style="color:${tone.text}">Low priority</span>${item.direct === false ? `<span style="color:${MUTED}"> · not tested directly</span>` : ''}`
+      : style === 'dots' ? `<span style="color:${tone.text}">${esc(tone.name)}</span>` : ''
     return `<div style="display:flex;align-items:center;gap:1.2em;margin-bottom:.8em">
       <div style="width:${nameW}em;flex:none;text-align:right;font-size:.98em;line-height:1.3;color:${INK}">${esc(item.area.name)}</div>
-      ${style === 'meter' ? levelMeter(item.score, chartW) : dotScale(item.score, chartW)}
-      <div style="width:3.2em;flex:none;font-size:1em;font-weight:800;color:${tone.text}">${item.score}%</div>
-      <div style="font-size:.82em;color:${tone.text}">${style === 'dots' ? esc(tone.name) : ''}</div>
+      ${chart}
+      <div style="width:3.2em;flex:none;font-size:1em;font-weight:800;color:${tone.text}">${figure}</div>
+      <div style="font-size:.82em;line-height:1.35">${note}</div>
     </div>`
   }
   const header = style === 'meter'
@@ -894,21 +907,25 @@ const TWIN_WHOLE_BODY: Array<{ label: string; areas: string[] }> = [
 ]
 
 type TwinStatus = Tone | 'nodata'
-const TWIN_WORDS: Record<TwinStatus, string> = { flag: 'Needs support', watch: 'Worth watching', clear: 'Holding steady', nodata: 'Not tested' }
+const TWIN_WORDS: Record<TwinStatus, string> = { flag: 'Needs support', watch: 'Worth watching', clear: 'Low priority', nodata: 'Not tested' }
 
 /** The status of a group of areas: from the highest support score among those these results could score. */
 function twinStatus(analysis: Analysis, ids: string[]) {
   const scored = ids.map(id => analysis.areas.find(item => item.area.id === id)).filter((item): item is AreaResult => !!item && item.considered.length > 0)
-  if (!scored.length) return { status: 'nodata' as TwinStatus, worst: null, markers: '' }
+  if (!scored.length) return { status: 'nodata' as TwinStatus, word: TWIN_WORDS.nodata, worst: null, markers: '', untested: false }
   const worst = scored.reduce((top, item) => item.score > top.score ? item : top)
   const seen = new Set<string>()
   const contributors = scored.flatMap(item => item.contributors).filter(({ entry }) => !seen.has(entry.name) && !!seen.add(entry.name))
-  return { status: toneOf(worst.score) as TwinStatus, worst, markers: markerList(contributors.slice(0, 3)) }
+  const status = toneOf(worst.score) as TwinStatus
+  const statuses = scored.map(item => scoreStatus(item).key)
+  // Low scores only reassure where a direct test was read.
+  if (status === 'clear' && statuses.every(key => key === 'not_direct' || key === 'indirect')) return { status: 'nodata' as TwinStatus, word: 'Not tested directly', worst, markers: '', untested: true }
+  const word = status === 'clear' && statuses.every(key => key === 'on_target') ? 'On target' : TWIN_WORDS[status]
+  return { status, word, worst, markers: markerList(contributors.slice(0, 3)), untested: false }
 }
 
 /** A status pill. SVG, because html2canvas draws text in small boxes too low. */
-function twinChip(status: TwinStatus) {
-  const text = TWIN_WORDS[status]
+function twinChip(status: TwinStatus, text = TWIN_WORDS[status]) {
   const colors = status === 'nodata' ? { tint: TRACK, text: MUTED } : { tint: TONE[status].tint, text: TONE[status].text }
   const width = text.length * 0.5 + 1.5
   return `<span style="display:block;flex:none;font-size:.8em"><svg width="${width}em" height="1.8em" viewBox="0 0 ${width * 10} 18" style="display:block">
@@ -918,8 +935,10 @@ function twinChip(status: TwinStatus) {
 
 function twinCard(label: string, state: ReturnType<typeof twinStatus>, style: string) {
   return `<div style="${style};background:${CREAM};border-radius:1em;padding:.75em .9em;box-sizing:border-box">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5em"><div style="font-size:1em;font-weight:700;line-height:1.3;color:${INK}">${esc(label)}</div>${twinChip(state.status)}</div>
-    <div style="font-size:.84em;line-height:1.45;color:${BODY};margin-top:.35em">${state.worst
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5em"><div style="font-size:1em;font-weight:700;line-height:1.3;color:${INK}">${esc(label)}</div>${twinChip(state.status, state.word)}</div>
+    <div style="font-size:.84em;line-height:1.45;color:${BODY};margin-top:.35em">${state.untested && state.worst
+      ? `<span style="color:${MUTED}">Its main tests were not in these results.${state.worst.missing.length ? ` Consider ${esc(state.worst.missing.slice(0, 2).join(', '))}.` : ''}</span>`
+      : state.worst
       ? `${esc(state.worst.area.name)} <b style="color:${TONE[toneOf(state.worst.score)].text}">${state.worst.score}%</b>${state.markers ? `<br/><span style="color:${MUTED}">${state.markers}</span>` : ''}`
       : `<span style="color:${MUTED}">These results did not include its markers.</span>`}</div>
   </div>`
