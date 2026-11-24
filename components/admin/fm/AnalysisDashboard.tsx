@@ -50,6 +50,8 @@ const TONE_TEXT: Record<RangeTone, string> = { flag: '#b8433b', watch: '#a87a1c'
 const chipOf = (item: AreaResult): ChipTone => !item.considered.length ? 'nodata' : item.score >= 70 ? 'flag' : item.score >= 50 ? 'watch' : 'clear'
 const SEVERITY: Record<RangeTone, number> = { clear: 0.35, watch: 0.68, flag: 1 }
 const rangeText = (range: AssessedEntry['fmRangeParsed']) => !range ? '—' : range.low !== null && range.high !== null ? `${range.low}–${range.high}` : range.low !== null ? `≥ ${range.low}` : `≤ ${range.high}`
+/** A worded result (H. pylori) has no numeric range to show: negative is the expected result. */
+const rangeOf = (entry: AssessedEntry, range: AssessedEntry['fmRangeParsed']) => entry.textResult ? 'Negative' : rangeText(range)
 
 /** A panel as a check-in style tile: its score, a bar for each marker, and how many sit outside range. */
 function PanelTile({ name, score, entries, onOpen }: { name: string; score: number | null; entries: AssessedEntry[]; onOpen: () => void }) {
@@ -75,7 +77,7 @@ function SystemCard({ item, gut, onMarker }: { item: AreaResult; gut: GutAssessm
     <div className="mt-2 space-y-1 text-[13px] leading-snug">
       {item.contributors.slice(0, 3).map(({ entry, direction }) => <button key={entry.name} type="button" onClick={() => onMarker(entry)} className="block text-left text-clinic-ink hover:underline">
         {entry.name} {entry.value} <span className="text-clinic-muted">{entry.unit}</span> <span style={{ color: TONE_TEXT[toneOf(entry)] }}>{direction === 'low' ? '↓' : '↑'}</span>
-        <span className="block text-xs text-clinic-muted">outside FM range {rangeText(entry.fmRangeParsed ?? entry.labRangeParsed)}</span>
+        <span className="block text-xs text-clinic-muted">{entry.textResult ? 'expected negative' : `outside FM range ${rangeText(entry.fmRangeParsed ?? entry.labRangeParsed)}`}</span>
       </button>)}
       {!item.contributors.length && <p className="text-clinic-muted">{item.considered.length ? `${item.considered.length} marker${item.considered.length === 1 ? '' : 's'} in range` : `Not tested${item.missing.length ? `: consider ${item.missing.slice(0, 2).join(', ')}` : ''}`}</p>}
       {item.contributors.length > 3 && <p className="text-xs text-clinic-muted">+{item.contributors.length - 3} more</p>}
@@ -122,7 +124,7 @@ export default function AnalysisDashboard({ entries, narrative, sex, age, stool 
     .map(entry => {
       const status = basis === 'fm' ? entry.fm : entry.lab
       const range = basis === 'fm' ? entry.fmRangeParsed : entry.labRangeParsed
-      return { entry, status, amount: deviation(entry.numeric, range) }
+      return { entry, status, amount: entry.textResult ? 0 : deviation(entry.numeric, range) }
     })
     .filter(item => item.status === 'high' || item.status === 'low')
     .sort((a, b) => Number(b.entry.urgent) - Number(a.entry.urgent) || b.amount - a.amount)
@@ -189,9 +191,9 @@ export default function AnalysisDashboard({ entries, narrative, sex, age, stool 
             return <tr key={`${entry.panel}:${entry.name}`} onClick={() => setSelected(entry)} className="cursor-pointer border-b border-clinic-ink/[0.06] align-middle transition hover:bg-clinic-bg/60">
               <td className="py-3 pr-3"><span className="flex items-center gap-2 text-clinic-ink">{entry.name}{entry.urgent && <StatusChip tone="flag">Urgent</StatusChip>}</span></td>
               <td className="py-3 pr-3 tabular-nums"><span className="font-semibold" style={{ color: TONE_TEXT[tone] }}>{entry.value}</span> <span className="text-clinic-muted">{entry.unit}</span> <span className="text-xs" style={{ color: TONE_TEXT[tone] }}>{status === 'low' ? '↓' : '↑'}{amount >= 1 ? ` ${amount.toFixed(0)}%` : ''}</span></td>
-              <td className="py-3 pr-3 tabular-nums text-clinic-muted">{rangeText(entry.labRangeParsed)}</td>
-              <td className="py-3 pr-3 tabular-nums text-clinic-ink">{rangeText(entry.fmRangeParsed)}</td>
-              <td className="py-1">{entry.numeric !== null && <RangeIndicator value={entry.numeric} standard={entry.labRangeParsed} optimal={entry.fmRangeParsed} tone={tone} label={entry.name} unit={entry.unit} hideValue />}</td>
+              <td className="py-3 pr-3 tabular-nums text-clinic-muted">{rangeOf(entry, entry.labRangeParsed)}</td>
+              <td className="py-3 pr-3 tabular-nums text-clinic-ink">{rangeOf(entry, entry.fmRangeParsed)}</td>
+              <td className="py-1">{entry.numeric !== null && !entry.textResult && <RangeIndicator value={entry.numeric} standard={entry.labRangeParsed} optimal={entry.fmRangeParsed} tone={tone} label={entry.name} unit={entry.unit} hideValue />}</td>
             </tr>
           })}</tbody>
         </table>
@@ -199,8 +201,8 @@ export default function AnalysisDashboard({ entries, narrative, sex, age, stool 
           const tone = toneOf(entry)
           return <button key={`${entry.panel}:${entry.name}`} type="button" onClick={() => setSelected(entry)} className="block w-full rounded-[20px] bg-clinic-bg/60 px-4 pb-2 pt-3.5 text-left">
             <div className="flex items-center justify-between gap-3 text-sm"><span className="truncate text-clinic-ink">{entry.name}</span><span className="shrink-0 text-xs font-medium" style={{ color: TONE_TEXT[tone] }}>{status === 'low' ? '↓' : '↑'} {amount >= 1 ? `${amount.toFixed(0)}% ${status === 'low' ? 'below' : 'above'}` : status}</span></div>
-            {entry.numeric !== null && <div className="mt-1.5"><RangeIndicator value={entry.numeric} standard={entry.labRangeParsed} optimal={entry.fmRangeParsed} tone={tone} label={entry.name} unit={entry.unit} /></div>}
-            <p className="text-[11px] text-clinic-muted">Standard {rangeText(entry.labRangeParsed)} · Functional {rangeText(entry.fmRangeParsed)} {entry.unit}</p>
+            {entry.numeric !== null && !entry.textResult && <div className="mt-1.5"><RangeIndicator value={entry.numeric} standard={entry.labRangeParsed} optimal={entry.fmRangeParsed} tone={tone} label={entry.name} unit={entry.unit} /></div>}
+            <p className="text-[11px] text-clinic-muted">Standard {rangeOf(entry, entry.labRangeParsed)} · Functional {rangeOf(entry, entry.fmRangeParsed)} {entry.unit}</p>
           </button>
         })}</div>
       </> : <p className="py-6 text-center text-sm text-clinic-muted">Every result is within range.</p>}
@@ -262,7 +264,7 @@ export default function AnalysisDashboard({ entries, narrative, sex, age, stool 
       <div className="w-full max-w-lg rounded-card bg-clinic-card p-6 shadow-2xl sm:p-7" onClick={event => event.stopPropagation()}>
         <div className="flex items-start justify-between"><div><p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: panelById(selected.panel).color }}>{panelById(selected.panel).name}</p><h3 className="mt-1 text-2xl text-clinic-ink">{selected.name}</h3></div><button type="button" onClick={() => setSelected(null)} aria-label="Close" className="rounded-full p-1.5 hover:bg-cream"><XIcon size={20} /></button></div>
         <p className="clinic-number mt-4 text-[2.6rem] leading-none" style={{ color: TONE_TEXT[toneOf(selected)] }}>{selected.value} <span className="text-base text-clinic-muted">{selected.unit}</span></p>
-        {selected.numeric !== null && <div className="mt-3"><RangeIndicator value={selected.numeric} standard={selected.labRangeParsed} optimal={selected.fmRangeParsed} tone={toneOf(selected)} label={selected.name} unit={selected.unit} hideValue /></div>}
+        {selected.numeric !== null && !selected.textResult && <div className="mt-3"><RangeIndicator value={selected.numeric} standard={selected.labRangeParsed} optimal={selected.fmRangeParsed} tone={toneOf(selected)} label={selected.name} unit={selected.unit} hideValue /></div>}
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-[16px] bg-clinic-bg/70 p-3"><p className="text-xs text-text-mid">Lab range</p><p className="font-bold">{selected.labRange || '—'}</p><p className="mt-1 text-xs font-bold" style={{ color: STATUS_COLOR[selected.lab] }}>{LAB_STATUS_LABEL[selected.lab]}{deviation(selected.numeric, selected.labRangeParsed) >= 1 ? ` · ${deviation(selected.numeric, selected.labRangeParsed).toFixed(0)}% out` : ''}</p></div>
           <div className="rounded-[16px] bg-clinic-sage-light/70 p-3"><p className="text-xs text-text-mid">FM optimal</p><p className="font-bold">{selected.fmRange || '—'}</p><p className="mt-1 text-xs font-bold" style={{ color: STATUS_COLOR[selected.fm] }}>{FM_STATUS_LABEL[selected.fm]}{deviation(selected.numeric, selected.fmRangeParsed) >= 1 ? ` · ${deviation(selected.numeric, selected.fmRangeParsed).toFixed(0)}% out` : ''}</p></div>

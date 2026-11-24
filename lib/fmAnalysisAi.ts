@@ -6,7 +6,7 @@
 import { generateClinicalReport, type ReportAttachment } from '@/lib/ai/clinical-report'
 import { analyse, BAND_LABEL, bandOf, directionOf } from '@/lib/fmAssessment'
 import {
-  FM_BIOMARKERS, ageInYears, createEntry, defaultRanges, isChild, matchBiomarker,
+  FM_BIOMARKERS, ageInYears, createEntry, defaultRanges, isChild, isUsableResult, matchBiomarker,
   type FmEntry, type FmNarrative, type FmPatient, type Priority, type Sex,
 } from '@/lib/fmBiomarkers'
 import { STOOL_MARKERS, STOOL_STATUS_LABEL, createStoolEntry, matchStoolMarker, stoolMarkerById, stoolOutOfRange, stoolStatus, type StoolEntry, type StoolTest } from '@/lib/stoolMarkers'
@@ -30,9 +30,10 @@ export type ExtractedLab = { patient: Partial<FmPatient>; entries: FmEntry[]; pr
 
 function extractionPrompt(pastedText: string) {
   const catalogue = FM_BIOMARKERS.map(marker => `${marker.id}: ${marker.name}`).join('\n')
+  const worded = FM_BIOMARKERS.filter(marker => marker.qualitative).map(marker => marker.name).join(', ')
   return `You are transcribing a laboratory report for a functional medicine clinic.${pastedText ? ' The report text is pasted below.' : ' The attached files are the laboratory\'s report: PDF pages or photographs of it.'}
 
-Copy every numeric result. Where a result is one of these known markers, give its id; otherwise use null for markerId:
+Copy every numeric result, and the worded result (e.g. "Positive", "Negative", "Not detected") of these tests, which labs often report in words: ${worded}. Where a result is one of these known markers, give its id; otherwise use null for markerId:
 ${catalogue}
 
 Return valid JSON only, with no commentary, in exactly this shape:
@@ -42,7 +43,7 @@ Rules:
 - Never invent or calculate a value. Copy each value, unit and reference range exactly as printed.
 - sex is "female", "male" or empty. age is a number of years as printed, or empty.
 - facility is the reporting laboratory's name. labRef is the lab's report or accession number.
-- Leave out anything you cannot read with confidence, and any result that is not a number (e.g. "Negative").
+- Leave out anything you cannot read with confidence, and any other result that is not a number (e.g. "Negative" for a urine dipstick).
 - If this is not a laboratory report, return an empty results array.${pastedText ? `\n\nREPORT TEXT:\n${pastedText.slice(0, 40000)}` : ''}`
 }
 
@@ -64,8 +65,8 @@ export async function extractLabResults(files: ReportAttachment[], pastedText: s
   for (const row of Array.isArray(parsed.results) ? parsed.results.slice(0, 200) : []) {
     const name = text(row?.name, 120)
     const value = text(row?.value, 40)
-    if (!name || !value) continue
     const marker = FM_BIOMARKERS.find(item => item.id === row?.markerId) || matchBiomarker(name)
+    if (!name || !value || !isUsableResult(marker, value)) continue
     const key = marker?.id || name.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)

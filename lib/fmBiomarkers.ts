@@ -53,6 +53,12 @@ export type Biomarker = {
   fmFromLab?: boolean
   /** Also shown on these panels' pages, as in the template (e.g. B12, hs-CRP). */
   alsoIn?: PanelId[]
+  /**
+   * Labs often report it in words ("Positive", "Not detected") rather than a
+   * number. A worded result is read as negative, equivocal or positive; a
+   * numeric index is read against the lab's range like any other result.
+   */
+  qualitative?: boolean
 }
 
 const m = (id: string, name: string, panel: PanelId, unit: string, lab: Pair, fm: Pair, extra: Partial<Biomarker> = {}): Biomarker =>
@@ -70,6 +76,7 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('non_hdl', 'Non-HDL Cholesterol', 'cardio', 'mmol/L', [0, 4.1], [0, 3.4], { aliases: ['non hdl', 'non-hdl-c'] }),
   m('chol_hdl_ratio', 'Chol./HDL Ratio', 'cardio', 'ratio', [0, 5], [0, 4], { aliases: ['cholesterol/hdl ratio', 'tc/hdl', 'chol/hdl'] }),
   m('tg_hdl_ratio', 'Triglyceride/HDL Ratio', 'cardio', 'ratio', [0, 1.7], [0, 0.9], { aliases: ['tg/hdl', 'triglyceride/hdl ratio', 'tg:hdl'] }),
+  m('omega3_index', 'Omega-3 Index', 'cardio', '%', [4, 12], [8, 12], { aliases: ['omega 3 index', 'omega-3 index (rbc)', 'o3i', 'rbc omega-3'] }),
   // Glucose
   m('fasting_glucose', 'Fasting Glucose', 'glucose', 'mmol/L', [3.9, 6], [4.4, 5.5], { aliases: ['glucose', 'fbs', 'fbg', 'fasting blood sugar', 'fasting blood glucose', 'fasting plasma glucose'], critical: { low: 3, high: 11.1 } }),
   m('hba1c', 'HbA1c', 'glucose', '%', [4, 5.6], [4, 5.4], { aliases: ['hba1c (ngsp)', 'glycated haemoglobin', 'glycated hemoglobin', 'a1c'], critical: { high: 9 } }),
@@ -166,6 +173,7 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('transferrin', 'Transferrin', 'vitamins', 'µmol/L', [24, 45], [26, 42]),
   m('tibc', 'TIBC', 'vitamins', 'µmol/L', [45, 72], [50, 65], { aliases: ['total iron binding capacity'] }),
   m('tsat', 'Transferrin Saturation', 'vitamins', '%', [20, 50], [25, 45], { aliases: ['tsat', 'iron saturation'], critical: { high: 60 } }),
+  m('stfr', 'Soluble Transferrin Receptor', 'vitamins', 'mg/L', [0.76, 1.76], [0.76, 1.76], { aliases: ['stfr', 'soluble transferrin receptor (stfr)', 'transferrin receptor, soluble', 'serum transferrin receptor'], fmFromLab: true }),
   m('ferritin', 'Ferritin', 'vitamins', 'ng/mL', [20, 300], [50, 200], { aliases: ['serum ferritin'], female: { lab: [13, 150], fm: [50, 120] }, critical: { high: 1000 } }),
   m('zinc', 'Serum Zinc', 'vitamins', 'µmol/L', [10.7, 18.4], [14, 18], { aliases: ['zinc', 'zn'] }),
   m('copper', 'Serum Copper', 'vitamins', 'µg/dL', [70, 140], [80, 125], { aliases: ['copper', 'cu'], female: { lab: [80, 155], fm: [85, 135] } }),
@@ -175,8 +183,10 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('pth', 'PTH', 'inflammation', 'pg/mL', [15, 65], [15, 45], { aliases: ['parathyroid hormone', 'intact pth'] }),
   m('ck', 'Creatine Kinase', 'inflammation', 'IU/L', [26, 140], [26, 90], { aliases: ['ck', 'cpk', 'creatine phosphokinase'] }),
   m('fibrinogen', 'Fibrinogen', 'inflammation', 'g/L', [2, 4], [2, 3.5], { aliases: ['plasma fibrinogen', 'fibrinogen level'], alsoIn: ['cardio'], critical: { low: 1 } }),
+  m('il6', 'IL-6', 'inflammation', 'pg/mL', [0, 7], [0, 3], { aliases: ['interleukin 6', 'interleukin-6', 'il 6', 'il-6 (interleukin 6)'] }),
   // Additional
   m('psa', 'PSA (Total)', 'other', 'ng/mL', [0, 4], [0, 4], { aliases: ['psa', 'total psa', 'prostate specific antigen', 'prostate-specific antigen'], critical: { high: 10 } }),
+  m('h_pylori', 'H. pylori', 'other', 'index', [0, 0.9], [0, 0.9], { aliases: ['helicobacter pylori', 'h. pylori antibody', 'h. pylori igg', 'h pylori antibodies', 'h. pylori stool antigen', 'h pylori antigen', 'helicobacter pylori antigen', 'helicobacter pylori igg'], fmFromLab: true, qualitative: true }),
 ]
 
 export const markerById = (id: string | null | undefined) => (id ? FM_BIOMARKERS.find(marker => marker.id === id) : undefined) || null
@@ -424,6 +434,22 @@ export function parseRange(text: string): Range | null {
   return null
 }
 
+export type TextResult = 'negative' | 'equivocal' | 'positive'
+
+/** A worded result as printed ("Positive", "Non-reactive", "Not detected"), or null. */
+export function textResult(text: string): TextResult | null {
+  const value = (text || '').toLowerCase()
+  if (/\b(non[- ]?reactive|not detected|undetected|negative|absent|nil)\b/.test(value)) return 'negative'
+  if (/\b(equivocal|borderline|indeterminate|inconclusive)\b/.test(value)) return 'equivocal'
+  if (/\b(positive|reactive|detected|present)\b/.test(value)) return 'positive'
+  return null
+}
+
+/** Whether a result can go into the analysis: a number, or a worded result for a marker labs report that way. */
+export function isUsableResult(marker: Biomarker | null, value: string) {
+  return /\d/.test(value) || (!!marker?.qualitative && textResult(value) !== null)
+}
+
 /** The number in a result as printed, ignoring "<", "H" and the like. */
 export function parseValue(text: string): number | null {
   const match = (text || '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/)
@@ -560,6 +586,8 @@ export function refreshRanges(entries: FmEntry[], sex: Sex, age?: number | null)
 
 export type AssessedEntry = FmEntry & {
   numeric: number | null
+  /** A worded result ("Positive") for a qualitative marker; numeric then holds 0, 1 or 2 for scoring. */
+  textResult: TextResult | null
   lab: LabStatus
   fm: FmStatus
   labRangeParsed: Range | null
@@ -567,7 +595,22 @@ export type AssessedEntry = FmEntry & {
   urgent: boolean
 }
 
+// A worded result is scored on its own fixed scale: negative is in range,
+// equivocal is off target, positive is outside the laboratory's range.
+const TEXT_SCORE: Record<TextResult, number> = { negative: 0, equivocal: 1, positive: 2 }
+const TEXT_LAB_RANGE: Range = { low: null, high: 1 }
+const TEXT_FM_RANGE: Range = { low: null, high: 0.5 }
+
 export function assessEntry(entry: FmEntry): AssessedEntry {
+  const worded = markerById(entry.markerId)?.qualitative ? textResult(entry.value) : null
+  if (worded) {
+    const numeric = TEXT_SCORE[worded]
+    // The unit is dropped for display: "Positive", not "Positive index".
+    return {
+      ...entry, unit: '', numeric, textResult: worded, labRangeParsed: TEXT_LAB_RANGE, fmRangeParsed: TEXT_FM_RANGE,
+      lab: labStatus(numeric, TEXT_LAB_RANGE), fm: fmStatus(numeric, TEXT_FM_RANGE), urgent: false,
+    }
+  }
   const numeric = parseValue(entry.value)
   const labRangeParsed = parseRange(entry.labRange)
   const fmRangeParsed = parseRange(entry.fmRange) || labRangeParsed
@@ -582,7 +625,7 @@ export function assessEntry(entry: FmEntry): AssessedEntry {
     if (marker.critical.low !== undefined && canonical < marker.critical.low) urgent = true
     if (marker.critical.high !== undefined && canonical > marker.critical.high) urgent = true
   }
-  return { ...entry, numeric, lab, fm, labRangeParsed, fmRangeParsed, urgent }
+  return { ...entry, numeric, textResult: null, lab, fm, labRangeParsed, fmRangeParsed, urgent }
 }
 
 export type PanelSummary = {

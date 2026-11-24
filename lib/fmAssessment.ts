@@ -166,7 +166,7 @@ export const AREA_GROUPS: Record<AreaGroup, { title: string; intro: string }> = 
 }
 
 const BLOOD_SUGAR: Rule[] = [r('fasting_insulin', 'high', 3), r('homa_ir', 'high', 3), r('hba1c', 'high', 3), r('hba1c_ifcc', 'high', 3), r('fasting_glucose', 'any', 2), r('tg_hdl_ratio', 'high', 2), r('c_peptide', 'high', 1), r('triglycerides', 'high', 1), r('glucose_insulin_ratio', 'low', 1), r('quicki', 'low', 1)]
-const CARDIO: Rule[] = [r('apob', 'high', 3), r('ldl', 'high', 2), r('lpa', 'high', 2), r('non_hdl', 'high', 2), r('hdl', 'low', 2), r('chol_hdl_ratio', 'high', 2), r('tg_hdl_ratio', 'high', 2), r('homocysteine', 'high', 2), r('hs_crp', 'high', 2), r('apoa1', 'low', 1), r('total_cholesterol', 'high', 1), r('triglycerides', 'high', 1), r('hba1c', 'high', 1), r('fasting_insulin', 'high', 1), r('vitamin_d', 'low', 1), r('ferritin', 'high', 1), r('fibrinogen', 'high', 1)]
+const CARDIO: Rule[] = [r('apob', 'high', 3), r('ldl', 'high', 2), r('lpa', 'high', 2), r('non_hdl', 'high', 2), r('hdl', 'low', 2), r('chol_hdl_ratio', 'high', 2), r('tg_hdl_ratio', 'high', 2), r('homocysteine', 'high', 2), r('hs_crp', 'high', 2), r('apoa1', 'low', 1), r('total_cholesterol', 'high', 1), r('triglycerides', 'high', 1), r('hba1c', 'high', 1), r('fasting_insulin', 'high', 1), r('vitamin_d', 'low', 1), r('ferritin', 'high', 1), r('fibrinogen', 'high', 1), r('omega3_index', 'low', 1)]
 const LIPIDS: Rule[] = [r('ldl', 'high', 3), r('apob', 'high', 3), r('total_cholesterol', 'high', 2), r('non_hdl', 'high', 2), r('triglycerides', 'high', 2), r('hdl', 'low', 2), r('chol_hdl_ratio', 'high', 1), r('tg_hdl_ratio', 'high', 1)]
 const THYROID: Rule[] = [r('tsh', 'any', 3), r('free_t4', 'any', 2), r('free_t3', 'any', 2), r('reverse_t3', 'high', 1), r('anti_tpo', 'high', 2), r('anti_tg', 'high', 2), r('selenium', 'low', 1)]
 const ADRENAL: Rule[] = [r('cortisol_am', 'any', 3), r('cortisol_pm', 'any', 2), r('dhea_s', 'low', 2), r('na_k_ratio', 'any', 1), r('sodium', 'any', 1), r('potassium', 'any', 1)]
@@ -179,9 +179,9 @@ const KIDNEY: Rule[] = [r('egfr', 'low', 3), r('creatinine', 'high', 2), r('prot
 const RED_CELLS: Rule[] = [r('hemoglobin', 'any', 3), r('hematocrit', 'any', 1), r('rbc', 'any', 1), r('mcv', 'any', 2), r('mch', 'any', 1), r('mchc', 'low', 1), r('rdw', 'high', 2)]
 const IMMUNE: Rule[] = [r('wbc', 'any', 2), r('lymphocytes', 'any', 2), r('neutrophils', 'any', 1), r('nlr', 'any', 1), r('monocytes', 'high', 1), r('eosinophils', 'high', 2), r('globulin', 'any', 1)]
 const BONE: Rule[] = [r('calcium', 'any', 3), r('pth', 'high', 3), r('vitamin_d', 'low', 2), r('phosphate', 'any', 1), r('alp', 'any', 1), r('magnesium', 'low', 1)]
-const INFLAMMATION: Rule[] = [r('hs_crp', 'high', 3), r('esr', 'high', 2), r('ferritin', 'high', 1), r('homocysteine', 'high', 1), r('nlr', 'high', 1), r('wbc', 'high', 1), r('globulin', 'high', 1), r('platelets', 'high', 1), r('fibrinogen', 'high', 1)]
+const INFLAMMATION: Rule[] = [r('hs_crp', 'high', 3), r('esr', 'high', 2), r('ferritin', 'high', 1), r('homocysteine', 'high', 1), r('nlr', 'high', 1), r('wbc', 'high', 1), r('globulin', 'high', 1), r('platelets', 'high', 1), r('fibrinogen', 'high', 1), r('il6', 'high', 1), r('omega3_index', 'low', 1)]
 const METHYLATION: Rule[] = [r('homocysteine', 'high', 3), r('b12', 'low', 3), r('folate', 'low', 3), r('mcv', 'high', 1), r('rdw', 'high', 1), r('mma', 'high', 2)]
-const IRON_LOW: Rule[] = [r('ferritin', 'low', 3), r('hemoglobin', 'low', 3), r('tsat', 'low', 2), r('mcv', 'low', 2), r('serum_iron', 'low', 1), r('mch', 'low', 1), r('rdw', 'high', 1), r('tibc', 'high', 1), r('transferrin', 'high', 1), r('hematocrit', 'low', 1)]
+const IRON_LOW: Rule[] = [r('ferritin', 'low', 3), r('hemoglobin', 'low', 3), r('tsat', 'low', 2), r('mcv', 'low', 2), r('serum_iron', 'low', 1), r('mch', 'low', 1), r('rdw', 'high', 1), r('tibc', 'high', 1), r('transferrin', 'high', 1), r('hematocrit', 'low', 1), r('stfr', 'high', 1), r('h_pylori', 'high', 1)]
 const MINERALS: Rule[] = [r('rbc_magnesium', 'low', 3), r('magnesium', 'low', 3), r('zinc', 'low', 3), r('alp', 'low', 1), r('potassium', 'low', 1), r('calcium', 'low', 1), r('phosphate', 'low', 1), r('copper', 'low', 1)]
 const PROTEIN: Rule[] = [r('total_protein', 'low', 3), r('albumin', 'low', 3), r('globulin', 'low', 1), r('urea', 'low', 2), r('igf1', 'low', 1)]
 
@@ -207,7 +207,7 @@ export const AREAS: Area[] = [
     about: 'Red blood cells carry oxygen to every tissue. This score looks at how many there are, their size and haemoglobin content, which can point to iron, B12 or folate shortfalls.' },
   { id: 'immune', group: 'system', name: 'Immune Function', rules: IMMUNE, consider: ['neutrophils', 'lymphocytes'],
     about: 'White blood cells and globulins are the immune system\'s front line. This score shows whether they suggest an immune system that is depleted, or one that is working hard against infection, allergy or inflammation.' },
-  { id: 'digestion', group: 'system', name: 'Digestive Function', rules: [r('total_protein', 'low', 2), r('albumin', 'low', 2), r('globulin', 'any', 1), r('urea', 'low', 1), r('b12', 'low', 1), r('ferritin', 'low', 1), r('eosinophils', 'high', 2), r('chloride', 'low', 1)],
+  { id: 'digestion', group: 'system', name: 'Digestive Function', rules: [r('h_pylori', 'high', 2), r('total_protein', 'low', 2), r('albumin', 'low', 2), r('globulin', 'any', 1), r('urea', 'low', 1), r('b12', 'low', 1), r('ferritin', 'low', 1), r('eosinophils', 'high', 2), r('chloride', 'low', 1)],
     about: 'Good digestion breaks down and absorbs protein, minerals and vitamins. Low protein, B12 or iron, alongside signs such as raised eosinophils, can suggest low stomach acid, poor absorption or gut parasites.' },
   { id: 'bone', group: 'system', name: 'Bone Health', rules: BONE, consider: ['vitamin_d', 'pth'],
     about: 'Bone strength depends on calcium, phosphate, vitamin D and parathyroid hormone staying in balance. This score shows whether that balance is under strain.' },
@@ -240,7 +240,7 @@ export const AREAS: Area[] = [
 
   // Nutrient gaps
   { id: 'vitamin_d_need', group: 'deficiency', name: 'Vitamin D Need', rules: [r('vitamin_d', 'low', 3)], consider: ['vitamin_d'], about: 'Your results suggest your vitamin D level may be lower than optimal.' },
-  { id: 'b12_need', group: 'deficiency', name: 'Vitamin B12 Need', rules: [r('b12', 'low', 3), r('mma', 'high', 3), r('mcv', 'high', 1), r('homocysteine', 'high', 1), r('rdw', 'high', 1)], consider: ['b12', 'mma'], about: 'Your results suggest your vitamin B12 level may be lower than optimal.' },
+  { id: 'b12_need', group: 'deficiency', name: 'Vitamin B12 Need', rules: [r('b12', 'low', 3), r('mma', 'high', 3), r('h_pylori', 'high', 1), r('mcv', 'high', 1), r('homocysteine', 'high', 1), r('rdw', 'high', 1)], consider: ['b12', 'mma'], about: 'Your results suggest your vitamin B12 level may be lower than optimal.' },
   { id: 'folate_need', group: 'deficiency', name: 'Folate Need', rules: [r('folate', 'low', 3), r('homocysteine', 'high', 1), r('mcv', 'high', 1)], consider: ['folate'], about: 'Your results suggest your folate level may be lower than optimal.' },
   { id: 'iron_need', group: 'deficiency', name: 'Iron Need', rules: IRON_LOW, consider: ['ferritin', 'tsat'], about: 'Your results suggest your iron stores may be lower than optimal.' },
   { id: 'magnesium_need', group: 'deficiency', name: 'Magnesium Need', rules: [r('rbc_magnesium', 'low', 3), r('magnesium', 'low', 3), r('potassium', 'low', 1), r('calcium', 'low', 1)], consider: ['rbc_magnesium'], about: 'Your results suggest your magnesium level may be lower than optimal.' },
@@ -440,7 +440,7 @@ export const AREAS: Area[] = [
       supplements: ['Vitamin D3 to reach optimal levels.', 'Zinc 15–30 mg daily.', 'Vitamin C 500–1,000 mg daily.'],
       tests: ['Repeat full blood count with differential in 4–8 weeks.', 'Stool test for parasites if eosinophils are raised.', 'Screening for infection, guided by symptoms.'],
     } },
-  { id: 'protein_digestion', group: 'plan', name: 'Protein & Digestion', rules: PROTEIN,
+  { id: 'protein_digestion', group: 'plan', name: 'Protein & Digestion', rules: [...PROTEIN, r('h_pylori', 'high', 1)],
     about: 'Your protein markers are lower than optimal.',
     finding: 'Your protein markers are lower than optimal, suggesting low protein intake or poor digestion and absorption. Protein is needed for muscle, immunity, hormones and repair.',
     plan: {
@@ -448,6 +448,15 @@ export const AREAS: Area[] = [
       lifestyle: ['Report bloating, reflux or loose stools, which suggest poor digestion.'],
       supplements: ['Digestive enzymes with meals if you bloat after protein.', 'A protein powder if you struggle to get enough from food.'],
       tests: ['Repeat total protein and albumin.', 'Stool test and H. pylori test if you have digestive symptoms.'],
+    } },
+  { id: 'h_pylori_care', group: 'plan', name: 'Stomach Infection (H. pylori)', rules: [r('h_pylori', 'high', 3)],
+    about: 'Your results show H. pylori, a common stomach infection.',
+    finding: 'Your results show H. pylori, a stomach infection that is common in Nigeria. It can cause indigestion, ulcers and low stomach acid, and reduces how well you absorb iron and vitamin B12. A stool or breath test shows a current infection; a blood antibody test can stay positive after it has cleared, so your clinician will confirm which applies before treating.',
+    plan: {
+      nutrition: ['Eat smaller, regular meals, and go easy on very spicy, fried or fatty food while your stomach settles.', 'Include fermented foods such as yoghurt, ogi or kefir.', 'Drink clean, safe water: H. pylori spreads through contaminated food and water.', 'Limit alcohol, coffee and fizzy drinks, which irritate the stomach lining.'],
+      lifestyle: ['Stop smoking, which slows healing of the stomach lining.', 'Avoid anti-inflammatory painkillers such as ibuprofen and diclofenac unless your doctor advises them.', 'Wash hands before eating and after using the toilet; people you live with may also need testing.'],
+      supplements: ['Treatment is a prescribed course of antibiotics with an acid-reducing medicine, taken in full exactly as directed.', 'A probiotic during treatment can reduce side effects; agree it with your clinician.', 'Iron or vitamin B12 only if your results show they are low.'],
+      tests: ['Stool antigen or breath test at least 4 weeks after finishing treatment, to confirm the infection has cleared (a blood antibody test cannot show this).', 'Full blood count, ferritin and vitamin B12.', 'Endoscopy if you are over 45, or have weight loss, vomiting, difficulty swallowing or black stools.'],
     } },
 ]
 
