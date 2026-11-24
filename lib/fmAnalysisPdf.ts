@@ -242,8 +242,10 @@ function levelMeter(score: number, width = 30) {
   }).join('')
   // Square inner corners: cover the rounded ends where segments meet.
   const joins = `<rect x="${x(50) - 6}" y="5" width="4.5" height="10" fill="${level === 0 ? LEVELS[0].solid : LEVELS[0].tint}"/><rect x="${x(90) + 1.5}" y="5" width="4.5" height="10" fill="${level === 3 ? LEVELS[3].solid : LEVELS[3].faint}"/>`
-  const pin = Math.max(7, Math.min(W - 7, x(score)))
-  return `${svgOpen(width, W, 20, 'start')}${parts}${joins}<circle cx="${pin.toFixed(1)}" cy="10" r="7" fill="#fff" stroke="${LEVELS[level].text}" stroke-width="3.2"/></svg></div>`
+  // Kept a radius plus half the stroke from each end, so a 0% or 100% pin isn't cut off by the SVG's edge.
+  const r = 7, stroke = 3.2, inset = r + stroke / 2
+  const pin = Math.max(inset, Math.min(W - inset, x(score)))
+  return `${svgOpen(width, W, 20, 'start')}${parts}${joins}<circle cx="${pin.toFixed(1)}" cy="10" r="${r}" fill="#fff" stroke="${LEVELS[level].text}" stroke-width="${stroke}"/></svg></div>`
 }
 
 /** The four levels as a key: a dot in each colour and its name. */
