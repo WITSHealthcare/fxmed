@@ -88,7 +88,7 @@ function sampleEntries(): FmEntry[] {
 
 const samplePatient: FmPatient = { name: 'Ada Okafor', age: '40', sex: 'female', collectedAt: '2026-11-10', labRef: 'SAMPLE-001', facility: 'Sample Lab', clinician: 'Sample Clinician' }
 
-/** The Functional Health Report builder and its page preview, with sample results and the standard wording. */
+/** The Functional Health Analysis lab report builder and its page preview, with sample results and the standard wording. */
 function Report({ initial }: { initial: FmEntry[] }) {
   const [entries, setEntries] = useState(initial)
   const [narrative, setNarrative] = useState<FmNarrative>(() => {
@@ -140,7 +140,7 @@ export default function Preview() {
   const path = page === 'seo' ? '/admin/growth/seo' : page === 'fm' || page === 'report' ? '/admin/clinical/lab-analysis' : '/admin/growth/crm'
   return <AdminFrame role="admin" onLogout={() => {}} path={path}>
     <p className="mb-4 flex flex-wrap gap-2 text-xs text-clinic-muted">Preview with sample data:
-      {[['kit', 'Chart kit'], ['seo', 'SEO analytics'], ['fm', 'FM lab analysis'], ['report', 'FM report']].map(([id, label]) => <Link key={id} href={`?page=${id}`} className="underline underline-offset-2">{label}</Link>)}
+      {[['kit', 'Chart kit'], ['seo', 'SEO analytics'], ['fm', 'Health analysis: labs'], ['report', 'Health analysis: lab report']].map(([id, label]) => <Link key={id} href={`?page=${id}`} className="underline underline-offset-2">{label}</Link>)}
       <Link href="?view=portal" className="underline underline-offset-2">Patient portal</Link>
     </p>
     {page === 'seo' ? <SeoAnalytics /> : page === 'report' ? <Report initial={entries} /> : page === 'fm' ? <AnalysisDashboard entries={entries} narrative={emptyNarrative()} sex="female" age={40} /> : <Kit />}

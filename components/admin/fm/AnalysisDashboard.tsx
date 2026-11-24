@@ -11,11 +11,11 @@ import { markerExplanation } from '@/lib/fmMarkerInfo'
 import { inputClass } from './ResultsEntry'
 import { Gauge, MiniBars, RangeIndicator, SegmentedBar, StatusChip, clinic, type ChipTone, type RangeTone } from '@/components/charts'
 
-// The analysis as a clinician reads it on screen, laid out like the FxMed Twin:
-// headline counts, a tile for each panel, a systems view with a status for each
-// body system and nutrient, the results outside range against both ranges, the
-// health improvement plan, and a searchable table where any marker opens its
-// detail.
+// The clinical read on screen, laid out like the FxMed Twin: headline counts,
+// a tile for each panel, a systems view with a status and support score for
+// each body system and nutrient, the results outside range against both
+// ranges, the care plan's focus areas, and a searchable table where any
+// marker opens its detail.
 
 function Stat({ label, value, sub, color, Icon }: { label: string; value: number; sub?: string; color: string; Icon: typeof FileTextIcon }) {
   return <div className="clinic-card rounded-card p-5">
@@ -27,7 +27,7 @@ function Stat({ label, value, sub, color, Icon }: { label: string; value: number
 const pct = (part: number, total: number) => total ? `${Math.round((part / total) * 100)}%` : ''
 const markers = (item: AreaResult) => item.contributors.map(({ entry, direction }) => `${entry.name} ${direction === 'low' ? '↓' : '↑'}`).join(', ')
 
-// The report's likelihood scale: possible from 50% (the plan threshold), likely from 70%.
+// The report's support-score scale: worth watching from 50% (the plan threshold), needs support from 70%.
 // Each fills with a soft gradient in its tone, as in the FxMed Twin.
 const LIKELIHOOD_FILL = {
   clear: 'linear-gradient(90deg, #a9c98a, #6f9a4e)',
@@ -36,14 +36,14 @@ const LIKELIHOOD_FILL = {
 }
 function Likelihood({ score, name }: { score: number; name: string }) {
   const fill = LIKELIHOOD_FILL[score >= 70 ? 'flag' : score >= 50 ? 'watch' : 'clear']
-  return <SegmentedBar label={`Likelihood of ${name}`} total={100} height={8} segments={[{ value: score, label: 'Likelihood', color: fill }]} format={value => `${value}%`} />
+  return <SegmentedBar label={`${name} support score`} total={100} height={8} segments={[{ value: score, label: 'Support score', color: fill }]} format={value => `${value}%`} />
 }
 
 /** Flag outside the lab's standard range, watch outside FM optimal only, clear otherwise. */
 const toneOf = (entry: AssessedEntry): RangeTone => entry.lab === 'high' || entry.lab === 'low' ? 'flag' : entry.fm === 'high' || entry.fm === 'low' || entry.fm === 'borderline' ? 'watch' : 'clear'
 const TONE_TEXT: Record<RangeTone, string> = { flag: '#b8433b', watch: '#a87a1c', clear: '#4f7a35' }
 
-/** A system's status chip on the report's likelihood scale. */
+/** A system's status chip on the report's support-score scale. */
 const chipOf = (item: AreaResult): ChipTone => !item.considered.length ? 'nodata' : item.score >= 70 ? 'flag' : item.score >= 50 ? 'watch' : 'clear'
 const SEVERITY: Record<RangeTone, number> = { clear: 0.35, watch: 0.68, flag: 1 }
 const rangeText = (range: AssessedEntry['fmRangeParsed']) => !range ? '—' : range.low !== null && range.high !== null ? `${range.low}–${range.high}` : range.low !== null ? `≥ ${range.low}` : `≤ ${range.high}`
@@ -61,7 +61,7 @@ function PanelTile({ name, score, entries, onOpen }: { name: string; score: numb
   </button>
 }
 
-/** A body system or nutrient as a Systems view card: status chip, the results behind it, and its likelihood. */
+/** A body system or nutrient as a Systems view card: status chip, the results behind it, and its support score. */
 function SystemCard({ item, onMarker }: { item: AreaResult; onMarker: (entry: AssessedEntry) => void }) {
   const chip = chipOf(item)
   return <div className="flex flex-col rounded-[22px] bg-clinic-bg/60 p-4">
@@ -75,13 +75,13 @@ function SystemCard({ item, onMarker }: { item: AreaResult; onMarker: (entry: As
       {item.contributors.length > 3 && <p className="text-xs text-clinic-muted">+{item.contributors.length - 3} more</p>}
     </div>
     {item.considered.length > 0 && <div className="mt-auto pt-3">
-      <div className="flex justify-between text-[11px] text-clinic-muted"><span>Likelihood</span><span className="tabular-nums">{item.score}%</span></div>
+      <div className="flex justify-between text-[11px] text-clinic-muted"><span>Support score</span><span className="tabular-nums">{item.score}%</span></div>
       <div className="mt-1"><Likelihood score={item.score} name={item.area.name} /></div>
     </div>}
   </div>
 }
 
-const SCORE_GROUPS: Array<[Exclude<AreaGroup, 'plan'>, string]> = [['system', 'Body systems'], ['accessory', 'Accessory'], ['nutrient', 'Nutrient status'], ['deficiency', 'Nutrient needs']]
+const SCORE_GROUPS: Array<[Exclude<AreaGroup, 'plan'>, string]> = [['system', 'Core systems'], ['accessory', 'Whole-body'], ['nutrient', 'Nourishment'], ['deficiency', 'Nutrient gaps']]
 
 export default function AnalysisDashboard({ entries, narrative, sex, age }: { entries: FmEntry[]; narrative: FmNarrative; sex: Sex; age?: number | null }) {
   const analysis = useMemo(() => analyse(entries, sex, age), [entries, sex, age])
@@ -181,8 +181,8 @@ export default function AnalysisDashboard({ entries, narrative, sex, age }: { en
 
     <section className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
       <div className={card}>
-        <h4 className="text-lg text-clinic-ink">Health improvement plan ({analysis.plan.length})</h4>
-        <p className="mt-1 text-xs text-clinic-muted">Areas at 50% likelihood or more, worked out from the results. Each has a plan on the report, which you can edit on the Report step.</p>
+        <h4 className="text-lg text-clinic-ink">Care plan focus areas ({analysis.plan.length})</h4>
+        <p className="mt-1 text-xs text-clinic-muted">Areas with a support score of 50% or more, worked out from the results. Each has a plan in the report, which you can edit on the Patient report step.</p>
         <div className="mt-4 space-y-2.5">{analysis.plan.length ? analysis.plan.map(item => {
           const priority = priorityOf(item)
           const plan = planFor(item.area, narrative, analysis.child)
@@ -200,14 +200,14 @@ export default function AnalysisDashboard({ entries, narrative, sex, age }: { en
             </div>)}</div>
             {item.missing.length > 0 && <p className="mt-2 text-[11px] text-clinic-muted"><span className="font-semibold">Consider testing:</span> {item.missing.join(', ')}</p>}
           </details>
-        }) : <p className="py-6 text-center text-sm text-clinic-muted">No improvement area reached 50%.</p>}</div>
+        }) : <p className="py-6 text-center text-sm text-clinic-muted">No focus area reached 50%.</p>}</div>
       </div>
       <div className={card}>
-        <h4 className="text-lg text-clinic-ink">Key findings</h4>
+        <h4 className="text-lg text-clinic-ink">What stood out</h4>
         {narrative.findings.length ? <div className="mt-3 space-y-2">{narrative.findings.map((item, index) => {
           const tone: ChipTone = item.priority === 'urgent' || item.priority === 'high' ? 'flag' : item.priority === 'moderate' ? 'watch' : 'clear'
           return <div key={index} className="rounded-[18px] bg-clinic-bg/60 p-3.5 text-sm"><div className="flex items-start justify-between gap-3"><p className="font-semibold text-clinic-ink">{item.title}</p><StatusChip tone={tone}>{item.priority[0].toUpperCase() + item.priority.slice(1)}</StatusChip></div><p className="mt-1 text-xs leading-5 text-clinic-muted">{item.detail}</p></div>
-        })}</div> : <p className="mt-3 text-sm text-clinic-muted">Findings appear here once they are written on the Report step.</p>}
+        })}</div> : <p className="mt-3 text-sm text-clinic-muted">Findings appear here once they are written on the Patient report step.</p>}
       </div>
     </section>
 

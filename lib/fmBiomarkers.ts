@@ -1,4 +1,4 @@
-// Functional medicine lab analysis: the biomarker catalogue, and how a result
+// Functional Health Analysis lab report: the biomarker catalogue, and how a result
 // is judged against both the laboratory's reference range and the narrower
 // functional-medicine (FM) optimal range.
 //
@@ -455,7 +455,7 @@ export type FmEntry = {
 
 export type Priority = 'urgent' | 'high' | 'moderate' | 'low'
 
-/** A health improvement area's plan, as the clinician edited it. */
+/** A care plan focus area's plan, as the clinician edited it. */
 export type AreaPlan = { nutrition: string[]; lifestyle: string[]; supplements: string[]; tests: string[] }
 
 export type FmNarrative = {
@@ -464,7 +464,7 @@ export type FmNarrative = {
   panels: Partial<Record<PanelId, { summary: string; understanding: { title: string; text: string }[]; actions: string[] }>>
   recommendations: { priority: Priority; title: string; items: string[] }[]
   nextSteps: { title: string; text: string; items: string[] }[]
-  /** Edits to the standard plan of a health improvement area, by area id. */
+  /** Edits to the standard plan of a care plan focus area, by area id. */
   areaPlans?: Record<string, AreaPlan>
 }
 

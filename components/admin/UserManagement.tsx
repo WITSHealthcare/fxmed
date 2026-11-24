@@ -62,8 +62,8 @@ const tabLabels: Record<AdminTab, string> = {
   users: 'Users & Roles',
   zara: 'Zara Conversations',
   contacts: 'Outreach Contacts',
-  healthcare: 'Healthcare / EMR + Health Analysis',
-  fm_analysis: 'FM Lab Analysis',
+  healthcare: 'Healthcare / EMR + Health Analysis Intake',
+  fm_analysis: 'Health Analysis: Lab Report',
   hr: 'HR',
 }
 

@@ -1,5 +1,5 @@
-// Plain-English explanations of each catalogue biomarker for the Functional
-// Health Report's "Out of Optimal Range" section: what the marker is, and the
+// Plain-English explanations of each catalogue biomarker for the "Off Target"
+// pages of the Functional Health Analysis lab report: what the marker is, and the
 // common reasons it runs high or low. Written for patients reading the report
 // with their clinician; keyed by the catalogue ids in lib/fmBiomarkers.ts.
 

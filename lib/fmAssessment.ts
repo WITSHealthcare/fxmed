@@ -1,10 +1,10 @@
-// The Functional Health Report's algorithmic assessment. From the entered
+// The Functional Health Analysis lab report's algorithmic assessment. From the entered
 // results it works out:
 //   - calculated markers (HOMA-IR, TG/HDL, AST/ALT, globulin, anion gap…)
 //   - where each result sits: alarm, outside the lab range, outside optimal, optimal
-//   - a likelihood of dysfunction for each body system, accessory system,
-//     nutrient status and individual nutrient need, with the markers behind it
-//   - the health improvement areas that need attention, each with a standard
+//   - a support score for each core body system, whole-body process,
+//     nourishment area and nutrient gap, with the markers behind it
+//   - the focus areas of the care plan, each with a standard
 //     plan (nutrition, lifestyle, supplements to discuss, follow-up tests)
 //
 // All of it is deterministic, so the report is complete without the AI; the
@@ -24,8 +24,8 @@ export type Band = 'alarm_low' | 'below_standard' | 'below_optimal' | 'optimal' 
 export const BANDS: Band[] = ['alarm_low', 'below_standard', 'below_optimal', 'optimal', 'above_optimal', 'above_standard', 'alarm_high']
 
 export const BAND_LABEL: Record<Band, string> = {
-  alarm_low: 'Alarm Low', below_standard: 'Below Standard', below_optimal: 'Below Optimal', optimal: 'Optimal',
-  above_optimal: 'Above Optimal', above_standard: 'Above Standard', alarm_high: 'Alarm High', unknown: 'Not assessed',
+  alarm_low: 'Urgent Low', below_standard: 'Below Lab Range', below_optimal: 'Below Optimal', optimal: 'Optimal',
+  above_optimal: 'Above Optimal', above_standard: 'Above Lab Range', alarm_high: 'Urgent High', unknown: 'Not assessed',
 }
 
 export const BAND_COLOR: Record<Band, string> = {
@@ -121,7 +121,7 @@ export type Area = {
   /** Tests that would sharpen this area when not done: catalogue ids or test names. */
   consider?: string[]
   sex?: 'female' | 'male'
-  /** Health improvement areas only: the finding and the standard plan. */
+  /** Care plan focus areas only: the finding and the standard plan. */
   finding?: string
   plan?: AreaPlan
 }
@@ -130,24 +130,24 @@ const r = (id: string, dir: Rule['dir'], weight = 1, sex?: Rule['sex']): Rule =>
 
 export const AREA_GROUPS: Record<AreaGroup, { title: string; intro: string }> = {
   system: {
-    title: 'Functional Body Systems',
-    intro: 'Each body system below is scored from the biomarkers that reflect how well it is working. The percentage is the likelihood of dysfunction suggested by your results: the higher it is, the more your results point to that system needing support.',
+    title: 'Core Body Systems',
+    intro: 'Your core systems are the organs and glands that keep you running day to day: blood sugar control, heart and vessels, thyroid, adrenals, hormones, liver, kidneys, blood and immunity. Each is scored from the markers that reflect it. A higher support score means your results point more strongly to that system needing help.',
   },
   accessory: {
-    title: 'Accessory Systems',
-    intro: 'Accessory systems are processes that run across the whole body, such as fat transport, inflammation and acid–base balance. They are scored in the same way as the body systems.',
+    title: 'Whole-Body Processes',
+    intro: 'Some of what we measure is not one organ but a process running everywhere at once: how fats are carried, how much inflammation is simmering, how well cells cope with wear and tear, and how steady the blood\'s chemistry stays. They are scored the same way as the core systems.',
   },
   nutrient: {
-    title: 'Nutrient Status',
-    intro: 'Nutrient status reflects what you eat and also how well you digest, absorb, transport and use nutrients. These scores show where your overall nutrition may be falling short.',
+    title: 'Nourishment',
+    intro: 'Being well nourished depends on more than what is on your plate. It also depends on how well you digest, absorb and use what you eat. These scores show where your nourishment as a whole may be running short.',
   },
   deficiency: {
-    title: 'Individual Nutrient Needs',
-    intro: 'These scores show the likelihood that you need more of an individual nutrient, based on your blood results. Your clinician will weigh them against your diet, symptoms and medicines before recommending any supplement.',
+    title: 'Nutrient Gaps',
+    intro: 'These scores point to single nutrients your body may need more of. They are a prompt, not a prescription: your clinician will weigh them against your diet, symptoms and medicines before suggesting any supplement.',
   },
   plan: {
-    title: 'Health Improvement Plan',
-    intro: 'The health improvement plan brings together everything in this report and focuses on the areas that need the most attention, with a practical plan for each.',
+    title: 'Your Care Plan',
+    intro: 'Your care plan gathers the whole report into a short list of focus areas: the places where change will make the most difference to how you feel and how you age.',
   },
 }
 
@@ -172,7 +172,7 @@ const MINERALS: Rule[] = [r('rbc_magnesium', 'low', 3), r('magnesium', 'low', 3)
 const PROTEIN: Rule[] = [r('total_protein', 'low', 3), r('albumin', 'low', 3), r('globulin', 'low', 1), r('urea', 'low', 2)]
 
 export const AREAS: Area[] = [
-  // Functional body systems
+  // Core body systems
   { id: 'blood_sugar', group: 'system', name: 'Blood Sugar Regulation', rules: BLOOD_SUGAR, consider: ['fasting_insulin', 'hba1c'],
     about: 'This score shows how well your body is controlling blood sugar. Problems develop slowly, often with insulin rising for years before glucose does, so these markers can show a trend towards insulin resistance, pre-diabetes or low blood sugar long before diabetes is diagnosed.' },
   { id: 'cardiovascular', group: 'system', name: 'Cardiovascular Risk', rules: CARDIO, consider: ['apob', 'lpa', 'hs_crp', 'homocysteine'],
@@ -198,7 +198,7 @@ export const AREAS: Area[] = [
   { id: 'bone', group: 'system', name: 'Bone Health', rules: BONE, consider: ['vitamin_d', 'pth'],
     about: 'Bone strength depends on calcium, phosphate, vitamin D and parathyroid hormone staying in balance. This score shows whether that balance is under strain.' },
 
-  // Accessory systems
+  // Whole-body processes
   { id: 'lipids', group: 'accessory', name: 'Lipid Balance', rules: LIPIDS,
     about: 'This score shows the level of cholesterol and fat in your blood. A raised score means higher than optimal blood fats (dyslipidaemia), which can be genetic or come from diet, hormone imbalance or blood sugar problems.' },
   { id: 'inflammation', group: 'accessory', name: 'Inflammation', rules: INFLAMMATION, consider: ['hs_crp'],
@@ -210,7 +210,7 @@ export const AREAS: Area[] = [
   { id: 'methylation_status', group: 'accessory', name: 'Methylation', rules: METHYLATION, consider: ['homocysteine', 'b12', 'folate'],
     about: 'Methylation is a chemical process that runs throughout the body, needed for DNA, detoxification, mood chemicals and keeping homocysteine low. It depends on B12, folate and B6.' },
 
-  // Nutrient status
+  // Nourishment
   { id: 'vitamin_status', group: 'nutrient', name: 'Vitamin Status', rules: [r('vitamin_d', 'low', 3), r('b12', 'low', 2), r('folate', 'low', 2), r('homocysteine', 'high', 1), r('mcv', 'high', 1), r('alt', 'low', 1)], consider: ['vitamin_d', 'b12', 'folate'],
     about: 'This score is a general view of vitamin balance, reflecting diet, digestion and absorption, and how well vitamins are transported into the cells.' },
   { id: 'mineral_status', group: 'nutrient', name: 'Mineral Status', rules: MINERALS, consider: ['rbc_magnesium', 'zinc'],
@@ -224,7 +224,7 @@ export const AREAS: Area[] = [
   { id: 'electrolytes', group: 'nutrient', name: 'Electrolyte Status', rules: [r('sodium', 'any', 2), r('potassium', 'any', 2), r('chloride', 'any', 1), r('bicarbonate', 'any', 1), r('na_k_ratio', 'any', 1)],
     about: 'Electrolytes carry the electrical charge for nerves, muscles and the heart, and control fluid balance.' },
 
-  // Individual nutrient needs
+  // Nutrient gaps
   { id: 'vitamin_d_need', group: 'deficiency', name: 'Vitamin D Need', rules: [r('vitamin_d', 'low', 3)], consider: ['vitamin_d'], about: 'Your results suggest your vitamin D level may be lower than optimal.' },
   { id: 'b12_need', group: 'deficiency', name: 'Vitamin B12 Need', rules: [r('b12', 'low', 3), r('mcv', 'high', 1), r('homocysteine', 'high', 1), r('rdw', 'high', 1)], consider: ['b12', 'Methylmalonic acid (MMA)'], about: 'Your results suggest your vitamin B12 level may be lower than optimal.' },
   { id: 'folate_need', group: 'deficiency', name: 'Folate Need', rules: [r('folate', 'low', 3), r('homocysteine', 'high', 1), r('mcv', 'high', 1)], consider: ['folate'], about: 'Your results suggest your folate level may be lower than optimal.' },
@@ -236,7 +236,7 @@ export const AREAS: Area[] = [
   { id: 'selenium_need', group: 'deficiency', name: 'Selenium Need', rules: [r('free_t3', 'low', 2), r('reverse_t3', 'high', 1), r('anti_tpo', 'high', 1)], consider: ['free_t3', 'Selenium (serum)'], about: 'Your results suggest your selenium level may be lower than optimal; selenium is needed to activate thyroid hormone.' },
   { id: 'thiamine_need', group: 'deficiency', name: 'Thiamine (B1) Need', rules: [r('anion_gap', 'high', 2), r('bicarbonate', 'low', 1)], about: 'Your results suggest your thiamine (vitamin B1) level may be lower than optimal.' },
 
-  // Health improvement areas
+  // Care plan focus areas
   { id: 'insulin_resistance', group: 'plan', name: 'Insulin Resistance & Blood Sugar', rules: [...BLOOD_SUGAR.filter(rule => rule.id !== 'fasting_glucose'), r('fasting_glucose', 'high', 2), r('hdl', 'low', 1), r('shbg', 'low', 1), r('uric_acid', 'high', 1)],
     about: 'Insulin resistance means the body needs more insulin than it should to keep blood sugar steady.',
     finding: 'Your results show a pattern of insulin resistance: your body needs more insulin than it should to keep blood sugar steady. Left alone, this leads towards type 2 diabetes, fatty liver and heart disease, but it responds very well to changes in diet, movement and sleep.',
@@ -444,7 +444,7 @@ export type Contributor = { entry: AssessedEntry; direction: 'low' | 'high'; wei
 
 export type AreaResult = {
   area: Area
-  /** Likelihood of dysfunction, 0–100. */
+  /** Support score, 0–100: how strongly the results suggest the area needs attention. */
   score: number
   contributors: Contributor[]
   considered: AssessedEntry[]
@@ -460,9 +460,9 @@ const SAME_TEST: Record<string, string> = { hba1c: 'hba1c_ifcc', hba1c_ifcc: 'hb
 /**
  * How strongly a result supports a rule: 1 outside the lab's standard range,
  * 0.6 outside optimal only, and nothing within optimal. One key marker
- * outside optimal alone therefore reads as "possible" (about 50%), and it takes
+ * outside optimal alone therefore reads as "worth watching" (about 50%), and it takes
  * results outside the standard range, or several outside optimal, to reach
- * "likely" or "highly likely".
+ * "needs support" or "priority support".
  */
 function strength(entry: AssessedEntry, dir: Rule['dir']): { value: number; direction: 'low' | 'high' } | null {
   const band = bandOf(entry)
@@ -524,14 +524,14 @@ export function analyse(entries: FmEntry[], sex: Sex, age?: number | null) {
   return { entries: all, summary, areas, group, bands, plan, child: isChild(age) }
 }
 
-/** Whether an area's likelihood is high enough to get its own explanation. */
+/** Whether an area's support score is high enough to get its own explanation. */
 export const needsDetail = (item: AreaResult) => item.score >= 50 || item.urgent
 
 export function likelihoodLabel(score: number) {
-  if (score >= 90) return { label: 'Dysfunction highly likely', advice: 'Much improvement required.' }
-  if (score >= 70) return { label: 'Dysfunction likely', advice: 'Improvement required.' }
-  if (score >= 50) return { label: 'Dysfunction possible', advice: 'There may be improvement needed in certain areas.' }
-  return { label: 'Dysfunction less likely', advice: 'No specific action needed.' }
+  if (score >= 90) return { label: 'Priority support', advice: 'Act on this first, with your clinician.' }
+  if (score >= 70) return { label: 'Needs support', advice: 'Build this into your plan now.' }
+  if (score >= 50) return { label: 'Worth watching', advice: 'Small changes now, then recheck.' }
+  return { label: 'Holding steady', advice: 'No specific action needed.' }
 }
 
 export function priorityOf(item: AreaResult): Priority {
@@ -546,10 +546,10 @@ export function priorityOf(item: AreaResult): Priority {
 
 /** The four parts of an improvement area's plan, in report order. */
 export const PLAN_PARTS: Array<{ key: keyof AreaPlan; title: string; color: string }> = [
-  { key: 'nutrition', title: 'Nutrition', color: '#4f7a35' },
-  { key: 'lifestyle', title: 'Lifestyle', color: '#3f6f6a' },
+  { key: 'nutrition', title: 'Food', color: '#4f7a35' },
+  { key: 'lifestyle', title: 'Daily habits', color: '#3f6f6a' },
   { key: 'supplements', title: 'Supplements to discuss', color: '#a87a1c' },
-  { key: 'tests', title: 'Follow-up tests', color: '#86579a' },
+  { key: 'tests', title: 'Tests to repeat', color: '#86579a' },
 ]
 
 const EMPTY_PLAN: AreaPlan = { nutrition: [], lifestyle: [], supplements: [], tests: [] }
@@ -576,7 +576,7 @@ export function defaultSummary(analysis: Analysis) {
   const outOptimal = bands.below_optimal + bands.above_optimal
   const outStandard = bands.below_standard + bands.above_standard + bands.alarm_low + bands.alarm_high
   const top = plan.slice(0, 3).map(item => item.area.name.toLowerCase())
-  return `Of the ${summary.total} biomarkers analysed, ${optimal} are within the optimal range, ${outOptimal} are outside optimal but within the laboratory's standard range, and ${outStandard} are outside the standard range.${top.length ? ` The areas that need the most attention are ${listNames(top)}.` : ' No area shows a strong pattern of dysfunction.'}${summary.urgent.length ? ' Some results are well outside the laboratory range and should be reviewed with your doctor promptly.' : ''}`
+  return `We read ${summary.total} markers: ${optimal} are on target, ${outOptimal} are off target but still within the laboratory's range, and ${outStandard} are outside the laboratory's range.${top.length ? ` Your plan focuses first on ${listNames(top)}.` : ' No area scored high enough to need a plan of its own.'}${summary.urgent.length ? ' Some results are well outside the laboratory range and should be reviewed with your doctor promptly.' : ''}`
 }
 
 export function defaultFindings(analysis: Analysis): FmNarrative['findings'] {
@@ -613,20 +613,20 @@ export function defaultNextSteps(analysis: Analysis): FmNarrative['nextSteps'] {
   const missing = Array.from(new Set(analysis.plan.flatMap(item => item.missing))).slice(0, 6)
   return [
     {
-      title: urgent.length ? 'See your doctor promptly' : 'Review this report with your clinician',
+      title: urgent.length ? 'See your doctor promptly' : 'Book your results consultation',
       text: urgent.length
         ? 'Some results are well outside the laboratory\'s range and need medical review soon, before starting the wider plan.'
-        : 'Go through the findings and the plan together, alongside your symptoms, history and current medicines, and agree which changes to start first.',
+        : 'Sit down with your FXMed clinician to go through this report alongside your symptoms, history and current medicines, and agree which changes to start first.',
       items: urgent.length ? urgent : ['Bring a list of your current medicines and supplements.', 'Note any symptoms you have noticed, and when they started.'],
     },
     {
-      title: 'Follow-up testing',
-      text: 'Retesting shows whether the plan is working. Most markers are worth repeating 8–12 weeks after starting changes.',
+      title: 'Retest at 8–12 weeks',
+      text: 'A repeat test shows us what the plan has changed. Most markers are worth checking again 8–12 weeks after you start.',
       items: [...tests, ...(missing.length ? [`Consider adding: ${missing.join(', ')}.`] : [])],
     },
     {
-      title: 'Start with the foundations',
-      text: 'The biggest gains usually come from the basics. Any supplement or medicine change should be agreed with your clinician first.',
+      title: 'Begin with the basics',
+      text: 'Sleep, food and movement usually move the numbers most. Agree any supplement or medicine change with your clinician first.',
       items: Array.from(new Set(analysis.plan.slice(0, 3).flatMap(item => (item.area.plan?.lifestyle || []).slice(0, 1))))
         .concat(analysis.child ? 'Regular sleep, whole foods, active play and limited screen time.' : 'Sleep 7–9 hours, eat whole foods, move daily and limit alcohol.').slice(0, 4),
     },
