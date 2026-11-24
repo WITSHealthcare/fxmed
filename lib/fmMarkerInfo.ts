@@ -181,6 +181,11 @@ export const MARKER_INFO: Record<string, MarkerInfo> = {
     high: 'A raised level can mean dehydration, reduced kidney function, a very high-protein diet or bleeding in the gut.',
     low: 'A low level can reflect low protein intake, poor protein digestion, over-hydration or liver strain.',
   },
+  bun: {
+    about: 'Blood urea nitrogen (BUN) measures the nitrogen carried by urea, the main waste product of protein breakdown. It is the same test as urea, reported a different way.',
+    high: 'A raised level can mean dehydration, reduced kidney function, a very high-protein diet or bleeding in the gut.',
+    low: 'A low level can reflect low protein intake, poor protein digestion, over-hydration or liver strain.',
+  },
   uric_acid: {
     about: 'Uric acid is made when the body breaks down purines from food and cell turnover. In moderate amounts it is an antioxidant.',
     high: 'A raised level is linked to gout, kidney stones, insulin resistance, fructose and alcohol intake, and cardiovascular risk.',

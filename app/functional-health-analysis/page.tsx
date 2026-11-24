@@ -192,6 +192,9 @@ export default function FunctionalHealthAnalysis() {
               <p className="font-dm-sans text-text-mid leading-[1.6] mb-4">
                 Complete recommended lab tests to provide detailed insights into your biological markers.
               </p>
+              <Link href="/lab-library" className="font-dm-sans text-sm font-semibold text-green-mid underline underline-offset-2 hover:text-green-deep">
+                What each marker means
+              </Link>
             </div>
 
             <div className="text-center">
