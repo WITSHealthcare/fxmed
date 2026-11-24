@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { ArrowCounterClockwiseIcon, DownloadSimpleIcon, FloppyDiskIcon, ListChecksIcon, PlusIcon, SparkleIcon, TrashIcon } from '@phosphor-icons/react'
 import { PAGE_H, PAGE_W, buildFmReportPages, fitPage, renderFmReportPdf } from '@/lib/fmAnalysisPdf'
+import type { StoolTest } from '@/lib/stoolMarkers'
 import { PLAN_PARTS, analyse, defaultFindings, defaultNextSteps, defaultRecommendations, defaultSummary, planFor } from '@/lib/fmAssessment'
 import { ageInYears, type AreaPlan, type FmEntry, type FmNarrative, type FmPatient, type Priority } from '@/lib/fmBiomarkers'
 import { inputClass } from './ResultsEntry'
@@ -46,7 +47,7 @@ function Preview({ pages }: { pages: string[] }) {
   </div>
 }
 
-export default function ReportBuilder({ patient, entries, setEntries, narrative, setNarrative, emrPatientId, onSaveAnalysis }: {
+export default function ReportBuilder({ patient, entries, setEntries, narrative, setNarrative, emrPatientId, onSaveAnalysis, stool = null }: {
   patient: FmPatient
   entries: FmEntry[]
   setEntries: Dispatch<SetStateAction<FmEntry[]>>
@@ -54,6 +55,8 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
   setNarrative: Dispatch<SetStateAction<FmNarrative>>
   emrPatientId: string | null
   onSaveAnalysis: (status?: 'draft' | 'final') => Promise<boolean>
+  /** The stool test, which adds the Your Gut pages and stool evidence to the report. */
+  stool?: StoolTest | null
 }) {
   const [context, setContext] = useState('')
   const [busy, setBusy] = useState<'' | 'interpret' | 'pdf' | 'record'>('')
@@ -62,7 +65,7 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
   const [showPreview, setShowPreview] = useState(true)
   const analysis = useMemo(() => analyse(entries, patient.sex, ageInYears(patient.age)), [entries, patient.sex, patient.age])
   const summary = analysis.summary
-  const pages = useMemo(() => showPreview ? buildFmReportPages({ patient, entries, narrative }) : [], [patient, entries, narrative, showPreview])
+  const pages = useMemo(() => showPreview ? buildFmReportPages({ patient, entries, narrative, stool }) : [], [patient, entries, narrative, stool, showPreview])
   const update = (changes: Partial<FmNarrative>) => setNarrative(current => ({ ...current, ...changes }))
   const updatePlan = (id: string, plan: AreaPlan | null) => setNarrative(current => {
     const areaPlans = { ...current.areaPlans }
@@ -81,7 +84,7 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
     if (narrative.findings.length && !window.confirm('Replace the current interpretation and marker notes with a new one?')) return
     setError(''); setNotice(''); setBusy('interpret')
     try {
-      const response = await fetch('/api/admin/fm-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'interpret', patient, entries, context }) })
+      const response = await fetch('/api/admin/fm-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'interpret', patient, entries, context, stool }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'The interpretation could not be written.')
       // Keep the clinician's edits to the improvement area plans.
@@ -101,7 +104,7 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
   async function download() {
     setError(''); setBusy('pdf')
     try {
-      const blob = await renderFmReportPdf({ patient, entries, narrative })
+      const blob = await renderFmReportPdf({ patient, entries, narrative, stool })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url; link.download = fileName; link.click()
@@ -119,7 +122,7 @@ export default function ReportBuilder({ patient, entries, setEntries, narrative,
     setError(''); setNotice(''); setBusy('record')
     try {
       if (!await onSaveAnalysis('final')) throw new Error('Save the analysis first.')
-      const blob = await renderFmReportPdf({ patient, entries, narrative })
+      const blob = await renderFmReportPdf({ patient, entries, narrative, stool })
       // The PDF goes straight to storage: a sharp report is larger than this
       // server will accept in one request. The server then records it.
       const post = async (body: Record<string, unknown>) => {

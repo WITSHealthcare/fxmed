@@ -311,7 +311,7 @@ async function interpret(request: NextRequest, body: Record<string, any>) {
   const entries = cleanEntries(body.entries).filter(entry => entry.value.trim())
   if (!entries.length) return fail('Enter at least one result first.')
   try {
-    const result = await interpretLabResults(cleanPatient(body.patient), entries, cleanText(body.context, 3000) || '')
+    const result = await interpretLabResults(cleanPatient(body.patient), entries, cleanText(body.context, 3000) || '', cleanStool(body.stool))
     await writeEmrAudit(database, user, { action: 'interpret_fm_analysis', entityType: 'fm_lab_analysis', entityId: isUuid(body.id) ? body.id : null, metadata: { results: entries.length, provider: result.provider } })
     return NextResponse.json(result)
   } catch (error) {

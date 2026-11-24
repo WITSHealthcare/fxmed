@@ -338,6 +338,6 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       {(summary.total > 0 || !!stool) && <div className="flex justify-end"><button type="button" className="primary" onClick={() => setStep('analysis')}><ChartBarIcon size={16} />See the analysis</button></div>}
     </div>}
     {step === 'analysis' && <AnalysisDashboard entries={entries} narrative={narrative} sex={patient.sex} age={age} stool={stool} />}
-    {step === 'report' && <ReportBuilder patient={patient} entries={entries} setEntries={setEntries} narrative={narrative} setNarrative={setNarrative} emrPatientId={emrPatientId} onSaveAnalysis={save} />}
+    {step === 'report' && <ReportBuilder patient={patient} entries={entries} setEntries={setEntries} narrative={narrative} setNarrative={setNarrative} emrPatientId={emrPatientId} onSaveAnalysis={save} stool={stool} />}
   </div>
 }
