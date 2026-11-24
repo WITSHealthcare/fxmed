@@ -13,7 +13,7 @@ import {
   defaultSummary, directionOf, likelihoodLabel, needsDetail, planFor, PLAN_PARTS, priorityOf,
   type Analysis, type AreaGroup, type AreaResult, type Band,
 } from './fmAssessment'
-import { ageInYears, deviation, FM_PANELS, PRIORITY_COLOR, type AssessedEntry, type FmEntry, type FmNarrative, type FmPatient } from './fmBiomarkers'
+import { ageInYears, deviation, FM_PANELS, PRIORITY_COLOR, type AssessedEntry, type FmEntry, type Range, type FmNarrative, type FmPatient } from './fmBiomarkers'
 import { markerExplanation } from './fmMarkerInfo'
 
 export const PAGE_W = 816
@@ -741,37 +741,124 @@ function findingCard(item: FmNarrative['findings'][number]) {
 // ---------------------------------------------------------------------------
 // Pages
 
-/** Our Method: how FXMed reads a set of lab results, step by step. */
-const METHOD_STEPS: Array<[string, string]> = [
-  ['Two ranges, not one', 'Every result is placed against the reference range printed by your laboratory and against the narrower FXMed optimal range our clinicians work to. A result can sit inside the first and still miss the second, and that gap is where we look first.'],
-  ['Read in clusters', 'No marker is judged alone. Insulin, triglycerides and HDL together say more about blood sugar than glucose does by itself, so each body system is read from the group of markers that reflects it.'],
-  ['Scored for support', 'Each system and nutrient gets a support score from 0 to 100%. The higher the score, the more your results point to that area needing attention now, and the more weight it carries in your plan.'],
-  ['Turned into a plan', 'Areas scoring 50% or more become focus areas in your care plan, each with food, daily habits, supplements to discuss and tests to repeat, built around foods and options you can find in Nigeria.'],
-]
-
+/** Two Views: the patient's own results read the laboratory's way and the FXMed way, the gap between them, and how we read them. */
 const REPORT_IS = ['A clinician-reviewed reading of one set of results, taken on one day.', 'A starting point for your next consultation with your FXMed care team.', 'A baseline we compare against each time you retest.']
 const REPORT_IS_NOT = ['A diagnosis, or a replacement for an examination and your history.', 'A reason to start, stop or change any medicine on your own.', 'A complete picture of your health: it covers only the tests that were done.']
 
-function methodBody() {
-  const step = ([name, text]: [string, string], index: number) => `<div style="background:${CREAM};border-radius:1.1em;padding:1.3em 1.4em;display:flex;gap:1em;align-items:flex-start">
-      ${disc(DEEP, [[String(index + 1), 44, 700]], 2.6, false, LIME)}
-      <div><div style="font-weight:800;font-size:1.12em;line-height:1.35;color:${DEEP}">${esc(name)}</div><div style="font-size:.96em;line-height:1.62;color:${BODY};margin-top:.4em">${esc(text)}</div></div></div>`
-  const list = (label: string, items: string[], color: string, mark: string) => `<div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${color};margin-bottom:.8em">${label}</div>
-      ${items.map(item => `<div style="display:flex;gap:.7em;align-items:baseline;margin-bottom:.55em;font-size:.98em;line-height:1.5;color:${BODY}"><span style="flex:none;font-weight:800;color:${color}">${mark}</span><span>${esc(item)}</span></div>`).join('')}</div>`
-  return `${title('How We Read Your Labs')}
-    ${lead('At FXMed, a lab result is the start of a conversation, not the end of one. This report is the lab part of your Functional Health Analysis: we take the results of your blood test, read them the way our clinicians do in consultation, and turn them into a plan you can follow in everyday life.')}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em;margin-top:2em">${METHOD_STEPS.map(step).join('')}</div>
-    <div style="margin-top:2.4em">${heading('Two ranges at a glance')}
-      <div style="position:relative;height:2.4em;border-radius:1.2em;background:${TRACK}">
-        <div style="position:absolute;left:30%;right:30%;top:0;bottom:0;border-radius:1.2em;background:#52B788"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2.4em;margin-top:1em;font-size:.95em;line-height:1.55;color:${BODY}">
-        <div><span style="font-weight:800;color:${INK}">Laboratory range</span> (the whole bar): the spread of results the laboratory sees in the people it tests, many of whom are not in good health.</div>
-        <div><span style="font-weight:800;color:#2D8A5F">FXMed optimal range</span> (the green centre): the narrower band where our clinicians see the body working at its best.</div>
-      </div></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2.4em;margin-top:2.4em;border-top:1px solid ${LINE};padding-top:1.6em">
-      ${list('This report is', REPORT_IS, GREEN, '✓')}${list('This report is not', REPORT_IS_NOT, '#B5523B', '✕')}
-    </div>`
+const LAB_NORMAL_FILL = '#B7D29C'
+const withinLab = (band: Band) => band === 'optimal' || band === 'below_optimal' || band === 'above_optimal'
+
+/** Every marker as a dot, in band order: coloured the laboratory's way (normal or flagged) or the FXMed way (every band). */
+function dotGrid(entries: AssessedEntry[], view: 'lab' | 'fxmed', width: number) {
+  const count = entries.length
+  const cols = count <= 40 ? 10 : count <= 84 ? 14 : 18
+  const rows = Math.ceil(count / cols)
+  const step = 20, r = 7.4
+  const dots = entries.map((entry, index) => {
+    const band = bandOf(entry)
+    const fill = view === 'lab' ? (withinLab(band) ? LAB_NORMAL_FILL : '#D0574F') : BAND_FILL[band]
+    return `<circle cx="${(index % cols) * step + step / 2}" cy="${Math.floor(index / cols) * step + step / 2}" r="${r}" fill="${fill}"/>`
+  }).join('')
+  return `${svgOpen(width, cols * step, rows * step, 'start')}${dots}</svg></div>`
+}
+
+/** One marker against both ranges: the laboratory's range as the pale band, the FXMed optimal range in green, the result as a dot. */
+function twoRangeBar(entry: AssessedEntry, width = 12) {
+  const lab = entry.labRangeParsed, fm = entry.fmRangeParsed, value = entry.numeric
+  if (value === null || (!lab && !fm)) return ''
+  const points = [lab?.low, lab?.high, fm?.low, fm?.high, value].filter((point): point is number => point !== null && point !== undefined)
+  let lo = Math.min(...points), hi = Math.max(...points)
+  const pad = (hi - lo || Math.abs(value) || 1) * 0.12
+  lo = lo >= 0 ? Math.max(0, lo - pad) : lo - pad
+  hi += pad
+  const W = 200, x = (point: number) => 6 + ((point - lo) / (hi - lo)) * (W - 12)
+  const band = (range: Range | null, fill: string, y: number, h: number) => {
+    if (!range) return ''
+    const a = x(range.low ?? lo), b = x(range.high ?? hi)
+    return `<rect x="${a.toFixed(1)}" y="${y}" width="${Math.max(2, b - a).toFixed(1)}" height="${h}" rx="${h / 2}" fill="${fill}"/>`
+  }
+  return `${svgOpen(width, W, 24, 'start')}${band(lab, '#E4E6DE', 6, 12)}${band(fm, '#9DC27C', 8, 8)}<circle cx="${x(value).toFixed(1)}" cy="12" r="6.6" fill="${BAND_FILL[bandOf(entry)]}" stroke="#fff" stroke-width="2.4"/></svg></div>`
+}
+
+/** A small line icon on a lime disc, for the method strip. */
+function methodIcon(kind: 'ranges' | 'clusters' | 'score' | 'plan') {
+  const s = `fill="none" stroke="${DEEP}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"`
+  const art = {
+    ranges: `<rect x="12" y="22" width="40" height="9" rx="4.5" ${s}/><rect x="22" y="33" width="20" height="9" rx="4.5" fill="${SAGE}" stroke="${DEEP}" stroke-width="3"/>`,
+    clusters: `<line x1="21" y1="24" x2="43" y2="22" ${s}/><line x1="21" y1="24" x2="31" y2="42" ${s}/><line x1="43" y1="22" x2="31" y2="42" ${s}/><circle cx="21" cy="24" r="5.5" fill="#fff" stroke="${DEEP}" stroke-width="3"/><circle cx="43" cy="22" r="5.5" fill="#fff" stroke="${DEEP}" stroke-width="3"/><circle cx="31" cy="42" r="5.5" fill="${SAGE}" stroke="${DEEP}" stroke-width="3"/>`,
+    score: `<line x1="16" y1="44" x2="48" y2="44" ${s}/><rect x="18" y="33" width="7" height="8" rx="1.5" fill="#fff" stroke="${DEEP}" stroke-width="2.6"/><rect x="28.5" y="26" width="7" height="15" rx="1.5" fill="#fff" stroke="${DEEP}" stroke-width="2.6"/><rect x="39" y="18" width="7" height="23" rx="1.5" fill="${SAGE}" stroke="${DEEP}" stroke-width="2.6"/>`,
+    plan: `<rect x="17" y="15" width="30" height="35" rx="4" ${s}/><polyline points="23,26 26,29 31,23" ${s}/><line x1="34" y1="26" x2="41" y2="26" ${s}/><polyline points="23,38 26,41 31,35" ${s}/><line x1="34" y1="38" x2="41" y2="38" ${s}/>`,
+  }[kind]
+  return `${svgOpen(3.6, 64, 64)}<circle cx="32" cy="32" r="32" fill="${BRAND_LIME}"/>${art}</svg></div>`
+}
+
+const METHOD_STEPS: Array<[Parameters<typeof methodIcon>[0], string, string]> = [
+  ['ranges', 'Two ranges', 'Every result against your lab\'s range and the narrower FXMed optimal range.'],
+  ['clusters', 'Read in clusters', 'Related markers are read together, one body system at a time.'],
+  ['score', 'Scored for support', 'Each system gets a 0–100% score for how much help it needs now.'],
+  ['plan', 'Turned into a plan', 'Areas at 50% or more become focus areas in your care plan.'],
+]
+
+/** The body system a marker weighs on most, from the areas it moved. */
+function mainArea(entry: AssessedEntry, analysis: Analysis) {
+  return analysis.areas
+    .filter(item => item.area.group !== 'plan' && item.contributors.some(contributor => contributor.entry.name === entry.name && contributor.entry.panel === entry.panel))
+    .sort((a, b) => b.score - a.score)[0] || null
+}
+
+function twoViewsBody(analysis: Analysis) {
+  const read = [...analysis.summary.assessed].filter(entry => bandOf(entry) !== 'unknown').sort((a, b) => bandRank(a) - bandRank(b))
+  const arrow = `<div style="display:flex;align-items:center;justify-content:center">${svgOpen(1.1, 12, 20)}<polyline points="2,2 10,10 2,18" fill="none" stroke="${SAGE}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>`
+  const steps = `<div style="display:grid;grid-template-columns:1fr 1.4em 1fr 1.4em 1fr 1.4em 1fr;align-items:stretch">${METHOD_STEPS.map(([icon, name, text], index) => `${index ? arrow : ''}<div style="background:${CREAM};border-radius:1.1em;padding:1.2em .9em 1.1em;text-align:center">
+      ${methodIcon(icon)}<div style="font-size:.7em;font-weight:800;letter-spacing:.18em;color:${GREEN};margin-top:.7em">STEP ${index + 1}</div><div style="font-weight:800;font-size:1em;color:${DEEP};margin-top:.15em">${name}</div><div style="font-size:.84em;line-height:1.5;color:${BODY};margin-top:.3em">${esc(text)}</div></div>`).join('')}</div>`
+  if (!read.length) return `${title('How We Read Your Labs')}${lead('Each result is read against two ranges, in clusters, scored and turned into a plan.')}<div style="margin-top:2.4em">${steps}</div>`
+
+  const total = read.length
+  const labNormal = read.filter(entry => withinLab(bandOf(entry))).length
+  const onTargetCount = read.filter(onTarget).length
+  const gap = read.filter(entry => { const band = bandOf(entry); return band === 'below_optimal' || band === 'above_optimal' })
+  const gridW = 28.5
+  const view = (dark: boolean, label: string, big: string, small: string, sub: string, grid: string, legend: string) => `<div style="background:${dark ? DEEP : CREAM};border-radius:1.3em;padding:1.4em 1.5em 1.3em">
+      <div style="font-size:.74em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${dark ? LIME : GREEN}">${label}</div>
+      <div style="margin-top:.35em;line-height:1.1"><span style="font-size:3em;letter-spacing:-.03em;color:${dark ? '#fff' : INK}">${big}</span><span style="font-size:1.05em;color:${dark ? ON_DARK : MUTED}"> ${small}</span></div>
+      <div style="font-size:.95em;color:${dark ? ON_DARK : BODY};margin:.2em 0 1em">${sub}</div>
+      ${grid}<div style="font-size:.76em;color:${dark ? ON_DARK : BODY};margin-top:.8em;line-height:1.6">${legend}</div></div>`
+  const dot = (color: string, text: string) => `<span style="white-space:nowrap;margin-right:1em"><span style="color:${color}">●</span> ${text}</span>`
+
+  const shown = [...gap].sort((a, b) => deviation(b.numeric, b.fmRangeParsed) - deviation(a.numeric, a.fmRangeParsed)).filter(entry => !entry.textResult).slice(0, 6)
+  const cell = `padding:.55em .6em;border-bottom:1px solid ${LINE};vertical-align:middle`
+  const rows = shown.map(entry => {
+    const area = mainArea(entry, analysis)
+    const direction = directionOf(entry) === 'low' ? '↓' : '↑'
+    const tone = area ? LEVELS[levelOf(area.score)] : null
+    return `<tr>
+      <td style="${cell};font-weight:700;color:${INK}">${esc(entry.name)}</td>
+      <td style="${cell};white-space:nowrap"><span style="font-weight:800;color:${BAND_STYLE[bandOf(entry)].text}">${esc(entry.value)} ${direction}</span> <span style="font-size:.85em;color:${MUTED}">${esc(entry.unit)}</span></td>
+      <td style="${cell};color:${MUTED};white-space:nowrap">${esc(entry.labRange || '—')}</td>
+      <td style="${cell};color:${GREEN};font-weight:700;white-space:nowrap">${esc(entry.fmRange || '—')}</td>
+      <td style="${cell}">${twoRangeBar(entry)}</td>
+      <td style="${cell};font-size:.86em;line-height:1.35">${area && tone ? `<span style="color:${INK}">${esc(area.area.name)}</span> <span style="font-weight:800;color:${tone.text}">${area.score}%</span>` : `<span style="color:${MUTED}">—</span>`}</td></tr>`
+  }).join('')
+  const more = gap.length - shown.length
+
+  return `${title('Your Results, Read Two Ways')}
+    ${lead('Most lab reports ask one question: is each result normal? We ask a second: is it where your body works best? Here is what that second look found in your results.')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.1em;margin-top:1.6em">
+      ${view(false, 'Your laboratory\'s view', String(labNormal), `of ${total}`, 'results within the normal range', dotGrid(read, 'lab', gridW), `${dot(LAB_NORMAL_FILL, 'Normal')}${dot('#D0574F', 'Flagged')}`)}
+      ${view(true, 'The FXMed view', String(onTargetCount), `of ${total}`, 'results on the optimal target', dotGrid(read, 'fxmed', gridW), `${dot(SAGE, 'On target')}${dot('#D6A23A', 'Drifting')}${dot('#D0574F', 'Outside lab range')}`)}
+    </div>
+    <div style="margin-top:1.1em;border-radius:1.3em;background:${gap.length ? '#FBF4E2' : '#EEF3E6'};padding:1.1em 1.5em;display:flex;align-items:center;gap:1.3em">
+      ${disc(gap.length ? '#D6A23A' : SAGE, [[String(gap.length), 44, 700]], 3.6)}
+      <div style="font-size:1.06em;line-height:1.5;color:${INK}">${gap.length
+        ? `<strong>${gap.length} result${gap.length === 1 ? '' : 's'} your lab passed ${gap.length === 1 ? 'is' : 'are'} already drifting.</strong> <span style="color:${BODY}">${gap.length === 1 ? 'It sits' : 'They sit'} inside the normal range but outside the FXMed optimal target: the early changes this report is built to catch, while they are easiest to turn around.</span>`
+        : `<strong>Every result your lab passed is also on target.</strong> <span style="color:${BODY}">Nothing is quietly drifting inside the normal range.</span>`}</div>
+    </div>
+    ${shown.length ? `<div style="margin-top:1.8em;display:flex;justify-content:space-between;align-items:baseline">${heading('In the gap').replace('margin-bottom:1em', 'margin-bottom:.5em')}<div style="font-size:.8em;color:${BODY}"><span style="color:#C9CCC2">■</span> Lab range &nbsp; <span style="color:#9DC27C">■</span> FXMed optimal &nbsp; <span style="color:#D6A23A">●</span> Your result</div></div>
+    <table style="width:100%;border-collapse:collapse;font-size:.9em;line-height:1.4">
+      <thead><tr style="text-align:left;font-size:.82em;letter-spacing:.06em;text-transform:uppercase;color:${GREEN}"><th style="${cell};font-weight:800">Marker</th><th style="${cell};font-weight:800">Result</th><th style="${cell};font-weight:800">Lab range</th><th style="${cell};font-weight:800">Optimal</th><th style="${cell};font-weight:800">Where it sits</th><th style="${cell};font-weight:800">Weighs on</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    ${more > 0 ? `<div style="font-size:.85em;color:${MUTED};margin-top:.6em">And ${more} more, all in Part 4.</div>` : ''}` : ''}
+    <div style="margin-top:2em;border-top:1px solid ${LINE};padding-top:1.5em">${heading('How we read them')}${steps}</div>`
 }
 
 function coverBody(data: FmReportData) {
@@ -1001,7 +1088,11 @@ function notesBody() {
     'Do not stop, start or change a treatment, or put off seeing a doctor, because of something in this report. In an emergency, go to the nearest hospital emergency department.',
     'Calculated markers are worked out from your other results. HOMA-IR uses fasting glucose (mmol/L) × fasting insulin (µIU/mL) ÷ 22.5.',
   ]
-  return `${title('About This Report')}<div style="margin-top:1.4em">${paragraphs.map(text => `<p style="font-size:1em;line-height:1.65;color:${BODY};margin:0 0 1em">${esc(text)}</p>`).join('')}</div>
+  const list = (label: string, items: string[], color: string, mark: string) => `<div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${color};margin-bottom:.8em">${label}</div>
+      ${items.map(item => `<div style="display:flex;gap:.7em;align-items:baseline;margin-bottom:.55em;font-size:.98em;line-height:1.5;color:${BODY}"><span style="flex:none;font-weight:800;color:${color}">${mark}</span><span>${esc(item)}</span></div>`).join('')}</div>`
+  return `${title('About This Report')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2.4em;margin-top:1.6em;background:${CREAM};border-radius:1.2em;padding:1.4em 1.6em">${list('This report is', REPORT_IS, GREEN, '✓')}${list('This report is not', REPORT_IS_NOT, '#B5523B', '✕')}</div>
+    <div style="margin-top:1.6em">${paragraphs.map(text => `<p style="font-size:1em;line-height:1.65;color:${BODY};margin:0 0 1em">${esc(text)}</p>`).join('')}</div>
     <div style="margin-top:2em;font-size:.95em;color:${MUTED}">Prepared by WITS FxMed Nigeria Ltd, Lagos, Nigeria. Questions about your report? Speak to your FXMed care team.</div>`
 }
 
@@ -1050,7 +1141,7 @@ export function buildFmReportPages(data: FmReportData) {
   add('start', '', () => coverBody(data), 'cover')
   add('start', 'Report Map', toc => mapBody(toc))
   divider('start')
-  add('start', 'Our Method', () => methodBody())
+  add('start', 'Two Views', () => twoViewsBody(analysis))
   add('start', 'Your Snapshot', () => snapshotBody(analysis, narrative))
   if (analysis.summary.assessed.length) add('start', 'Health Score', () => healthScoreBody(analysis))
 
