@@ -232,7 +232,7 @@ h1, h2, h3 {
 
 /*
  * Clinic theme. The signed-in admin (components/admin/shell/AdminShell.tsx)
- * and the patient portal (app/patient-portal) wear .clinic-theme: Inter on a
+ * and the patient portal (app/patient-portal) wear .clinic-theme: Plus Jakarta Sans on a
  * warm grey page, soft borderless cards, sage for the active and positive
  * states and dark forest for primary actions. Scoped here so the public site
  * keeps its own brand, and so older admin screens pick it up without edits.
@@ -255,16 +255,17 @@ h1, h2, h3 {
   --clinic-line: rgb(22 26 21 / 0.07);
   --clinic-radius: 28px;
   --clinic-shadow: 0 1px 2px rgb(22 26 21 / 0.04), 0 8px 24px -12px rgb(22 26 21 / 0.08);
-  font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
-  font-feature-settings: 'cv11', 'ss01', 'ss03';
-  letter-spacing: -0.006em;
+  font-family: var(--font-clinic), 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.003em;
   background: var(--clinic-bg);
   color: var(--clinic-ink);
   -webkit-font-smoothing: antialiased;
 }
 .clinic-theme h1, .clinic-theme h2, .clinic-theme h3, .clinic-theme .font-dm-sans { font-family: inherit; }
-/* Big, light, tight headings; big numbers lighter still. */
-.clinic-theme h1, .clinic-theme h2, .clinic-theme h3 { font-weight: 500; letter-spacing: -0.03em; }
+/* Type as in the FxMed Twin: a big, light, tight page title, semibold card
+   headings, and big numbers at regular weight. */
+.clinic-theme h1 { font-weight: 500; letter-spacing: -0.025em; }
+.clinic-theme h2, .clinic-theme h3, .clinic-theme h4 { font-weight: 600; letter-spacing: -0.015em; }
 .clinic-theme p.text-2xl, .clinic-theme p.text-3xl, .clinic-theme p.text-4xl, .clinic-theme .clinic-number { font-weight: 400; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 
 /* The older deep-green and cream classes, re-tuned to the clinic palette. */
@@ -324,14 +325,16 @@ h1, h2, h3 {
 .chart-fade { opacity: 0; animation: chartFade 0.6s 0.35s ease-out forwards; }
 .chart-grow { animation: chartGrow 0.9s cubic-bezier(0.33, 1, 0.68, 1); }
 .chart-grow-x { transform-origin: left center; animation: chartGrowX 0.8s cubic-bezier(0.33, 1, 0.68, 1); }
+.chart-grow-y { transform-origin: bottom center; animation: chartGrowY 0.7s cubic-bezier(0.33, 1, 0.68, 1) both; }
 .chart-sweep { transition: stroke-dasharray 0.6s ease; }
 @keyframes chartGrow { from { stroke-dasharray: 0 100; } }
 @keyframes chartGrowX { from { transform: scaleX(0); } }
+@keyframes chartGrowY { from { transform: scaleY(0); } }
 @keyframes chartDraw { to { stroke-dashoffset: 0; } }
 @keyframes chartFade { to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   .chart-draw { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
   .chart-fade { animation: none; opacity: 1; }
-  .chart-grow, .chart-grow-x { animation: none; }
+  .chart-grow, .chart-grow-x, .chart-grow-y { animation: none; }
   .chart-sweep { transition: none; }
 }

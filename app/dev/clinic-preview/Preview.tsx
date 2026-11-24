@@ -6,10 +6,12 @@ import { useSearchParams } from 'next/navigation'
 import { AdminFrame } from '@/components/admin/shell/AdminShell'
 import SeoAnalytics from '@/components/admin/SeoAnalytics'
 import AnalysisDashboard from '@/components/admin/fm/AnalysisDashboard'
+import ReportBuilder from '@/components/admin/fm/ReportBuilder'
 import PatientPortal from '@/app/patient-portal/page'
 import { AreaLine, Gauge, ProgressRing, SegmentedBar, clinic } from '@/components/charts'
 import { Card, Stat } from '@/components/admin/ui'
-import { FM_BIOMARKERS, createEntry, emptyNarrative, parseRange, type FmEntry } from '@/lib/fmBiomarkers'
+import { FM_BIOMARKERS, createEntry, emptyNarrative, parseRange, type FmEntry, type FmNarrative, type FmPatient } from '@/lib/fmBiomarkers'
+import { analyse, defaultFindings, defaultNextSteps, defaultRecommendations, defaultSummary } from '@/lib/fmAssessment'
 
 // Everything here is made up. The page answers the screens' API calls itself
 // (see answer() below), so nothing is read from or written to the database.
@@ -84,6 +86,18 @@ function sampleEntries(): FmEntry[] {
   })
 }
 
+const samplePatient: FmPatient = { name: 'Ada Okafor', age: '40', sex: 'female', collectedAt: '2026-11-10', labRef: 'SAMPLE-001', facility: 'Sample Lab', clinician: 'Sample Clinician' }
+
+/** The Functional Health Report builder and its page preview, with sample results and the standard wording. */
+function Report({ initial }: { initial: FmEntry[] }) {
+  const [entries, setEntries] = useState(initial)
+  const [narrative, setNarrative] = useState<FmNarrative>(() => {
+    const analysis = analyse(initial, 'female', 40)
+    return { ...emptyNarrative(), summary: defaultSummary(analysis), findings: defaultFindings(analysis), recommendations: defaultRecommendations(analysis), nextSteps: defaultNextSteps(analysis) }
+  })
+  return <ReportBuilder patient={samplePatient} entries={entries} setEntries={setEntries} narrative={narrative} setNarrative={setNarrative} emrPatientId={null} onSaveAnalysis={async () => true} />
+}
+
 function Kit() {
   const days = useMemo(() => Array.from({ length: 14 }, (_, index) => ({ label: `${index + 10} Nov`, value: wave(index, 22, 6) })), [])
   return <div className="space-y-6">
@@ -123,12 +137,12 @@ export default function Preview() {
 
   if (!ready) return null
   if (view === 'portal') return <PatientPortal />
-  const path = page === 'seo' ? '/admin/growth/seo' : page === 'fm' ? '/admin/clinical/lab-analysis' : '/admin/growth/crm'
+  const path = page === 'seo' ? '/admin/growth/seo' : page === 'fm' || page === 'report' ? '/admin/clinical/lab-analysis' : '/admin/growth/crm'
   return <AdminFrame role="admin" onLogout={() => {}} path={path}>
     <p className="mb-4 flex flex-wrap gap-2 text-xs text-clinic-muted">Preview with sample data:
-      {[['kit', 'Chart kit'], ['seo', 'SEO analytics'], ['fm', 'FM lab analysis']].map(([id, label]) => <Link key={id} href={`?page=${id}`} className="underline underline-offset-2">{label}</Link>)}
+      {[['kit', 'Chart kit'], ['seo', 'SEO analytics'], ['fm', 'FM lab analysis'], ['report', 'FM report']].map(([id, label]) => <Link key={id} href={`?page=${id}`} className="underline underline-offset-2">{label}</Link>)}
       <Link href="?view=portal" className="underline underline-offset-2">Patient portal</Link>
     </p>
-    {page === 'seo' ? <SeoAnalytics /> : page === 'fm' ? <AnalysisDashboard entries={entries} narrative={emptyNarrative()} sex="female" age={40} /> : <Kit />}
+    {page === 'seo' ? <SeoAnalytics /> : page === 'report' ? <Report initial={entries} /> : page === 'fm' ? <AnalysisDashboard entries={entries} narrative={emptyNarrative()} sex="female" age={40} /> : <Kit />}
   </AdminFrame>
 }
