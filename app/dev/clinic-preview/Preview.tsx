@@ -7,6 +7,8 @@ import { AdminFrame } from '@/components/admin/shell/AdminShell'
 import SeoAnalytics from '@/components/admin/SeoAnalytics'
 import AnalysisDashboard from '@/components/admin/fm/AnalysisDashboard'
 import ReportBuilder from '@/components/admin/fm/ReportBuilder'
+import StoolTestCard from '@/components/admin/fm/StoolTest'
+import { createStoolEntry, stoolMarkerById, type StoolTest } from '@/lib/stoolMarkers'
 import PatientPortal from '@/app/patient-portal/page'
 import { AreaLine, Gauge, ProgressRing, SegmentedBar, clinic } from '@/components/charts'
 import { Card, Stat } from '@/components/admin/ui'
@@ -71,8 +73,29 @@ function answer(url: string, init?: RequestInit) {
   if (pathname === '/api/admin/analytics') return json(analytics(searchParams.get('range') || '7d'))
   if (pathname === '/api/admin/notifications') return json({ notifications: [], degraded: [] })
   if (pathname === '/api/patient-portal' && (!init?.method || init.method === 'GET')) return json(portal)
+  // The stool test read: what the AI would return for a made-up GI-MAP.
+  if (pathname === '/api/admin/fm-analysis' && init?.method === 'POST' && (init.body instanceof FormData ? init.body.get('kind') === 'stool' : String(init.body || '').includes('"kind":"stool"'))) return json(sampleStool())
   if (pathname.startsWith('/api/')) return json({})
   return null
+}
+
+/** Made-up GI-MAP results, as the stool import would return them. */
+function sampleStool(): { test: StoolTest; provider: string } {
+  const rows: Array<[string, string]> = [
+    ['c_diff_toxin_a', '<dl'], ['c_diff_toxin_b', '<dl'], ['giardia', '6.20e3'], ['salmonella', '<dl'], ['norovirus', '<dl'],
+    ['h_pylori', '4.1e2'], ['h_pylori_caga', 'N/A'],
+    ['bacteroides_fragilis', '8.1e9'], ['bifidobacterium', '3.4e7'], ['lactobacillus', '2.2e6'], ['akkermansia', '<dl'], ['faecalibacterium', '6.0e2'], ['roseburia', '1.1e9'],
+    ['bacteroidetes', '5.2e11'], ['firmicutes', '1.4e11'], ['firmicutes_bacteroidetes_ratio', '0.27'],
+    ['klebsiella', '9.8e3'], ['streptococcus', '3.3e3'], ['staphylococcus_aureus', '<dl'], ['candida', '<dl'], ['blastocystis', '<dl'], ['ascaris', 'Not Detected'],
+    ['elastase', '412'], ['steatocrit', '<dl'], ['secretory_iga', '2480'], ['eosinophil_activation_protein', '1.2'], ['calprotectin', '96'], ['zonulin', '228'], ['occult_blood', '2'],
+  ]
+  return { provider: 'preview', test: { lab: 'GI-MAP', collectedAt: '2 Nov 2026', accession: 'SAMPLE-0001', entries: rows.map(([id, value]) => createStoolEntry(stoolMarkerById(id), { value })) } }
+}
+
+/** The stool test card as the Results step shows it, with nothing saved. */
+function Stool() {
+  const [stool, setStool] = useState<StoolTest | null>(null)
+  return <StoolTestCard stool={stool} onChange={setStool} emrPatientId={null} />
 }
 
 function sampleEntries(): FmEntry[] {
@@ -137,12 +160,12 @@ export default function Preview() {
 
   if (!ready) return null
   if (view === 'portal') return <PatientPortal />
-  const path = page === 'seo' ? '/admin/growth/seo' : page === 'fm' || page === 'report' ? '/admin/clinical/lab-analysis' : '/admin/growth/crm'
+  const path = page === 'seo' ? '/admin/growth/seo' : page === 'fm' || page === 'report' || page === 'stool' ? '/admin/clinical/lab-analysis' : '/admin/growth/crm'
   return <AdminFrame role="admin" onLogout={() => {}} path={path}>
     <p className="mb-4 flex flex-wrap gap-2 text-xs text-clinic-muted">Preview with sample data:
-      {[['kit', 'Chart kit'], ['seo', 'SEO analytics'], ['fm', 'Health analysis: labs'], ['report', 'Health analysis: lab report']].map(([id, label]) => <Link key={id} href={`?page=${id}`} className="underline underline-offset-2">{label}</Link>)}
+      {[['kit', 'Chart kit'], ['seo', 'SEO analytics'], ['fm', 'Health analysis: labs'], ['report', 'Health analysis: lab report'], ['stool', 'Health analysis: stool test']].map(([id, label]) => <Link key={id} href={`?page=${id}`} className="underline underline-offset-2">{label}</Link>)}
       <Link href="?view=portal" className="underline underline-offset-2">Patient portal</Link>
     </p>
-    {page === 'seo' ? <SeoAnalytics /> : page === 'report' ? <Report initial={entries} /> : page === 'fm' ? <AnalysisDashboard entries={entries} narrative={emptyNarrative()} sex="female" age={40} /> : <Kit />}
+    {page === 'seo' ? <SeoAnalytics /> : page === 'stool' ? <Stool /> : page === 'report' ? <Report initial={entries} /> : page === 'fm' ? <AnalysisDashboard entries={entries} narrative={emptyNarrative()} sex="female" age={40} /> : <Kit />}
   </AdminFrame>
 }

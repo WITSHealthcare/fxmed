@@ -9,6 +9,7 @@ import {
   FM_BIOMARKERS, ageInYears, createEntry, defaultRanges, isChild, matchBiomarker,
   type FmEntry, type FmNarrative, type FmPatient, type Priority, type Sex,
 } from '@/lib/fmBiomarkers'
+import { STOOL_MARKERS, createStoolEntry, matchStoolMarker, stoolMarkerById, type StoolEntry, type StoolTest } from '@/lib/stoolMarkers'
 
 function parseJson(output: string) {
   const fenced = output.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
@@ -87,6 +88,56 @@ export async function extractLabResults(files: ReportAttachment[], pastedText: s
     entries,
     provider,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Reading a stool test (GI-MAP). Unlike blood, a stool report's results are
+// mostly "<dl", "Not Detected" or scientific notation, and all of them count.
+
+export type ExtractedStool = { test: StoolTest; provider: string }
+
+function stoolPrompt(pastedText: string) {
+  const catalogue = STOOL_MARKERS.map(marker => `${marker.id}: ${marker.name}`).join('\n')
+  return `You are transcribing a stool test report (such as a GI-MAP) for a functional medicine clinic.${pastedText ? ' The report text is pasted below.' : ' The attached files are the laboratory\'s report: PDF pages or photographs of it.'}
+
+Copy every result row, whatever its value. Where a row is one of these known markers, give its id; otherwise use null for markerId:
+${catalogue}
+
+Return valid JSON only, with no commentary, in exactly this shape:
+{"test":{"lab":"","collectedAt":"","accession":""},"results":[{"markerId":null,"name":"","value":"","unit":"","reference":""}]}
+
+Rules:
+- Never invent or calculate a value. Copy each result and its reference exactly as printed, including "<dl", "Not Detected", "N/A", ">750" and scientific notation such as "2.10e7" (write "2.10 x 10^7" as "2.10e7").
+- Leave out the "High" or "Low" flags printed beside a result; copy only the result itself.
+- If the same organism is printed in two sections, copy it once.
+- lab is the test's name, e.g. "GI-MAP". accession is the lab's accession or report number. collectedAt is the collection date as printed.
+- Do not copy the patient's name, date of birth or any other personal details.
+- If this is not a stool test report, return an empty results array.${pastedText ? `\n\nREPORT TEXT:\n${pastedText.slice(0, 40000)}` : ''}`
+}
+
+export async function extractStoolResults(files: ReportAttachment[], pastedText: string): Promise<ExtractedStool> {
+  const { report: output, provider } = await generateClinicalReport(stoolPrompt(pastedText), files)
+  let parsed: Record<string, any>
+  try {
+    parsed = parseJson(output)
+  } catch {
+    throw new Error('The results could not be read from this report.')
+  }
+  const test = parsed.test && typeof parsed.test === 'object' ? parsed.test : {}
+  const entries: StoolEntry[] = []
+  const seen = new Set<string>()
+  for (const row of Array.isArray(parsed.results) ? parsed.results.slice(0, 200) : []) {
+    const name = text(row?.name, 120)
+    const value = text(row?.value, 40)
+    if (!name || !value) continue
+    const marker = stoolMarkerById(row?.markerId) || matchStoolMarker(name)
+    const key = marker?.id || name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    // The lab's own printed reference wins; the catalogue fills a gap.
+    entries.push(createStoolEntry(marker, { ...(marker ? {} : { name }), value, unit: text(row?.unit, 40) || marker?.unit || '', reference: text(row?.reference, 60) || marker?.reference || '' }))
+  }
+  return { test: { lab: text(test.lab, 60) || 'GI-MAP', collectedAt: text(test.collectedAt, 40), accession: text(test.accession, 60), entries }, provider }
 }
 
 // ---------------------------------------------------------------------------

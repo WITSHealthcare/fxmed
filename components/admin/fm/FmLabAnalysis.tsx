@@ -7,6 +7,8 @@ import { ageInYears, defaultRanges, emptyNarrative, markerById, refreshRanges, s
 import AnalysisDashboard from './AnalysisDashboard'
 import RecordResults from './RecordResults'
 import ReportBuilder from './ReportBuilder'
+import StoolTestCard from './StoolTest'
+import type { StoolTest } from '@/lib/stoolMarkers'
 import { ImportPanel, ResultsTable, inputClass, mergeEntries } from './ResultsEntry'
 
 // Functional Health Analysis lab report: enter a patient's results (typed, or read
@@ -23,9 +25,9 @@ const emptyPatient = (): FmPatient => ({ name: '', age: '', sex: '', collectedAt
 /** Edits are saved this long after the last change. */
 const AUTOSAVE_DELAY = 1500
 
-type Content = { emrPatientId: string | null; patient: FmPatient; entries: FmEntry[]; narrative: FmNarrative }
+type Content = { emrPatientId: string | null; patient: FmPatient; entries: FmEntry[]; narrative: FmNarrative; stool: StoolTest | null }
 /** What is saved, as one comparable string; unsaved changes are any difference from the last save. */
-const snapshotOf = (content: Content) => JSON.stringify([content.emrPatientId, content.patient, content.entries, content.narrative])
+const snapshotOf = (content: Content) => JSON.stringify([content.emrPatientId, content.patient, content.entries, content.narrative, content.stool])
 const dateTime = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 const savedTime = new Intl.DateTimeFormat('en-NG', { hour: 'numeric', minute: '2-digit' })
 const patientName = (patient: EmrPatient) => [patient.first_name, patient.middle_name, patient.last_name].filter(Boolean).join(' ')
@@ -123,11 +125,14 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
   const [emrPatientLabel, setEmrPatientLabel] = useState('')
   const [entries, setEntries] = useState<FmEntry[]>([])
   const [narrative, setNarrative] = useState<FmNarrative>(emptyNarrative)
+  const [stool, setStool] = useState<StoolTest | null>(null)
+  // Saves send the stool test once there has been one, so removing it is saved too.
+  const hadStool = useRef(false)
   const [status, setStatus] = useState<'draft' | 'final'>('draft')
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [message, setMessage] = useState<{ tone: 'error' | 'ok'; text: string } | null>(null)
-  const [savedSnapshot, setSavedSnapshot] = useState(() => snapshotOf({ emrPatientId: null, patient: emptyPatient(), entries: [], narrative: emptyNarrative() }))
+  const [savedSnapshot, setSavedSnapshot] = useState(() => snapshotOf({ emrPatientId: null, patient: emptyPatient(), entries: [], narrative: emptyNarrative(), stool: null }))
   // Saves run one after another, and read the id from here, so a second save
   // made while the first is still creating the analysis updates it rather than
   // creating a duplicate.
@@ -140,8 +145,10 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       const result = await response.json()
       if (!response.ok) throw new Error(result.error)
       const row = result.analysis
-      const loaded = { emrPatientId: row.emr_patient_id, patient: { ...emptyPatient(), ...row.patient }, entries: row.entries || [], narrative: { ...emptyNarrative(), ...(row.narrative || {}) } }
+      const loaded = { emrPatientId: row.emr_patient_id, patient: { ...emptyPatient(), ...row.patient }, entries: row.entries || [], narrative: { ...emptyNarrative(), ...(row.narrative || {}) }, stool: row.stool || null }
       setPatient(loaded.patient)
+      setStool(loaded.stool)
+      hadStool.current = !!loaded.stool
       setEntries(loaded.entries)
       setNarrative(loaded.narrative)
       setSavedSnapshot(snapshotOf(loaded))
@@ -153,10 +160,10 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
     }).catch(loadError => setMessage({ tone: 'error', text: loadError.message || 'The analysis could not be loaded.' })).finally(() => setLoading(false))
   }, [id])
 
-  const snapshot = useMemo(() => snapshotOf({ emrPatientId, patient, entries, narrative }), [emrPatientId, patient, entries, narrative])
+  const snapshot = useMemo(() => snapshotOf({ emrPatientId, patient, entries, narrative, stool }), [emrPatientId, patient, entries, narrative, stool])
   const dirty = !loading && snapshot !== savedSnapshot
   // Autosave needs a name to file the analysis under, and something worth keeping.
-  const canAutosave = !!patient.name.trim() && (!!analysisId || entries.length > 0)
+  const canAutosave = !!patient.name.trim() && (!!analysisId || entries.length > 0 || !!stool)
 
   const summary = useMemo(() => summarize(entries), [entries])
   const age = useMemo(() => ageInYears(patient.age), [patient.age])
@@ -216,7 +223,8 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       return Promise.resolve(false)
     }
     const sent = snapshot
-    const body = { emrPatientId, patient, entries, narrative, status: nextStatus || status }
+    if (stool) hadStool.current = true
+    const body = { emrPatientId, patient, entries, narrative, status: nextStatus || status, ...(hadStool.current ? { stool } : {}) }
     const run = queue.current.then(async () => {
       setSaving(true)
       if (!quiet) setMessage(null)
@@ -241,7 +249,7 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
     })
     queue.current = run
     return run
-  }, [snapshot, emrPatientId, patient, entries, narrative, status])
+  }, [snapshot, emrPatientId, patient, entries, narrative, stool, status])
 
   // Autosave a moment after the last change, as results and edits come in.
   useEffect(() => {
@@ -326,6 +334,7 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       {emrPatientId && <RecordResults key={emrPatientId} patientId={emrPatientId} patientName={patient.name} sex={patient.sex} empty={entries.length === 0} onImported={imported} />}
       <ImportPanel sex={patient.sex} age={age} onImported={imported} another={entries.length > 0} />
       <ResultsTable entries={entries} sex={patient.sex} age={age} onChange={setEntries} />
+      <StoolTestCard stool={stool} onChange={setStool} emrPatientId={emrPatientId} />
       {summary.total > 0 && <div className="flex justify-end"><button type="button" className="primary" onClick={() => setStep('analysis')}><ChartBarIcon size={16} />See the analysis</button></div>}
     </div>}
     {step === 'analysis' && <AnalysisDashboard entries={entries} narrative={narrative} sex={patient.sex} age={age} />}
