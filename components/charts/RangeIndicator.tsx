@@ -15,6 +15,12 @@ type Props = {
   label: string
   unit?: string
   format?: (value: number) => string
+  /** How the range limits under the track are written; defaults to plain numbers. */
+  tickFormat?: (value: number) => string
+  /** The value as printed, when it is not a plain number ("<dl"). */
+  valueText?: string
+  /** The range as read aloud, when the track's numbers are not the printed ones (a log scale). */
+  rangeText?: string
   /** Hide the pill over the marker (when the value is printed beside the chart). */
   hideValue?: boolean
 }
@@ -29,7 +35,7 @@ const tidy = (point: number) => Number(point.toFixed(Math.abs(point) >= 100 ? 0 
  * below standard, through below optimal, to the optimal band in sage and out
  * again, with the result as a ring marker and its value in a pill above.
  */
-export default function RangeIndicator({ value, standard, optimal, tone, label, unit = '', format = tidy, hideValue = false }: Props) {
+export default function RangeIndicator({ value, standard, optimal, tone, label, unit = '', format = tidy, tickFormat = tidy, valueText, rangeText, hideValue = false }: Props) {
   // The four cut points: standard low, optimal low, optimal high, standard high.
   let c1 = standard?.low ?? optimal?.low ?? null
   const c2 = optimal?.low ?? c1
@@ -49,9 +55,9 @@ export default function RangeIndicator({ value, standard, optimal, tone, label, 
   // As shares of 100: flex-grow values that sum below 1 would leave the track part-empty.
   const widths = cuts.slice(1).map((cut, index) => ((cut - cuts[index]) / (end - start || 1)) * 100)
   const optimalText = optimal && (optimal.low !== null || optimal.high !== null) ? `optimal ${optimal.low ?? '<'}${optimal.low !== null && optimal.high !== null ? '–' : ''}${optimal.high ?? ''}` : ''
-  const text = `${format(value)}${unit ? ` ${unit}` : ''}`
+  const text = `${valueText ?? format(value)}${unit ? ` ${unit}` : ''}`
 
-  return <div role="img" aria-label={`${label}: ${text}${optimalText ? `, ${optimalText}` : ''}`} className={hideValue ? 'pt-1' : 'pt-7'}>
+  return <div role="img" aria-label={`${label}: ${text}${rangeText ? `, ${rangeText}` : optimalText ? `, ${optimalText}` : ''}`} className={hideValue ? 'pt-1' : 'pt-7'}>
     <div className="relative">
       <div className="flex h-2.5 gap-[2px]" aria-hidden="true">
         {widths.map((width, index) => width > 0 && <span key={index} className="block h-full first:rounded-l-full last:rounded-r-full" style={{ flexGrow: width, flexBasis: 0, background: zones[index] }} />)}
@@ -62,8 +68,8 @@ export default function RangeIndicator({ value, standard, optimal, tone, label, 
       </div>
     </div>
     {(c2 !== null || c3 !== null) && <div className="relative mt-1.5 h-4 text-[10px] tabular-nums text-clinic-muted" aria-hidden="true">
-      {c2 !== null && c2 > start && <span className="absolute -translate-x-1/2" style={{ left: `${at(c2)}%` }}>{tidy(c2)}</span>}
-      {c3 !== null && c3 < end && c3 !== c2 && <span className="absolute -translate-x-1/2" style={{ left: `${at(c3)}%` }}>{tidy(c3)}</span>}
+      {c2 !== null && c2 > start && <span className="absolute -translate-x-1/2" style={{ left: `${at(c2)}%` }}>{tickFormat(c2)}</span>}
+      {c3 !== null && c3 < end && c3 !== c2 && <span className="absolute -translate-x-1/2" style={{ left: `${at(c3)}%` }}>{tickFormat(c3)}</span>}
     </div>}
   </div>
 }

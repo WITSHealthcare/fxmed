@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isReadable, type ReportAttachment } from '@/lib/ai/clinical-report'
 import { cleanText, emrErrorMessage, getEmrContext, isUuid, writeEmrAudit } from '@/lib/emr'
-import { extractLabResults, interpretLabResults } from '@/lib/fmAnalysisAi'
+import { extractLabResults, extractStoolResults, interpretLabResults } from '@/lib/fmAnalysisAi'
 import { FM_PANELS, ageInYears, type FmEntry, type FmNarrative, type FmPatient, type PanelId, type Sex } from '@/lib/fmBiomarkers'
 import type { PatientRecordResults, RecordFile, RecordReport } from '@/lib/fmRecordResults'
 import { REPORT_COLUMNS, mapReportRow } from '@/lib/investigations'
+import { STOOL_SECTIONS, type StoolEntry, type StoolSection, type StoolTest } from '@/lib/stoolMarkers'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -15,6 +16,7 @@ export const maxDuration = 120
 const MAX_READ_BYTES = 15 * 1024 * 1024
 const LIST_COLUMNS = 'id,emr_patient_id,patient,status,created_at,updated_at,entries'
 const PANEL_IDS = new Set<string>(FM_PANELS.map(panel => panel.id))
+const STOOL_SECTION_IDS = new Set<string>(STOOL_SECTIONS.map(section => section.id))
 
 function fail(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
@@ -24,6 +26,7 @@ function serverError(error: unknown) {
   console.error('FM analysis error:', error)
   const code = typeof error === 'object' && error && 'code' in error ? String((error as { code: unknown }).code) : ''
   if (code === '42P01' || code === 'PGRST205') return fail('The Functional Health Analysis lab report migration (037) has not been applied yet.', 500)
+  if ((code === '42703' || code === 'PGRST204') && /stool/.test(String((error as { message?: unknown }).message || ''))) return fail('Saving a stool test needs the stool migration (060) to be applied first.', 500)
   return fail(emrErrorMessage(error), 500)
 }
 
@@ -49,6 +52,22 @@ function cleanEntries(value: unknown): FmEntry[] {
     fmRange: str(row?.fmRange, 60),
     note: str(row?.note, 300),
   })).filter(row => row.name.trim())
+}
+
+// A stool test kept beside the blood results; null when there is none.
+function cleanStool(value: any): StoolTest | null {
+  if (!value || typeof value !== 'object') return null
+  const entries: StoolEntry[] = (Array.isArray(value.entries) ? value.entries : []).slice(0, 200).map((row: any) => ({
+    markerId: typeof row?.markerId === 'string' ? row.markerId.slice(0, 60) : null,
+    name: str(row?.name, 120),
+    section: (STOOL_SECTION_IDS.has(row?.section) ? row.section : 'other') as StoolSection,
+    value: str(row?.value, 40),
+    unit: str(row?.unit, 40),
+    reference: str(row?.reference, 60),
+    note: str(row?.note, 300),
+  })).filter((row: StoolEntry) => row.name.trim())
+  if (!entries.length) return null
+  return { lab: str(value.lab, 60) || 'GI-MAP', collectedAt: str(value.collectedAt, 40), accession: str(value.accession, 60), entries }
 }
 
 // The narrative is shown back as text only, so it is size-limited JSON.
@@ -193,7 +212,7 @@ async function save(request: NextRequest, body: Record<string, any>) {
       const { data } = await database.from('emr_patients').select('id').eq('id', patientId).maybeSingle()
       if (!data) return fail('The linked patient was not found.')
     }
-    const row = {
+    const row: Record<string, any> = {
       emr_patient_id: patientId,
       patient: cleanPatient(body.patient),
       entries: cleanEntries(body.entries),
@@ -202,13 +221,16 @@ async function save(request: NextRequest, body: Record<string, any>) {
       updated_by: user.id,
       updated_at: new Date().toISOString(),
     }
+    // Only analyses with a stool test (or one being removed) touch the stool column,
+    // so blood-only saves keep working before migration 060 is applied.
+    if ('stool' in body) row.stool = cleanStool(body.stool)
     if (!row.patient.name.trim()) return fail('Enter the patient\'s name.')
     const query = isUuid(body.id)
       ? database.from('fm_lab_analyses').update(row).eq('id', body.id)
       : database.from('fm_lab_analyses').insert({ ...row, created_by: user.id })
     const { data, error } = await query.select('*').single()
     if (error) throw error
-    await writeEmrAudit(database, user, { action: isUuid(body.id) ? 'update_fm_analysis' : 'create_fm_analysis', entityType: 'fm_lab_analysis', entityId: data.id, patientId, metadata: { results: row.entries.length, status: row.status } })
+    await writeEmrAudit(database, user, { action: isUuid(body.id) ? 'update_fm_analysis' : 'create_fm_analysis', entityType: 'fm_lab_analysis', entityId: data.id, patientId, metadata: { results: row.entries.length, stoolResults: row.stool?.entries.length ?? undefined, status: row.status } })
     return NextResponse.json({ analysis: data })
   } catch (error) {
     return serverError(error)
@@ -239,6 +261,16 @@ async function readUpload(request: NextRequest) {
       files.push({ name: file.name, mimeType: file.type, base64: Buffer.from(await file.arrayBuffer()).toString('base64') })
     }
     if (!files.length) return fail('Choose the lab report to upload.')
+    if (form.get('kind') === 'stool') {
+      let stool
+      try {
+        stool = await extractStoolResults(files, '')
+      } catch (error) {
+        return readError(error)
+      }
+      await writeEmrAudit(database, user, { action: 'read_stool_report', entityType: 'fm_lab_analysis', metadata: { files: files.length, results: stool.test.entries.length, provider: stool.provider } })
+      return NextResponse.json(stool)
+    }
     let extracted
     try {
       extracted = await extractLabResults(files, '', sex(form.get('sex')), ageInYears(str(form.get('age'), 10)))
@@ -259,6 +291,11 @@ async function readPasted(request: NextRequest, body: Record<string, any>) {
   const pasted = cleanText(body.text, 40000) || ''
   if (pasted.length < 10) return fail('Paste the lab results first.')
   try {
+    if (body.kind === 'stool') {
+      const stool = await extractStoolResults([], pasted)
+      await writeEmrAudit(database, user, { action: 'read_stool_text', entityType: 'fm_lab_analysis', metadata: { results: stool.test.entries.length, provider: stool.provider } })
+      return NextResponse.json(stool)
+    }
     const extracted = await extractLabResults([], pasted, sex(body.sex), ageInYears(str(body.age, 10)))
     await writeEmrAudit(database, user, { action: 'read_fm_lab_text', entityType: 'fm_lab_analysis', metadata: { results: extracted.entries.length, provider: extracted.provider } })
     return NextResponse.json(extracted)
@@ -363,6 +400,16 @@ async function readRecordFiles(request: NextRequest, body: Record<string, any>) 
       files.push({ name: doc.title, mimeType: doc.mime_type, base64: Buffer.from(await blob.arrayBuffer()).toString('base64') })
     }
     if (!files.length) return fail('This document could not be opened for reading.')
+    if (body.kind === 'stool') {
+      let stool
+      try {
+        stool = await extractStoolResults(files, '')
+      } catch (error) {
+        return readError(error)
+      }
+      await writeEmrAudit(database, user, { action: 'read_stool_record_document', entityType: 'emr_document', entityId: documentIds[0], patientId, metadata: { files: files.length, results: stool.test.entries.length, provider: stool.provider } })
+      return NextResponse.json(stool)
+    }
     let extracted
     try {
       extracted = await extractLabResults(files, '', sex(body.sex), ageInYears(str(body.age, 10)))
