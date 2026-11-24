@@ -26,6 +26,7 @@ import AddBookingDialog from '@/components/admin/AddBookingDialog'
 import ProspectFollowUps from '@/components/admin/ProspectFollowUps'
 import { bookingAmount, bookingTypeName, type BookingType } from '@/lib/bookingTimes'
 import { Tabs } from '@/components/admin/ui/SectionNav'
+import { ProgressRing, SegmentedBar, clinic } from '@/components/charts'
 
 type Stage = "Outreach" | "Follow Up" | "Enrolment" | "Onboarding" | "Active"
 type NavItem = "overview" | "pipeline" | "coordinator" | "documents" | "reporting" | "ai-agent"
@@ -1459,8 +1460,14 @@ export default function CrmDashboard({
                               )}
                             </div>
                           </div>
-                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-3">
-                            <div className="h-full bg-green-mid rounded-full" style={{ width: `${progress}%` }} />
+                          <div className="mb-3">
+                            <SegmentedBar
+                              label={`${stream.name}: secured against target`}
+                              total={stream.target}
+                              height={10}
+                              segments={[{ value: Math.min(stream.secured, stream.target || stream.secured), label: 'Secured', color: progress >= 100 ? clinic.forest : clinic.sage }]}
+                              format={value => `₦${value.toLocaleString()}`}
+                            />
                           </div>
                           <div className="flex items-center gap-2">
                             <label className="text-xs text-gray-500">Secured</label>
@@ -1788,10 +1795,22 @@ export default function CrmDashboard({
 
               <div className="bg-white rounded-lg p-6 shadow-lg border border-green-deep/10">
                 <h3 className="text-lg font-dm-sans font-semibold text-green-deep mb-3">Execution Summary</h3>
-                <p className="text-3xl font-bold text-green-deep mb-1">{financialExecution.taskCompletion}%</p>
-                <p className="text-sm text-gray-500 mb-4">overall task completion</p>
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-4">
-                  <div className="h-full bg-green-mid" style={{ width: `${financialExecution.taskCompletion}%` }} />
+                <div className="mb-5 flex items-center gap-4">
+                  <ProgressRing value={financialExecution.taskCompletion} label="Overall task completion" size={96} thickness={10} />
+                  <div>
+                    <p className="text-sm text-gray-500">overall task completion</p>
+                    <div className="mt-2 w-40">
+                      <SegmentedBar
+                        label="Tasks"
+                        total={financialExecution.taskTotal}
+                        height={8}
+                        segments={[
+                          { value: financialExecution.taskDone, label: 'Done', color: clinic.sage },
+                          { value: financialTaskInsights.overdue, label: 'Overdue', color: clinic.flag },
+                        ]}
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span>Total Tasks</span><span>{financialExecution.taskTotal}</span></div>

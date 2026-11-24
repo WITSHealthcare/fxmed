@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ArrowDownIcon, ArrowUpIcon, GlobeHemisphereWestIcon } from '@phosphor-icons/react'
+import { AreaLine, clinic } from '@/components/charts'
 
 // Website analytics for fxmed.ng, recorded by components/SiteTracker without
 // cookies (migration 046). Every number here comes from /api/admin/analytics.
@@ -30,14 +31,10 @@ const ranges = [
   { key: '90d', label: 'Last 90 days' },
 ]
 
-// One hue for every mark (validated: lightness band, chroma, 3:1 on white).
-const MARK = '#2f8a5b'
-const GRID = '#e8e6e1'
-const INK = '#1a3d2e'
-const MUTED = '#6b7c72'
+// One hue for every mark: the clinic theme's sage.
+const MARK = clinic.sage
 
 const number = new Intl.NumberFormat('en-NG')
-const compact = new Intl.NumberFormat('en-NG', { notation: 'compact', maximumFractionDigits: 1 })
 const regionNames = typeof Intl.DisplayNames === 'function' ? new Intl.DisplayNames(['en'], { type: 'region' }) : null
 const shortDay = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', timeZone: 'UTC' })
 const longDay = new Intl.DateTimeFormat('en-NG', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
@@ -81,15 +78,15 @@ export default function SeoAnalytics() {
   useEffect(() => { load(range) }, [load, range])
 
   return (
-    <div className="space-y-6 font-dm-sans">
-      <section className="rounded-[20px] bg-white p-6 shadow-lg">
+    <div className="space-y-6">
+      <section className="clinic-card rounded-card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-green-deep">Website analytics</h2>
+            <h2 className="text-[1.75rem] leading-tight text-clinic-ink">Website analytics</h2>
             <p className="mt-1 text-sm text-text-mid">Visitors to fxmed.ng, counted without cookies. Staff and patient areas are not included. Times are Lagos time.</p>
           </div>
           {data && !data.needsMigration && (
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#f1f7ef] px-3 py-1.5 text-sm font-semibold text-green-deep" title="Visits with activity in the last 5 minutes">
+            <span className="inline-flex items-center gap-2 rounded-full bg-clinic-sage-light px-3 py-1.5 text-sm font-medium text-clinic-ink" title="Visits with activity in the last 5 minutes">
               <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60" style={{ backgroundColor: MARK }} /><span className="relative inline-flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: MARK }} /></span>
               {data.liveVisitors} on the site now
             </span>
@@ -102,7 +99,7 @@ export default function SeoAnalytics() {
               type="button"
               aria-pressed={range === item.key}
               onClick={() => setRange(item.key)}
-              className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${range === item.key ? 'border-green-deep bg-green-deep text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-green-mid hover:bg-green-50'}`}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${range === item.key ? 'bg-clinic-forest text-white' : 'bg-clinic-bg text-clinic-muted hover:bg-clinic-sage-light hover:text-clinic-ink'}`}
             >
               {item.label}
             </button>
@@ -220,17 +217,17 @@ function delta(current: number, previous?: number | null) {
 }
 
 function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
-  return <section className="rounded-[20px] bg-white p-6 shadow-lg">
-    <h3 className="text-lg font-bold text-green-deep">{title}</h3>
+  return <section className="clinic-card rounded-card p-6">
+    <h3 className="text-xl text-clinic-ink">{title}</h3>
     {subtitle && <p className="mt-0.5 text-sm text-text-mid">{subtitle}</p>}
     <div className="mt-5">{children}</div>
   </section>
 }
 
 function StatTile({ label, value, note, delta: change, comparison }: { label: string; value: string; note?: string; delta?: number | null; comparison?: string }) {
-  return <div className="rounded-[16px] border border-green-deep/10 bg-white p-4 shadow-sm">
-    <p className="text-sm text-text-mid">{label}</p>
-    <p className="mt-1 text-2xl font-semibold text-green-deep">{value}</p>
+  return <div className="clinic-card rounded-card p-5">
+    <p className="text-[13px] font-medium text-clinic-muted">{label}</p>
+    <p className="clinic-number mt-2 text-[2rem] leading-tight text-clinic-ink">{value}</p>
     {change !== null && change !== undefined && (
       <p className={`mt-1 inline-flex items-center gap-1 text-xs font-semibold ${change > 0 ? 'text-emerald-700' : change < 0 ? 'text-red-700' : 'text-text-mid'}`}>
         {change > 0 ? <ArrowUpIcon size={12} weight="bold" aria-hidden /> : change < 0 ? <ArrowDownIcon size={12} weight="bold" aria-hidden /> : null}
@@ -251,13 +248,13 @@ function Breakdown({ title, subtitle, tabs, total }: { title: string; subtitle?:
   const whole = tab.total ?? total ?? tab.rows.reduce((sum, row) => sum + row.value, 0)
   const max = Math.max(1, ...tab.rows.map(row => row.value))
   const unit = tab.unit || 'visits'
-  return <section className="rounded-[20px] bg-white p-6 shadow-lg">
-    <h3 className="text-lg font-bold text-green-deep">{title}</h3>
+  return <section className="clinic-card rounded-card p-6">
+    <h3 className="text-xl text-clinic-ink">{title}</h3>
     {subtitle && <p className="mt-0.5 text-sm text-text-mid">{subtitle}</p>}
     {tabs.length > 1 && (
-      <div className="mt-4 flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1" role="tablist" aria-label={title}>
+      <div className="mt-4 flex w-fit max-w-full flex-wrap gap-1 rounded-full bg-clinic-bg p-1" role="tablist" aria-label={title}>
         {tabs.map(item => (
-          <button key={item.key} type="button" role="tab" aria-selected={item.key === tab.key} onClick={() => setActive(item.key)} className={`rounded-md px-3 py-1.5 text-sm font-semibold transition ${item.key === tab.key ? 'bg-white text-green-deep shadow-sm' : 'text-gray-600 hover:text-green-deep'}`}>
+          <button key={item.key} type="button" role="tab" aria-selected={item.key === tab.key} onClick={() => setActive(item.key)} className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${item.key === tab.key ? 'bg-clinic-forest text-white' : 'text-clinic-muted hover:text-clinic-ink'}`}>
             {item.label}
           </button>
         ))}
@@ -273,7 +270,7 @@ function Breakdown({ title, subtitle, tabs, total }: { title: string; subtitle?:
               <tr key={row.name} className="align-top" title={`${row.name}: ${number.format(row.value)} ${unit} (${percent(row.value, whole)})${row.note ? `, ${row.note}` : ''}`}>
                 <td className="py-1.5 pr-3">
                   <span className="block truncate text-gray-800">{row.name}</span>
-                  <span className="mt-1 block h-2 rounded-r-[4px]" style={{ width: `${Math.max(2, (row.value / max) * 100)}%`, backgroundColor: MARK }} aria-hidden />
+                  <span className="chart-grow-x mt-1.5 block h-2 rounded-full" style={{ width: `${Math.max(2, (row.value / max) * 100)}%`, backgroundColor: MARK }} aria-hidden />
                 </td>
                 <td className="py-1.5 text-right font-semibold tabular-nums text-green-deep">{number.format(row.value)}</td>
                 <td className="py-1.5 pl-2 text-right text-xs tabular-nums text-text-mid">{percent(row.value, whole)}{row.note && <span className="block">{row.note}</span>}</td>
@@ -288,96 +285,24 @@ function Breakdown({ title, subtitle, tabs, total }: { title: string; subtitle?:
   </section>
 }
 
-function useWidth() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
-  useEffect(() => {
-    const element = ref.current
-    if (!element) return
-    const observer = new ResizeObserver(entries => setWidth(Math.floor(entries[0].contentRect.width)))
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
-  return [ref, width] as const
-}
-
-/** Round up to 1, 2 or 5 × 10^n, with four steps, so the ticks are clean numbers. */
-function scaleFor(max: number) {
-  if (max <= 4) return { top: 4, step: 1 }
-  const raw = max / 4
-  const power = 10 ** Math.floor(Math.log10(raw))
-  const step = [1, 2, 5, 10].map(multiple => multiple * power).find(candidate => candidate >= raw) || raw
-  return { top: step * 4, step }
-}
-const tick = (value: number) => value >= 10000 ? compact.format(value) : number.format(value)
-
-/** Daily visitors: one series, a 2px line over a 10% wash, with a crosshair readout. */
+/** Daily visitors as a smooth line, with each day's numbers on hover or arrow keys. */
 function TrendChart({ days }: { days: Analytics['daily'] }) {
-  const [ref, width] = useWidth()
-  const [active, setActive] = useState<number | null>(null)
   const [showTable, setShowTable] = useState(false)
-  const height = 240
-  const pad = { top: 18, right: 36, bottom: 30, left: 44 }
-  const plotWidth = Math.max(0, width - pad.left - pad.right)
-  const plotHeight = height - pad.top - pad.bottom
-  const { top, step } = scaleFor(Math.max(...days.map(day => day.visitors), 0))
-  const x = (index: number) => pad.left + (days.length === 1 ? plotWidth / 2 : (index / (days.length - 1)) * plotWidth)
-  const y = (value: number) => pad.top + plotHeight - (value / top) * plotHeight
-  const line = days.map((day, index) => `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(day.visitors).toFixed(1)}`).join(' ')
-  const area = `${line} L${x(days.length - 1).toFixed(1)},${pad.top + plotHeight} L${x(0).toFixed(1)},${pad.top + plotHeight} Z`
-  const labelEvery = Math.max(1, Math.ceil(days.length / Math.max(2, Math.floor(plotWidth / 70))))
-  const last = days.length - 1
-  const pick = (clientX: number, box: DOMRect) => {
-    const position = clientX - box.left - pad.left
-    setActive(Math.max(0, Math.min(last, days.length === 1 ? 0 : Math.round((position / plotWidth) * last))))
-  }
-  const shown = active !== null ? days[active] : null
+  const points = useMemo(() => days.map(day => ({ label: shortDay.format(new Date(`${day.day}T00:00:00Z`)), value: day.visitors })), [days])
 
   return <div>
-    <div ref={ref} className="relative">
-      {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={`Visitors per day, ${days.length} days. Highest ${Math.max(...days.map(day => day.visitors))}.`}>
-          {Array.from({ length: 5 }, (_, index) => index * step).map(value => (
-            <g key={value}>
-              <line x1={pad.left} x2={width - pad.right} y1={y(value)} y2={y(value)} stroke={GRID} strokeWidth={1} />
-              <text x={pad.left - 8} y={y(value)} dy="0.32em" textAnchor="end" fontSize={11} fill={MUTED} style={{ fontVariantNumeric: 'tabular-nums' }}>{tick(value)}</text>
-            </g>
-          ))}
-          {days.map((day, index) => (index === last || (index % labelEvery === 0 && last - index >= labelEvery)) ? (
-            <text key={day.day} x={x(index)} y={height - 8} textAnchor="middle" fontSize={11} fill={MUTED}>{shortDay.format(new Date(`${day.day}T00:00:00Z`))}</text>
-          ) : null)}
-          <path d={area} fill={MARK} fillOpacity={0.1} />
-          <path d={line} fill="none" stroke={MARK} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-          <circle cx={x(last)} cy={y(days[last].visitors)} r={4} fill={MARK} stroke="#fff" strokeWidth={2} />
-          <text x={x(last) + 8} y={y(days[last].visitors)} dy="0.32em" fontSize={12} fontWeight={600} fill={INK}>{number.format(days[last].visitors)}</text>
-          {shown && active !== null && <>
-            <line x1={x(active)} x2={x(active)} y1={pad.top} y2={pad.top + plotHeight} stroke={MUTED} strokeWidth={1} />
-            <circle cx={x(active)} cy={y(shown.visitors)} r={4} fill={MARK} stroke="#fff" strokeWidth={2} />
-          </>}
-          <rect
-            x={pad.left - 12} y={pad.top} width={plotWidth + 24} height={plotHeight} fill="transparent"
-            tabIndex={0} aria-label="Visitors per day. Use the left and right arrow keys to read each day."
-            onPointerMove={event => pick(event.clientX, event.currentTarget.ownerSVGElement!.getBoundingClientRect())}
-            onPointerLeave={() => setActive(null)}
-            onFocus={() => setActive(current => current ?? last)}
-            onBlur={() => setActive(null)}
-            onKeyDown={event => {
-              if (event.key === 'ArrowLeft') setActive(current => Math.max(0, (current ?? last) - 1))
-              if (event.key === 'ArrowRight') setActive(current => Math.min(last, (current ?? last) + 1))
-            }}
-            className="outline-none focus-visible:stroke-green-mid"
-          />
-        </svg>
-      )}
-      {shown && active !== null && (
-        <div role="status" className="pointer-events-none absolute top-0 z-10 min-w-40 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-lg" style={{ left: Math.min(Math.max(0, x(active) - 80), Math.max(0, width - 170)) }}>
-          <p className="text-xs text-text-mid">{longDay.format(new Date(`${shown.day}T00:00:00Z`))}</p>
-          <p className="mt-1 flex items-center gap-2"><span className="h-0.5 w-3 rounded" style={{ backgroundColor: MARK }} /><strong className="text-green-deep">{number.format(shown.visitors)}</strong><span className="text-text-mid">visitors</span></p>
-          <p className="text-xs text-text-mid"><span className="font-semibold text-gray-800">{number.format(shown.visits)}</span> visits · <span className="font-semibold text-gray-800">{number.format(shown.page_views)}</span> page views</p>
-        </div>
-      )}
-    </div>
-    <button type="button" onClick={() => setShowTable(current => !current)} className="mt-3 text-sm font-semibold text-green-deep underline underline-offset-4">{showTable ? 'Hide table' : 'Show as a table'}</button>
+    <AreaLine
+      data={points}
+      ariaLabel={`Visitors per day, ${days.length} days`}
+      height={240}
+      format={value => number.format(value)}
+      readout={index => <>
+        <p className="text-white/60">{longDay.format(new Date(`${days[index].day}T00:00:00Z`))}</p>
+        <p className="mt-0.5 text-sm"><span className="font-medium tabular-nums">{number.format(days[index].visitors)}</span> <span className="text-white/60">visitors</span></p>
+        <p className="text-white/60"><span className="tabular-nums text-white">{number.format(days[index].visits)}</span> visits · <span className="tabular-nums text-white">{number.format(days[index].page_views)}</span> views</p>
+      </>}
+    />
+    <button type="button" onClick={() => setShowTable(current => !current)} className="mt-3 text-sm font-medium text-clinic-ink underline underline-offset-4">{showTable ? 'Hide table' : 'Show as a table'}</button>
     {showTable && (
       <div className="mt-3 max-h-72 overflow-y-auto rounded-lg border border-gray-200">
         <table className="w-full text-sm">
@@ -389,52 +314,19 @@ function TrendChart({ days }: { days: Analytics['daily'] }) {
   </div>
 }
 
-/** Visits by hour of the day: 24 columns in one hue, each with its own readout. */
+/** Visits by hour of the day, as a smooth line through the 24 hours. */
 function HourChart({ hours, label }: { hours: Analytics['hours']; label: string }) {
-  const [ref, width] = useWidth()
-  const [active, setActive] = useState<number | null>(null)
   const counts = Array.from({ length: 24 }, (_, hour) => hours.find(item => item.hour === hour)?.visits || 0)
-  const height = 200
-  const pad = { top: 22, right: 8, bottom: 28, left: 36 }
-  const plotWidth = Math.max(0, width - pad.left - pad.right)
-  const plotHeight = height - pad.top - pad.bottom
-  const { top, step } = scaleFor(Math.max(...counts))
-  const slot = plotWidth / 24
-  const barWidth = Math.max(2, Math.min(24, slot - 2))
   const peak = counts.indexOf(Math.max(...counts))
-  const y = (value: number) => pad.top + plotHeight - (value / top) * plotHeight
-  // A column with a 4px rounded top and a square base.
-  const column = (left: number, value: number) => {
-    const topY = y(value), base = pad.top + plotHeight, radius = Math.min(4, barWidth / 2, base - topY)
-    if (value <= 0) return ''
-    return `M${left},${base} V${topY + radius} Q${left},${topY} ${left + radius},${topY} H${left + barWidth - radius} Q${left + barWidth},${topY} ${left + barWidth},${topY + radius} V${base} Z`
-  }
-
-  return <div ref={ref} className="relative">
-    {width > 0 && (
-      <svg width={width} height={height} role="img" aria-label={`${label} by hour of day. Busiest at ${hourLabel(peak)}.`}>
-        {Array.from({ length: 5 }, (_, index) => index * step).map(value => (
-          <g key={value}>
-            <line x1={pad.left} x2={width - pad.right} y1={y(value)} y2={y(value)} stroke={GRID} strokeWidth={1} />
-            <text x={pad.left - 8} y={y(value)} dy="0.32em" textAnchor="end" fontSize={11} fill={MUTED} style={{ fontVariantNumeric: 'tabular-nums' }}>{tick(value)}</text>
-          </g>
-        ))}
-        {counts.map((count, hour) => {
-          const left = pad.left + hour * slot + (slot - barWidth) / 2
-          return <g key={hour} tabIndex={0} role="img" aria-label={`${hourLabel(hour)}: ${count} ${label}`} onPointerEnter={() => setActive(hour)} onPointerLeave={() => setActive(null)} onFocus={() => setActive(hour)} onBlur={() => setActive(null)} className="outline-none">
-            <rect x={pad.left + hour * slot} y={pad.top} width={slot} height={plotHeight} fill="transparent" />
-            <path d={column(left, count)} fill={MARK} fillOpacity={active === null || active === hour ? 1 : 0.55} />
-            {hour % 3 === 0 && <text x={pad.left + hour * slot + slot / 2} y={height - 8} textAnchor="middle" fontSize={11} fill={MUTED}>{hourLabel(hour)}</text>}
-          </g>
-        })}
-        {counts[peak] > 0 && <text x={pad.left + peak * slot + slot / 2} y={y(counts[peak]) - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{number.format(counts[peak])}</text>}
-      </svg>
-    )}
-    {active !== null && (
-      <div role="status" className="pointer-events-none absolute top-0 z-10 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-lg" style={{ left: Math.min(Math.max(0, pad.left + active * slot - 50), Math.max(0, width - 150)) }}>
-        <p className="text-xs text-text-mid">{hourLabel(active)} – {hourLabel((active + 1) % 24)}</p>
-        <p className="mt-0.5"><strong className="text-green-deep">{number.format(counts[active])}</strong> <span className="text-text-mid">{label}</span></p>
-      </div>
-    )}
-  </div>
+  return <AreaLine
+    data={counts.map((value, hour) => ({ label: hourLabel(hour), value }))}
+    ariaLabel={`${label} by hour of day. Busiest at ${hourLabel(peak)}`}
+    height={200}
+    format={value => number.format(value)}
+    tick={(point, hour) => hour % 3 === 0 ? point.label : ''}
+    readout={hour => <>
+      <p className="text-white/60">{hourLabel(hour)} – {hourLabel((hour + 1) % 24)}</p>
+      <p className="mt-0.5 text-sm"><span className="font-medium tabular-nums">{number.format(counts[hour])}</span> <span className="text-white/60">{label}</span></p>
+    </>}
+  />
 }

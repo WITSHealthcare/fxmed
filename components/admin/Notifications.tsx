@@ -54,6 +54,22 @@ const kindLabels: Record<NotificationKind, string> = {
   training_overdue: 'Overdue training',
 }
 
+// How long ago, read when the list renders.
+function formatTime(timestamp: string) {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return ''
+  const diffMs = Date.now() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+  return date.toLocaleDateString()
+}
+
 export default function Notifications() {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
@@ -144,21 +160,6 @@ export default function Notifications() {
     }
   }, [fetchNotifications])
 
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp)
-    if (Number.isNaN(date.getTime())) return ''
-    const diffMs = Date.now() - date.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
-
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
-    return date.toLocaleDateString()
-  }
-
   const unreadCount = notifications.length
   const hasMessages = notifications.some(item => item.dismissable)
 
@@ -168,11 +169,11 @@ export default function Notifications() {
         onClick={() => setIsOpen(!isOpen)}
         aria-label={unreadCount ? `${unreadCount} items need attention` : 'Notifications'}
         aria-expanded={isOpen}
-        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-green-deep/10 bg-white text-green-deep shadow-sm transition-all hover:-translate-y-0.5 hover:border-green-mid/30 hover:shadow-md"
+        className="clinic-icon-button"
       >
         <BellIcon size={22} weight="duotone" />
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-bold text-green-deep ring-2 ring-[#f7f5ee]">
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-clinic-mustard px-1 text-[10px] font-semibold text-clinic-ink ring-2 ring-clinic-bg">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}

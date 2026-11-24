@@ -9,7 +9,7 @@ import { usePathname } from 'next/navigation'
 // and patient areas are never counted, nor anyone whose browser asks not to be
 // tracked.
 
-const privatePrefixes = ['/admin', '/patient-portal', '/ambassador-portal']
+const privatePrefixes = ['/admin', '/patient-portal', '/ambassador-portal', '/dev']
 const sessionKey = 'fxmed-visit'
 let lastView: { id: string; path: string; at: number } | null = null
 

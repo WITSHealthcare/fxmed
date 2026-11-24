@@ -9,6 +9,7 @@ import {
 } from '@/lib/fmBiomarkers'
 import { markerExplanation } from '@/lib/fmMarkerInfo'
 import { inputClass } from './ResultsEntry'
+import { Gauge, ProgressRing, SegmentedBar, clinic } from '@/components/charts'
 
 // The analysis as a clinician reads it on screen: headline counts, the health
 // improvement plan, likelihood scores for each body system and nutrient, the
@@ -16,20 +17,19 @@ import { inputClass } from './ResultsEntry'
 // searchable table where any marker opens its detail.
 
 function Stat({ label, value, sub, color, Icon }: { label: string; value: number; sub?: string; color: string; Icon: typeof FileTextIcon }) {
-  return <div className="rounded-[18px] border border-green-deep/10 bg-white p-4 sm:p-5" style={{ borderTop: `4px solid ${color}` }}>
-    <div className="flex items-center justify-between"><div><p className="text-xs font-semibold text-text-mid">{label}</p><p className="mt-1 text-3xl font-bold" style={{ color }}>{value}</p>{sub && <p className="text-[11px] text-text-mid">{sub}</p>}</div><Icon size={28} weight="duotone" style={{ color }} /></div>
+  return <div className="clinic-card rounded-card p-5">
+    <div className="flex items-start justify-between gap-3"><p className="text-[13px] font-medium text-clinic-muted">{label}</p><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: color }}><Icon size={18} weight="bold" className="text-clinic-ink" /></span></div>
+    <p className="clinic-number mt-3 text-[2.4rem] leading-none text-clinic-ink">{value}</p>{sub && <p className="mt-1.5 text-xs text-clinic-muted">{sub}</p>}
   </div>
 }
 
 const pct = (part: number, total: number) => total ? `${Math.round((part / total) * 100)}%` : ''
-const GRADIENT = 'linear-gradient(90deg, #52B788 0%, #C9E265 34%, #F2C14E 58%, #EE8B4F 80%, #D9534F 100%)'
 const markers = (item: AreaResult) => item.contributors.map(({ entry, direction }) => `${entry.name} ${direction === 'low' ? '↓' : '↑'}`).join(', ')
 
-/** A likelihood bar coloured from green to red along its full length, as on the report. */
-function Likelihood({ score }: { score: number }) {
-  return <div className="relative h-3 overflow-hidden rounded-full bg-gray-200">
-    {score > 0 && <div className="absolute inset-y-0 left-0 overflow-hidden rounded-full" style={{ width: `${score}%` }}><div className="h-full" style={{ width: `${10000 / score}%`, background: GRADIENT }} /></div>}
-  </div>
+/** A likelihood bar: clear under 50%, watch from 50% (the plan threshold), flag from 75%. */
+function Likelihood({ score, name }: { score: number; name: string }) {
+  const color = score >= 75 ? clinic.flag : score >= 50 ? clinic.watch : clinic.clear
+  return <SegmentedBar label={`Likelihood of ${name}`} total={100} height={10} segments={[{ value: score, label: 'Likelihood', color }]} format={value => `${value}%`} />
 }
 
 const SCORE_GROUPS: Array<[Exclude<AreaGroup, 'plan'>, string]> = [['system', 'Body systems'], ['accessory', 'Accessory'], ['nutrient', 'Nutrient status'], ['deficiency', 'Nutrient needs']]
@@ -58,17 +58,30 @@ export default function AnalysisDashboard({ entries, narrative, sex, age }: { en
   const rows = summary.assessed.filter(entry => (panel === 'all' || entry.panel === panel) && (!query || entry.name.toLowerCase().includes(query)))
 
   return <div className="space-y-6">
-    <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
-      <Stat label="Total markers" value={summary.total} color="#14261E" Icon={FileTextIcon} />
-      <Stat label="Normal / optimal (FM)" value={summary.inRange} sub={pct(summary.inRange, summary.total)} color="#1A6B53" Icon={CheckCircleIcon} />
-      <Stat label="High (FM)" value={summary.high} sub={pct(summary.high, summary.total)} color="#C53030" Icon={TrendUpIcon} />
-      <Stat label="Low (FM)" value={summary.low} sub={pct(summary.low, summary.total)} color="#1D64C8" Icon={TrendDownIcon} />
-      <Stat label="Urgent markers" value={summary.urgent.length} color="#B5102B" Icon={WarningIcon} />
+    <section className="grid gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+      <div className="clinic-card flex flex-col rounded-card p-6">
+        <h4 className="text-lg font-medium text-clinic-ink">Markers against FM optimal</h4>
+        <Gauge className="mt-4" label="Markers against FM optimal" total={summary.total} segments={[
+          { value: summary.inRange, label: 'In range', color: clinic.sage },
+          { value: summary.high, label: 'High', color: clinic.mustard },
+          { value: summary.low, label: 'Low', color: clinic.lilac },
+        ]}>
+          <p className="clinic-number text-[2.6rem] leading-none text-clinic-ink">{pct(summary.inRange, summary.total) || '0%'}</p>
+          <p className="mt-1 text-xs text-clinic-muted">in range of {summary.total}</p>
+        </Gauge>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
+        <Stat label="Total markers" value={summary.total} color={clinic.sageLight} Icon={FileTextIcon} />
+        <Stat label="Normal / optimal (FM)" value={summary.inRange} sub={pct(summary.inRange, summary.total)} color={clinic.sageTint} Icon={CheckCircleIcon} />
+        <Stat label="High (FM)" value={summary.high} sub={pct(summary.high, summary.total)} color={clinic.mustard} Icon={TrendUpIcon} />
+        <Stat label="Low (FM)" value={summary.low} sub={pct(summary.low, summary.total)} color={clinic.lilac} Icon={TrendDownIcon} />
+        <Stat label="Urgent markers" value={summary.urgent.length} color={summary.urgent.length ? '#efc3bf' : clinic.sageLight} Icon={WarningIcon} />
+      </div>
     </section>
 
     <section className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
-      <div className="rounded-[20px] border border-green-deep/10 bg-white p-5">
-        <h4 className="font-bold text-green-deep">Health improvement plan ({analysis.plan.length})</h4>
+      <div className="clinic-card rounded-card p-6">
+        <h4 className="text-lg font-medium text-clinic-ink">Health improvement plan ({analysis.plan.length})</h4>
         <p className="mt-1 text-xs text-text-mid">Areas at 50% likelihood or more, worked out from the results. Each has a plan on the report, which you can edit on the Report step.</p>
         <div className="mt-4 space-y-2.5">{analysis.plan.length ? analysis.plan.map(item => {
           const priority = priorityOf(item)
@@ -77,7 +90,7 @@ export default function AnalysisDashboard({ entries, narrative, sex, age }: { en
             <summary className="cursor-pointer list-none">
               <div className="flex items-center justify-between gap-3 text-sm"><span className="font-bold text-green-deep">{item.area.name}</span>
                 <span className="flex items-center gap-2"><span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase text-white" style={{ background: PRIORITY_COLOR[priority] }}>{priority}</span><span className="font-bold">{item.score}%</span></span></div>
-              <div className="mt-2"><Likelihood score={item.score} /></div>
+              <div className="mt-2"><Likelihood score={item.score} name={item.area.name} /></div>
               <p className="mt-1.5 text-[11px] text-text-mid">{markers(item)} · <span className="font-semibold text-green-mid group-open:hidden">Show plan</span><span className="hidden font-semibold text-green-mid group-open:inline">Hide plan</span></p>
             </summary>
             <p className="mt-3 text-sm text-text-mid">{item.area.finding}</p>
@@ -90,23 +103,23 @@ export default function AnalysisDashboard({ entries, narrative, sex, age }: { en
         }) : <p className="py-6 text-center text-sm text-text-mid">No improvement area reached 50%.</p>}</div>
       </div>
 
-      <div className="rounded-[20px] border border-green-deep/10 bg-white p-5">
-        <h4 className="font-bold text-green-deep">Likelihood of dysfunction</h4>
-        <div className="mt-3 flex flex-wrap gap-1 rounded-full bg-cream/60 p-1 text-xs font-bold">{SCORE_GROUPS.map(([id, label]) => <button key={id} type="button" onClick={() => setGroup(id)} className={`rounded-full px-3 py-1.5 ${group === id ? 'bg-green-deep text-white' : 'text-text-mid'}`}>{label}</button>)}</div>
+      <div className="clinic-card rounded-card p-6">
+        <h4 className="text-lg font-medium text-clinic-ink">Likelihood of dysfunction</h4>
+        <div className="mt-3 flex flex-wrap gap-1 rounded-full bg-clinic-bg p-1 text-xs font-bold">{SCORE_GROUPS.map(([id, label]) => <button key={id} type="button" onClick={() => setGroup(id)} className={`rounded-full px-3 py-1.5 ${group === id ? 'bg-green-deep text-white' : 'text-text-mid'}`}>{label}</button>)}</div>
         <p className="mt-3 text-xs text-text-mid">{AREA_GROUPS[group].intro}</p>
         <div className="mt-4 space-y-3">{analysis.group(group).map(item => <div key={item.area.id} title={markers(item)}>
           <div className="flex justify-between text-sm"><span className="font-semibold text-green-deep">{item.area.name}</span><span className="font-bold">{item.score}%</span></div>
-          <div className="mt-1"><Likelihood score={item.score} /></div>
+          <div className="mt-1.5"><Likelihood score={item.score} name={item.area.name} /></div>
           {item.contributors.length > 0 && <p className="mt-1 text-[11px] text-text-mid">{markers(item)}</p>}
         </div>)}{!analysis.group(group).length && <p className="text-sm text-text-mid">No results for these areas.</p>}</div>
       </div>
     </section>
 
     <section className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
-      <div className="rounded-[20px] border border-green-deep/10 bg-white p-5">
+      <div className="clinic-card rounded-card p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h4 className="flex items-center gap-2 font-bold text-green-deep"><WarningIcon size={20} className="text-red-600" />Out-of-range results ({outOfRange.length})</h4>
-          <div className="flex rounded-full bg-cream/60 p-1 text-xs font-bold">{(['fm', 'lab'] as const).map(item => <button key={item} type="button" onClick={() => setBasis(item)} className={`rounded-full px-3 py-1.5 ${basis === item ? 'bg-green-deep text-white' : 'text-text-mid'}`}>{item === 'fm' ? 'vs FM optimal' : 'vs lab range'}</button>)}</div>
+          <h4 className="flex items-center gap-2 text-lg font-medium text-clinic-ink"><WarningIcon size={20} className="text-red-600" />Out-of-range results ({outOfRange.length})</h4>
+          <div className="flex rounded-full bg-clinic-bg p-1 text-xs font-bold">{(['fm', 'lab'] as const).map(item => <button key={item} type="button" onClick={() => setBasis(item)} className={`rounded-full px-3 py-1.5 ${basis === item ? 'bg-green-deep text-white' : 'text-text-mid'}`}>{item === 'fm' ? 'vs FM optimal' : 'vs lab range'}</button>)}</div>
         </div>
         <div className="mt-4 space-y-2.5">{outOfRange.length ? outOfRange.map(({ entry, status, amount }) => {
           const color = STATUS_COLOR[status]
@@ -115,31 +128,33 @@ export default function AnalysisDashboard({ entries, narrative, sex, age }: { en
               <span className="flex items-center gap-2 font-bold text-green-deep">{status === 'low' ? <TrendDownIcon size={16} style={{ color }} /> : <TrendUpIcon size={16} style={{ color }} />}{entry.name}{entry.urgent && <span className="rounded bg-red-600 px-1.5 py-0.5 text-[9px] text-white">URGENT</span>}</span>
               <span className="font-bold" style={{ color }}>{entry.value} <span className="text-xs font-normal text-text-mid">{entry.unit}</span></span>
             </div>
-            <div className="mt-2 h-5 overflow-hidden rounded bg-gray-100"><div className="flex h-full items-center justify-end pr-2 text-[10px] font-bold text-white" style={{ width: `${Math.max(6, (amount / largest) * 100)}%`, background: color }}>{amount >= 1 ? `${amount.toFixed(0)}% ${status === 'low' ? 'below' : 'above'}` : ''}</div></div>
+            <div className="mt-2 flex items-center gap-3"><div className="flex-1"><SegmentedBar label={`${entry.name}, distance out of range`} total={largest} height={10} segments={[{ value: Math.max(amount, largest * 0.04), label: status === 'low' ? 'Below' : 'Above', color }]} /></div>{amount >= 1 && <span className="shrink-0 text-[11px] font-medium tabular-nums text-clinic-muted">{amount.toFixed(0)}% {status === 'low' ? 'below' : 'above'}</span>}</div>
             <p className="mt-1.5 text-[11px] text-text-mid">{basis === 'fm' ? 'FM optimal' : 'Lab range'}: {(basis === 'fm' ? entry.fmRange : entry.labRange) || '—'} {entry.unit} · {panelById(entry.panel).name}{entry.note ? ` · ${entry.note}` : ''}</p>
           </button>
         }) : <p className="py-6 text-center text-sm text-text-mid">Every result is within range.</p>}</div>
       </div>
 
       <div className="space-y-6">
-        <div className="rounded-[20px] border border-green-deep/10 bg-white p-5">
-          <h4 className="font-bold text-green-deep">Panel health scores</h4>
+        <div className="clinic-card rounded-card p-6">
+          <h4 className="text-lg font-medium text-clinic-ink">Panel health scores</h4>
           <p className="mt-1 text-xs text-text-mid">Share of each panel&apos;s markers within FM optimal; borderline counts half.</p>
-          <div className="mt-4 space-y-3">{summary.panels.map(item => <div key={item.panel.id}>
-            <div className="flex justify-between text-sm"><span className="font-semibold text-green-deep">{item.panel.name}</span><span className="font-bold" style={{ color: item.panel.color }}>{item.score ?? '—'}%</span></div>
-            <div className="mt-1 h-2 overflow-hidden rounded-full bg-green-deep/10"><div className="h-full rounded-full" style={{ width: `${item.score ?? 0}%`, background: item.panel.color }} /></div>
-            {narrative.panels[item.panel.id]?.summary && <p className="mt-1 text-[11px] text-text-mid">{narrative.panels[item.panel.id]!.summary}</p>}
+          <div className="mt-4 space-y-3">{summary.panels.map(item => <div key={item.panel.id} className="flex items-center gap-4">
+            <ProgressRing value={item.score ?? 0} label={`${item.panel.name} health score`} size={60} thickness={7}>
+              <span className="clinic-number text-sm tabular-nums text-clinic-ink">{item.score ?? '—'}</span>
+            </ProgressRing>
+            <div className="min-w-0"><p className="text-sm font-medium text-clinic-ink">{item.panel.name}</p>
+              {narrative.panels[item.panel.id]?.summary && <p className="mt-0.5 text-[11px] text-clinic-muted">{narrative.panels[item.panel.id]!.summary}</p>}</div>
           </div>)}</div>
         </div>
-        {narrative.findings.length > 0 && <div className="rounded-[20px] border border-green-deep/10 bg-white p-5">
-          <h4 className="font-bold text-green-deep">Key findings</h4>
+        {narrative.findings.length > 0 && <div className="clinic-card rounded-card p-6">
+          <h4 className="text-lg font-medium text-clinic-ink">Key findings</h4>
           <div className="mt-3 space-y-2">{narrative.findings.map((item, index) => <div key={index} className={`rounded-lg border-l-4 p-3 text-sm ${item.priority === 'urgent' ? 'border-red-700 bg-red-50' : item.priority === 'high' ? 'border-red-500 bg-red-50/60' : 'border-amber-500 bg-amber-50'}`}><p className="font-bold">{item.title}</p><p className="mt-1 text-xs text-text-mid">{item.detail}</p></div>)}</div>
         </div>}
       </div>
     </section>
 
-    <section className="rounded-[20px] border border-green-deep/10 bg-white p-5">
-      <h4 className="font-bold text-green-deep">All results with clinical context</h4>
+    <section className="clinic-card rounded-card p-6">
+      <h4 className="text-lg font-medium text-clinic-ink">All results with clinical context</h4>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="relative"><MagnifyingGlassIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-mid" /><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search biomarkers…" className={`${inputClass} pl-9`} /></div>
         <select value={panel} onChange={event => setPanel(event.target.value)} className={inputClass}><option value="all">All panels</option>{summary.panels.map(item => <option key={item.panel.id} value={item.panel.id}>{item.panel.name}</option>)}</select>

@@ -318,8 +318,8 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       <button type="button" onClick={updateRanges} className="secondary">Update to current ranges</button>
     </div>}
 
-    <nav className="flex gap-2 overflow-x-auto rounded-[20px] border border-green-deep/10 bg-white p-2" aria-label="Analysis steps">
-      {steps.map(item => <button key={item.id} type="button" onClick={() => setStep(item.id)} className={`flex shrink-0 items-center gap-2 rounded-[14px] px-4 py-3 text-sm font-bold transition ${step === item.id ? 'bg-green-deep text-white shadow-md' : 'text-text-mid hover:bg-green-deep/5 hover:text-green-deep'}`}><item.Icon size={20} weight={step === item.id ? 'fill' : 'duotone'} className={step === item.id ? 'text-gold' : 'text-green-mid'} />{item.label}</button>)}
+    <nav className="clinic-card flex w-fit max-w-full gap-1 overflow-x-auto rounded-full p-1" aria-label="Analysis steps">
+      {steps.map(item => <button key={item.id} type="button" onClick={() => setStep(item.id)} className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition ${step === item.id ? 'bg-clinic-forest text-white' : 'text-clinic-muted hover:bg-clinic-ink/5 hover:text-clinic-ink'}`}><item.Icon size={20} weight={step === item.id ? 'fill' : 'regular'} className={step === item.id ? 'text-clinic-sage-tint' : ''} />{item.label}</button>)}
     </nav>
 
     {step === 'results' && <div className="space-y-6">
