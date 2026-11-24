@@ -94,7 +94,38 @@ const sectionOf = (id: SectionId) => SECTIONS.find(item => item.id === id)!
 
 /** Page number of the first page of each section's tab, keyed "section:tab". */
 type TocIndex = Map<string, number>
-type Page = { kind: 'cover' | 'divider' | 'content'; section: SectionId; tab: string; body: (toc: TocIndex) => string }
+type Page = { kind: 'cover' | 'divider' | 'content'; section: SectionId; tab: string; body: (toc: TocIndex) => string; tabs?: string[] }
+
+/**
+ * A piece of a flowing part of the report. Pieces are laid onto pages in
+ * order, as many as fit. `resume` is shown above a piece that has to start a
+ * new page part-way through a list (a panel heading marked "continued");
+ * `keep` holds a piece on the same page as the one after it (a heading).
+ */
+type Block = { tab: string; html: string; resume?: string; keep?: boolean }
+
+/** Measures pieces of a page in a hidden page of the real size, in the browser. */
+function createMeasurer(patient: FmPatient) {
+  if (typeof document === 'undefined') return null
+  const host = document.createElement('div')
+  Object.assign(host.style, { position: 'absolute', left: '-20000px', top: '0', visibility: 'hidden', pointerEvents: 'none' })
+  const theme = document.querySelector('.clinic-theme')
+  const font = theme && getComputedStyle(theme).getPropertyValue('--font-clinic')
+  if (font) host.style.setProperty('--font-clinic', font)
+  host.innerHTML = shell('', header('body', 'Measure', ['Measure']), patient, 1)
+  document.body.appendChild(host)
+  const body = host.querySelector<HTMLElement>('[data-fm-body]')
+  if (!body) { host.remove(); return null }
+  // Count each piece's own top and bottom margins, which would otherwise collapse out of the measurement.
+  body.style.display = 'flow-root'
+  // The same limit fitPage uses, less a little room for rounding and late font loads.
+  const capacity = PAGE_H - 70 - body.offsetTop - 14
+  return {
+    capacity,
+    height(html: string) { body.innerHTML = html; return body.scrollHeight },
+    done() { host.remove() },
+  }
+}
 
 let svgId = 0
 
@@ -870,6 +901,35 @@ export function buildFmReportPages(data: FmReportData) {
   const pages: Page[] = []
   const add = (section: SectionId, tab: string, body: Page['body'], kind: Page['kind'] = 'content') => pages.push({ kind, section, tab, body })
   const divider = (id: SectionId) => add(id, '', toc => dividerBody(sectionOf(id), toc), 'divider')
+  const measurer = createMeasurer(data.patient)
+  /** Lays blocks onto as few pages as they fit on, each page filled before the next starts. */
+  const flow = (section: SectionId, blocks: Block[]) => {
+    // Without a page to measure in (on a server), each block gets its own page.
+    if (!measurer) { blocks.forEach(block => add(section, block.tab, () => block.html)); return }
+    // A heading held with the piece after it travels with that piece.
+    const units: Block[] = []
+    blocks.forEach((block, index) => {
+      const previous = units[units.length - 1]
+      if (index && blocks[index - 1].keep && previous) units[units.length - 1] = { ...block, tab: previous.tab, html: previous.html + block.html, resume: previous.resume }
+      else units.push(block)
+    })
+    let page: Block[] = [], used = 0
+    const close = () => {
+      if (!page.length) return
+      const html = page.map(item => item.html).join('')
+      const tabs = Array.from(new Set(page.map(item => item.tab)))
+      pages.push({ kind: 'content', section, tab: tabs[0], tabs, body: () => html })
+      page = []; used = 0
+    }
+    for (const unit of units) {
+      const height = measurer.height(unit.html)
+      if (page.length && used + height > measurer.capacity) close()
+      const piece = !page.length && unit.resume ? { ...unit, html: unit.resume + unit.html } : unit
+      page.push(piece)
+      used += page.length === 1 && piece !== unit ? measurer.height(piece.html) : height
+    }
+    close()
+  }
 
   // Part 1. Start here
   add('start', '', () => coverBody(data), 'cover')
@@ -882,51 +942,61 @@ export function buildFmReportPages(data: FmReportData) {
   // Part 2. Your body, system by system
   divider('body')
   if (analysis.group('system').some(item => item.considered.length)) add('body', 'Systems Map', () => systemsMapBody(analysis))
+  const bodyBlocks: Block[] = []
   for (const group of ['system', 'accessory', 'nutrient', 'deficiency'] as const) {
     const items = analysis.group(group)
     if (!items.length) continue
     const tab = GROUP_TABS[group]
     const info = AREA_GROUPS[group]
-    add('body', tab, () => `${title(info.title)}${lead(info.intro)}${lead('Every area scoring 50% or more is explained over the page, with the markers that moved its score.')}${likelihoodChart(items, group === 'system' ? 'meter' : 'dots')}`)
-    chunk(items.filter(needsDetail), group === 'deficiency' ? 4 : 3).forEach((part, page) => add('body', tab, () =>
-      `${page ? '<div style="height:1.6em"></div>' : `${subtitle(`A closer look: ${info.title}`)}${lead('For each area: its support score, what the area does in the body, and the markers that shaped the score.')}<div style="height:2em"></div>`}${part.map(areaDetail).join('')}`))
+    const detail = items.filter(needsDetail)
+    bodyBlocks.push({ tab, html: `${title(info.title)}${lead(info.intro)}${lead(detail.length ? 'Every area scoring 50% or more is explained below, with the markers that moved its score.' : 'No area here scored 50% or more, so none needs a closer look.')}${likelihoodChart(items, group === 'system' ? 'meter' : 'dots')}<div style="height:1.6em"></div>` })
+    const closer = `${subtitle(`A closer look: ${info.title}`)}${lead('For each area: its support score, what the area does in the body, and the markers that shaped the score.')}<div style="height:1.6em"></div>`
+    detail.forEach((item, index) => bodyBlocks.push({ tab, html: `${index ? '' : closer}${areaDetail(item)}`, resume: index ? `${subtitle(`A closer look: ${info.title} (continued)`)}<div style="height:1.2em"></div>` : undefined }))
   }
+  flow('body', bodyBlocks)
 
   // Part 3. Your care plan
   divider('plan')
-  add('plan', 'Focus Areas', () => `${title('Your Focus Areas')}${lead(AREA_GROUPS.plan.intro)}${lead(analysis.plan.length ? 'Each focus area has its own page: the results behind it, your targets, and what we will do about it through food, daily habits, supplements to discuss with your clinician, and tests to repeat.' : 'No area scored high enough to need a plan of its own. Keep up the basics on the Next 90 Days page and retest as advised.')}${analysis.plan.length ? likelihoodChart(analysis.plan) : ''}`)
-  analysis.plan.forEach(item => add('plan', 'Focus Areas', () => improvementPage(item, narrative, analysis.child)))
+  const planBlocks: Block[] = []
+  planBlocks.push({ tab: 'Focus Areas', html: `${title('Your Focus Areas')}${lead(AREA_GROUPS.plan.intro)}${lead(analysis.plan.length ? 'Each focus area has its own page: the results behind it, your targets, and what we will do about it through food, daily habits, supplements to discuss with your clinician, and tests to repeat.' : 'No area scored high enough to need a plan of its own. Keep up the basics on the Next 90 Days page and retest as advised.')}${analysis.plan.length ? likelihoodChart(analysis.plan) : ''}<div style="height:1.4em"></div>` })
+  analysis.plan.forEach(item => planBlocks.push({ tab: 'Focus Areas', html: `${improvementPage(item, narrative, analysis.child)}<div style="height:2.2em"></div>` }))
   const recommendations = narrative.recommendations.length ? narrative.recommendations : defaultRecommendations(analysis)
-  chunk(recommendations, 6).forEach((part, page) => add('plan', 'First Moves', () =>
-    `${page ? '<div style="height:1.6em"></div>' : `${title('Your First Moves')}${lead('If you do nothing else, start here. These are the most important actions from your plan, most pressing first; anything marked urgent needs a doctor before the rest.')}<div style="height:1.8em"></div>`}<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em">${part.map(recommendationCard).join('')}</div>`))
-  add('plan', 'Next 90 Days', () => next90Body(analysis, narrative, data.patient))
+  const movesIntro = `${title('Your First Moves')}${lead('If you do nothing else, start here. These are the most important actions from your plan, most pressing first; anything marked urgent needs a doctor before the rest.')}<div style="height:1.8em"></div>`
+  chunk(recommendations, 2).forEach((pair, index) => planBlocks.push({ tab: 'First Moves', html: `${index ? '' : movesIntro}<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em;margin-bottom:1.2em">${pair.map(recommendationCard).join('')}</div>` }))
+  planBlocks.push({ tab: 'Next 90 Days', html: next90Body(analysis, narrative, data.patient) })
+  flow('plan', planBlocks)
 
   // Part 4. Your results in full
   divider('results')
   const rows = FM_PANELS.flatMap(panel => analysis.summary.assessed.filter(entry => entry.panel === panel.id).map((entry, index) => ({ panel: panel.name, entry, first: index === 0 })))
-  const resultPages = rows.length ? [rows.slice(0, 5), ...chunk(rows.slice(5), 10)] : []
-  resultPages.forEach((part, page) => add('results', 'Every Marker', () => (page ? '<div style="height:1.4em"></div>'
-    : `${title('Every Marker')}${lead('Each marker sits on a five-band scale: on target in the green centre, off target either side of it, and outside the laboratory\'s range at the ends. Markers that are off target are explained on the Off Target pages.')}${bandCounts(analysis)}<div style="height:2.2em"></div>`)
-    + part.map((row, position) => `${row.first || position === 0 ? `<div style="font-size:1.15em;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin:${position ? '1.2em' : '0'} 0 1em">${esc(row.panel)}${row.first ? '' : ' (continued)'}</div>` : ''}${resultRow(row.entry)}`).join('')))
+  const resultBlocks: Block[] = []
+  const panelHeading = (name: string, more = false) => `<div style="font-size:1.15em;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin:1.2em 0 1em">${esc(name)}${more ? ' (continued)' : ''}</div>`
+  if (rows.length) resultBlocks.push({ tab: 'Every Marker', keep: true, html: `${title('Every Marker')}${lead('Each marker sits on a five-band scale: on target in the green centre, off target either side of it, and outside the laboratory\'s range at the ends. Markers that are off target are explained on the Off Target pages.')}${bandCounts(analysis)}<div style="height:1em"></div>` })
+  rows.forEach(row => resultBlocks.push({ tab: 'Every Marker', html: `${row.first ? panelHeading(row.panel) : ''}${resultRow(row.entry)}`, resume: row.first ? undefined : panelHeading(row.panel, true) }))
 
   const out = analysis.summary.assessed.filter(entry => directionOf(entry)).sort((a, b) => SEVERITY[bandOf(a)] - SEVERITY[bandOf(b)])
   if (out.length) {
     const byDistance = [...out].sort((a, b) => (deviation(b.numeric, b.fmRangeParsed) || deviation(b.numeric, b.labRangeParsed)) - (deviation(a.numeric, a.fmRangeParsed) || deviation(a.numeric, a.labRangeParsed)))
-    chunk(byDistance, 22).forEach((part, page) => add('results', 'How Far Off', () =>
-      `${page ? '<div style="height:1.6em"></div>' : `${title('How Far Off Target')}${lead('Each marker outside its FXMed optimal range, measured by how far past the nearest limit it sits, as a share of that limit. Running low reads to the left, running high to the right; the furthest out come first.')}${offTargetCards(out)}<div style="height:1.8em"></div>`}${deviationChart(part)}<div style="margin-top:1.2em;display:flex;justify-content:center">${bandLegend()}</div>`))
-    add('results', 'Off Target', () => `${title('Off Target')}${lead('These markers sit outside the FXMed optimal range, the furthest out first. For each one: what it measures, and the usual reasons it runs high or low. Your clinician will read them alongside your history and symptoms.')}${bandCounts(analysis)}`)
+    chunk(byDistance, 22).forEach((part, page) => resultBlocks.push({ tab: 'How Far Off', html:
+      `${page ? '<div style="height:1.6em"></div>' : `<div style="height:1em"></div>${title('How Far Off Target')}${lead('Each marker outside its FXMed optimal range, measured by how far past the nearest limit it sits, as a share of that limit. Running low reads to the left, running high to the right; the furthest out come first.')}${offTargetCards(out)}<div style="height:1.8em"></div>`}${deviationChart(part)}<div style="margin-top:1.2em;display:flex;justify-content:center">${bandLegend()}</div><div style="height:1em"></div>` }))
+    resultBlocks.push({ tab: 'Off Target', keep: true, html: `${title('Off Target')}${lead('These markers sit outside the FXMed optimal range, the furthest out first. For each one: what it measures, and the usual reasons it runs high or low. Your clinician will read them alongside your history and symptoms.')}` })
     for (const [name, list] of [['Running high', out.filter(entry => directionOf(entry) === 'high')], ['Running low', out.filter(entry => directionOf(entry) === 'low')]] as const) {
-      chunk(list, 8).forEach((part, page) => add('results', 'Off Target', () =>
-        `<div style="font-size:2.1em;color:${GREEN};line-height:1.3;margin:1.3em 0 1em">${name}${page ? ' (continued)' : ''}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:2em 2.2em">${part.map(outOfRangeCard).join('')}</div>`))
+      const heading = (more: boolean) => `<div style="font-size:2.1em;color:${GREEN};line-height:1.3;margin:1.1em 0 .9em">${name}${more ? ' (continued)' : ''}</div>`
+      chunk(list, 2).forEach((pair, index) => resultBlocks.push({ tab: 'Off Target', html: `${index ? '' : heading(false)}<div style="display:grid;grid-template-columns:1fr 1fr;gap:2.2em;margin-bottom:2em">${pair.map(outOfRangeCard).join('')}</div>`, resume: index ? heading(true) : undefined }))
     }
   }
+  flow('results', resultBlocks)
 
   // Closing notes
   add('notes', 'About This Report', () => notesBody())
+  measurer?.done()
 
   // Contents and header tabs: the first page of each part's tab. The cover is page 0.
   const toc: TocIndex = new Map()
-  pages.forEach((item, number) => { if (item.kind === 'content' && !toc.has(`${item.section}:${item.tab}`)) toc.set(`${item.section}:${item.tab}`, number) })
+  pages.forEach((item, number) => {
+    if (item.kind !== 'content') return
+    for (const tab of item.tabs || [item.tab]) if (!toc.has(`${item.section}:${tab}`)) toc.set(`${item.section}:${tab}`, number)
+  })
   return pages.map((item, number) => {
     if (item.kind === 'cover') return shell(item.body(toc), '', data.patient, null, true)
     if (item.kind === 'divider') return shell(item.body(toc), '', data.patient, number, true)
