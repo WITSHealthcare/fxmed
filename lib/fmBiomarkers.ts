@@ -86,6 +86,7 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('reverse_t3', 'Reverse T3', 'thyroid', 'ng/mL', [0.09, 0.35], [0.09, 0.2], { aliases: ['rt3', 'reverse triiodothyronine'] }),
   m('anti_tpo', 'Anti-TPO Ab', 'thyroid', 'IU/mL', [0, 34], [0, 34], { aliases: ['tpo', 'tpo antibodies', 'anti-thyroid peroxidase', 'thyroid peroxidase antibodies', 'thyroid peroxidase antibody'], fmFromLab: true }),
   m('anti_tg', 'Anti-TG Ab', 'thyroid', 'IU/mL', [0, 40], [0, 40], { aliases: ['tg antibodies', 'anti-thyroglobulin', 'thyroglobulin antibodies', 'thyroglobulin antibody'], fmFromLab: true }),
+  m('thyroglobulin', 'Thyroglobulin', 'thyroid', 'ng/mL', [3.5, 77], [3.5, 77], { aliases: ['thyroglobulin (tg)', 'serum thyroglobulin', 'tg (thyroglobulin)'], fmFromLab: true }),
   // Adrenal & hormones
   m('dhea_s', 'DHEA-S', 'adrenal', 'µmol/L', [2.68, 9.23], [3.5, 9.2], { aliases: ['dheas', 'dhea sulphate', 'dhea sulfate'], male: { lab: [4.3, 12.2], fm: [6, 12] } }),
   m('cortisol_am', 'Cortisol AM', 'adrenal', 'µg/dL', [6.2, 19.4], [10, 15], { aliases: ['cortisol', 'morning cortisol', 'cortisol (am)', 'cortisol 8am'], critical: { low: 3 } }),
@@ -96,6 +97,11 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('free_testosterone_index', 'Free Testosterone Index', 'adrenal', 'ratio', [0.5, 5], [1, 3.5], { aliases: ['fai', 'free androgen index'], male: { lab: [35, 92], fm: [50, 90] } }),
   m('estradiol', 'Estradiol (E2)', 'adrenal', 'pmol/L', [45, 1460], [45, 1460], { aliases: ['oestradiol', 'e2', 'estradiol'], male: { lab: [40, 160], fm: [70, 150] } }),
   m('progesterone', 'Progesterone', 'adrenal', 'nmol/L', [0.2, 90], [0.2, 90], { aliases: ['serum progesterone'], male: { lab: [0.2, 1.3], fm: [0.3, 1.3] } }),
+  m('fsh', 'FSH', 'adrenal', 'IU/L', [3.5, 12.5], [3.5, 12.5], { aliases: ['follicle stimulating hormone', 'follicle-stimulating hormone', 'serum fsh'], male: { lab: [1.5, 12.4], fm: [1.5, 12.4] }, fmFromLab: true }),
+  m('lh', 'LH', 'adrenal', 'IU/L', [2.4, 12.6], [2.4, 12.6], { aliases: ['luteinizing hormone', 'luteinising hormone', 'serum lh'], male: { lab: [1.7, 8.6], fm: [1.7, 8.6] }, fmFromLab: true }),
+  m('prolactin', 'Prolactin', 'adrenal', 'ng/mL', [4.8, 23.3], [4.8, 20], { aliases: ['prl', 'serum prolactin'], male: { lab: [4, 15.2], fm: [4, 12] }, critical: { high: 100 } }),
+  m('amh', 'AMH', 'adrenal', 'ng/mL', [1, 10], [1, 10], { aliases: ['anti-mullerian hormone', 'anti-müllerian hormone', 'mullerian inhibiting substance'], fmFromLab: true }),
+  m('igf1', 'IGF-1', 'adrenal', 'ng/mL', [80, 300], [80, 300], { aliases: ['igf 1', 'igf-i', 'insulin-like growth factor 1', 'somatomedin c'], fmFromLab: true }),
   // Kidney
   m('creatinine', 'Creatinine', 'kidney', 'µmol/L', [44, 80], [50, 80], { aliases: ['serum creatinine', 'creat'], male: { lab: [62, 106], fm: [65, 100] } }),
   m('egfr', 'eGFR', 'kidney', 'mL/min/1.73 m²', [60, null], [90, null], { aliases: ['gfr', 'estimated gfr'], critical: { low: 30 } }),
@@ -103,6 +109,7 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('bun', 'BUN', 'kidney', 'mg/dL', [7, 20], [10, 16], { aliases: ['bun', 'blood urea nitrogen', 'urea nitrogen'] }),
   m('uric_acid', 'Uric Acid', 'kidney', 'mmol/L', [0.15, 0.36], [0.18, 0.3], { aliases: ['urate'], male: { lab: [0.2, 0.43], fm: [0.21, 0.33] }, critical: { high: 0.6 } }),
   m('protein_creatinine', 'Protein/Creatinine Ratio', 'kidney', 'g/g', [0, 0.2], [0, 0.15], { aliases: ['protein/creatinine', 'upcr', 'urine protein creatinine ratio'] }),
+  m('cystatin_c', 'Cystatin C', 'kidney', 'mg/L', [0.6, 1], [0.6, 0.9], { aliases: ['cystatin c', 'serum cystatin c', 'cys c'] }),
   m('amylase', 'Amylase', 'kidney', 'IU/L', [30, 110], [30, 100], { aliases: ['serum amylase'] }),
   m('u_creatinine', 'U-Creatinine', 'kidney', 'g/L', [0.15, 1.5], [0.3, 1.2], { aliases: ['urine creatinine'] }),
   m('u_protein', 'U-Protein', 'kidney', 'g/L', [0, 0.15], [0, 0.08], { aliases: ['urine protein'] }),
@@ -123,6 +130,7 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('b12', 'Vitamin B12', 'methylation', 'pmol/L', [133, 675], [370, 1000], { aliases: ['b12', 'cobalamin', 'cyanocobalamin'], alsoIn: ['vitamins'], critical: { low: 110 } }),
   m('folate', 'Folate (Serum)', 'methylation', 'nmol/L', [7, 46], [15, null], { aliases: ['folate', 'folic acid', 'serum folate'] }),
   m('homocysteine', 'Homocysteine', 'methylation', 'µmol/L', [0, 15], [0, 10], { aliases: ['hcy', 'plasma homocysteine'], alsoIn: ['inflammation'], critical: { high: 30 } }),
+  m('mma', 'Methylmalonic Acid', 'methylation', 'nmol/L', [0, 400], [0, 300], { aliases: ['mma', 'methylmalonic acid (mma)', 'serum methylmalonic acid'], alsoIn: ['vitamins'] }),
   // Hematology
   m('rbc', 'RBC Count', 'hematology', '×10¹²/L', [3.8, 5.8], [4, 5], { aliases: ['rbc', 'red blood cell count', 'red cell count', 'erythrocytes'], male: { lab: [4.5, 5.9], fm: [4.4, 5.4] } }),
   m('hemoglobin', 'Hemoglobin', 'hematology', 'g/dL', [11.5, 16.5], [12, 14.5], { aliases: ['haemoglobin', 'hb', 'hgb'], male: { lab: [13, 17.5], fm: [14, 16] }, critical: { low: 8 } }),
@@ -160,10 +168,15 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('tsat', 'Transferrin Saturation', 'vitamins', '%', [20, 50], [25, 45], { aliases: ['tsat', 'iron saturation'], critical: { high: 60 } }),
   m('ferritin', 'Ferritin', 'vitamins', 'ng/mL', [20, 300], [50, 200], { aliases: ['serum ferritin'], female: { lab: [13, 150], fm: [50, 120] }, critical: { high: 1000 } }),
   m('zinc', 'Serum Zinc', 'vitamins', 'µmol/L', [10.7, 18.4], [14, 18], { aliases: ['zinc', 'zn'] }),
+  m('copper', 'Serum Copper', 'vitamins', 'µg/dL', [70, 140], [80, 125], { aliases: ['copper', 'cu'], female: { lab: [80, 155], fm: [85, 135] } }),
+  m('selenium', 'Serum Selenium', 'vitamins', 'µg/L', [70, 150], [100, 150], { aliases: ['selenium', 'se', 'selenium (serum)'] }),
   // Inflammation & bone
   m('hs_crp', 'hs-CRP', 'inflammation', 'mg/L', [0, 3], [0, 1], { aliases: ['crp', 'high sensitivity crp', 'high-sensitivity crp', 'c-reactive protein', 'hscrp'], alsoIn: ['methylation'], critical: { high: 10 } }),
   m('pth', 'PTH', 'inflammation', 'pg/mL', [15, 65], [15, 45], { aliases: ['parathyroid hormone', 'intact pth'] }),
   m('ck', 'Creatine Kinase', 'inflammation', 'IU/L', [26, 140], [26, 90], { aliases: ['ck', 'cpk', 'creatine phosphokinase'] }),
+  m('fibrinogen', 'Fibrinogen', 'inflammation', 'g/L', [2, 4], [2, 3.5], { aliases: ['plasma fibrinogen', 'fibrinogen level'], alsoIn: ['cardio'], critical: { low: 1 } }),
+  // Additional
+  m('psa', 'PSA (Total)', 'other', 'ng/mL', [0, 4], [0, 4], { aliases: ['psa', 'total psa', 'prostate specific antigen', 'prostate-specific antigen'], critical: { high: 10 } }),
 ]
 
 export const markerById = (id: string | null | undefined) => (id ? FM_BIOMARKERS.find(marker => marker.id === id) : undefined) || null
@@ -236,6 +249,15 @@ const CONVERSIONS: Record<string, Record<string, number>> = {
   fasting_insulin: { 'pmol/l': 6.945 },
   c_peptide: { 'ng/ml': 1 / 331 },
   tsh: { 'miu/l': 1 },
+  mma: { 'µmol/l': 0.001 },
+  selenium: { 'µmol/l': 0.01266, 'ng/ml': 1 },
+  copper: { 'µmol/l': 0.1574 },
+  fibrinogen: { 'mg/dl': 100 },
+  prolactin: { 'miu/l': 21.2, 'µg/l': 1 },
+  amh: { 'pmol/l': 7.14 },
+  igf1: { 'nmol/l': 0.131 },
+  thyroglobulin: { 'µg/l': 1 },
+  psa: { 'µg/l': 1 },
 }
 
 /** Other units a marker is commonly reported in, with the factor from the catalogue unit. */

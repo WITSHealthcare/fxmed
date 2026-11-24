@@ -166,24 +166,24 @@ export const AREA_GROUPS: Record<AreaGroup, { title: string; intro: string }> = 
 }
 
 const BLOOD_SUGAR: Rule[] = [r('fasting_insulin', 'high', 3), r('homa_ir', 'high', 3), r('hba1c', 'high', 3), r('hba1c_ifcc', 'high', 3), r('fasting_glucose', 'any', 2), r('tg_hdl_ratio', 'high', 2), r('c_peptide', 'high', 1), r('triglycerides', 'high', 1), r('glucose_insulin_ratio', 'low', 1), r('quicki', 'low', 1)]
-const CARDIO: Rule[] = [r('apob', 'high', 3), r('ldl', 'high', 2), r('lpa', 'high', 2), r('non_hdl', 'high', 2), r('hdl', 'low', 2), r('chol_hdl_ratio', 'high', 2), r('tg_hdl_ratio', 'high', 2), r('homocysteine', 'high', 2), r('hs_crp', 'high', 2), r('apoa1', 'low', 1), r('total_cholesterol', 'high', 1), r('triglycerides', 'high', 1), r('hba1c', 'high', 1), r('fasting_insulin', 'high', 1), r('vitamin_d', 'low', 1), r('ferritin', 'high', 1)]
+const CARDIO: Rule[] = [r('apob', 'high', 3), r('ldl', 'high', 2), r('lpa', 'high', 2), r('non_hdl', 'high', 2), r('hdl', 'low', 2), r('chol_hdl_ratio', 'high', 2), r('tg_hdl_ratio', 'high', 2), r('homocysteine', 'high', 2), r('hs_crp', 'high', 2), r('apoa1', 'low', 1), r('total_cholesterol', 'high', 1), r('triglycerides', 'high', 1), r('hba1c', 'high', 1), r('fasting_insulin', 'high', 1), r('vitamin_d', 'low', 1), r('ferritin', 'high', 1), r('fibrinogen', 'high', 1)]
 const LIPIDS: Rule[] = [r('ldl', 'high', 3), r('apob', 'high', 3), r('total_cholesterol', 'high', 2), r('non_hdl', 'high', 2), r('triglycerides', 'high', 2), r('hdl', 'low', 2), r('chol_hdl_ratio', 'high', 1), r('tg_hdl_ratio', 'high', 1)]
-const THYROID: Rule[] = [r('tsh', 'any', 3), r('free_t4', 'any', 2), r('free_t3', 'any', 2), r('reverse_t3', 'high', 1), r('anti_tpo', 'high', 2), r('anti_tg', 'high', 2)]
+const THYROID: Rule[] = [r('tsh', 'any', 3), r('free_t4', 'any', 2), r('free_t3', 'any', 2), r('reverse_t3', 'high', 1), r('anti_tpo', 'high', 2), r('anti_tg', 'high', 2), r('selenium', 'low', 1)]
 const ADRENAL: Rule[] = [r('cortisol_am', 'any', 3), r('cortisol_pm', 'any', 2), r('dhea_s', 'low', 2), r('na_k_ratio', 'any', 1), r('sodium', 'any', 1), r('potassium', 'any', 1)]
 const SEX_HORMONES: Rule[] = [
-  r('estradiol', 'any', 2, 'female'), r('progesterone', 'low', 2, 'female'), r('testosterone', 'any', 2, 'female'), r('free_testosterone', 'any', 2, 'female'), r('free_testosterone_index', 'high', 2, 'female'), r('shbg', 'any', 1, 'female'), r('dhea_s', 'any', 1, 'female'),
-  r('testosterone', 'low', 3, 'male'), r('free_testosterone', 'low', 3, 'male'), r('free_testosterone_index', 'low', 2, 'male'), r('estradiol', 'high', 2, 'male'), r('shbg', 'any', 1, 'male'), r('dhea_s', 'low', 1, 'male'),
+  r('estradiol', 'any', 2, 'female'), r('progesterone', 'low', 2, 'female'), r('testosterone', 'any', 2, 'female'), r('free_testosterone', 'any', 2, 'female'), r('free_testosterone_index', 'high', 2, 'female'), r('shbg', 'any', 1, 'female'), r('dhea_s', 'any', 1, 'female'), r('fsh', 'high', 1, 'female'), r('lh', 'any', 1, 'female'), r('prolactin', 'high', 1, 'female'),
+  r('testosterone', 'low', 3, 'male'), r('free_testosterone', 'low', 3, 'male'), r('free_testosterone_index', 'low', 2, 'male'), r('estradiol', 'high', 2, 'male'), r('shbg', 'any', 1, 'male'), r('dhea_s', 'low', 1, 'male'), r('fsh', 'high', 1, 'male'), r('lh', 'any', 1, 'male'), r('prolactin', 'high', 1, 'male'),
 ]
 const LIVER: Rule[] = [r('alt', 'high', 3), r('ggt', 'high', 3), r('ast', 'high', 2), r('alp', 'high', 1), r('bilirubin_total', 'high', 1), r('albumin', 'low', 2), r('total_protein', 'low', 1), r('ast_alt_ratio', 'high', 1), r('ldh', 'high', 1)]
-const KIDNEY: Rule[] = [r('egfr', 'low', 3), r('creatinine', 'high', 2), r('protein_creatinine', 'high', 3), r('u_protein', 'high', 2), r('urea', 'high', 1), r('uric_acid', 'high', 1), r('potassium', 'high', 1), r('phosphate', 'high', 1)]
+const KIDNEY: Rule[] = [r('egfr', 'low', 3), r('creatinine', 'high', 2), r('protein_creatinine', 'high', 3), r('u_protein', 'high', 2), r('urea', 'high', 1), r('uric_acid', 'high', 1), r('potassium', 'high', 1), r('phosphate', 'high', 1), r('cystatin_c', 'high', 2)]
 const RED_CELLS: Rule[] = [r('hemoglobin', 'any', 3), r('hematocrit', 'any', 1), r('rbc', 'any', 1), r('mcv', 'any', 2), r('mch', 'any', 1), r('mchc', 'low', 1), r('rdw', 'high', 2)]
 const IMMUNE: Rule[] = [r('wbc', 'any', 2), r('lymphocytes', 'any', 2), r('neutrophils', 'any', 1), r('nlr', 'any', 1), r('monocytes', 'high', 1), r('eosinophils', 'high', 2), r('globulin', 'any', 1)]
 const BONE: Rule[] = [r('calcium', 'any', 3), r('pth', 'high', 3), r('vitamin_d', 'low', 2), r('phosphate', 'any', 1), r('alp', 'any', 1), r('magnesium', 'low', 1)]
-const INFLAMMATION: Rule[] = [r('hs_crp', 'high', 3), r('esr', 'high', 2), r('ferritin', 'high', 1), r('homocysteine', 'high', 1), r('nlr', 'high', 1), r('wbc', 'high', 1), r('globulin', 'high', 1), r('platelets', 'high', 1)]
-const METHYLATION: Rule[] = [r('homocysteine', 'high', 3), r('b12', 'low', 3), r('folate', 'low', 3), r('mcv', 'high', 1), r('rdw', 'high', 1)]
+const INFLAMMATION: Rule[] = [r('hs_crp', 'high', 3), r('esr', 'high', 2), r('ferritin', 'high', 1), r('homocysteine', 'high', 1), r('nlr', 'high', 1), r('wbc', 'high', 1), r('globulin', 'high', 1), r('platelets', 'high', 1), r('fibrinogen', 'high', 1)]
+const METHYLATION: Rule[] = [r('homocysteine', 'high', 3), r('b12', 'low', 3), r('folate', 'low', 3), r('mcv', 'high', 1), r('rdw', 'high', 1), r('mma', 'high', 2)]
 const IRON_LOW: Rule[] = [r('ferritin', 'low', 3), r('hemoglobin', 'low', 3), r('tsat', 'low', 2), r('mcv', 'low', 2), r('serum_iron', 'low', 1), r('mch', 'low', 1), r('rdw', 'high', 1), r('tibc', 'high', 1), r('transferrin', 'high', 1), r('hematocrit', 'low', 1)]
-const MINERALS: Rule[] = [r('rbc_magnesium', 'low', 3), r('magnesium', 'low', 3), r('zinc', 'low', 3), r('alp', 'low', 1), r('potassium', 'low', 1), r('calcium', 'low', 1), r('phosphate', 'low', 1)]
-const PROTEIN: Rule[] = [r('total_protein', 'low', 3), r('albumin', 'low', 3), r('globulin', 'low', 1), r('urea', 'low', 2)]
+const MINERALS: Rule[] = [r('rbc_magnesium', 'low', 3), r('magnesium', 'low', 3), r('zinc', 'low', 3), r('alp', 'low', 1), r('potassium', 'low', 1), r('calcium', 'low', 1), r('phosphate', 'low', 1), r('copper', 'low', 1)]
+const PROTEIN: Rule[] = [r('total_protein', 'low', 3), r('albumin', 'low', 3), r('globulin', 'low', 1), r('urea', 'low', 2), r('igf1', 'low', 1)]
 
 export const AREAS: Area[] = [
   // Core body systems
@@ -240,14 +240,14 @@ export const AREAS: Area[] = [
 
   // Nutrient gaps
   { id: 'vitamin_d_need', group: 'deficiency', name: 'Vitamin D Need', rules: [r('vitamin_d', 'low', 3)], consider: ['vitamin_d'], about: 'Your results suggest your vitamin D level may be lower than optimal.' },
-  { id: 'b12_need', group: 'deficiency', name: 'Vitamin B12 Need', rules: [r('b12', 'low', 3), r('mcv', 'high', 1), r('homocysteine', 'high', 1), r('rdw', 'high', 1)], consider: ['b12', 'Methylmalonic acid (MMA)'], about: 'Your results suggest your vitamin B12 level may be lower than optimal.' },
+  { id: 'b12_need', group: 'deficiency', name: 'Vitamin B12 Need', rules: [r('b12', 'low', 3), r('mma', 'high', 3), r('mcv', 'high', 1), r('homocysteine', 'high', 1), r('rdw', 'high', 1)], consider: ['b12', 'mma'], about: 'Your results suggest your vitamin B12 level may be lower than optimal.' },
   { id: 'folate_need', group: 'deficiency', name: 'Folate Need', rules: [r('folate', 'low', 3), r('homocysteine', 'high', 1), r('mcv', 'high', 1)], consider: ['folate'], about: 'Your results suggest your folate level may be lower than optimal.' },
   { id: 'iron_need', group: 'deficiency', name: 'Iron Need', rules: IRON_LOW, consider: ['ferritin', 'tsat'], about: 'Your results suggest your iron stores may be lower than optimal.' },
   { id: 'magnesium_need', group: 'deficiency', name: 'Magnesium Need', rules: [r('rbc_magnesium', 'low', 3), r('magnesium', 'low', 3), r('potassium', 'low', 1), r('calcium', 'low', 1)], consider: ['rbc_magnesium'], about: 'Your results suggest your magnesium level may be lower than optimal.' },
   { id: 'zinc_need', group: 'deficiency', name: 'Zinc Need', rules: [r('zinc', 'low', 3), r('alp', 'low', 2)], consider: ['zinc'], about: 'Your results suggest your zinc level may be lower than optimal.' },
   { id: 'b6_need', group: 'deficiency', name: 'Vitamin B6 Need', rules: [r('alt', 'low', 2), r('ast', 'low', 1), r('homocysteine', 'high', 1)], about: 'Your results suggest your vitamin B6 level may be lower than optimal.' },
   { id: 'dhea_need', group: 'deficiency', name: 'DHEA Need', rules: [r('dhea_s', 'low', 3)], consider: ['dhea_s'], about: 'Your results suggest your DHEA level may be lower than optimal.' },
-  { id: 'selenium_need', group: 'deficiency', name: 'Selenium Need', rules: [r('free_t3', 'low', 2), r('reverse_t3', 'high', 1), r('anti_tpo', 'high', 1)], consider: ['free_t3', 'Selenium (serum)'], about: 'Your results suggest your selenium level may be lower than optimal; selenium is needed to activate thyroid hormone.' },
+  { id: 'selenium_need', group: 'deficiency', name: 'Selenium Need', rules: [r('selenium', 'low', 3), r('free_t3', 'low', 2), r('reverse_t3', 'high', 1), r('anti_tpo', 'high', 1)], consider: ['selenium', 'free_t3'], about: 'Your results suggest your selenium level may be lower than optimal; selenium is needed to activate thyroid hormone.' },
   { id: 'thiamine_need', group: 'deficiency', name: 'Thiamine (B1) Need', rules: [r('anion_gap', 'high', 2), r('bicarbonate', 'low', 1)], about: 'Your results suggest your thiamine (vitamin B1) level may be lower than optimal.' },
 
   // Care plan focus areas
@@ -377,7 +377,7 @@ export const AREAS: Area[] = [
       supplements: ['Avoid multivitamins that contain iron.'],
       tests: ['Repeat fasting ferritin, iron and transferrin saturation with hs-CRP and liver enzymes.', 'Genetic test for haemochromatosis (HFE) if transferrin saturation stays above 45%.', 'Liver ultrasound.'],
     } },
-  { id: 'methylation', group: 'plan', name: 'Methylation Support (B12, Folate & Homocysteine)', rules: METHYLATION, consider: ['homocysteine', 'b12', 'folate', 'Methylmalonic acid (MMA)'],
+  { id: 'methylation', group: 'plan', name: 'Methylation Support (B12, Folate & Homocysteine)', rules: METHYLATION, consider: ['homocysteine', 'b12', 'folate', 'mma'],
     about: 'Your B12, folate or homocysteine results suggest methylation is not running efficiently.',
     finding: 'Your B12, folate or homocysteine results suggest methylation is not running efficiently. Methylation keeps homocysteine low and supports energy, mood, nerve health, detoxification and DNA repair.',
     plan: {

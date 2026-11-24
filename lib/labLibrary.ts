@@ -20,7 +20,7 @@ export const markerBySlug = (slug: string) => FM_BIOMARKERS.find(marker => marke
 
 /** "mg/dl" as people write it: "mg/dL". */
 export function prettyUnit(unit: string) {
-  return unit.replace(/dl$/, 'dL').replace(/ml$/, 'mL').replace(/(^|\/)l$/, '$1L').replace(/^l\//, 'L/')
+  return unit.replace(/^miu/, 'mIU').replace(/^iu/, 'IU').replace(/dl$/, 'dL').replace(/ml$/, 'mL').replace(/(^|\/)l$/, '$1L').replace(/^l\//, 'L/')
 }
 
 /** A unit to print after a number; "index" and "ratio" are left off. */
@@ -118,7 +118,8 @@ export const calculatedFrom = (id: string) => (CALCULATED_FROM[id] || []).map(in
 
 /** The marker's results in other common units, for patients whose lab reports them differently. */
 export function otherUnits(marker: Biomarker) {
-  return alternateUnits(marker.id).map(({ unit, factor }) => ({
+  // A factor of 1 is the same number under another name (µg/L and ng/mL), so it adds nothing.
+  return alternateUnits(marker.id).filter(({ factor }) => factor !== 1).map(({ unit, factor }) => ({
     unit: prettyUnit(unit),
     rows: rangeRows(marker).map(row => ({ who: row.who, lab: rangeText(row.lab, factor), fm: marker.fmFromLab ? '—' : rangeText(row.fm, factor) })),
   }))
