@@ -605,6 +605,12 @@ const ZONES = [
 
 /** The five-band bar: below standard, below optimal, optimal, above optimal, above standard. */
 function rangeBar(entry: AssessedEntry) {
+  // A worded result has no scale to draw: say what it is and what is expected.
+  if (entry.textResult) {
+    const band = bandOf(entry)
+    const label = { negative: 'Negative', equivocal: 'Equivocal: repeat or confirm', positive: 'Positive' }[entry.textResult]
+    return `<div style="display:flex;align-items:center;gap:.8em;padding-top:.7em"><span style="flex:none;width:1.1em;height:1.1em;border-radius:50%;background:${BAND_COLOR[band]}"></span><span style="font-size:.95em;color:${INK};font-weight:700">${esc(label)}</span><span style="font-size:.88em;color:${MUTED}">Expected result: negative</span></div>`
+  }
   const lab = entry.labRangeParsed, fm = entry.fmRangeParsed
   const value = entry.numeric
   if (value === null || (!lab && !fm)) return `<div style="font-size:.9em;color:${MUTED};padding-top:.8em">No reference range entered.</div>`
@@ -665,7 +671,7 @@ function outOfRangeCard(entry: AssessedEntry) {
   return `<div style="display:flex;gap:1.1em;align-items:flex-start">
     ${disc(BAND_STYLE[band].tint, [[entry.value, font], [entry.unit.slice(0, 14), 12]], 7.6, false, BAND_STYLE[band].text)}
     <div style="flex:1"><div style="font-size:1.02em;font-weight:800;text-transform:uppercase;line-height:1.35">${esc(entry.name)}${alarm ? ` <span style="color:${BAND_STYLE[band].text}">▲</span>` : ''}</div>
-      <div style="font-size:.78em;font-weight:800;color:${BAND_STYLE[band].text};letter-spacing:.04em;text-transform:uppercase;margin-top:.15em">${esc(BAND_LABEL[band])} · optimal ${esc(entry.fmRange || '—')}</div>
+      <div style="font-size:.78em;font-weight:800;color:${BAND_STYLE[band].text};letter-spacing:.04em;text-transform:uppercase;margin-top:.15em">${esc(BAND_LABEL[band])} · ${entry.textResult ? 'expected negative' : `optimal ${esc(entry.fmRange || '—')}`}</div>
       <div style="font-size:.9em;line-height:1.55;color:${BODY};margin-top:.4em">${esc(text)}</div>
       ${entry.note && !entry.calculated ? `<div style="font-size:.86em;line-height:1.5;color:${GREEN};margin-top:.35em;font-style:italic">${esc(entry.note)}</div>` : ''}
     </div></div>`
@@ -689,7 +695,7 @@ function targets(item: AreaResult) {
         const band = bandOf(entry)
         return `<tr><td style="${cell};font-weight:700">${esc(entry.name)}</td>
           <td style="${cell};font-weight:800;color:${BAND_STYLE[band].text}">${esc(entry.value)} ${esc(entry.unit)} ${arrow(direction)}</td>
-          <td style="${cell};color:${BODY}">${esc(entry.fmRange || '—')} ${esc(entry.unit)}</td>
+          <td style="${cell};color:${BODY}">${entry.textResult ? 'Negative' : `${esc(entry.fmRange || '—')} ${esc(entry.unit)}`}</td>
           <td style="${cell};color:${BAND_STYLE[band].text};font-weight:700">${esc(band === 'optimal' ? 'Borderline' : BAND_LABEL[band])}</td></tr>`
       }).join('')}</tbody>
     </table>
@@ -976,7 +982,8 @@ export function buildFmReportPages(data: FmReportData) {
 
   const out = analysis.summary.assessed.filter(entry => directionOf(entry)).sort((a, b) => SEVERITY[bandOf(a)] - SEVERITY[bandOf(b)])
   if (out.length) {
-    const byDistance = [...out].sort((a, b) => (deviation(b.numeric, b.fmRangeParsed) || deviation(b.numeric, b.labRangeParsed)) - (deviation(a.numeric, a.fmRangeParsed) || deviation(a.numeric, a.labRangeParsed)))
+    // Worded results (H. pylori) have no distance to measure, so they are left off this chart.
+    const byDistance = out.filter(entry => !entry.textResult).sort((a, b) => (deviation(b.numeric, b.fmRangeParsed) || deviation(b.numeric, b.labRangeParsed)) - (deviation(a.numeric, a.fmRangeParsed) || deviation(a.numeric, a.labRangeParsed)))
     chunk(byDistance, 22).forEach((part, page) => resultBlocks.push({ tab: 'How Far Off', html:
       `${page ? '<div style="height:1.6em"></div>' : `<div style="height:1em"></div>${title('How Far Off Target')}${lead('Each marker outside its FXMed optimal range, measured by how far past the nearest limit it sits, as a share of that limit. Running low reads to the left, running high to the right; the furthest out come first.')}${offTargetCards(out)}<div style="height:1.8em"></div>`}${deviationChart(part)}<div style="margin-top:1.2em;display:flex;justify-content:center">${bandLegend()}</div><div style="height:1em"></div>` }))
     resultBlocks.push({ tab: 'Off Target', keep: true, html: `${title('Off Target')}${lead('These markers sit outside the FXMed optimal range, the furthest out first. For each one: what it measures, and the usual reasons it runs high or low. Your clinician will read them alongside your history and symptoms. Every marker is also explained in the FXMed Lab Library at www.fxmed.ng/lab-library.')}` })
