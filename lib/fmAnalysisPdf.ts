@@ -162,24 +162,6 @@ const heading = (text: string) => `<div style="font-size:1.05em;font-weight:800;
 // Charts
 
 
-/** The gauge arc's length in SVG units (a half circle of radius 46). Safari ignores pathLength when it draws an SVG as an image, so the dash is measured in real units. */
-const ARC_LENGTH = Math.PI * 46
-
-/** A half-circle gauge of a support score: one smooth arc in its tone, and the rest of the arc striped. */
-function gauge(score: number, size = 9) {
-  const id = `fmg${svgId++}`
-  const tone = TONE[toneOf(score)]
-  const arc = 'M 14 64 A 46 46 0 0 1 106 64'
-  const share = Math.min(Math.max(score, 0), 100) / 100
-  return `<div style="display:flex;justify-content:center"><svg width="${size}em" height="${size * 0.62}em" viewBox="0 0 120 74" style="display:block">
-    <defs><linearGradient id="${id}" x1="14" y1="0" x2="106" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${tone.light}"/><stop offset="1" stop-color="${tone.solid}"/></linearGradient>
-      <pattern id="${id}s" width="3.4" height="3.4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3.4" height="3.4" fill="${TRACK}"/><rect width="1.3" height="3.4" fill="#D3D5CD"/></pattern></defs>
-    <path d="${arc}" fill="none" stroke="url(#${id}s)" stroke-width="11" stroke-linecap="round"/>
-    ${score > 0 ? `<path d="${arc}" fill="none" stroke="url(#${id})" stroke-width="11" stroke-linecap="round" stroke-dasharray="${share * ARC_LENGTH} 400"/>` : ''}
-    <text x="60" y="61" text-anchor="middle" font-family="${SVG_FONT}" font-size="18" fill="${INK}">${score}<tspan font-size="10" fill="${MUTED}">%</tspan></text>
-  </svg></div>`
-}
-
 /** A filled circle with centred lines of text. SVG, because html2canvas mis-centres text in boxes. */
 function disc(color: string, lines: Array<[string, number, number?]>, size: number, outline = false, text = '#fff') {
   const total = lines.reduce((sum, [, font]) => sum + font, 0) + (lines.length - 1) * 4
@@ -193,42 +175,72 @@ function disc(color: string, lines: Array<[string, number, number?]>, size: numb
   return `<svg width="${size}em" height="${size}em" viewBox="0 0 100 100" style="display:block;flex:none"><circle cx="50" cy="50" r="${outline ? 48 : 50}" fill="${outline ? '#fff' : color}" stroke="${outline ? '#9CA3AF' : 'none'}" stroke-width="${outline ? 2 : 0}"/>${texts}</svg>`
 }
 
-/** A rounded bar that fills to the likelihood with a soft gradient in its tone, over a light track. */
-function likelihoodBar(score: number, grow = true, labelled = true) {
-  const width = Math.max(0, Math.min(score, 100))
-  const tone = TONE[toneOf(score)]
-  // The percentage is SVG text outside the clipped track: html2canvas draws
-  // HTML text a few pixels low, which a clipped bar would cut off.
-  const inside = width >= 12
-  // html2canvas skips an SVG that is itself absolutely positioned, so a span carries the position.
-  const label = !labelled ? '' : `<span style="position:absolute;top:0;${inside ? `right:${100 - width}%` : `left:${width}%`}"><svg width="3.6em" height="1.1em" viewBox="0 0 36 11" style="display:block">
-    <text x="${inside ? 31 : 5}" y="8" text-anchor="${inside ? 'end' : 'start'}" font-family="${SVG_FONT}" font-size="7.2" font-weight="700" fill="${inside && toneOf(score) !== 'watch' ? '#fff' : INK}">${score}%</text></svg></span>`
-  return `<div style="position:relative;${grow ? 'flex:1;' : ''}height:1.1em">
-    <div style="position:absolute;inset:0;background:${TRACK};border-radius:1em;overflow:hidden">
-      ${width ? `<div style="position:absolute;left:0;top:0;bottom:0;width:${width}%;border-radius:1em;background:linear-gradient(90deg, ${tone.light}, ${tone.solid})"></div>` : ''}
-    </div>${label}
-  </div>`
+/** The four support levels, on the report's 50 / 70 / 90 thresholds (see likelihoodLabel). */
+const LEVELS = [
+  { name: 'Holding steady', short: 'Holding steady', from: 0, solid: SAGE, tint: '#DFE8CF', faint: '#EEF3E6', text: GREEN },
+  { name: 'Worth watching', short: 'Watching', from: 50, solid: '#D6A23A', tint: '#F1DFAE', faint: '#F7EFD8', text: '#8A6312' },
+  { name: 'Needs support', short: 'Support', from: 70, solid: '#D0574F', tint: '#ECC0BB', faint: '#F6E3E0', text: '#B8433B' },
+  { name: 'Priority support', short: 'Priority', from: 90, solid: '#9E2F29', tint: '#DDA9A5', faint: '#F2DEDC', text: '#9E2F29' },
+] as const
+const levelOf = (score: number) => score >= 90 ? 3 : score >= 70 ? 2 : score >= 50 ? 1 : 0
+
+/** Signal bars: four rising bars, lit up to the score's level. */
+function signalBars(score: number, size = 5.6) {
+  const level = levelOf(score), tone = LEVELS[level]
+  const bars = [22, 36, 52, 70].map((height, index) => `<rect x="${index * 22}" y="${70 - height}" width="16" height="${height}" rx="4" fill="${index <= level ? tone.solid : '#E9EAE4'}"/>`).join('')
+  return `${svgOpen(size, 82, 70)}${bars}</svg></div>`
 }
 
-/** The support-score scale as one bar: holding steady under 50%, watch to 70%, support above. */
-function likelihoodScale() {
-  const part = (width: number, color: string, radius: string) => `<div style="width:${width}%;height:100%;background:${color};border-radius:${radius}"></div>`
-  return `<div style="display:flex;gap:2px;height:.75em">${part(50, `linear-gradient(90deg, ${TONE.clear.tint}, ${TONE.clear.light})`, '1em 0 0 1em')}${part(20, `linear-gradient(90deg, ${TONE.watch.light}, ${TONE.watch.solid})`, '0')}${part(30, `linear-gradient(90deg, ${TONE.flag.light}, ${TONE.flag.solid})`, '0 1em 1em 0')}</div>`
+/** A dot scale: ten dots, one for each 10% of the score, coloured by its level. */
+function dotScale(score: number, width = 12) {
+  const level = levelOf(score), tone = LEVELS[level]
+  const filled = Math.round(Math.max(0, Math.min(score, 100)) / 10)
+  const dots = Array.from({ length: 10 }, (_, index) => `<circle cx="${7 + index * 18}" cy="8" r="6.5" fill="${index < filled ? tone.solid : index === filled ? tone.faint : '#E9EAE4'}"/>`).join('')
+  return `${svgOpen(width, 176, 16, 'start')}${dots}</svg></div>`
 }
 
-function likelihoodChart(items: AreaResult[], label = 'Support score') {
-  const row = (item: AreaResult) => `<div style="display:flex;align-items:center;margin-bottom:.75em">
-    <div style="width:16.5em;flex:none;text-align:right;padding-right:1.3em;font-size:.98em;line-height:1.3;color:${INK}">${esc(item.area.name)}</div>${likelihoodBar(item.score)}</div>`
-  const tick = (left: number, text: string) => `<div style="position:absolute;left:${left}%;top:0;font-size:.82em;line-height:1.35;color:${BODY}">${text}<div style="width:1px;height:.6em;background:${FAINT};margin-top:.5em"></div></div>`
-  const high = items.filter(needsDetail)
-  const low = items.filter(item => !needsDetail(item))
+/** A level meter: the four levels as one bar, the score's level in full colour, and a pin at the score. */
+function levelMeter(score: number, width = 30) {
+  const level = levelOf(score), W = 300
+  const x = (value: number) => (value / 100) * W
+  const ends = [0, 50, 70, 90, 100]
+  const parts = LEVELS.map((tone, index) => {
+    const left = x(ends[index]) + (index ? 1.5 : 0), right = x(ends[index + 1]) - (index < 3 ? 1.5 : 0)
+    const fill = index === level ? tone.solid : index < level ? tone.tint : tone.faint
+    return `<rect x="${left.toFixed(1)}" y="5" width="${(right - left).toFixed(1)}" height="10" rx="${index === 0 || index === 3 ? 5 : 1.5}" fill="${fill}"/>`
+  }).join('')
+  // Square inner corners: cover the rounded ends where segments meet.
+  const joins = `<rect x="${x(50) - 6}" y="5" width="4.5" height="10" fill="${level === 0 ? LEVELS[0].solid : LEVELS[0].tint}"/><rect x="${x(90) + 1.5}" y="5" width="4.5" height="10" fill="${level === 3 ? LEVELS[3].solid : LEVELS[3].faint}"/>`
+  const pin = Math.max(7, Math.min(W - 7, x(score)))
+  return `${svgOpen(width, W, 20, 'start')}${parts}${joins}<circle cx="${pin.toFixed(1)}" cy="10" r="7" fill="#fff" stroke="${LEVELS[level].text}" stroke-width="3.2"/></svg></div>`
+}
+
+/** The four levels as a key: a dot in each colour and its name. */
+function levelKey() {
+  return `<div style="display:flex;flex-wrap:wrap;gap:.2em 1.4em;font-size:.82em;color:${BODY}">${LEVELS.map((tone, index) => `<span style="white-space:nowrap"><span style="color:${tone.solid}">●</span> ${tone.name} <span style="color:${MUTED}">${index === 3 ? '90%+' : `${tone.from}–${LEVELS[index + 1].from}%`}</span></span>`).join('')}</div>`
+}
+
+/** The support scores of a group of areas: a row each with a dot scale, or (for the core body systems) a level meter. */
+function likelihoodChart(items: AreaResult[], style: 'dots' | 'meter' = 'dots') {
+  const nameW = 16.5, chartW = style === 'meter' ? 30 : 16
+  const row = (item: AreaResult) => {
+    const tone = LEVELS[levelOf(item.score)]
+    return `<div style="display:flex;align-items:center;gap:1.2em;margin-bottom:.8em">
+      <div style="width:${nameW}em;flex:none;text-align:right;font-size:.98em;line-height:1.3;color:${INK}">${esc(item.area.name)}</div>
+      ${style === 'meter' ? levelMeter(item.score, chartW) : dotScale(item.score, chartW)}
+      <div style="width:3.2em;flex:none;font-size:1em;font-weight:800;color:${tone.text}">${item.score}%</div>
+      <div style="font-size:.82em;color:${tone.text}">${style === 'dots' ? esc(tone.name) : ''}</div>
+    </div>`
+  }
+  const header = style === 'meter'
+    ? `<div style="display:flex;gap:1.2em;margin-bottom:.9em"><div style="width:${nameW}em;flex:none"></div><div style="width:${chartW}em;flex:none;position:relative;height:1.4em;font-size:.82em">${LEVELS.map((tone, index) => {
+      const left = [0, 50, 70, 90][index], width = [50, 20, 20, 10][index]
+      return `<span style="position:absolute;left:${left}%;width:${width}%;text-align:center;color:${tone.text};font-weight:700;white-space:nowrap">${tone.short}</span>`
+    }).join('')}</div></div>`
+    : `<div style="display:flex;gap:1.2em;margin-bottom:1em"><div style="width:${nameW}em;flex:none"></div>${levelKey()}</div>`
   return `<div style="margin-top:2.2em">
-    <div style="display:flex"><div style="width:16.5em;flex:none"></div><div style="flex:1">
-      <div style="text-align:center;font-weight:800;font-size:1.05em;letter-spacing:.06em;text-transform:uppercase;padding-bottom:.55em;border-bottom:1px solid ${FAINT}">${esc(label)}</div>
-      <div style="position:relative;height:3.6em;margin-top:.6em">${tick(50, 'Watch<br/>50–70%')}${tick(70, 'Support<br/>70–90%')}${tick(88, 'Priority<br/>90%+')}</div>
-    </div></div>
-    ${high.map(row).join('')}
-    ${low.length ? `<div style="display:flex;margin:${high.length ? '1em' : '0'} 0 .6em"><div style="width:16.5em;flex:none"></div><div style="font-size:.82em;line-height:1.35;color:${BODY}">Holding steady<br/>under 50%<div style="width:1px;height:.6em;background:${FAINT};margin-top:.5em"></div></div></div>${low.map(row).join('')}` : ''}
+    <div style="text-align:center;font-weight:800;font-size:1.05em;letter-spacing:.06em;text-transform:uppercase;padding-bottom:.55em;border-bottom:1px solid ${FAINT};margin-bottom:1.1em">Support score</div>
+    ${header}${items.map(row).join('')}
   </div>`
 }
 
@@ -261,9 +273,12 @@ function evidence(item: AreaResult) {
 
 function gaugeColumn(score: number) {
   const { label, advice } = likelihoodLabel(score)
-  return `<div style="text-align:center">${gauge(score)}
-    <div style="width:3.4em;border-top:1px solid ${FAINT};margin:.9em auto"></div>
-    <div style="font-size:.92em;line-height:1.5;color:${BODY}">${esc(label)}.<br/>${esc(advice)}</div>
+  const tone = LEVELS[levelOf(score)]
+  return `<div style="text-align:center">
+    ${signalBars(score, 5)}
+    <div style="font-size:2.1em;line-height:1.25;color:${INK};letter-spacing:-.02em;margin-top:.35em">${score}<span style="font-size:.45em;color:${MUTED}">%</span></div>
+    <div style="width:3.4em;border-top:1px solid ${FAINT};margin:1.1em auto .8em"></div>
+    <div style="font-size:.92em;line-height:1.5;color:${BODY}"><span style="font-weight:800;color:${tone.text}">${esc(label)}.</span><br/>${esc(advice)}</div>
     <div style="width:3.4em;border-top:1px solid ${FAINT};margin:.9em auto 0"></div></div>`
 }
 
@@ -285,10 +300,10 @@ function areaDetail(item: AreaResult) {
  * width and height attributes, and reads "em" there against 16px rather than
  * the page's size; so the attributes are pixels and CSS sets the size in em.
  */
-function svgOpen(widthEm: number, viewW: number, viewH: number) {
+function svgOpen(widthEm: number, viewW: number, viewH: number, align: 'center' | 'start' = 'center') {
   const heightEm = (widthEm * viewH) / viewW
   // Centred by a flex wrapper: html2canvas shifts an SVG centred with auto margins by that margin again, cropping its right side.
-  return `<div style="display:flex;justify-content:center"><svg width="${Math.round(widthEm * BASE_FONT)}" height="${Math.round(heightEm * BASE_FONT)}" viewBox="0 0 ${viewW} ${viewH}" style="display:block;width:${widthEm}em;height:${heightEm.toFixed(2)}em">`
+  return `<div style="display:flex;justify-content:${align === 'center' ? 'center' : 'flex-start'};flex:none"><svg width="${Math.round(widthEm * BASE_FONT)}" height="${Math.round(heightEm * BASE_FONT)}" viewBox="0 0 ${viewW} ${viewH}" style="display:block;width:${widthEm}em;height:${heightEm.toFixed(2)}em">`
 }
 
 /** The bands from furthest below to furthest above, so a row of markers reads low → on target → high. */
@@ -778,8 +793,8 @@ function readingKey() {
       ${bands.map(([band, text]) => `<div style="display:flex;align-items:center;gap:.8em;margin-bottom:.7em"><span style="flex:none;width:1.1em;height:1.1em;border-radius:50%;background:${BAND_COLOR[band]}"></span><span style="font-size:.95em;line-height:1.4;color:${BODY}">${text}</span></div>`).join('')}</div>
     <div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${GREEN};margin-bottom:1em">Support scores</div>
       <div style="font-size:.95em;line-height:1.6;color:${BODY}">Each body system and nutrient is given a support score from 0 to 100%: how strongly your results suggest it needs attention. Anything at 50% or more is explained in full, and the areas in your care plan come with a plan of their own.</div>
-      <div style="margin-top:1em">${likelihoodScale()}</div>
-      <div style="display:flex;justify-content:space-between;font-size:.8em;color:${MUTED};margin-top:.4em"><span>Holding steady</span><span>Watch</span><span>Support</span><span>Priority</span></div></div>
+      <div style="margin-top:1em;display:flex;align-items:center;gap:.8em">${dotScale(76, 11)}<span style="font-weight:800;color:${LEVELS[2].text}">76%</span></div>
+      <div style="margin-top:.7em">${levelKey()}</div></div>
   </div>`
 }
 
@@ -809,7 +824,7 @@ function snapshotBody(analysis: Analysis, narrative: FmNarrative) {
     ${bandCounts(analysis)}
     <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:2.2em;margin-top:2.6em">
       <div>${heading('Where to focus')}
-        ${top.length ? top.map(item => `<div style="margin-bottom:.95em"><div style="display:flex;justify-content:space-between;font-size:.95em;line-height:1.4;margin-bottom:.6em"><span>${esc(item.area.name)}</span><span style="font-weight:800">${item.score}%</span></div>${likelihoodBar(item.score, false, false)}</div>`).join('') : `<div style="color:${MUTED}">No area scored high enough to need its own plan.</div>`}</div>
+        ${top.length ? top.map(item => `<div style="margin-bottom:.95em"><div style="display:flex;justify-content:space-between;font-size:.95em;line-height:1.4;margin-bottom:.45em"><span>${esc(item.area.name)}</span><span style="font-weight:800;color:${LEVELS[levelOf(item.score)].text}">${item.score}%</span></div>${dotScale(item.score, 15)}</div>`).join('') : `<div style="color:${MUTED}">No area scored high enough to need its own plan.</div>`}</div>
       <div>${heading('What stood out')}
         ${findings.length ? findings.map(findingCard).join('') : `<div style="color:${MUTED}">Nothing significant stood out.</div>`}</div>
     </div>`
@@ -872,14 +887,14 @@ export function buildFmReportPages(data: FmReportData) {
     if (!items.length) continue
     const tab = GROUP_TABS[group]
     const info = AREA_GROUPS[group]
-    add('body', tab, () => `${title(info.title)}${lead(info.intro)}${lead('Every area scoring 50% or more is explained over the page, with the markers that moved its score.')}${likelihoodChart(items)}`)
+    add('body', tab, () => `${title(info.title)}${lead(info.intro)}${lead('Every area scoring 50% or more is explained over the page, with the markers that moved its score.')}${likelihoodChart(items, group === 'system' ? 'meter' : 'dots')}`)
     chunk(items.filter(needsDetail), group === 'deficiency' ? 4 : 3).forEach((part, page) => add('body', tab, () =>
       `${page ? '<div style="height:1.6em"></div>' : `${subtitle(`A closer look: ${info.title}`)}${lead('For each area: its support score, what the area does in the body, and the markers that shaped the score.')}<div style="height:2em"></div>`}${part.map(areaDetail).join('')}`))
   }
 
   // Part 3. Your care plan
   divider('plan')
-  add('plan', 'Focus Areas', () => `${title('Your Focus Areas')}${lead(AREA_GROUPS.plan.intro)}${lead(analysis.plan.length ? 'Each focus area has its own page: the results behind it, your targets, and what we will do about it through food, daily habits, supplements to discuss with your clinician, and tests to repeat.' : 'No area scored high enough to need a plan of its own. Keep up the basics on the Next 90 Days page and retest as advised.')}${analysis.plan.length ? likelihoodChart(analysis.plan, 'Focus areas') : ''}`)
+  add('plan', 'Focus Areas', () => `${title('Your Focus Areas')}${lead(AREA_GROUPS.plan.intro)}${lead(analysis.plan.length ? 'Each focus area has its own page: the results behind it, your targets, and what we will do about it through food, daily habits, supplements to discuss with your clinician, and tests to repeat.' : 'No area scored high enough to need a plan of its own. Keep up the basics on the Next 90 Days page and retest as advised.')}${analysis.plan.length ? likelihoodChart(analysis.plan) : ''}`)
   analysis.plan.forEach(item => add('plan', 'Focus Areas', () => improvementPage(item, narrative, analysis.child)))
   const recommendations = narrative.recommendations.length ? narrative.recommendations : defaultRecommendations(analysis)
   chunk(recommendations, 6).forEach((part, page) => add('plan', 'First Moves', () =>
