@@ -224,6 +224,7 @@ export const publicRoutes: PublicRoute[] = [
   { path: '/programs/autism-support', lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/functional-health-analysis', lastModified: '2026-05-27', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/health-assessment', lastModified: '2026-08-18', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/lab-library', lastModified: '2026-11-24', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/maternal-wellness', lastModified: '2026-05-11', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/elite', lastModified: '2026-05-27', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/blog', lastModified: '2026-06-09', changeFrequency: 'weekly', priority: 0.8 },

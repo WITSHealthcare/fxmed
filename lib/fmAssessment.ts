@@ -68,6 +68,19 @@ export function directionOf(entry: AssessedEntry): 'low' | 'high' | null {
 
 const fixed = (value: number) => String(Number(value.toFixed(value >= 10 ? 1 : 2)))
 
+/** The results each calculated marker is worked out from. */
+export const CALCULATED_FROM: Record<string, string[]> = {
+  homa_ir: ['fasting_glucose', 'fasting_insulin'],
+  tg_hdl_ratio: ['triglycerides', 'hdl'],
+  chol_hdl_ratio: ['total_cholesterol', 'hdl'],
+  non_hdl: ['total_cholesterol', 'hdl'],
+  ast_alt_ratio: ['ast', 'alt'],
+  na_k_ratio: ['sodium', 'potassium'],
+  nlr: ['neutrophils', 'lymphocytes'],
+  globulin: ['total_protein', 'albumin'],
+  anion_gap: ['sodium', 'chloride', 'bicarbonate'],
+}
+
 /**
  * Ratios and differences the report uses that labs often leave out. Each is
  * added only when the lab has not reported it and both inputs are in units
@@ -80,7 +93,8 @@ export function withCalculated(entries: FmEntry[], sex: Sex, age?: number | null
     return entry ? canonicalValue(entry) : null
   }
   const extra: FmEntry[] = []
-  const add = (id: string, from: string[], compute: (values: number[]) => number | null) => {
+  const add = (id: string, compute: (values: number[]) => number | null) => {
+    const from = CALCULATED_FROM[id]
     if (present.has(id)) return
     const values = from.map(value)
     if (values.some(item => item === null)) return
@@ -92,15 +106,15 @@ export function withCalculated(entries: FmEntry[], sex: Sex, age?: number | null
     extra.push({ ...createEntry(marker, sex, { value: fixed(result) }, age), note: `Calculated from ${names.join(' and ')}.`, calculated: true })
   }
   const ratio = ([a, b]: number[]) => b ? a / b : null
-  add('homa_ir', ['fasting_glucose', 'fasting_insulin'], ([glucose, insulin]) => (glucose * insulin) / 22.5)
-  add('tg_hdl_ratio', ['triglycerides', 'hdl'], ratio)
-  add('chol_hdl_ratio', ['total_cholesterol', 'hdl'], ratio)
-  add('non_hdl', ['total_cholesterol', 'hdl'], ([total, hdl]) => total - hdl)
-  add('ast_alt_ratio', ['ast', 'alt'], ratio)
-  add('na_k_ratio', ['sodium', 'potassium'], ratio)
-  add('nlr', ['neutrophils', 'lymphocytes'], ratio)
-  add('globulin', ['total_protein', 'albumin'], ([total, albumin]) => total - albumin)
-  add('anion_gap', ['sodium', 'chloride', 'bicarbonate'], ([sodium, chloride, bicarbonate]) => sodium - chloride - bicarbonate)
+  add('homa_ir', ([glucose, insulin]) => (glucose * insulin) / 22.5)
+  add('tg_hdl_ratio', ratio)
+  add('chol_hdl_ratio', ratio)
+  add('non_hdl', ([total, hdl]) => total - hdl)
+  add('ast_alt_ratio', ratio)
+  add('na_k_ratio', ratio)
+  add('nlr', ratio)
+  add('globulin', ([total, albumin]) => total - albumin)
+  add('anion_gap', ([sodium, chloride, bicarbonate]) => sodium - chloride - bicarbonate)
   return extra.length ? [...entries, ...extra] : entries
 }
 

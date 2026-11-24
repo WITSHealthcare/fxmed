@@ -2,6 +2,8 @@ import type { MetadataRoute } from 'next'
 import { absoluteUrl, publicRoutes } from '@/lib/seo'
 import { getPublicCourses } from '@/lib/training-public'
 import { MIN_INDEXABLE_TOPIC_POSTS, getPublishedPostSummaries, groupTopics, topicPath } from '@/lib/blog'
+import { FM_BIOMARKERS } from '@/lib/fmBiomarkers'
+import { LAB_LIBRARY_UPDATED, markerPath } from '@/lib/labLibrary'
 
 // Without this the sitemap is prerendered once at build, so articles published
 // after a deploy stay invisible to crawlers until the next deploy. Publishing
@@ -48,5 +50,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...courses.map((course) => ({ url: absoluteUrl(`/courses/${course.slug}`), lastModified: now, changeFrequency: 'monthly' as const, priority: 0.6 })),
   ] satisfies MetadataRoute.Sitemap
 
-  return [...staticEntries, ...topicEntries, ...courseEntries, ...blogEntries]
+  const labEntries = FM_BIOMARKERS.map((marker) => ({
+    url: absoluteUrl(markerPath(marker.id)),
+    lastModified: new Date(LAB_LIBRARY_UPDATED),
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
+  })) satisfies MetadataRoute.Sitemap
+
+  return [...staticEntries, ...topicEntries, ...courseEntries, ...labEntries, ...blogEntries]
 }
