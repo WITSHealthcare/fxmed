@@ -1,6 +1,6 @@
 # Plan: GI-MAP stool testing in the Functional Health Analysis
 
-Status: Phase 1 (capture) built; Phases 2 and 3 to come.
+Status: Phases 1 (capture) and 2 (analysis) built; Phase 3 (report) to come.
 
 ## Goal
 
