@@ -86,17 +86,22 @@ export default async function LabMarkerPage({ params }: Props) {
 
     <div className="mx-auto max-w-4xl space-y-6 px-[5%] py-10 font-dm-sans md:px-0">
       <Section title="Ranges">
-        <p>Your laboratory prints its own reference range. The FXMed optimal range is the narrower band our clinicians aim for. Ranges are for adults{unit ? `, in ${marker.unit}` : ''}; children are read against age-appropriate ranges instead.</p>
-        <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[420px] text-left text-sm">
-          <thead><tr className="border-b border-green-deep/15 text-xs uppercase tracking-wide text-green-deep"><th className="py-2 pr-4"></th><th className="py-2 pr-4">Laboratory range</th><th className="py-2">FXMed optimal</th></tr></thead>
-          <tbody>{rows.map(row => <tr key={row.who} className="border-b border-green-deep/5">
-            <td className="py-3 pr-4 font-semibold text-green-deep">{row.who}</td>
-            <td className="py-3 pr-4">{rangeText(row.lab)}{unit}</td>
-            <td className="py-3 font-bold text-green-mid">{marker.fmFromLab ? 'Your laboratory\'s own cut-off' : `${rangeText(row.fm)}${unit}`}</td>
-          </tr>)}</tbody>
-        </table></div>
-        {marker.fmFromLab && <p className="mt-3 text-sm">Cut-offs for this test differ between laboratories, so we read it against the one your laboratory uses.</p>}
-        {units.map(item => <p key={item.unit} className="mt-3 text-sm">In {item.unit}: {item.rows.map(row => `${rows.length > 1 ? `${row.who.toLowerCase()} ` : ''}laboratory ${row.lab}, optimal ${row.fm}`).join('; ')}.</p>)}
+        {marker.qualitative ? <>
+          <p>Most laboratories report this test as <strong className="text-green-deep">positive</strong> or <strong className="text-green-deep">negative</strong>. Negative is the expected result. An equivocal result is usually repeated or confirmed with another test.</p>
+          <p className="mt-3 text-sm">Some laboratories print a number (an index) instead, with their own cut-off; we read it against that cut-off.</p>
+        </> : <>
+          <p>Your laboratory prints its own reference range. The FXMed optimal range is the narrower band our clinicians aim for. Ranges are for adults{unit ? `, in ${marker.unit}` : ''}; children are read against age-appropriate ranges instead.</p>
+          <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[420px] text-left text-sm">
+            <thead><tr className="border-b border-green-deep/15 text-xs uppercase tracking-wide text-green-deep"><th className="py-2 pr-4"></th><th className="py-2 pr-4">Laboratory range</th><th className="py-2">FXMed optimal</th></tr></thead>
+            <tbody>{rows.map(row => <tr key={row.who} className="border-b border-green-deep/5">
+              <td className="py-3 pr-4 font-semibold text-green-deep">{row.who}</td>
+              <td className="py-3 pr-4">{rangeText(row.lab)}{unit}</td>
+              <td className="py-3 font-bold text-green-mid">{marker.fmFromLab ? 'Your laboratory\'s own cut-off' : `${rangeText(row.fm)}${unit}`}</td>
+            </tr>)}</tbody>
+          </table></div>
+          {marker.fmFromLab && <p className="mt-3 text-sm">Cut-offs for this test differ between laboratories, so we read it against the one your laboratory uses.</p>}
+          {units.map(item => <p key={item.unit} className="mt-3 text-sm">In {item.unit}: {item.rows.map(row => `${rows.length > 1 ? `${row.who.toLowerCase()} ` : ''}laboratory ${row.lab}, optimal ${row.fm}`).join('; ')}.</p>)}
+        </>}
         {(marker.critical?.low !== undefined || marker.critical?.high !== undefined) && <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-900">
           <strong>See a doctor promptly</strong> if your result is {[marker.critical.low !== undefined ? `below ${marker.critical.low}` : '', marker.critical.high !== undefined ? `above ${marker.critical.high}` : ''].filter(Boolean).join(' or ')}{unit}.
         </p>}
@@ -104,7 +109,7 @@ export default async function LabMarkerPage({ params }: Props) {
       </Section>
 
       {(info.high || info.low) && <div className="grid gap-6 md:grid-cols-2">
-        {info.high && <Section title="When it runs high"><p>{info.high}</p></Section>}
+        {info.high && <Section title={marker.qualitative ? 'When it is positive' : 'When it runs high'}><p>{info.high}</p></Section>}
         {info.low && <Section title="When it runs low"><p>{info.low}</p></Section>}
       </div>}
 
@@ -112,7 +117,7 @@ export default async function LabMarkerPage({ params }: Props) {
         <p>We never judge {marker.name} on its own. In your Functional Health Analysis it feeds into the support scores for:</p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">{systems.map(use => <li key={use.name} className="rounded-2xl bg-[#F4F8EC] px-4 py-3">
           <span className="font-semibold text-green-deep">{use.name}</span>
-          <span className="block text-xs text-text-mid">{AREA_GROUP_TITLE(use.group)} · counts {DIRECTION[use.direction]}{use.key ? ' · key marker' : ''}</span>
+          <span className="block text-xs text-text-mid">{AREA_GROUP_TITLE(use.group)} · counts {marker.qualitative ? 'when positive' : DIRECTION[use.direction]}{use.key ? ' · key marker' : ''}</span>
         </li>)}</ul>
         {!!focus.length && <p className="mt-4">When it is off target alongside related markers, it can bring these into your care plan: <span className="font-semibold text-green-deep">{focus.map(use => use.name).join(', ')}</span>.</p>}
       </Section>}

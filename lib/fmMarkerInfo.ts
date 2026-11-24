@@ -53,6 +53,11 @@ export const MARKER_INFO: Record<string, MarkerInfo> = {
     about: 'The triglyceride to HDL ratio is a simple, well-validated window on insulin sensitivity and on the size of LDL particles.',
     high: 'A raised ratio suggests insulin resistance and smaller, denser LDL particles, which are more likely to cause plaque.',
   },
+  omega3_index: {
+    about: 'The omega-3 index is the share of the fats in your red cell membranes that are the omega-3s EPA and DHA. Because red cells live for about four months, it reflects your intake over that time rather than your last meal.',
+    high: 'A high index usually reflects regular oily fish or omega-3 supplements, and is linked to lower cardiovascular risk.',
+    low: 'A low index means little EPA and DHA in the diet, and is linked to higher cardiovascular risk and more inflammation. Oily fish such as mackerel and sardines raise it within a few months.',
+  },
   // Glucose
   fasting_glucose: {
     about: 'Fasting glucose is the blood sugar level after an overnight fast, reflecting how well the body manages sugar between meals.',
@@ -483,6 +488,11 @@ export const MARKER_INFO: Record<string, MarkerInfo> = {
     high: 'A raised saturation can reflect iron overload, including inherited haemochromatosis, and should be followed up.',
     low: 'A low saturation is a sensitive sign of iron deficiency.',
   },
+  stfr: {
+    about: 'Soluble transferrin receptor rises when cells are hungry for iron. Unlike ferritin it does not rise with inflammation, so it helps tell true iron shortage apart from the low iron seen with chronic illness. Laboratories use different methods, so it is read against your laboratory\'s own range.',
+    high: 'A raised level points to iron-deficient red cell production, and can also be seen when the bone marrow is very active, as in haemolysis or sickle cell disease.',
+    low: 'A low level can be seen with reduced red cell production by the bone marrow, and sometimes with iron overload.',
+  },
   ferritin: {
     about: 'Ferritin is the body\'s iron store. It also rises with inflammation, so it is read alongside the other iron markers and CRP.',
     high: 'A raised level can reflect inflammation, fatty liver, insulin resistance or iron overload, and is linked to oxidative stress.',
@@ -518,9 +528,17 @@ export const MARKER_INFO: Record<string, MarkerInfo> = {
     high: 'A raised level adds to cardiovascular and clot risk, and is seen with inflammation, infection, smoking, excess weight and pregnancy.',
     low: 'A low level can reflect liver disease or a clotting disorder and can increase bleeding, so a very low result needs prompt review.',
   },
+  il6: {
+    about: 'Interleukin-6 is a messenger the immune system releases to switch on inflammation. It drives the liver to make CRP, so it is an earlier and more direct signal of inflammation.',
+    high: 'A raised level is seen with infection, injury, autoimmune disease and the low-grade inflammation that comes with excess weight, poor sleep and chronic stress.',
+  },
   psa: {
     about: 'Prostate-specific antigen is a protein made by the prostate gland in men. It is used to check prostate health, and the level that is usual rises gradually with age.',
     high: 'A raised level can come from an enlarged prostate, infection or inflammation, recent ejaculation or cycling, and sometimes prostate cancer. A raised result is repeated and discussed with a doctor before any decision.',
+  },
+  h_pylori: {
+    about: 'Helicobacter pylori is a common stomach bacterium. It is tested by a stool antigen or breath test, which show an infection now, or by a blood antibody test, which can stay positive after it has gone. Most laboratories report it as positive or negative.',
+    high: 'A positive result means current or past infection, depending on the test. Current infection can cause indigestion, ulcers and low stomach acid, and can lower iron and vitamin B12. It is treated with a course of antibiotics, and clearance is checked with a stool or breath test afterwards.',
   },
   ck: {
     about: 'Creatine kinase is an enzyme released from muscle.',

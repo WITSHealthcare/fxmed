@@ -103,7 +103,7 @@ export function libraryMarkers(): LibraryMarker[] {
     panel: marker.panel,
     panelName: panelById(marker.panel).name,
     unit: marker.unit,
-    optimal: marker.fmFromLab ? 'your lab\'s cut-off' : rangeRows(marker).length > 1
+    optimal: marker.qualitative ? 'negative' : marker.fmFromLab ? 'your lab\'s cut-off' : rangeRows(marker).length > 1
       ? rangeRows(marker).map(row => `${row.who.toLowerCase()} ${rangeText(row.fm)}${unitSuffix(marker.unit)}`).join(' · ')
       : `${rangeText(marker.fm)}${unitSuffix(marker.unit)}`,
     summary: shortAbout(marker.id),
