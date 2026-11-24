@@ -946,7 +946,7 @@ function twinBody(analysis: Analysis) {
     const elbow = organ.side === 'left' ? edge + 1.6 : edge - 1.6
     const tone = organ.status === 'nodata' ? FAINT : TONE[organ.status].solid
     return `<polyline points="${u(edge)},${u(y)} ${u(elbow)},${u(y)} ${u(organ.hx)},${u(organ.hy)}" fill="none" stroke="${tone}" stroke-width="1.6" stroke-opacity=".75" stroke-linejoin="round"/>
-      <circle cx="${u(organ.hx)}" cy="${u(organ.hy)}" r="9" fill="#fff" fill-opacity=".6" stroke="${tone}" stroke-width="2.6"/>
+      <circle cx="${u(organ.hx)}" cy="${u(organ.hy)}" r="9.5" fill="#fff" stroke="${tone}" stroke-width="3"/>
       <circle cx="${u(organ.hx)}" cy="${u(organ.hy)}" r="3.6" fill="${tone}"/>
       <circle cx="${u(edge)}" cy="${u(y)}" r="3" fill="${tone}"/>`
   }).join('')
