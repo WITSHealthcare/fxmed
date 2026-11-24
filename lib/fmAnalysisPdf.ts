@@ -1,5 +1,6 @@
-// The Functional Health Report: a US Letter portrait PDF in five sections —
-// Introduction, Assessment, Analysis, Health Improvement Plan and Appendix.
+// The Functional Health Analysis lab report: a US Letter portrait PDF in four
+// parts — Start Here, Your Body System by System, Your Care Plan and Your
+// Results in Full — closing with a page of notes about the report.
 //
 // Each page is laid out as fixed-size HTML (816 × 1056 CSS px = 8.5 × 11 in),
 // rasterised with html2canvas and placed on its own PDF sheet. Sizes are in em
@@ -8,7 +9,7 @@
 // The same HTML drives the on-screen preview.
 
 import {
-  analyse, AREA_GROUPS, BAND_COLOR, BAND_LABEL, bandOf, defaultFindings, defaultNextSteps, defaultRecommendations,
+  analyse, AREA_GROUPS, BAND_COLOR, BANDS, BAND_LABEL, bandOf, defaultFindings, defaultNextSteps, defaultRecommendations,
   defaultSummary, directionOf, likelihoodLabel, needsDetail, planFor, PLAN_PARTS, priorityOf,
   type Analysis, type AreaGroup, type AreaResult, type Band,
 } from './fmAssessment'
@@ -40,7 +41,7 @@ const FONT = "var(--font-clinic), 'Plus Jakarta Sans', Arial, Helvetica, sans-se
 const SVG_FONT = 'Arial, Helvetica, sans-serif'
 const ACCENT = `linear-gradient(90deg, ${LIME}, ${SAGE})`
 
-/** A tone for a 0–100 likelihood, on the report's own scale: possible from 50%, likely from 70%. */
+/** A tone for a 0–100 support score, on the report's own scale: worth watching from 50%, needs support from 70%. */
 type Tone = 'clear' | 'watch' | 'flag'
 const toneOf = (score: number): Tone => score >= 70 ? 'flag' : score >= 50 ? 'watch' : 'clear'
 const TONE: Record<Tone, { solid: string; light: string; text: string; tint: string }> = {
@@ -79,15 +80,17 @@ const arrow = (direction: 'low' | 'high') => direction === 'low' ? '↓' : '↑'
 // ---------------------------------------------------------------------------
 // Sections and page chrome
 
-type SectionId = 'intro' | 'assessment' | 'analysis' | 'plan' | 'appendix'
+type SectionId = 'start' | 'body' | 'plan' | 'results' | 'notes'
 
-const SECTIONS: Array<{ id: SectionId; number: number; title: string; blurb: string }> = [
-  { id: 'intro', number: 1, title: 'Introduction', blurb: 'An introduction to functional blood chemistry analysis, and your results at a glance.' },
-  { id: 'assessment', number: 2, title: 'Assessment', blurb: 'An in-depth evaluation of your body systems, nutrient status and individual nutrient needs.' },
-  { id: 'analysis', number: 3, title: 'Analysis', blurb: 'A full breakdown of every biomarker, showing where each sits against the optimal and standard ranges.' },
-  { id: 'plan', number: 4, title: 'Health Improvement Plan', blurb: 'The areas that need the most attention, with a practical plan for each.' },
-  { id: 'appendix', number: 5, title: 'Appendix', blurb: 'Additional information about this report.' },
+/** The report's parts, in print order. The closing notes have no number and no divider page. */
+const SECTIONS: Array<{ id: SectionId; number: number | null; title: string; blurb: string }> = [
+  { id: 'start', number: 1, title: 'Start Here', blurb: 'How FXMed reads your labs, and the short version of what we found.' },
+  { id: 'body', number: 2, title: 'Your Body, System by System', blurb: 'Each body system and nutrient reserve, scored for how much support it needs right now.' },
+  { id: 'plan', number: 3, title: 'Your Care Plan', blurb: 'The areas we will work on together, a plan for each, and what happens over the next 90 days.' },
+  { id: 'results', number: 4, title: 'Your Results in Full', blurb: 'Every marker we measured, set against your laboratory\'s range and the FXMed optimal range.' },
+  { id: 'notes', number: null, title: 'About This Report', blurb: 'What this report can and cannot tell you.' },
 ]
+const sectionOf = (id: SectionId) => SECTIONS.find(item => item.id === id)!
 
 /** Page number of the first page of each section's tab, keyed "section:tab". */
 type TocIndex = Map<string, number>
@@ -118,11 +121,11 @@ function pill(text: string, active: boolean) {
 }
 
 function header(section: SectionId, tab: string, tabs: string[]) {
-  const name = SECTIONS.find(item => item.id === section)!.title
+  const { number } = sectionOf(section)
   return `<div style="background:${DEEP};padding:1.05em 2.6em;display:flex;align-items:center;justify-content:space-between">
       <img src="/logo-trimmed.png" style="height:1.75em;display:block" />
       <div style="display:flex;align-items:center;gap:.35em">
-        <span style="font-size:.76em;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:${LIME};margin-right:.9em">${esc(name)}</span>
+        ${number ? `<span style="font-size:.76em;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:${LIME};margin-right:.9em">Part ${number}</span>` : ''}
         ${tabs.map(item => pill(item, item === tab)).join('')}
       </div>
     </div>
@@ -132,7 +135,7 @@ function header(section: SectionId, tab: string, tabs: string[]) {
 function footer(patient: FmPatient, number: number, dark: boolean) {
   const date = readableDate(patient.collectedAt)
   return `<div style="position:absolute;left:2.6em;right:2.6em;bottom:1.6em;display:flex;align-items:center;justify-content:space-between;border-top:1px solid ${dark ? 'rgba(248,243,234,.2)' : LINE};padding-top:.75em;font-size:.85em;line-height:1.4;color:${dark ? ON_DARK : MUTED}">
-    <span><span style="font-weight:800;color:${dark ? LIME : GREEN}">Functional Health Report</span> &nbsp;·&nbsp; ${esc(patient.name || 'Patient')}${date ? ` &nbsp;·&nbsp; Lab test ${esc(date)}` : ''}</span>
+    <span><span style="font-weight:800;color:${dark ? LIME : GREEN}">Functional Health Analysis · Lab Report</span> &nbsp;·&nbsp; ${esc(patient.name || 'Patient')}${date ? ` &nbsp;·&nbsp; Lab test ${esc(date)}` : ''}</span>
     ${disc(dark ? LIME : DEEP, [[String(number), 40, 700]], 2.3, false, dark ? DEEP : '#fff')}
   </div>`
 }
@@ -206,13 +209,13 @@ function likelihoodBar(score: number, grow = true, labelled = true) {
   </div>`
 }
 
-/** The likelihood scale as one bar: clear under 50%, watch to 70%, flag above. */
+/** The support-score scale as one bar: holding steady under 50%, watch to 70%, support above. */
 function likelihoodScale() {
   const part = (width: number, color: string, radius: string) => `<div style="width:${width}%;height:100%;background:${color};border-radius:${radius}"></div>`
   return `<div style="display:flex;gap:2px;height:.75em">${part(50, `linear-gradient(90deg, ${TONE.clear.tint}, ${TONE.clear.light})`, '1em 0 0 1em')}${part(20, `linear-gradient(90deg, ${TONE.watch.light}, ${TONE.watch.solid})`, '0')}${part(30, `linear-gradient(90deg, ${TONE.flag.light}, ${TONE.flag.solid})`, '0 1em 1em 0')}</div>`
 }
 
-function likelihoodChart(items: AreaResult[], label = 'Probability of dysfunction') {
+function likelihoodChart(items: AreaResult[], label = 'Support score') {
   const row = (item: AreaResult) => `<div style="display:flex;align-items:center;margin-bottom:.75em">
     <div style="width:16.5em;flex:none;text-align:right;padding-right:1.3em;font-size:.98em;line-height:1.3;color:${INK}">${esc(item.area.name)}</div>${likelihoodBar(item.score)}</div>`
   const tick = (left: number, text: string) => `<div style="position:absolute;left:${left}%;top:0;font-size:.82em;line-height:1.35;color:${BODY}">${text}<div style="width:1px;height:.6em;background:${FAINT};margin-top:.5em"></div></div>`
@@ -221,19 +224,17 @@ function likelihoodChart(items: AreaResult[], label = 'Probability of dysfunctio
   return `<div style="margin-top:2.2em">
     <div style="display:flex"><div style="width:16.5em;flex:none"></div><div style="flex:1">
       <div style="text-align:center;font-weight:800;font-size:1.05em;letter-spacing:.06em;text-transform:uppercase;padding-bottom:.55em;border-bottom:1px solid ${FAINT}">${esc(label)}</div>
-      <div style="position:relative;height:3.6em;margin-top:.6em">${tick(50, 'Possible<br/>50–70%')}${tick(70, 'Likely<br/>70–90%')}${tick(88, 'Highly<br/>likely 90%+')}</div>
+      <div style="position:relative;height:3.6em;margin-top:.6em">${tick(50, 'Watch<br/>50–70%')}${tick(70, 'Support<br/>70–90%')}${tick(88, 'Priority<br/>90%+')}</div>
     </div></div>
     ${high.map(row).join('')}
-    ${low.length ? `<div style="display:flex;margin:${high.length ? '1em' : '0'} 0 .6em"><div style="width:16.5em;flex:none"></div><div style="font-size:.82em;line-height:1.35;color:${BODY}">Less likely<br/>under 50%<div style="width:1px;height:.6em;background:${FAINT};margin-top:.5em"></div></div></div>${low.map(row).join('')}` : ''}
+    ${low.length ? `<div style="display:flex;margin:${high.length ? '1em' : '0'} 0 .6em"><div style="width:16.5em;flex:none"></div><div style="font-size:.82em;line-height:1.35;color:${BODY}">Holding steady<br/>under 50%<div style="width:1px;height:.6em;background:${FAINT};margin-top:.5em"></div></div></div>${low.map(row).join('')}` : ''}
   </div>`
 }
 
 function bandCounts(analysis: Analysis) {
   const items: Array<[Band | 'total', string, number]> = [
-    ['alarm_low', 'Alarm Low', analysis.bands.alarm_low], ['below_standard', 'Below Standard', analysis.bands.below_standard],
-    ['below_optimal', 'Below Optimal', analysis.bands.below_optimal], ['optimal', 'Optimal', analysis.bands.optimal],
-    ['above_optimal', 'Above Optimal', analysis.bands.above_optimal], ['above_standard', 'Above Standard', analysis.bands.above_standard],
-    ['alarm_high', 'Alarm High', analysis.bands.alarm_high], ['total', 'Total', analysis.summary.total - analysis.bands.unknown],
+    ...BANDS.map(band => [band, BAND_LABEL[band], analysis.bands[band]] as [Band, string, number]),
+    ['total', 'Total', analysis.summary.total - analysis.bands.unknown],
   ]
   return `<div style="display:grid;grid-template-columns:repeat(8,1fr);margin-top:1.8em">${items.map(([band, label, count]) => `<div style="text-align:center">
       <div style="display:flex;justify-content:center">${band === 'total' ? disc('#fff', [[String(count), 32, 400]], 3.9, true) : disc(BAND_STYLE[band].tint, [[String(count), 32, 400]], 3.9, false, BAND_STYLE[band].text)}</div>
@@ -251,9 +252,9 @@ function markerList(items: Array<{ entry: AssessedEntry; direction?: 'low' | 'hi
 function evidence(item: AreaResult) {
   const block = (label: string, text: string) => text ? `<div style="margin-bottom:.9em"><div style="font-weight:800;color:${GREEN};margin-bottom:.15em">${label}</div><div style="color:${GREEN}">${text}</div></div>` : ''
   return `<div style="font-size:.88em;line-height:1.5">
-    ${block('Rationale', markerList(item.contributors) || 'No markers outside optimal.')}
-    ${block('Biomarkers considered', markerList(item.considered.map(entry => ({ entry }))))}
-    ${item.missing.length ? block('Not in these results — consider testing', esc(item.missing.join(', '))) : ''}
+    ${block('What moved the score', markerList(item.contributors) || 'Every marker here is on target.')}
+    ${block('Markers we read', markerList(item.considered.map(entry => ({ entry }))))}
+    ${item.missing.length ? block('Worth adding next time', esc(item.missing.join(', '))) : ''}
   </div>`
 }
 
@@ -275,7 +276,7 @@ function areaDetail(item: AreaResult) {
 }
 
 // ---------------------------------------------------------------------------
-// Blood test results
+// Every marker
 
 /** The five-band bar: below standard, below optimal, optimal, above optimal, above standard. */
 function rangeBar(entry: AssessedEntry) {
@@ -302,7 +303,7 @@ function rangeBar(entry: AssessedEntry) {
   const within = cuts[active + 1] > cuts[active] ? (value - cuts[active]) / (cuts[active + 1] - cuts[active]) : 0.5
   const position = (active + Math.max(0.08, Math.min(0.92, within))) * 20
   const fmt = (point: number) => Number(point.toFixed(Math.abs(point) >= 100 ? 0 : Math.abs(point) >= 10 ? 1 : 2)).toString()
-  const labels = ['Below standard', 'Below optimal', 'Optimal', 'Above optimal', 'Above standard']
+  const labels = ['Below lab range', 'Below optimal', 'Optimal', 'Above optimal', 'Above lab range']
   return `<div>
     <div style="position:relative;height:1.7em;margin-top:.5em">
       <div style="position:absolute;left:0;right:0;top:.55em;height:.6em;display:flex;gap:2px">${[TONE.flag.tint, TONE.watch.tint, TONE.clear.light, TONE.watch.tint, TONE.flag.tint].map((color, index) =>
@@ -328,7 +329,7 @@ function resultRow(entry: AssessedEntry) {
 }
 
 // ---------------------------------------------------------------------------
-// Out of optimal range
+// Off target
 
 function outOfRangeCard(entry: AssessedEntry) {
   const direction = directionOf(entry) || 'high'
@@ -346,7 +347,7 @@ function outOfRangeCard(entry: AssessedEntry) {
 }
 
 // ---------------------------------------------------------------------------
-// Health improvement plan
+// Care plan
 
 function bullets(items: string[], color: string) {
   return items.map(point => `<div style="display:flex;align-items:baseline;gap:.6em;margin-bottom:.5em"><span style="flex:none;color:${color};font-size:.8em">●</span><span>${esc(point)}</span></div>`).join('')
@@ -367,7 +368,7 @@ function targets(item: AreaResult) {
           <td style="${cell};color:${BAND_STYLE[band].text};font-weight:700">${esc(band === 'optimal' ? 'Borderline' : BAND_LABEL[band])}</td></tr>`
       }).join('')}</tbody>
     </table>
-    ${item.missing.length ? `<div style="font-size:.88em;line-height:1.5;margin-top:.7em;color:${BODY}"><span style="font-weight:800;color:${GREEN}">Not in these results — consider testing:</span> ${esc(item.missing.join(', '))}</div>` : ''}
+    ${item.missing.length ? `<div style="font-size:.88em;line-height:1.5;margin-top:.7em;color:${BODY}"><span style="font-weight:800;color:${GREEN}">Worth adding next time:</span> ${esc(item.missing.join(', '))}</div>` : ''}
   </div>`
 }
 
@@ -377,14 +378,14 @@ function improvementPage(item: AreaResult, narrative: FmNarrative, child: boolea
   return `${dash('1.4em 0 .9em')}
     <div style="display:grid;grid-template-columns:1fr 11.5em;gap:2em;align-items:start">
       <div>
-        <div style="font-size:.8em;font-weight:800;letter-spacing:.14em;color:${PRIORITY_COLOR[priority]};text-transform:uppercase">${priority === 'urgent' ? 'Needs prompt medical review' : `${priority} priority`}</div>
+        <div style="font-size:.8em;font-weight:800;letter-spacing:.14em;color:${PRIORITY_COLOR[priority]};text-transform:uppercase">${priority === 'urgent' ? 'See your doctor promptly' : `${priority} priority`}</div>
         <div style="font-size:2.1em;font-weight:800;line-height:1.25;letter-spacing:-.01em;margin-top:.2em">${esc(item.area.name)}</div>
         <div style="font-size:1.04em;line-height:1.65;color:${BODY};margin-top:.7em">${esc(item.area.finding || item.area.about)}</div>
       </div>
       ${gaugeColumn(item.score)}
     </div>
     ${targets(item)}
-    <div style="font-size:1.05em;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin:1.7em 0 .9em">Your plan</div>
+    <div style="font-size:1.05em;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin:1.7em 0 .9em">What we will do</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em">${PLAN_PARTS.filter(part => plan[part.key].length).map(part => `<div style="background:${CREAM};border-top:.35em solid ${part.color};border-radius:.3em .3em .9em .9em;padding:.95em 1.15em">
       <div style="font-weight:800;color:${part.color};margin-bottom:.6em;font-size:1em">${part.title}</div>
       <div style="font-size:.9em;line-height:1.5;color:${BODY}">${bullets(plan[part.key], part.color)}</div></div>`).join('')}</div>
@@ -409,14 +410,38 @@ function findingCard(item: FmNarrative['findings'][number]) {
 // ---------------------------------------------------------------------------
 // Pages
 
-const BCA_COLUMNS: Array<[string, string]> = [
-  ['Why blood testing?', 'Blood carries a record of how every system in the body is working, and a chemistry screen with a full blood count is the most commonly ordered medical test in the world. Yet many people feel unwell long before a standard blood test becomes abnormal, and are told that "everything looks normal".'],
-  ['"Normal" is not optimal', 'Standard laboratory ranges describe the average of the population tested, which includes many people who are not well. A result inside that range is not necessarily a result associated with good health. Functional ranges are narrower, and are set around the values linked to optimal physiology.'],
-  ['The functional approach', 'Comparing each result with both ranges shows the area inside "normal" where something is starting to drift. That gives you and your clinician the chance to act on early change in physiology, before it becomes disease.'],
-  ['Patterns, not single numbers', 'Rather than reading each biomarker on its own, this analysis looks at how related markers move together to judge each body system, your nutrient status and the areas most in need of support.'],
-  ['This report', 'Your results have been analysed against functional ranges, scored system by system, and turned into a health improvement plan for you to go through with your clinician, in the context of your history and symptoms.'],
-  ['In summary', 'Blood testing is no longer only a tool for diagnosing disease. Read functionally, it uncovers hidden trends and guides prevention, so you can take practical steps towards better health.'],
+/** Our Method: how FXMed reads a set of lab results, step by step. */
+const METHOD_STEPS: Array<[string, string]> = [
+  ['Two ranges, not one', 'Every result is placed against the reference range printed by your laboratory and against the narrower FXMed optimal range our clinicians work to. A result can sit inside the first and still miss the second, and that gap is where we look first.'],
+  ['Read in clusters', 'No marker is judged alone. Insulin, triglycerides and HDL together say more about blood sugar than glucose does by itself, so each body system is read from the group of markers that reflects it.'],
+  ['Scored for support', 'Each system and nutrient gets a support score from 0 to 100%. The higher the score, the more your results point to that area needing attention now, and the more weight it carries in your plan.'],
+  ['Turned into a plan', 'Areas scoring 50% or more become focus areas in your care plan, each with food, daily habits, supplements to discuss and tests to repeat, built around foods and options you can find in Nigeria.'],
 ]
+
+const REPORT_IS = ['A clinician-reviewed reading of one set of results, taken on one day.', 'A starting point for your next consultation with your FXMed care team.', 'A baseline we compare against each time you retest.']
+const REPORT_IS_NOT = ['A diagnosis, or a replacement for an examination and your history.', 'A reason to start, stop or change any medicine on your own.', 'A complete picture of your health: it covers only the tests that were done.']
+
+function methodBody() {
+  const step = ([name, text]: [string, string], index: number) => `<div style="background:${CREAM};border-radius:1.1em;padding:1.3em 1.4em;display:flex;gap:1em;align-items:flex-start">
+      ${disc(DEEP, [[String(index + 1), 44, 700]], 2.6, false, LIME)}
+      <div><div style="font-weight:800;font-size:1.12em;line-height:1.35;color:${DEEP}">${esc(name)}</div><div style="font-size:.96em;line-height:1.62;color:${BODY};margin-top:.4em">${esc(text)}</div></div></div>`
+  const list = (label: string, items: string[], color: string, mark: string) => `<div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${color};margin-bottom:.8em">${label}</div>
+      ${items.map(item => `<div style="display:flex;gap:.7em;align-items:baseline;margin-bottom:.55em;font-size:.98em;line-height:1.5;color:${BODY}"><span style="flex:none;font-weight:800;color:${color}">${mark}</span><span>${esc(item)}</span></div>`).join('')}</div>`
+  return `${title('How We Read Your Labs')}
+    ${lead('At FXMed, a lab result is the start of a conversation, not the end of one. This report is the lab part of your Functional Health Analysis: we take the results of your blood test, read them the way our clinicians do in consultation, and turn them into a plan you can follow in everyday life.')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em;margin-top:2em">${METHOD_STEPS.map(step).join('')}</div>
+    <div style="margin-top:2.4em">${heading('Two ranges at a glance')}
+      <div style="position:relative;height:2.4em;border-radius:1.2em;background:${TRACK}">
+        <div style="position:absolute;left:30%;right:30%;top:0;bottom:0;border-radius:1.2em;background:#52B788"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2.4em;margin-top:1em;font-size:.95em;line-height:1.55;color:${BODY}">
+        <div><span style="font-weight:800;color:${INK}">Laboratory range</span> (the whole bar): the spread of results the laboratory sees in the people it tests, many of whom are not in good health.</div>
+        <div><span style="font-weight:800;color:#2D8A5F">FXMed optimal range</span> (the green centre): the narrower band where our clinicians see the body working at its best.</div>
+      </div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2.4em;margin-top:2.4em;border-top:1px solid ${LINE};padding-top:1.6em">
+      ${list('This report is', REPORT_IS, GREEN, '✓')}${list('This report is not', REPORT_IS_NOT, '#B5523B', '✕')}
+    </div>`
+}
 
 function coverBody(data: FmReportData) {
   const { patient } = data
@@ -426,9 +451,10 @@ function coverBody(data: FmReportData) {
     <div style="position:absolute;left:0;right:0;top:0;height:.5em;background:${ACCENT}"></div>
     <div style="position:relative;padding:4.6em 0.8em 0">
       <img src="/logo-trimmed.png" style="height:3em;display:block" />
-      <div style="margin-top:11em;font-size:.9em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">Functional Medicine &nbsp;·&nbsp; Blood Chemistry Analysis</div>
-      <div style="font-size:5em;font-weight:500;line-height:1.15;letter-spacing:-.03em;color:#fff;margin-top:.3em">Functional<br/>Health Report</div>
-      <div style="font-size:1.25em;line-height:1.55;color:${ON_DARK};margin-top:1.5em;width:25em">Your blood results read for optimal health, not just for disease, with a personal plan to get there.</div>
+      <div style="margin-top:11em;font-size:.9em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">WITS Functional Medicine &nbsp;·&nbsp; Lagos</div>
+      <div style="font-size:5em;font-weight:500;line-height:1.15;letter-spacing:-.03em;color:#fff;margin-top:.3em">Functional<br/>Health Analysis</div>
+      <div style="display:inline-block;margin-top:1em">${pill('Lab Report', true).replace('font-size:.8em', 'font-size:1.6em')}</div>
+      <div style="font-size:1.25em;line-height:1.55;color:${ON_DARK};margin-top:1.3em;width:25em">A clinician-led reading of your lab results: where your body is doing well, where it needs support, and the plan we will follow together.</div>
     </div>
     <div style="position:absolute;left:3.4em;right:3.4em;bottom:3.4em;background:${CREAM};border-radius:1.4em;padding:1.9em 2.2em">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4em"><div style="font-size:1.5em;font-weight:800;color:${DEEP}">${esc(patient.name || 'Patient')}</div><div style="font-size:.95em;font-weight:700;color:${GREEN}">${esc(who)}</div></div>
@@ -439,36 +465,42 @@ function coverBody(data: FmReportData) {
     </div>`
 }
 
-function contentsList(section: SectionId, toc: TocIndex, dark = false) {
-  return Array.from(toc.entries()).filter(([key]) => key.startsWith(`${section}:`)).map(([key, number]) =>
-    `<div style="display:flex;gap:1.4em;font-size:1.02em;line-height:1.8"><span style="width:1.6em;font-weight:800;color:${dark ? LIME : GREEN}">${String(number).padStart(2, '0')}</span><span style="color:${dark ? '#fff' : INK}">${esc(key.slice(section.length + 1))}</span></div>`).join('')
+/** A part's pages and their page numbers, from the contents index. */
+const partPages = (section: SectionId, toc: TocIndex) => Array.from(toc.entries()).filter(([key]) => key.startsWith(`${section}:`)).map(([key, number]) => ({ name: key.slice(section.length + 1), number }))
+
+function contentsList(section: SectionId, toc: TocIndex) {
+  return partPages(section, toc).map(({ name, number }) =>
+    `<div style="display:flex;gap:1.4em;font-size:1.02em;line-height:1.8"><span style="width:1.6em;font-weight:800;color:${LIME}">${String(number).padStart(2, '0')}</span><span style="color:#fff">${esc(name)}</span></div>`).join('')
 }
 
-function tocBody(toc: TocIndex) {
-  return `${title("What's Inside?")}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3.2em 2em;margin-top:3em">${SECTIONS.map(section => `<div>
-      <div style="font-size:1.05em;color:${MUTED};line-height:1.55;min-height:4.8em">${esc(section.blurb)}</div>
-      <div style="margin-top:1.2em;display:flex;align-items:center;gap:.8em">${disc(DEEP, [[String(section.number), 46, 700]], 2.6, false, LIME)}<div style="font-size:1.15em;font-weight:800;line-height:1.3;color:${DEEP}">${esc(section.title)}</div></div>
-      <div style="border-top:1px solid ${LINE};margin-top:.9em"></div>
-      <div style="margin-top:.8em">${contentsList(section.id, toc)}</div></div>`).join('')}</div>
+/** The report map: each part, what it covers and where its pages start. */
+function mapBody(toc: TocIndex) {
+  const page = ({ name, number }: { name: string; number: number }) => `<span style="display:inline-flex;align-items:baseline;gap:.5em;margin:0 1.6em .3em 0"><span style="font-weight:800;color:${GREEN}">p.${number}</span><span style="color:${INK}">${esc(name)}</span></span>`
+  return `${title('Your Report Map')}
+    ${lead('Your report is in four parts. Start with Part 1 for the short version, then turn to your care plan. The full results in Part 4 are there whenever you want the detail behind them.')}
+    <div style="margin-top:2.2em">${SECTIONS.map(section => `<div style="display:flex;gap:1.5em;align-items:flex-start;padding:1.25em 0;border-top:1px solid ${LINE}">
+      <div style="width:3.4em;flex:none;display:flex;justify-content:center">${section.number ? disc(DEEP, [[String(section.number), 46, 700]], 3, false, LIME) : disc(DEEP, [['i', 46, 700]], 3, true)}</div>
+      <div style="flex:1"><div style="font-size:1.3em;font-weight:800;line-height:1.3;color:${DEEP}">${esc(section.title)}</div>
+        <div style="font-size:.98em;color:${BODY};line-height:1.55;margin-top:.2em">${esc(section.blurb)}</div>
+        <div style="margin-top:.6em;font-size:.95em;line-height:1.5">${partPages(section.id, toc).map(page).join('')}</div></div></div>`).join('')}</div>
     ${readingKey()}`
 }
 
 /** How to read the colours and scores used through the report. */
 function readingKey() {
   const bands: Array<[Band, string]> = [
-    ['optimal', 'Within the functional optimal range'],
-    ['below_optimal', 'Outside optimal, but within the lab\'s standard range'],
-    ['above_standard', 'Outside the lab\'s standard range'],
-    ['alarm_high', 'Well outside the standard range: review promptly'],
+    ['optimal', 'On target: within the FXMed optimal range'],
+    ['below_optimal', 'Off target, but within the laboratory\'s range'],
+    ['above_standard', 'Outside the laboratory\'s range'],
+    ['alarm_high', 'Far outside the laboratory\'s range: see your doctor promptly'],
   ]
-  return `<div style="margin-top:3.4em;background:${CREAM};border-radius:1.2em;padding:1.6em 1.9em;display:grid;grid-template-columns:1fr 1fr;gap:2.4em">
-    <div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${GREEN};margin-bottom:1em">How to read your results</div>
+  return `<div style="margin-top:2.2em;background:${CREAM};border-radius:1.2em;padding:1.6em 1.9em;display:grid;grid-template-columns:1fr 1fr;gap:2.4em">
+    <div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${GREEN};margin-bottom:1em">Colours</div>
       ${bands.map(([band, text]) => `<div style="display:flex;align-items:center;gap:.8em;margin-bottom:.7em"><span style="flex:none;width:1.1em;height:1.1em;border-radius:50%;background:${BAND_COLOR[band]}"></span><span style="font-size:.95em;line-height:1.4;color:${BODY}">${text}</span></div>`).join('')}</div>
-    <div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${GREEN};margin-bottom:1em">How to read the scores</div>
-      <div style="font-size:.95em;line-height:1.6;color:${BODY}">Each body system, nutrient and improvement area is scored from 0 to 100%: the likelihood, from your results, that it needs support. Areas at 50% or more are explained in full, and those in the health improvement plan come with a personal plan.</div>
+    <div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${GREEN};margin-bottom:1em">Support scores</div>
+      <div style="font-size:.95em;line-height:1.6;color:${BODY}">Each body system and nutrient is given a support score from 0 to 100%: how strongly your results suggest it needs attention. Anything at 50% or more is explained in full, and the areas in your care plan come with a plan of their own.</div>
       <div style="margin-top:1em">${likelihoodScale()}</div>
-      <div style="display:flex;justify-content:space-between;font-size:.8em;color:${MUTED};margin-top:.4em"><span>Less likely</span><span>Possible</span><span>Likely</span><span>Highly likely</span></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:.8em;color:${MUTED};margin-top:.4em"><span>Holding steady</span><span>Watch</span><span>Support</span><span>Priority</span></div></div>
   </div>`
 }
 
@@ -477,37 +509,37 @@ function dividerBody(section: (typeof SECTIONS)[number], toc: TocIndex) {
     <div style="position:absolute;left:0;right:0;top:0;height:.5em;background:${ACCENT}"></div>
     <div style="position:absolute;left:3.4em;top:3.4em"><img src="/logo-trimmed.png" style="height:2.2em;display:block" /></div>
     <div style="position:absolute;left:3.4em;right:3.4em;bottom:7.5em">
-      <div style="font-size:.95em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">Section</div>
-      <div style="font-size:15em;font-weight:300;line-height:.95;letter-spacing:-.05em;color:${LIME}">${String(section.number).padStart(2, '0')}</div>
+      <div style="font-size:.95em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">Part</div>
+      <div style="font-size:15em;font-weight:300;line-height:.95;letter-spacing:-.05em;color:${LIME}">${section.number}</div>
       <div style="font-size:3.4em;font-weight:500;line-height:1.1;letter-spacing:-.02em;color:#fff;margin-top:.15em">${esc(section.title)}</div>
       <div style="font-size:1.15em;line-height:1.55;color:${ON_DARK};margin-top:.8em;width:32em">${esc(section.blurb)}</div>
       <div style="width:3.2em;height:.42em;background:${LIME};border-radius:1em;margin:2em 0 1.2em"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 2.4em;width:40em">${contentsList(section.id, toc, true)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 2.4em;width:40em">${contentsList(section.id, toc)}</div>
     </div>`
 }
 
-function glanceBody(analysis: Analysis, narrative: FmNarrative) {
+function snapshotBody(analysis: Analysis, narrative: FmNarrative) {
   const findings = (narrative.findings.length ? narrative.findings : defaultFindings(analysis)).slice(0, 4)
   const top = analysis.plan.slice(0, 6)
-  return `${title('Your Results at a Glance')}
+  return `${title('Your Snapshot')}
     <div style="margin-top:1.4em;background:${DEEP};border-radius:1.2em;padding:1.5em 1.8em;position:relative;overflow:hidden">
       <div style="position:absolute;right:-3.5em;top:-3.5em;opacity:.9">${logoMark(9)}</div>
-      <div style="font-size:.78em;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:${LIME}">Summary</div>
+      <div style="font-size:.78em;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:${LIME}">In short</div>
       <div style="font-size:1.08em;line-height:1.65;color:#fff;margin-top:.5em;padding-right:5em">${esc(narrative.summary || defaultSummary(analysis))}</div>
     </div>
     ${bandCounts(analysis)}
     <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:2.2em;margin-top:2.6em">
-      <div>${heading('Areas needing attention')}
-        ${top.length ? top.map(item => `<div style="margin-bottom:.95em"><div style="display:flex;justify-content:space-between;font-size:.95em;line-height:1.4;margin-bottom:.6em"><span>${esc(item.area.name)}</span><span style="font-weight:800">${item.score}%</span></div>${likelihoodBar(item.score, false, false)}</div>`).join('') : `<div style="color:${MUTED}">No area shows a strong pattern of dysfunction.</div>`}</div>
-      <div>${heading('Key findings')}
-        ${findings.length ? findings.map(findingCard).join('') : `<div style="color:${MUTED}">No significant findings.</div>`}</div>
+      <div>${heading('Where to focus')}
+        ${top.length ? top.map(item => `<div style="margin-bottom:.95em"><div style="display:flex;justify-content:space-between;font-size:.95em;line-height:1.4;margin-bottom:.6em"><span>${esc(item.area.name)}</span><span style="font-weight:800">${item.score}%</span></div>${likelihoodBar(item.score, false, false)}</div>`).join('') : `<div style="color:${MUTED}">No area scored high enough to need its own plan.</div>`}</div>
+      <div>${heading('What stood out')}
+        ${findings.length ? findings.map(findingCard).join('') : `<div style="color:${MUTED}">Nothing significant stood out.</div>`}</div>
     </div>`
 }
 
-function nextStepsBody(analysis: Analysis, narrative: FmNarrative, patient: FmPatient) {
+function next90Body(analysis: Analysis, narrative: FmNarrative, patient: FmPatient) {
   const steps = narrative.nextSteps.length ? narrative.nextSteps : defaultNextSteps(analysis)
-  return `${title('Next Steps')}
-    ${lead('Lasting change comes from a few well-chosen steps, repeated. Start with the foundations, retest to see what has improved, and adjust the plan with your clinician.')}
+  return `${title('Your Next 90 Days')}
+    ${lead('Change that lasts is built in small, steady steps. Work through these with your FXMed care team over the next twelve weeks, then retest so we can see what has moved and adjust your plan.')}
     <div style="margin-top:2em">${steps.map((step, index) => `<div style="display:flex;gap:1.2em;padding:1.2em 0;border-top:1px solid ${LINE}">
       ${disc(DEEP, [[String(index + 1), 44, 700]], 2.8, false, LIME)}
       <div style="flex:1"><div style="font-weight:800;font-size:1.2em;line-height:1.35">${esc(step.title)}</div>
@@ -519,21 +551,21 @@ function nextStepsBody(analysis: Analysis, narrative: FmNarrative, patient: FmPa
     </div>`
 }
 
-function disclaimerBody() {
+function notesBody() {
   const paragraphs = [
-    'This report contains confidential information for the exclusive use of the person named on it. If you are not that person, or have not been given their permission, you may not read, use, copy or share it.',
-    'The information in this report, including the optimal ranges, is provided for education and to support a consultation with a qualified clinician. It is not a diagnosis, and is not a substitute for professional medical care. It should not be relied on to diagnose or treat any condition.',
-    'Optimal ranges are general reference recommendations, not targets for any individual. They differ from standard laboratory ranges and are not accepted by all medical specialties. The likelihood scores are an algorithmic summary of the results provided, not probabilities of disease.',
-    'This report is not complete or exhaustive. It is based only on the laboratory results supplied, which may not include every relevant measure, and it does not cover every condition, ailment or treatment.',
-    'The absence of a warning about a supplement, food, medicine or combination does not mean it is safe or suitable for you. Supplements mentioned have not been evaluated by NAFDAC or any other regulator for the treatment, cure or prevention of any disease.',
-    'Never disregard professional medical advice, delay seeking it, or stop a current treatment because of something in this report. Consult your doctor before beginning any new diet, exercise programme, supplement or medicine. In an emergency, go to the nearest hospital emergency department.',
+    'This report is private. It was prepared for the person named on the cover, and should only be read or shared with their permission.',
+    'It is an educational tool to support your consultation with an FXMed clinician. It does not diagnose any condition, and it does not replace an examination, your history or the judgement of the doctor treating you.',
+    'The FXMed optimal ranges are clinical reference points our team works to. They are narrower than laboratory ranges, are not used in every specialty, and are not personal targets. Support scores summarise patterns in the results supplied; they are not the probability of any disease.',
+    'The report covers only the tests that were done. A test that was not requested cannot be assessed, and a result on target does not rule out a problem elsewhere.',
+    'If a food, supplement or medicine is not flagged here, that does not mean it is safe for you. Supplements named in this report have not been approved by NAFDAC or any other regulator to treat, cure or prevent disease, and should be agreed with your clinician before you start them.',
+    'Do not stop, start or change a treatment, or put off seeing a doctor, because of something in this report. In an emergency, go to the nearest hospital emergency department.',
     'Calculated markers are worked out from your other results. HOMA-IR uses fasting glucose (mmol/L) × fasting insulin (µIU/mL) ÷ 22.5.',
   ]
-  return `${title('Disclaimer')}<div style="margin-top:1.4em">${paragraphs.map(text => `<p style="font-size:1em;line-height:1.65;color:${BODY};margin:0 0 1em">${esc(text)}</p>`).join('')}</div>
-    <div style="margin-top:2em;font-size:.95em;color:${MUTED}">Prepared by WITS FxMed Nigeria Ltd, Lagos, Nigeria.</div>`
+  return `${title('About This Report')}<div style="margin-top:1.4em">${paragraphs.map(text => `<p style="font-size:1em;line-height:1.65;color:${BODY};margin:0 0 1em">${esc(text)}</p>`).join('')}</div>
+    <div style="margin-top:2em;font-size:.95em;color:${MUTED}">Prepared by WITS FxMed Nigeria Ltd, Lagos, Nigeria. Questions about your report? Speak to your FXMed care team.</div>`
 }
 
-const GROUP_TABS: Record<Exclude<AreaGroup, 'plan'>, string> = { system: 'Body Systems', accessory: 'Accessory Systems', nutrient: 'Nutrient Status', deficiency: 'Nutrient Needs' }
+const GROUP_TABS: Record<Exclude<AreaGroup, 'plan'>, string> = { system: 'Core Systems', accessory: 'Whole-Body Processes', nutrient: 'Nourishment', deficiency: 'Nutrient Gaps' }
 const SEVERITY: Record<Band, number> = { alarm_high: 0, alarm_low: 0, above_standard: 1, below_standard: 1, above_optimal: 2, below_optimal: 2, optimal: 9, unknown: 9 }
 
 /** Every page of the report, as HTML, in order. */
@@ -543,60 +575,57 @@ export function buildFmReportPages(data: FmReportData) {
   const { narrative } = data
   const pages: Page[] = []
   const add = (section: SectionId, tab: string, body: Page['body'], kind: Page['kind'] = 'content') => pages.push({ kind, section, tab, body })
-  const divider = (id: SectionId) => add(id, '', toc => dividerBody(SECTIONS.find(item => item.id === id)!, toc), 'divider')
+  const divider = (id: SectionId) => add(id, '', toc => dividerBody(sectionOf(id), toc), 'divider')
 
-  // 1. Introduction
-  add('intro', '', () => coverBody(data), 'cover')
-  add('intro', "What's Inside?", toc => tocBody(toc))
-  divider('intro')
-  add('intro', 'Functional Analysis', () => `${title('Functional Blood Chemistry Analysis')}
-    ${lead('Functional blood chemistry analysis organises and interprets your blood results to show the state of your main body systems, your nutrient status, and the trends towards or away from health, so that early change can be acted on.')}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.8em;margin-top:2em">${BCA_COLUMNS.map(([name, text]) => `<div style="border-top:3px solid ${GREEN};padding-top:1em"><div style="font-weight:800;font-size:1.1em;text-transform:uppercase;letter-spacing:.02em;margin-bottom:.6em;line-height:1.35">${esc(name)}</div><div style="font-size:.98em;line-height:1.65;color:${BODY}">${esc(text)}</div></div>`).join('')}</div>`)
-  add('intro', 'At a Glance', () => glanceBody(analysis, narrative))
+  // Part 1. Start here
+  add('start', '', () => coverBody(data), 'cover')
+  add('start', 'Report Map', toc => mapBody(toc))
+  divider('start')
+  add('start', 'Our Method', () => methodBody())
+  add('start', 'Your Snapshot', () => snapshotBody(analysis, narrative))
 
-  // 2. Assessment
-  divider('assessment')
+  // Part 2. Your body, system by system
+  divider('body')
   for (const group of ['system', 'accessory', 'nutrient', 'deficiency'] as const) {
     const items = analysis.group(group)
     if (!items.length) continue
     const tab = GROUP_TABS[group]
     const info = AREA_GROUPS[group]
-    add('assessment', tab, () => `${title(info.title)}${lead(info.intro)}${lead('Each area with a likelihood of 50% or more is explained on the pages that follow, with the biomarkers behind it.')}${likelihoodChart(items)}`)
-    chunk(items.filter(needsDetail), group === 'deficiency' ? 4 : 3).forEach((part, page) => add('assessment', tab, () =>
-      `${page ? '<div style="height:1.6em"></div>' : `${subtitle(`${info.title} Details`)}${lead('The likelihood, an explanation of each area, and the biomarkers considered with the reasons behind the result.')}<div style="height:2em"></div>`}${part.map(areaDetail).join('')}`))
+    add('body', tab, () => `${title(info.title)}${lead(info.intro)}${lead('Every area scoring 50% or more is explained over the page, with the markers that moved its score.')}${likelihoodChart(items)}`)
+    chunk(items.filter(needsDetail), group === 'deficiency' ? 4 : 3).forEach((part, page) => add('body', tab, () =>
+      `${page ? '<div style="height:1.6em"></div>' : `${subtitle(`A closer look: ${info.title}`)}${lead('For each area: its support score, what the area does in the body, and the markers that shaped the score.')}<div style="height:2em"></div>`}${part.map(areaDetail).join('')}`))
   }
 
-  // 3. Analysis
-  divider('analysis')
+  // Part 3. Your care plan
+  divider('plan')
+  add('plan', 'Focus Areas', () => `${title('Your Focus Areas')}${lead(AREA_GROUPS.plan.intro)}${lead(analysis.plan.length ? 'Each focus area has its own page: the results behind it, your targets, and what we will do about it through food, daily habits, supplements to discuss with your clinician, and tests to repeat.' : 'No area scored high enough to need a plan of its own. Keep up the basics on the Next 90 Days page and retest as advised.')}${analysis.plan.length ? likelihoodChart(analysis.plan, 'Focus areas') : ''}`)
+  analysis.plan.forEach(item => add('plan', 'Focus Areas', () => improvementPage(item, narrative, analysis.child)))
+  const recommendations = narrative.recommendations.length ? narrative.recommendations : defaultRecommendations(analysis)
+  chunk(recommendations, 6).forEach((part, page) => add('plan', 'First Moves', () =>
+    `${page ? '<div style="height:1.6em"></div>' : `${title('Your First Moves')}${lead('If you do nothing else, start here. These are the most important actions from your plan, most pressing first; anything marked urgent needs a doctor before the rest.')}<div style="height:1.8em"></div>`}<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em">${part.map(recommendationCard).join('')}</div>`))
+  add('plan', 'Next 90 Days', () => next90Body(analysis, narrative, data.patient))
+
+  // Part 4. Your results in full
+  divider('results')
   const rows = FM_PANELS.flatMap(panel => analysis.summary.assessed.filter(entry => entry.panel === panel.id).map((entry, index) => ({ panel: panel.name, entry, first: index === 0 })))
   const resultPages = rows.length ? [rows.slice(0, 5), ...chunk(rows.slice(5), 10)] : []
-  resultPages.forEach((part, page) => add('analysis', 'Blood Test Results', () => (page ? '<div style="height:1.4em"></div>'
-    : `${title('Blood Test Results')}${lead('Each biomarker is shown against five bands: the standard laboratory range at either end, the functional optimal range in the middle, and the bands between. Biomarkers outside the optimal range are explained in the Out of Optimal Range section.')}${bandCounts(analysis)}<div style="height:2.2em"></div>`)
+  resultPages.forEach((part, page) => add('results', 'Every Marker', () => (page ? '<div style="height:1.4em"></div>'
+    : `${title('Every Marker')}${lead('Each marker sits on a five-band scale: on target in the green centre, off target either side of it, and outside the laboratory\'s range at the ends. Markers that are off target are explained on the Off Target pages.')}${bandCounts(analysis)}<div style="height:2.2em"></div>`)
     + part.map((row, position) => `${row.first || position === 0 ? `<div style="font-size:1.15em;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin:${position ? '1.2em' : '0'} 0 1em">${esc(row.panel)}${row.first ? '' : ' (continued)'}</div>` : ''}${resultRow(row.entry)}`).join('')))
 
   const out = analysis.summary.assessed.filter(entry => directionOf(entry)).sort((a, b) => SEVERITY[bandOf(a)] - SEVERITY[bandOf(b)])
   if (out.length) {
-    add('analysis', 'Out of Optimal Range', () => `${title('Out of Optimal Range')}${lead('These biomarkers are outside the optimal range. For each one you will find what it measures and the most common reasons it runs high or low. Your clinician will interpret them together with your history and symptoms.')}${bandCounts(analysis)}`)
-    for (const [name, list] of [['Above Optimal', out.filter(entry => directionOf(entry) === 'high')], ['Below Optimal', out.filter(entry => directionOf(entry) === 'low')]] as const) {
-      chunk(list, 8).forEach((part, page) => add('analysis', 'Out of Optimal Range', () =>
+    add('results', 'Off Target', () => `${title('Off Target')}${lead('These markers sit outside the FXMed optimal range, the furthest out first. For each one: what it measures, and the usual reasons it runs high or low. Your clinician will read them alongside your history and symptoms.')}${bandCounts(analysis)}`)
+    for (const [name, list] of [['Running high', out.filter(entry => directionOf(entry) === 'high')], ['Running low', out.filter(entry => directionOf(entry) === 'low')]] as const) {
+      chunk(list, 8).forEach((part, page) => add('results', 'Off Target', () =>
         `<div style="font-size:2.1em;color:${GREEN};line-height:1.3;margin:1.3em 0 1em">${name}${page ? ' (continued)' : ''}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:2em 2.2em">${part.map(outOfRangeCard).join('')}</div>`))
     }
   }
 
-  // 4. Health improvement plan
-  divider('plan')
-  add('plan', 'Health Improvement', () => `${title('Health Improvement')}${lead(AREA_GROUPS.plan.intro)}${lead(analysis.plan.length ? 'Each area below is explained on its own page, with the results behind it and a practical plan covering nutrition, lifestyle, supplements to discuss with your clinician and follow-up tests.' : 'None of the improvement areas reached the 50% threshold. Keep up the foundations on the Next Steps page and retest as advised.')}${analysis.plan.length ? likelihoodChart(analysis.plan, 'Needs attention') : ''}`)
-  analysis.plan.forEach(item => add('plan', 'Health Improvement', () => improvementPage(item, narrative, analysis.child)))
-  const recommendations = narrative.recommendations.length ? narrative.recommendations : defaultRecommendations(analysis)
-  chunk(recommendations, 6).forEach((part, page) => add('plan', 'Priority Actions', () =>
-    `${page ? '<div style="height:1.6em"></div>' : `${title('Your Priority Actions')}${lead('The most important actions from your plan, in order of priority. Urgent items need medical attention before anything else.')}<div style="height:1.8em"></div>`}<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2em">${part.map(recommendationCard).join('')}</div>`))
-  add('plan', 'Next Steps', () => nextStepsBody(analysis, narrative, data.patient))
+  // Closing notes
+  add('notes', 'About This Report', () => notesBody())
 
-  // 5. Appendix
-  divider('appendix')
-  add('appendix', 'Disclaimer', () => disclaimerBody())
-
-  // Contents and header tabs: the first page of each section's tab. The cover is page 0.
+  // Contents and header tabs: the first page of each part's tab. The cover is page 0.
   const toc: TocIndex = new Map()
   pages.forEach((item, number) => { if (item.kind === 'content' && !toc.has(`${item.section}:${item.tab}`)) toc.set(`${item.section}:${item.tab}`, number) })
   return pages.map((item, number) => {

@@ -9,7 +9,7 @@ import RecordResults from './RecordResults'
 import ReportBuilder from './ReportBuilder'
 import { ImportPanel, ResultsTable, inputClass, mergeEntries } from './ResultsEntry'
 
-// Functional medicine lab analysis: enter a patient's results (typed, or read
+// Functional Health Analysis lab report: enter a patient's results (typed, or read
 // from the lab's report), see them against lab and FM-optimal ranges, and
 // issue the Functional Health Analysis report.
 
@@ -41,9 +41,9 @@ function Hero({ children }: { children?: React.ReactNode }) {
   return <section className="relative overflow-hidden rounded-[28px] bg-green-deep p-6 text-white shadow-[0_18px_50px_rgba(26,61,46,0.16)] sm:p-8">
     <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-gold/20 blur-3xl" />
     <div className="relative flex flex-wrap items-end justify-between gap-6">
-      <div><span className="inline-flex rounded-full bg-gold px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-green-deep">Functional Medicine</span>
-        <h2 className="mt-4 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">Lab analysis</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/65">Enter or upload lab results, compare every marker against laboratory and functional-medicine optimal ranges, and issue the Functional Health Analysis report.</p></div>
+      <div><span className="inline-flex rounded-full bg-gold px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-green-deep">Functional Health Analysis</span>
+        <h2 className="mt-4 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">Lab report</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/65">Enter or upload lab results, read every marker against the laboratory range and the FXMed optimal range, and issue the patient's Functional Health Analysis lab report.</p></div>
       {children}
     </div>
   </section>
@@ -275,9 +275,9 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
   if (loading) return <div className="flex min-h-64 items-center justify-center"><span className="h-9 w-9 animate-spin rounded-full border-2 border-green-deep/15 border-t-green-deep" /></div>
 
   const steps: Array<{ id: Step; label: string; Icon: typeof FlaskIcon }> = [
-    { id: 'results', label: '1. Patient & results', Icon: FlaskIcon },
-    { id: 'analysis', label: `2. Analysis${summary.total ? ` (${summary.total})` : ''}`, Icon: ChartBarIcon },
-    { id: 'report', label: '3. Report', Icon: FileTextIcon },
+    { id: 'results', label: '1. Results in', Icon: FlaskIcon },
+    { id: 'analysis', label: `2. Clinical read${summary.total ? ` (${summary.total})` : ''}`, Icon: ChartBarIcon },
+    { id: 'report', label: '3. Patient report', Icon: FileTextIcon },
   ]
 
   return <div className="space-y-6">

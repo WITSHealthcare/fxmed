@@ -1,4 +1,4 @@
-// Results already in a patient's EMR record, ready for an FM lab analysis:
+// Results already in a patient's EMR record, ready for a Functional Health Analysis lab report:
 // the investigation results saved on their Investigations tab, and the lab
 // reports in their documents that have not been read yet.
 

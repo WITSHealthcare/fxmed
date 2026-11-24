@@ -9,7 +9,7 @@ import { REPORT_COLUMNS, mapReportRow } from '@/lib/investigations'
 export const runtime = 'nodejs'
 export const maxDuration = 120
 
-// Functional medicine lab analyses: saved analyses, reading results from an
+// Functional Health Analysis lab reports: saved analyses, reading results from an
 // uploaded lab report, and the AI interpretation. See lib/fmBiomarkers.ts.
 
 const MAX_READ_BYTES = 15 * 1024 * 1024
@@ -23,7 +23,7 @@ function fail(message: string, status = 400) {
 function serverError(error: unknown) {
   console.error('FM analysis error:', error)
   const code = typeof error === 'object' && error && 'code' in error ? String((error as { code: unknown }).code) : ''
-  if (code === '42P01' || code === 'PGRST205') return fail('The FM lab analysis migration (037) has not been applied yet.', 500)
+  if (code === '42P01' || code === 'PGRST205') return fail('The Functional Health Analysis lab report migration (037) has not been applied yet.', 500)
   return fail(emrErrorMessage(error), 500)
 }
 
@@ -123,7 +123,7 @@ async function reportUploadUrl(request: NextRequest, body: Record<string, any>) 
   try {
     if (!await patientExists(database, body.patient_id)) return fail('Link the analysis to a registered patient first.')
     if (!(Number(body.size) > 0) || Number(body.size) > MAX_REPORT_BYTES) return fail('The report must be smaller than 15 MB.')
-    const name = (str(body.file_name, 160) || 'Functional-Health-Report.pdf').replace(/[^a-zA-Z0-9._-]/g, '_')
+    const name = (str(body.file_name, 160) || 'Functional-Health-Analysis-Lab-Report.pdf').replace(/[^a-zA-Z0-9._-]/g, '_')
     const path = `${body.patient_id}/${crypto.randomUUID()}-${name.endsWith('.pdf') ? name : `${name}.pdf`}`
     const { data, error } = await database.storage.from(DOCUMENT_BUCKET).createSignedUploadUrl(path)
     if (error) throw error
@@ -154,7 +154,7 @@ async function registerReport(request: NextRequest, body: Record<string, any>) {
       return fail('The report must be smaller than 15 MB.')
     }
     const { data, error } = await database.from('emr_documents').insert({
-      patient_id: patientId, category: 'laboratory', title: cleanText(body.title, 240) || 'Functional Health Report',
+      patient_id: patientId, category: 'laboratory', title: cleanText(body.title, 240) || 'Functional Health Analysis: Lab Report',
       storage_path: path, original_name: fileName.replace(/^[0-9a-f-]{36}-/, ''), mime_type: 'application/pdf', file_size: size,
       notes: cleanText(body.notes, 2000), uploaded_by: user.id,
     }).select('*').single()
@@ -290,8 +290,9 @@ async function interpret(request: NextRequest, body: Record<string, any>) {
 
 type Database = NonNullable<Awaited<ReturnType<typeof getEmrContext>>>['database']
 
-// Issued FM reports are filed as lab documents too; they are not lab results.
-const FM_REPORT_TITLE = /^functional health analysis/i
+// Issued lab reports are filed as lab documents too; they are not lab results.
+// Reports issued before the rename are titled "Functional Health Report".
+const FM_REPORT_TITLE = /^functional health (analysis|report)/i
 
 /**
  * The investigation results saved for the patient, and the lab reports in

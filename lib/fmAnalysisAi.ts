@@ -1,4 +1,4 @@
-// Server-only AI steps of the functional medicine lab analysis: reading
+// Server-only AI steps of the Functional Health Analysis lab report: reading
 // results out of a lab report, and writing the interpretation. Classification
 // itself (lab vs FM status, scores, urgency) is done in lib/fmBiomarkers.ts,
 // never by the model, so the numbers on the report are always reproducible.
@@ -98,14 +98,14 @@ function interpretationPrompt(patient: FmPatient, entries: FmEntry[], context: s
   const analysis = analyse(entries, patient.sex, age)
   const outOfOptimal = analysis.summary.assessed.filter(entry => directionOf(entry))
   const lines = outOfOptimal.map(entry =>
-    `- ${entry.name}: ${entry.value} ${entry.unit} | ${BAND_LABEL[bandOf(entry)]} | lab range ${entry.labRange || 'n/a'} | FM optimal ${entry.fmRange || 'n/a'}${entry.urgent ? ' | ALARM' : ''}${entry.calculated ? ' | calculated' : ''}`)
+    `- ${entry.name}: ${entry.value} ${entry.unit} | ${BAND_LABEL[bandOf(entry)]} | lab range ${entry.labRange || 'n/a'} | FXMed optimal ${entry.fmRange || 'n/a'}${entry.urgent ? ' | ALARM' : ''}${entry.calculated ? ' | calculated' : ''}`)
   const optimal = analysis.summary.assessed.filter(entry => !directionOf(entry)).map(entry => `${entry.name} ${entry.value} ${entry.unit}`.trim())
   const areas = analysis.plan.map(item => `- ${item.area.name}: ${item.score}%${item.urgent ? ' (alarm marker)' : ''} | markers: ${item.contributors.map(({ entry, direction }) => `${entry.name} ${direction === 'low' ? '↓' : '↑'}`).join(', ')}`)
-  return `You are a functional medicine physician writing the interpretation for a patient's Functional Health Report at WITS FxMed Nigeria. The statuses and likelihood scores below were calculated by the clinic's software; do not re-classify them. Write for a patient who will read this with their doctor: plain English, specific to these numbers, clinically sound, never alarmist and never dismissive. Do not invent results that are not listed. Practical advice should suit a Nigerian patient (local foods, availability).
+  return `You are a functional medicine physician at WITS FxMed Nigeria, a functional medicine and concierge care clinic in Lagos, writing the interpretation for a patient's Functional Health Analysis lab report. The statuses and support scores below were calculated by the clinic's software; do not re-classify them. Write in FXMed's voice for a patient who will read this with their clinician: warm, direct, plain English, specific to these numbers, clinically sound, never alarmist and never dismissive. Do not invent results that are not listed. Practical advice should suit a Nigerian patient (local foods, availability). Do not name, cite or credit any outside company, report, course, talk or speaker.
 
 PATIENT: ${patient.age || 'unknown age'} years, ${patient.sex || 'sex not recorded'}
 ${child ? 'THIS PATIENT IS A CHILD. The results were judged against paediatric reference ranges, not adult optimal ranges. Write for the parents, about the child.\n' : ''}${context ? `CLINICAL CONTEXT FROM THE CLINICIAN:\n${context.slice(0, 3000)}\n` : ''}
-HEALTH IMPROVEMENT AREAS FLAGGED (likelihood of dysfunction):
+FOCUS AREAS FOR THE CARE PLAN (support score 0-100%: how strongly the results suggest the area needs attention):
 ${areas.join('\n') || 'None above 50%.'}
 
 RESULTS OUTSIDE OPTIMAL:
@@ -126,7 +126,7 @@ Rules:
 - findings: the 3-5 most important patterns, most serious first. Connect related markers (e.g. high insulin + high triglycerides + low HDL) rather than listing each alone. Any ALARM result is an urgent finding.
 - markerNotes: one for every result outside optimal, and none for the others.
 - recommendations: 4-6 groups ordered by priority, each with 3-5 items covering food, lifestyle, supplements to discuss and follow-up tests as relevant. Put any medical referral first.
-- nextSteps: exactly 3 groups: seeing their clinician, follow-up tests with timing, and the foundations to start now.
+- nextSteps: exactly 3 groups for the next 90 days: the results consultation with their FXMed clinician, follow-up tests with timing, and the everyday basics to start now.
 - Use the units given. ${child ? 'Use paediatric reasoning throughout. Never give adult supplement doses: give child doses by body weight (mg/kg) or by age where standard, only for supplements that are appropriate for a child, and say that the child\'s doctor must agree every medicine, supplement and dose.' : 'Give typical adult supplement doses and always say to agree medicines and supplements with their doctor.'}`
 }
 

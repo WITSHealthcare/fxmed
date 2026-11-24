@@ -32,7 +32,7 @@ export const emrViewGroups: Array<{ label: string; views: Array<{ id: EmrView; l
       { id: 'medications', label: 'Medications' },
       { id: 'care_plans', label: 'Care plans' },
       { id: 'documents', label: 'Documents' },
-      { id: 'health_analysis', label: 'Health analysis' },
+      { id: 'health_analysis', label: 'Health analysis: intake' },
     ],
   },
 ]
