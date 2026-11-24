@@ -9,7 +9,8 @@ import {
   FM_BIOMARKERS, ageInYears, createEntry, defaultRanges, isChild, matchBiomarker,
   type FmEntry, type FmNarrative, type FmPatient, type Priority, type Sex,
 } from '@/lib/fmBiomarkers'
-import { STOOL_MARKERS, createStoolEntry, matchStoolMarker, stoolMarkerById, type StoolEntry, type StoolTest } from '@/lib/stoolMarkers'
+import { STOOL_MARKERS, STOOL_STATUS_LABEL, createStoolEntry, matchStoolMarker, stoolMarkerById, stoolOutOfRange, stoolStatus, type StoolEntry, type StoolTest } from '@/lib/stoolMarkers'
+import { assessStool } from '@/lib/stoolAssessment'
 
 function parseJson(output: string) {
   const fenced = output.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
@@ -143,7 +144,21 @@ export async function extractStoolResults(files: ReportAttachment[], pastedText:
 // ---------------------------------------------------------------------------
 // Interpretation
 
-function interpretationPrompt(patient: FmPatient, entries: FmEntry[], context: string) {
+/** The stool test as the interpretation sees it: the gut findings and the results outside the lab's reference. */
+function stoolSection(stool: StoolTest | null | undefined) {
+  const gut = assessStool(stool ?? null)
+  if (!stool || !gut.tested) return ''
+  const findings = gut.findings.filter(finding => finding.tone !== 'nodata').map(finding => `- ${finding.title}: ${finding.tone}${finding.review ? ' (clinician review)' : ''}${finding.summary ? ` | ${finding.summary}` : ''}`)
+  const out = stool.entries.filter(entry => entry.value.trim() && stoolOutOfRange(stoolStatus(entry))).map(entry => `- ${entry.name}: ${entry.value} ${entry.unit} | ${STOOL_STATUS_LABEL[stoolStatus(entry)]} | lab reference ${entry.reference || 'n/a'}`)
+  return `\nSTOOL TEST (${stool.lab || 'stool test'}${stool.collectedAt ? `, collected ${stool.collectedAt}` : ''}), read against the lab's own reference, separate from the blood scores:
+GUT FINDINGS:
+${findings.join('\n')}
+STOOL RESULTS OUTSIDE REFERENCE:
+${out.join('\n') || 'None.'}
+`
+}
+
+function interpretationPrompt(patient: FmPatient, entries: FmEntry[], context: string, stool?: StoolTest | null) {
   const age = ageInYears(patient.age)
   const child = isChild(age)
   const analysis = analyse(entries, patient.sex, age)
@@ -163,7 +178,7 @@ RESULTS OUTSIDE OPTIMAL:
 ${lines.join('\n') || 'None.'}
 
 RESULTS WITHIN OPTIMAL: ${optimal.join('; ') || 'None.'}
-
+${stoolSection(stool)}
 Return valid JSON only, with no commentary, in exactly this shape:
 {
   "summary": "3-4 sentences: the overall picture, the main patterns and what matters most",
@@ -178,11 +193,11 @@ Rules:
 - markerNotes: one for every result outside optimal, and none for the others.
 - recommendations: 4-6 groups ordered by priority, each with 3-5 items covering food, lifestyle, supplements to discuss and follow-up tests as relevant. Put any medical referral first.
 - nextSteps: exactly 3 groups for the next 90 days: the results consultation with their FXMed clinician, follow-up tests with timing, and the everyday basics to start now.
-- Use the units given. ${child ? 'Use paediatric reasoning throughout. Never give adult supplement doses: give child doses by body weight (mg/kg) or by age where standard, only for supplements that are appropriate for a child, and say that the child\'s doctor must agree every medicine, supplement and dose.' : 'Give typical adult supplement doses and always say to agree medicines and supplements with their doctor.'}`
+- ${stool ? 'Connect the stool test with the blood results where they agree (e.g. low albumin with low elastase). Any stool finding marked for clinician review (a pathogen, parasite, H. pylori or blood in the stool) is a finding to discuss with the clinician: name it, but never recommend antibiotics, antimicrobials or antiparasitic treatment for it. Do not write markerNotes for stool results. ' : ''}Use the units given. ${child ? 'Use paediatric reasoning throughout. Never give adult supplement doses: give child doses by body weight (mg/kg) or by age where standard, only for supplements that are appropriate for a child, and say that the child\'s doctor must agree every medicine, supplement and dose.' : 'Give typical adult supplement doses and always say to agree medicines and supplements with their doctor.'}`
 }
 
-export async function interpretLabResults(patient: FmPatient, entries: FmEntry[], context: string) {
-  const { report: output, provider } = await generateClinicalReport(interpretationPrompt(patient, entries, context), [])
+export async function interpretLabResults(patient: FmPatient, entries: FmEntry[], context: string, stool?: StoolTest | null) {
+  const { report: output, provider } = await generateClinicalReport(interpretationPrompt(patient, entries, context, stool), [])
   let parsed: Record<string, any>
   try {
     parsed = parseJson(output)
