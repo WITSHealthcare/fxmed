@@ -15,6 +15,7 @@ import {
 } from './fmAssessment'
 import { ageInYears, deviation, FM_PANELS, PRIORITY_COLOR, type AssessedEntry, type FmEntry, type Range, type FmNarrative, type FmPatient } from './fmBiomarkers'
 import { markerExplanation } from './fmMarkerInfo'
+import { PHENOAGE_MARKERS, phenoAge, type PhenoAgeMarker } from './phenoAge'
 import { assessStool, gutEvidence, type GutAssessment } from './stoolAssessment'
 import { parseStoolNumber, parseStoolReference, stoolNeedsReview, stoolStatus, STOOL_STATUS_LABEL, type StoolEntry, type StoolTest } from './stoolMarkers'
 
@@ -491,6 +492,76 @@ function healthScoreBody(analysis: Analysis) {
     ${liftBox(analysis)}`
 }
 
+// ---------------------------------------------------------------------------
+// Biological age
+
+type PhenoAgeReady = Extract<Analysis['phenoAge'], { status: 'ready' }>
+
+/** The catalogue marker behind each PhenoAge input; lymphocyte % has no optimal range of its own. */
+const PHENO_MARKER_IDS: Partial<Record<PhenoAgeMarker, string>> = {
+  albumin: 'albumin', creatinine: 'creatinine', glucose: 'fasting_glucose', crp: 'hs_crp',
+  mcv: 'mcv', rdw: 'rdw', alp: 'alp', wbc: 'wbc',
+}
+
+/**
+ * The results weighing most on the patient's PhenoAge: for each one outside
+ * FXMed optimal, how many years lower the model puts it with that result
+ * brought just to the edge of the optimal range and everything else unchanged.
+ */
+function phenoAgeWeights(read: PhenoAgeReady, analysis: Analysis) {
+  return PHENOAGE_MARKERS.flatMap(({ key, name }) => {
+    const entry = analysis.summary.assessed.find(item => item.markerId === PHENO_MARKER_IDS[key] && item.numeric !== null)
+    const range = entry?.fmRangeParsed
+    if (!entry || !range) return []
+    const value = read.inputs[key]
+    // Ranges are in the catalogue unit, as are the inputs (hs-CRP mg/L, the rest SI).
+    const target = range.low !== null && value < range.low ? range.low : range.high !== null && value > range.high ? range.high : null
+    if (target === null) return []
+    const years = read.phenoAge - phenoAge({ ...read.inputs, [key]: target }).phenoAge
+    return years >= 0.3 ? [{ name, entry, years, direction: value < target ? 'low' as const : 'high' as const }] : []
+  }).sort((a, b) => b.years - a.years)
+}
+
+/** A line from 20 to 90 years with the patient's age and biological age marked on it. */
+function ageLine(read: PhenoAgeReady, tone: Tone) {
+  const from = 20, to = 90
+  const at = (age: number) => 20 + (Math.min(to, Math.max(from, age)) - from) / (to - from) * 560
+  const actual = at(read.chronologicalAge), bio = at(read.phenoAge)
+  const ticks = [20, 30, 40, 50, 60, 70, 80, 90].map(age => `<line x1="${at(age)}" y1="56" x2="${at(age)}" y2="62" stroke="${FAINT}" stroke-width="1"/><text x="${at(age)}" y="76" text-anchor="middle" font-family="${SVG_FONT}" font-size="11" fill="${MUTED}">${age}</text>`).join('')
+  return `${svgOpen(62, 600, 84)}
+    <line x1="20" y1="56" x2="580" y2="56" stroke="${TRACK}" stroke-width="8" stroke-linecap="round"/>
+    <line x1="${Math.min(actual, bio)}" y1="56" x2="${Math.max(actual, bio)}" y2="56" stroke="${TONE[tone].light}" stroke-width="8"/>
+    ${ticks}
+    <circle cx="${actual}" cy="56" r="8" fill="#fff" stroke="${MUTED}" stroke-width="2.5"/>
+    <text x="${actual}" y="${bio < actual ? 30 : 22}" text-anchor="middle" font-family="${SVG_FONT}" font-size="12" fill="${MUTED}">Your age ${read.chronologicalAge}</text>
+    <circle cx="${bio}" cy="56" r="9" fill="${TONE[tone].solid}"/>
+    <text x="${bio}" y="${bio < actual ? 22 : 30}" text-anchor="middle" font-family="${SVG_FONT}" font-size="12" font-weight="700" fill="${TONE[tone].text}">Biological ${read.phenoAge.toFixed(1)}</text>
+  </svg>`
+}
+
+function biologicalAgeBody(read: PhenoAgeReady, analysis: Analysis) {
+  const gap = Math.round(read.gap * 10) / 10
+  const tone: Tone = gap <= -1 ? 'clear' : gap < 2 ? 'watch' : 'flag'
+  const words = Math.abs(gap) < 1 ? 'about the same as your age' : `${Math.abs(gap).toFixed(1)} years ${gap < 0 ? 'younger' : 'older'} than your age`
+  const weights = phenoAgeWeights(read, analysis).slice(0, 5)
+  const card = (label: string, value: string, color: string, sub: string) => `<div style="background:${CREAM};border-radius:1.2em;padding:1.3em 1.5em"><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${MUTED}">${label}</div><div style="font-size:3.4em;font-weight:400;letter-spacing:-.03em;line-height:1.1;color:${color};margin-top:.15em">${value}</div><div style="font-size:.9em;color:${BODY};margin-top:.2em">${sub}</div></div>`
+  return `${title('Your Biological Age')}
+    ${lead('Your biological age is the age your blood results look like, worked out from nine routine markers that track how the body is ageing: liver protein, kidney function, blood sugar, inflammation, immune cells, red cell size and spread, and a liver enzyme. People whose biological age is higher than their actual age tend to have more health problems in the years ahead; people whose biological age is lower tend to have fewer.')}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:1em;margin-top:1.8em;align-items:stretch">
+      ${card('Biological age', read.phenoAge.toFixed(1), TONE[tone].text, 'from your blood results')}
+      ${card('Your age', String(read.chronologicalAge), DEEP, 'on the day of your test')}
+      <div style="background:${DEEP};border-radius:1.2em;padding:1.3em 1.5em;color:#fff"><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${LIME}">In short</div><div style="font-size:1.12em;line-height:1.55;margin-top:.5em">Your results look <strong>${words}</strong>.</div></div>
+    </div>
+    <div style="margin-top:1.6em">${ageLine(read, tone)}</div>
+    ${read.cautions.length ? `<div style="margin-top:1.2em;background:${TONE.watch.tint};border-radius:1em;padding:1em 1.3em;font-size:.95em;line-height:1.55;color:${INK}">${read.cautions.map(item => `<div>${esc(item)}</div>`).join('')}</div>` : ''}
+    ${heading('What weighs most on your score').replace('margin-bottom:1em', 'margin:2em 0 .4em')}
+    ${weights.length
+      ? `<p style="font-size:.98em;line-height:1.6;color:${BODY};margin:0 0 .9em">The results outside the FXMed optimal range that count most, with how much lower your biological age would read if each one alone came back just inside the range.</p>
+        ${weights.map(item => `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:.55em 0;border-top:1px solid ${LINE};font-size:1em"><span style="color:${INK}">${esc(item.name)} <span style="color:${MUTED}">${esc(item.entry.value)} ${esc(item.entry.unit)} ${arrow(item.direction)}</span></span><span style="font-weight:800;color:${GREEN}">about ${item.years.toFixed(1)} years</span></div>`).join('')}`
+      : `<p style="font-size:.98em;line-height:1.6;color:${BODY};margin:0">Every marker behind your biological age is within the FXMed optimal range.</p>`}
+    <div style="margin-top:1.8em;border-top:1px solid ${LINE};padding-top:1.2em;font-size:.92em;line-height:1.6;color:${MUTED}">This measure, called PhenoAge, comes from studies following tens of thousands of adults for many years. It shows how your results compare with other people's, not a diagnosis. It moves a few years either way between tests, so the trend across your retests matters more than one reading. A lower number after changes is encouraging, but it has not yet been proven that lowering it lowers health risk.</div>`
+}
+
 /** Short names for the bubbles. */
 const shortName = (name: string) => name.replace(/ Function$| Regulation$| Balance$| Health$/, '').replace(' & ', ' & ')
 function wrapWords(text: string, width: number) {
@@ -893,7 +964,7 @@ function coverBody(data: FmReportData) {
     <div style="position:relative;padding:4.6em 0.8em 0">
       <img src="/logo-trimmed.png" style="height:3em;display:block" />
       <div style="margin-top:11em;font-size:.9em;font-weight:800;letter-spacing:.26em;text-transform:uppercase;color:${LIME}">WITS Functional Medicine &nbsp;·&nbsp; Lagos</div>
-      <div style="font-size:5em;font-weight:500;line-height:1.15;letter-spacing:-.03em;color:#fff;margin-top:.3em">Functional<br/>Health Analysis</div>
+      <div data-fm-lift style="font-size:5em;font-weight:500;line-height:1.15;letter-spacing:-.03em;color:#fff;margin-top:.3em">Functional<br/>Health Analysis</div>
       <div style="display:inline-block;margin-top:1em">${pill('Lab Report', true).replace('font-size:.8em', 'font-size:1.6em')}</div>
       <div style="font-size:1.25em;line-height:1.55;color:${ON_DARK};margin-top:1.3em;width:25em">A clinician-led reading of your lab results: where your body is doing well, where it needs support, and the plan we will follow together.</div>
     </div>
@@ -1225,6 +1296,7 @@ function notesBody() {
     'If a food, supplement or medicine is not flagged here, that does not mean it is safe for you. Supplements named in this report have not been approved by NAFDAC or any other regulator to treat, cure or prevent disease, and should be agreed with your clinician before you start them.',
     'Do not stop, start or change a treatment, or put off seeing a doctor, because of something in this report. In an emergency, go to the nearest hospital emergency department.',
     'Calculated markers are worked out from your other results. HOMA-IR uses fasting glucose (mmol/L) × fasting insulin (µIU/mL) ÷ 22.5.',
+    'Biological age is PhenoAge (Levine and colleagues, 2018), worked out from albumin, creatinine, fasting glucose, hs-CRP, lymphocyte percentage, MCV, RDW, alkaline phosphatase, white cell count and your age. It was developed and validated in large population studies in the United States and the United Kingdom.',
   ]
   const list = (label: string, items: string[], color: string, mark: string) => `<div><div style="font-size:.78em;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:${color};margin-bottom:.8em">${label}</div>
       ${items.map(item => `<div style="display:flex;gap:.7em;align-items:baseline;margin-bottom:.55em;font-size:.98em;line-height:1.5;color:${BODY}"><span style="flex:none;font-weight:800;color:${color}">${mark}</span><span>${esc(item)}</span></div>`).join('')}</div>`
@@ -1282,6 +1354,8 @@ export function buildFmReportPages(data: FmReportData) {
   add('start', 'Two Views', () => twoViewsBody(analysis))
   add('start', 'Your Snapshot', () => snapshotBody(analysis, narrative))
   if (analysis.summary.assessed.length) add('start', 'Health Score', () => healthScoreBody(analysis))
+  const bio = analysis.phenoAge
+  if (bio.status === 'ready') add('start', 'Biological Age', () => biologicalAgeBody(bio, analysis))
 
   // Part 2. Your body, system by system
   divider('body')

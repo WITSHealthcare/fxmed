@@ -11,10 +11,11 @@
 // AI and the clinician can then personalise the wording and the plan.
 
 import {
-  canonicalValue, createEntry, isChild, markerById, summarize,
+  canonicalValue, createEntry, isChild, markerById, normalizeUnit, parseValue, summarize,
   type AreaPlan, type AssessedEntry, type FmEntry, type FmNarrative, type Priority, type Sex,
 } from './fmBiomarkers'
 import { markerExplanation } from './fmMarkerInfo'
+import { PHENOAGE_MARKERS, phenoAge, phenoAgeCautions, type PhenoAgeInputs, type PhenoAgeMarker, type PhenoAgeResult } from './phenoAge'
 
 // ---------------------------------------------------------------------------
 // Where a result sits
@@ -537,6 +538,55 @@ function scoreArea(area: Area, byMarker: Map<string, AssessedEntry>, sex: Sex): 
   }
 }
 
+// ---------------------------------------------------------------------------
+// Biological age
+
+export type PhenoAgeRead =
+  | ({ status: 'ready'; inputs: PhenoAgeInputs; cautions: string[] } & PhenoAgeResult)
+  | { status: 'missing'; missing: string[] }
+  | { status: 'no_age' }
+  | { status: 'child' }
+
+/** Lymphocytes as a percentage: reported that way, or worked out from the absolute count and WBC. */
+function lymphocytePercent(entries: FmEntry[], wbc: number | null): number | null {
+  const filled = entries.filter(entry => entry.value.trim())
+  const isPercent = (entry: FmEntry) => normalizeUnit(entry.unit) === '%'
+  const reported = filled.find(entry => isPercent(entry) && (entry.markerId === 'lymphocytes' || /lymph/i.test(entry.name)))
+  if (reported) return parseValue(reported.value)
+  const absolute = filled.find(entry => entry.markerId === 'lymphocytes' && !isPercent(entry))
+  const count = absolute ? canonicalValue(absolute) : null
+  return count !== null && wbc ? (count / wbc) * 100 : null
+}
+
+/**
+ * PhenoAge from a set of results, when all nine markers are there in units
+ * the catalogue can convert. Adults only.
+ */
+export function phenoAgeFrom(entries: FmEntry[], age?: number | null): PhenoAgeRead {
+  if (age === null || age === undefined || !Number.isFinite(age)) return { status: 'no_age' }
+  if (isChild(age) || age < 18) return { status: 'child' }
+  const value = (id: string) => {
+    const entry = entries.find(item => item.markerId === id && item.value.trim())
+    return entry ? canonicalValue(entry) : null
+  }
+  const wbc = value('wbc')
+  const found: Record<PhenoAgeMarker, number | null> = {
+    albumin: value('albumin'),
+    creatinine: value('creatinine'),
+    glucose: value('fasting_glucose'),
+    crp: value('hs_crp'),
+    lymphocytePct: lymphocytePercent(entries, wbc),
+    mcv: value('mcv'),
+    rdw: value('rdw'),
+    alp: value('alp'),
+    wbc,
+  }
+  const missing = PHENOAGE_MARKERS.filter(marker => found[marker.key] === null || !Number.isFinite(found[marker.key] as number)).map(marker => marker.name)
+  if (missing.length) return { status: 'missing', missing }
+  const inputs = { ...(found as Record<PhenoAgeMarker, number>), age }
+  return { status: 'ready', inputs, cautions: phenoAgeCautions(inputs), ...phenoAge(inputs) }
+}
+
 export type Analysis = ReturnType<typeof analyse>
 
 /** The whole assessment of a set of results; `age` in years, where known. */
@@ -554,7 +604,7 @@ export function analyse(entries: FmEntry[], sex: Sex, age?: number | null) {
   summary.assessed.forEach(entry => { bands[bandOf(entry)] += 1 })
   // An area with a result past an alarm limit always needs attention, and comes first.
   const plan = group('plan').filter(item => item.score >= 50 || item.urgent).sort((a, b) => Number(b.urgent) - Number(a.urgent) || b.score - a.score)
-  return { entries: all, summary, areas, group, bands, plan, child: isChild(age) }
+  return { entries: all, summary, areas, group, bands, plan, child: isChild(age), phenoAge: phenoAgeFrom(all, age) }
 }
 
 /** Whether an area's support score is high enough to get its own explanation. */
