@@ -3,13 +3,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckCircleIcon, FileTextIcon, FolderOpenIcon, SparkleIcon } from '@phosphor-icons/react'
 import type { FmEntry, FmPatient, Sex } from '@/lib/fmBiomarkers'
-import { entriesFromReports, newestResults, usableResults, type PatientRecordResults, type RecordFile, type RecordReport } from '@/lib/fmRecordResults'
+import { latestReadings, newerFiles, usableResults, type PatientRecordResults, type RecordFile, type RecordReport } from '@/lib/fmRecordResults'
 
-// The results already in the linked patient's EMR record. When the analysis
-// has no results yet, the newest are brought in on their own: the latest
-// saved investigation results, or, if the newest lab report in the patient's
-// documents has no saved results, that report, read with AI. Anything else in
-// the record can be added from here, without uploading it again.
+// The results already in the linked patient's EMR record. The analysis keeps
+// the most recent reading of every test on its own: a new analysis takes the
+// most recent reading of each from the saved investigation results, and a
+// saved one takes any newer reading saved since. A lab report in the
+// patient's documents that is newer than every saved result, and has no saved
+// results of its own, is read with AI. Anything else in the record can be
+// added from here, without uploading it again.
 
 const api = '/api/admin/fm-analysis'
 const day = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -27,12 +29,14 @@ type Props = {
   patientId: string
   patientName: string
   sex: Sex
-  /** True while the analysis has no results, so the latest round can be added on its own. */
+  /** True while the analysis has no results, so the most recent reading of every test is added on its own. */
   empty: boolean
+  /** When the analysis was last saved with this patient; newer readings saved since then are added on their own. */
+  since: string | null
   onImported: (entries: FmEntry[], details: Partial<FmPatient>, source: string) => void
 }
 
-export default function RecordResults({ patientId, patientName, sex, empty, onImported }: Props) {
+export default function RecordResults({ patientId, patientName, sex, empty, since, onImported }: Props) {
   const [record, setRecord] = useState<PatientRecordResults | null>(null)
   const [error, setError] = useState('')
   const [added, setAdded] = useState<Set<string>>(new Set())
@@ -40,21 +44,22 @@ export default function RecordResults({ patientId, patientName, sex, empty, onIm
   const [reading, setReading] = useState<{ ids: string[]; automatic: boolean } | null>(null)
   const [readError, setReadError] = useState('')
   // Read when the record arrives, not when the panel first renders.
-  const latest = useRef({ sex, empty, onImported })
-  useEffect(() => { latest.current = { sex, empty, onImported } })
+  const latest = useRef({ sex, empty, since, onImported })
+  useEffect(() => { latest.current = { sex, empty, since, onImported } })
   // A read that finishes after the patient is unlinked is dropped.
   const alive = useRef(true)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
 
-  const addReports = (reports: RecordReport[]) => {
-    const entries = entriesFromReports(reports, latest.current.sex)
-    if (!entries.length) return
-    const titles = reports.map(report => `${report.title}, ${reportDate(report)}`).join('; ')
-    const collected = reports.map(report => isoDate(report.collectedAt)).find(Boolean) || ''
-    latest.current.onImported(entries, collected ? { collectedAt: collected } : {}, `the patient's record (${titles})`)
+  /** Adds the most recent reading of each test in the reports; with `after`, only those saved since. */
+  const addReports = (reports: RecordReport[], after: string | null = null) => {
+    const readings = latestReadings(reports, latest.current.sex, after)
+    if (!readings.entries.length) return
+    const titles = readings.reports.map(report => `${report.title}, ${reportDate(report)}`).join('; ')
+    const collected = readings.reports.map(report => isoDate(report.collectedAt)).find(Boolean) || ''
+    latest.current.onImported(readings.entries, collected ? { collectedAt: collected } : {}, `the patient's record (${titles})`)
     setAdded(current => {
       const next = new Set(current)
-      reports.forEach(report => next.add(report.id))
+      readings.reports.forEach(report => next.add(report.id))
       return next
     })
   }
@@ -70,10 +75,13 @@ export default function RecordResults({ patientId, patientName, sex, empty, onIm
       .then(result => {
         if (cancelled) return
         setRecord(result)
-        if (!latest.current.empty) return
-        const newest = newestResults(result)
-        if (newest.reports.length) addReports(newest.reports)
-        else if (newest.files.length) readFiles(newest.files, true)
+        const { empty, since } = latest.current
+        if (!empty && !since) return
+        const after = empty ? null : since
+        addReports(result.reports, after)
+        // Read after the saved results, so its newer readings replace theirs.
+        const files = newerFiles(result, after)
+        if (files.length) readFiles(files, true)
       })
       .catch(loadError => { if (!cancelled) setError(loadError.message) })
     return () => { cancelled = true }

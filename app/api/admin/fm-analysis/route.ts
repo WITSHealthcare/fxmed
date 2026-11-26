@@ -362,6 +362,7 @@ async function recordResults(database: Database, patientId: string): Promise<Pat
       title: order?.panel_title || report.reportMeta.reportTitle || 'Laboratory results',
       collectedAt: report.reportMeta.collectedAt,
       reportedAt: report.reportMeta.reportedAt,
+      createdAt: report.createdAt,
       savedAt: report.updatedAt || report.createdAt,
       results: report.results.map(result => ({ test: result.test, result: result.result, unit: result.unit, referenceRange: result.referenceRange })),
     }
