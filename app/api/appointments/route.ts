@@ -186,11 +186,15 @@ export async function POST(request: NextRequest) {
       if (linkError) throw linkError
     }
 
-    return NextResponse.json({ appointment: data, registrationQueued }, { status: 201 })
+    // Anyone can call this, so the reply says only that the booking was made.
+    // The stored row carries the matched patient record's id, and whether a
+    // registration was queued depends on that match: either would tell a
+    // caller whether an email or phone number belongs to an FXMed patient.
+    return NextResponse.json({ appointment: { id: data.id, status: data.status } }, { status: 201 })
   } catch (error: any) {
     console.error('Error creating appointment:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to create appointment' },
+      { error: 'We could not save your appointment. Please try again or contact FXMed.' },
       { status: 500 }
     )
   }

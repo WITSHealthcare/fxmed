@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { jsonLdScript } from '@/lib/seo'
 
 export type FaqItem = { question: string; answer: string }
 
@@ -32,7 +33,7 @@ export default function FaqSection({
 
   return (
     <section className={`${background} py-[90px] px-[5%]`}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(faqJsonLd) }} />
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="font-dm-sans font-bold text-green-deep text-[clamp(2rem,4vw,2.5rem)] leading-[1.15] mb-4">
