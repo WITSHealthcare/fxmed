@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { CheckCircleIcon, FileTextIcon, MagnifyingGlassIcon, TrendDownIcon, TrendUpIcon, WarningIcon, XIcon } from '@phosphor-icons/react'
-import { AREAS, AREA_GROUPS, PLAN_PARTS, analyse, planFor, priorityOf, scoreStatus, type AreaGroup, type AreaResult } from '@/lib/fmAssessment'
+import { AREAS, AREA_GROUPS, PLAN_PARTS, analyse, planFor, priorityOf, scoreStatus, type AreaGroup, type AreaResult, type PhenoAgeRead } from '@/lib/fmAssessment'
 import {
   FM_STATUS_LABEL, LAB_STATUS_LABEL, PRIORITY_COLOR, STATUS_COLOR, deviation, panelById,
   type AssessedEntry, type FmEntry, type FmNarrative, type Sex,
@@ -117,6 +117,32 @@ function StoolOnlyCard({ name, gut, areaId }: { name: string; gut: GutAssessment
   </div>
 }
 
+/** Biological age from the nine PhenoAge markers, beside the patient's own age. */
+function BiologicalAge({ read }: { read: PhenoAgeRead }) {
+  if (read.status === 'child') return null
+  const card = 'clinic-card rounded-card p-5 sm:p-6'
+  const heading = <div><h4 className="text-lg text-clinic-ink">Biological age</h4><p className="mt-1 text-xs text-clinic-muted">PhenoAge (Levine 2018), from nine routine blood results and age</p></div>
+  if (read.status === 'no_age') return <section className={card}>{heading}<p className="mt-3 text-sm text-clinic-muted">Add the patient&apos;s date of birth to work out their biological age.</p></section>
+  if (read.status === 'missing') return <section className={card}>{heading}<p className="mt-3 text-sm text-clinic-muted">Not calculated: these results are missing <span className="text-clinic-ink">{read.missing.join(', ')}</span>. All nine must come from the same blood draw.</p></section>
+  const gap = Math.round(read.gap * 10) / 10
+  const tone: RangeTone = gap <= -1 ? 'clear' : gap < 2 ? 'watch' : 'flag'
+  const words = Math.abs(gap) < 1 ? 'in line with their age' : `${Math.abs(gap).toFixed(1)} years ${gap < 0 ? 'younger' : 'older'} than their age`
+  return <section className={card}>
+    <div className="flex flex-wrap items-start justify-between gap-3">{heading}<StatusChip tone={tone}>{gap > 0 ? `+${gap.toFixed(1)}` : gap.toFixed(1)} years</StatusChip></div>
+    <div className="mt-4 grid gap-4 sm:grid-cols-[auto_auto_1fr] sm:items-end">
+      <div><p className="text-xs text-clinic-muted">Biological age</p><p className="clinic-number text-[2.6rem] leading-none" style={{ color: TONE_TEXT[tone] }}>{read.phenoAge.toFixed(1)}</p></div>
+      <div><p className="text-xs text-clinic-muted">Age</p><p className="clinic-number text-[2.6rem] leading-none text-clinic-muted">{read.chronologicalAge}</p></div>
+      <p className="text-sm text-clinic-ink sm:pb-1">Their blood results look <strong>{words}</strong>.</p>
+    </div>
+    {read.cautions.length > 0 && <ul className="mt-3 space-y-1 rounded-[16px] bg-[#f6e9cf]/60 p-3 text-xs text-clinic-ink">{read.cautions.map(item => <li key={item}>⚠ {item}</li>)}</ul>}
+    <details className="mt-3 text-xs text-clinic-muted">
+      <summary className="cursor-pointer font-semibold text-clinic-ink">How it is worked out</summary>
+      <p className="mt-2 leading-5">PhenoAge combines albumin, creatinine, fasting glucose, hs-CRP, lymphocyte %, MCV, RDW, alkaline phosphatase and white cell count with age into a 10-year mortality risk ({(read.mortality10y * 100).toFixed(1)}% here), then gives the age at which that risk is average. It was built on NHANES III and validated on NHANES IV and UK Biobank. Each year above actual age carries roughly 9% higher all-cause mortality risk. It ranks risk; it is not a diagnosis, and a lower score after treatment has not been shown to lower risk. Readings vary by a few years between tests, so follow the trend.</p>
+      <p className="mt-2 tabular-nums">Inputs: albumin {read.inputs.albumin} g/L · creatinine {read.inputs.creatinine} µmol/L · glucose {read.inputs.glucose} mmol/L · hs-CRP {read.inputs.crp} mg/L · lymphocytes {read.inputs.lymphocytePct.toFixed(1)}% · MCV {read.inputs.mcv} fL · RDW {read.inputs.rdw}% · ALP {read.inputs.alp} U/L · WBC {read.inputs.wbc} ×10⁹/L</p>
+    </details>
+  </section>
+}
+
 const SCORE_GROUPS: Array<[Exclude<AreaGroup, 'plan'>, string]> = [['system', 'Core systems'], ['accessory', 'Whole-body'], ['nutrient', 'Nourishment'], ['deficiency', 'Nutrient gaps']]
 
 export default function AnalysisDashboard({ entries, narrative, sex, age, stool = null }: { entries: FmEntry[]; narrative: FmNarrative; sex: Sex; age?: number | null; stool?: StoolTest | null }) {
@@ -168,6 +194,8 @@ export default function AnalysisDashboard({ entries, narrative, sex, age, stool 
         <Stat label="Urgent markers" value={summary.urgent.length} color={summary.urgent.length ? '#efc3bf' : clinic.sageLight} Icon={WarningIcon} />
       </div>
     </section>
+
+    <BiologicalAge read={analysis.phenoAge} />
 
     <section className={card}>
       <h4 className="text-lg text-clinic-ink">Panels at a glance</h4>
