@@ -27,13 +27,16 @@ export function mergeEntries(current: FmEntry[], incoming: FmEntry[], sex: Sex, 
     const marker = markerById(row.markerId)
     const unitChanged = entry.unit && entry.unit !== row.unit
     const ranges = marker && unitChanged ? defaultRanges(marker, entry.unit, sex, age) : null
-    next[index] = {
+    const merged = {
       ...row,
       value: entry.value,
       unit: entry.unit || row.unit,
       labRange: entry.labRange || (unitChanged ? ranges?.lab || '' : row.labRange),
       fmRange: unitChanged ? ranges?.fm || '' : row.fmRange,
     }
+    // The same reading brought in again is not an update.
+    if (merged.value === row.value && merged.unit === row.unit && merged.labRange === row.labRange && merged.fmRange === row.fmRange) continue
+    next[index] = merged
     updated++
   }
   return { entries: next, added, updated }

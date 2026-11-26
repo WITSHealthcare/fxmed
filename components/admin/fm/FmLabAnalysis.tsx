@@ -129,6 +129,8 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
   // Saves send the stool test once there has been one, so removing it is saved too.
   const hadStool = useRef(false)
   const [status, setStatus] = useState<'draft' | 'final'>('draft')
+  // The patient and time the analysis was last saved with when opened; readings saved since are brought in.
+  const [opened, setOpened] = useState<{ emrPatientId: string; savedAt: string } | null>(null)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [message, setMessage] = useState<{ tone: 'error' | 'ok'; text: string } | null>(null)
@@ -156,6 +158,7 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       setStatus(row.status)
       setEmrPatientId(row.emr_patient_id)
       if (row.emr_patient_id) setEmrPatientLabel(row.patient?.name || 'Linked patient')
+      if (row.emr_patient_id && row.updated_at) setOpened({ emrPatientId: row.emr_patient_id, savedAt: row.updated_at })
       setStep((row.entries || []).length ? 'analysis' : 'results')
     }).catch(loadError => setMessage({ tone: 'error', text: loadError.message || 'The analysis could not be loaded.' })).finally(() => setLoading(false))
   }, [id])
@@ -212,9 +215,10 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       return next
     })
     const counts = `${merge.added} added, ${merge.updated} updated`
+    const reissue = status === 'final' && (merge.added || merge.updated) ? ' Issue the report again so the patient\'s copy has them.' : ''
     setMessage({ tone: 'ok', text: source.startsWith('the patient\'s record')
-      ? `Brought in ${incoming.length} result${incoming.length === 1 ? '' : 's'} from ${source}: ${counts}.`
-      : `Read ${incoming.length} result${incoming.length === 1 ? '' : 's'} from ${source}: ${counts}. Check each value against the lab report.` })
+      ? `Brought in ${incoming.length} result${incoming.length === 1 ? '' : 's'} from ${source}: ${counts}.${reissue}`
+      : `Read ${incoming.length} result${incoming.length === 1 ? '' : 's'} from ${source}: ${counts}. Check each value against the lab report.${reissue}` })
   }
 
   const save = useCallback((nextStatus?: 'draft' | 'final', quiet = false) => {
@@ -330,8 +334,12 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       {steps.map(item => <button key={item.id} type="button" onClick={() => setStep(item.id)} className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition ${step === item.id ? 'bg-clinic-forest text-white' : 'text-clinic-muted hover:bg-clinic-ink/5 hover:text-clinic-ink'}`}><item.Icon size={20} weight={step === item.id ? 'fill' : 'regular'} className={step === item.id ? 'text-clinic-sage-tint' : ''} />{item.label}</button>)}
     </nav>
 
+    {/* Kept open on every step, so newer readings in the record are brought in whichever step the analysis opens on. */}
+    {emrPatientId && <div hidden={step !== 'results'}>
+      <RecordResults key={emrPatientId} patientId={emrPatientId} patientName={patient.name} sex={patient.sex} empty={entries.length === 0}
+        since={opened?.emrPatientId === emrPatientId ? opened.savedAt : null} onImported={imported} />
+    </div>}
     {step === 'results' && <div className="space-y-6">
-      {emrPatientId && <RecordResults key={emrPatientId} patientId={emrPatientId} patientName={patient.name} sex={patient.sex} empty={entries.length === 0} onImported={imported} />}
       <ImportPanel sex={patient.sex} age={age} onImported={imported} another={entries.length > 0} />
       <ResultsTable entries={entries} sex={patient.sex} age={age} onChange={setEntries} />
       <StoolTestCard stool={stool} onChange={setStool} emrPatientId={emrPatientId} />
