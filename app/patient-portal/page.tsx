@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  CreditCardIcon,
   BellIcon,
   ChatCircleDotsIcon,
   CheckCircleIcon,
@@ -39,6 +40,7 @@ type PortalData = {
   notifications: any[]
   labOrders?: LabOrder[]
   invoices?: Invoice[]
+  onlinePayments?: boolean
 }
 
 const date = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -241,7 +243,7 @@ export default function PatientPortal() {
           {active === 'care_plan' && <CarePlans plans={data.carePlans} onChanged={() => load(true)} onError={setError} />}
           {active === 'lab_results' && <LabResults data={data} onUpload={orderId => { setNotice(''); setLabUpload({ orderId }) }} onError={setError} />}
           {active === 'documents' && <Documents documents={data.documents} onUpload={() => setShowUpload(true)} onError={setError} />}
-          {active === 'billing' && <Billing invoices={data.invoices || []} patient={patient} goTo={setActive} onError={setError} />}
+          {active === 'billing' && <Billing invoices={data.invoices || []} patient={patient} onlinePayments={Boolean(data.onlinePayments)} goTo={setActive} onError={setError} onPaid={() => load(true)} />}
           {active === 'forms' && <PatientForms />}
           {active === 'messages' && <Messages messages={data.messages} onSent={message => setData(current => current && { ...current, messages: [...current.messages, message] })} />}
         </div>
@@ -355,9 +357,60 @@ const invoiceTone: Record<InvoicePaymentStatus, string> = {
   void: 'bg-gray-100 text-text-mid',
 }
 
-function Billing({ invoices, patient, goTo, onError }: { invoices: Invoice[]; patient: Record<string, any>; goTo: (section: PortalSection) => void; onError: (message: string) => void }) {
+function Billing({ invoices, patient, onlinePayments, goTo, onError, onPaid }: { invoices: Invoice[]; patient: Record<string, any>; onlinePayments: boolean; goTo: (section: PortalSection) => void; onError: (message: string) => void; onPaid: () => void }) {
   const [downloading, setDownloading] = useState<string | null>(null)
+  const [paying, setPaying] = useState<string | null>(null)
+  const [paymentNotice, setPaymentNotice] = useState<{ tone: 'success' | 'pending' | 'error'; text: string } | null>(null)
   const due = invoices.filter(invoice => invoice.status === 'sent' && invoice.balance > 0)
+  const payable = (invoice: Invoice) => onlinePayments && invoice.status === 'sent' && invoice.balance > 0 && invoice.currency === 'NGN'
+
+  // Back from Paystack (?payment=<reference>): confirm the payment, retrying a
+  // few times as Paystack can take a moment, then refresh the invoices.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const reference = params.get('payment') || params.get('reference') || ''
+    if (!reference.startsWith('fxinv_')) return
+    let cancelled = false
+    let attempts = 0
+    setPaymentNotice({ tone: 'pending', text: 'Confirming your payment…' })
+    const check = async () => {
+      attempts += 1
+      const response = await fetch('/api/patient-portal/invoices/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reference }) }).catch(() => null)
+      const result = await response?.json().catch(() => null) as { status?: string; amount?: number } | null
+      if (cancelled) return
+      if (result?.status === 'paid') {
+        setPaymentNotice({ tone: 'success', text: `Payment received${result.amount ? ` (${formatInvoiceMoney(result.amount, 'NGN')})` : ''}. Thank you! Your invoice has been updated.` })
+        onPaid()
+      } else if (result?.status === 'failed') {
+        setPaymentNotice({ tone: 'error', text: 'The payment did not go through, so nothing was charged. You can try again below.' })
+      } else if (attempts < 4) {
+        window.setTimeout(check, 2500)
+        return
+      } else {
+        setPaymentNotice({ tone: 'pending', text: 'We are still confirming your payment with Paystack. If money left your account, your invoice will update shortly; there is nothing more to do.' })
+      }
+      // Tidy the address so a refresh doesn't check again.
+      ;['payment', 'reference', 'trxref'].forEach(key => params.delete(key))
+      window.history.replaceState(null, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`)
+    }
+    void check()
+    return () => { cancelled = true }
+    // Runs once, on arriving back from Paystack.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function pay(invoice: Invoice) {
+    setPaying(invoice.id)
+    try {
+      const response = await fetch('/api/patient-portal/invoices/pay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invoiceId: invoice.id }) })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok || !result.url) throw new Error(result.error || 'Online payment could not be started. Please try again.')
+      window.location.assign(result.url)
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Online payment could not be started. Please try again.')
+      setPaying(null)
+    }
+  }
 
   async function download(invoice: Invoice) {
     setDownloading(invoice.id)
@@ -374,7 +427,11 @@ function Billing({ invoices, patient, goTo, onError }: { invoices: Invoice[]; pa
 
   if (!invoices.length) return <div className="mt-8"><Empty text="You have no invoices. When your care team sends you one, it will appear here." /></div>
   return <div className="mt-8 space-y-6">
-    {due.length > 0 && <Card label="How to pay" title={hasBankDetails() ? 'Pay by bank transfer' : 'Arrange payment'}>
+    {paymentNotice && <div role="status" className={`rounded-[16px] border px-5 py-4 text-sm font-semibold ${paymentNotice.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : paymentNotice.tone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>{paymentNotice.text}</div>}
+    {due.length > 0 && onlinePayments && <Card label="How to pay" title="Pay online">
+      <p className="mt-3 text-sm leading-6 text-text-mid">Use <strong>Pay now</strong> on an invoice to pay securely with Paystack by card, bank transfer or USSD. Your invoice updates as soon as the payment goes through.</p>
+    </Card>}
+    {due.length > 0 && <Card label={onlinePayments ? 'Or' : 'How to pay'} title={hasBankDetails() ? 'Pay by bank transfer' : 'Arrange payment'}>
       {hasBankDetails() ? <>
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
           {INVOICE_PAYMENT.bankName && <ReadOnly label="Bank" value={INVOICE_PAYMENT.bankName} />}
@@ -398,6 +455,7 @@ function Billing({ invoices, patient, goTo, onError }: { invoices: Invoice[]; pa
         </div>
         {invoice.status === 'void' && <p className="mt-2 text-xs text-text-mid">Your care team cancelled this invoice. Nothing is owed on it.</p>}
         <button type="button" onClick={() => download(invoice)} disabled={downloading === invoice.id} className="mt-4 inline-flex items-center gap-2 rounded-full border border-green-deep/15 bg-white px-5 py-2.5 text-sm font-bold transition hover:bg-green-deep/5 disabled:opacity-50"><DownloadSimpleIcon size={18} weight="bold" />{downloading === invoice.id ? 'Preparing…' : 'Download invoice'}</button>
+        {payable(invoice) && <button type="button" onClick={() => pay(invoice)} disabled={paying !== null} className="ml-2 mt-4 inline-flex items-center gap-2 rounded-full bg-green-deep px-5 py-2.5 text-sm font-bold text-white transition hover:bg-green-mid disabled:opacity-50"><CreditCardIcon size={18} weight="bold" />{paying === invoice.id ? 'Opening Paystack…' : `Pay ${formatInvoiceMoney(invoice.balance, invoice.currency)} now`}</button>}
       </div>)}</div>
     </Card>
   </div>

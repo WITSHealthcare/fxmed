@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isUuid, writeEmrAudit } from '@/lib/emr'
 import { PORTAL_LAB_ORDER_COLUMNS, mapPortalLabOrder } from '@/lib/investigations'
 import { INVOICE_COLUMNS, mapInvoice, type InvoiceBill } from '@/lib/invoices'
+import { paystackConfigured } from '@/lib/paystack'
 import { getRequestPatient, portalDocumentColumns, portalErrorMessage, portalPatientColumns } from '@/lib/patient-portal'
 
 export async function GET(request: NextRequest) {
@@ -54,6 +55,8 @@ export async function GET(request: NextRequest) {
       notifications: notifications.data || [],
       labOrders: (labOrders.data || []).map(mapPortalLabOrder),
       invoices: invoices.error ? [] : (invoices.data || []).map(row => mapInvoice(row, (bills.data || []) as InvoiceBill[])),
+      // Whether "Pay now" can take the patient to Paystack.
+      onlinePayments: paystackConfigured(),
     })
   } catch (error) {
     console.error('Error loading patient portal:', error)

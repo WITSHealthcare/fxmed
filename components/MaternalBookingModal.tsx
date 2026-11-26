@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { BOOKING_TIMES, displayDate, displayTime, firstOpenDate, nextOpenDate, openTimes } from '@/lib/bookingTimes'
 import { useBookingClosures } from '@/lib/useBookingClosures'
+import { payForBooking } from '@/lib/booking-checkout'
 
 interface MaternalBookingModalProps {
   isOpen: boolean
@@ -124,7 +125,9 @@ export default function MaternalBookingModal({ isOpen, onClose, initialPackage =
         throw new Error(result.error || 'Failed to save appointment')
       }
 
-      window.open('https://paystack.shop/pay/pxog7uys-t', '_blank')
+      const { appointment } = await response.json().catch(() => ({})) as { appointment?: { id?: string } }
+      // Pay for this booking on Paystack; the clinic's payment page is the fallback.
+      if (await payForBooking(appointment?.id, 'https://paystack.shop/pay/pxog7uys-t') === 'checkout') return
       onClose()
       setCurrentStep(1)
       setBookingData({ firstName: '', lastName: '', email: '', phone: '', homeAddress: '', preferredDate: '', preferredTime: '', notes: '' })
