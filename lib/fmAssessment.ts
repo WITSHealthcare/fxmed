@@ -1,20 +1,21 @@
-// The Functional Health Report's algorithmic assessment. From the entered
+// The Functional Health Analysis lab report's algorithmic assessment. From the entered
 // results it works out:
 //   - calculated markers (HOMA-IR, TG/HDL, AST/ALT, globulin, anion gap…)
 //   - where each result sits: alarm, outside the lab range, outside optimal, optimal
-//   - a likelihood of dysfunction for each body system, accessory system,
-//     nutrient status and individual nutrient need, with the markers behind it
-//   - the health improvement areas that need attention, each with a standard
+//   - a support score for each core body system, whole-body process,
+//     nourishment area and nutrient gap, with the markers behind it
+//   - the focus areas of the care plan, each with a standard
 //     plan (nutrition, lifestyle, supplements to discuss, follow-up tests)
 //
 // All of it is deterministic, so the report is complete without the AI; the
 // AI and the clinician can then personalise the wording and the plan.
 
 import {
-  canonicalValue, createEntry, isChild, markerById, summarize,
+  canonicalValue, createEntry, isChild, markerById, normalizeUnit, parseValue, summarize,
   type AreaPlan, type AssessedEntry, type FmEntry, type FmNarrative, type Priority, type Sex,
 } from './fmBiomarkers'
 import { markerExplanation } from './fmMarkerInfo'
+import { PHENOAGE_MARKERS, phenoAge, phenoAgeCautions, type PhenoAgeInputs, type PhenoAgeMarker, type PhenoAgeResult } from './phenoAge'
 
 // ---------------------------------------------------------------------------
 // Where a result sits
@@ -24,13 +25,13 @@ export type Band = 'alarm_low' | 'below_standard' | 'below_optimal' | 'optimal' 
 export const BANDS: Band[] = ['alarm_low', 'below_standard', 'below_optimal', 'optimal', 'above_optimal', 'above_standard', 'alarm_high']
 
 export const BAND_LABEL: Record<Band, string> = {
-  alarm_low: 'Alarm Low', below_standard: 'Below Standard', below_optimal: 'Below Optimal', optimal: 'Optimal',
-  above_optimal: 'Above Optimal', above_standard: 'Above Standard', alarm_high: 'Alarm High', unknown: 'Not assessed',
+  alarm_low: 'Urgent Low', below_standard: 'Below Lab Range', below_optimal: 'Below Optimal', optimal: 'Optimal',
+  above_optimal: 'Above Optimal', above_standard: 'Above Lab Range', alarm_high: 'Urgent High', unknown: 'Not assessed',
 }
 
 export const BAND_COLOR: Record<Band, string> = {
-  alarm_low: '#B8326A', below_standard: '#E0674F', below_optimal: '#E9A93B', optimal: '#52B788',
-  above_optimal: '#E9A93B', above_standard: '#E0674F', alarm_high: '#B8326A', unknown: '#A9B5AD',
+  alarm_low: '#9e2f29', below_standard: '#d0574f', below_optimal: '#d6a23a', optimal: '#6f9a4e',
+  above_optimal: '#d6a23a', above_standard: '#d0574f', alarm_high: '#9e2f29', unknown: '#b9bcb4',
 }
 
 /** Which side of the optimal range a borderline result leans towards. */
@@ -68,6 +69,19 @@ export function directionOf(entry: AssessedEntry): 'low' | 'high' | null {
 
 const fixed = (value: number) => String(Number(value.toFixed(value >= 10 ? 1 : 2)))
 
+/** The results each calculated marker is worked out from. */
+export const CALCULATED_FROM: Record<string, string[]> = {
+  homa_ir: ['fasting_glucose', 'fasting_insulin'],
+  tg_hdl_ratio: ['triglycerides', 'hdl'],
+  chol_hdl_ratio: ['total_cholesterol', 'hdl'],
+  non_hdl: ['total_cholesterol', 'hdl'],
+  ast_alt_ratio: ['ast', 'alt'],
+  na_k_ratio: ['sodium', 'potassium'],
+  nlr: ['neutrophils', 'lymphocytes'],
+  globulin: ['total_protein', 'albumin'],
+  anion_gap: ['sodium', 'chloride', 'bicarbonate'],
+}
+
 /**
  * Ratios and differences the report uses that labs often leave out. Each is
  * added only when the lab has not reported it and both inputs are in units
@@ -80,7 +94,8 @@ export function withCalculated(entries: FmEntry[], sex: Sex, age?: number | null
     return entry ? canonicalValue(entry) : null
   }
   const extra: FmEntry[] = []
-  const add = (id: string, from: string[], compute: (values: number[]) => number | null) => {
+  const add = (id: string, compute: (values: number[]) => number | null) => {
+    const from = CALCULATED_FROM[id]
     if (present.has(id)) return
     const values = from.map(value)
     if (values.some(item => item === null)) return
@@ -92,15 +107,15 @@ export function withCalculated(entries: FmEntry[], sex: Sex, age?: number | null
     extra.push({ ...createEntry(marker, sex, { value: fixed(result) }, age), note: `Calculated from ${names.join(' and ')}.`, calculated: true })
   }
   const ratio = ([a, b]: number[]) => b ? a / b : null
-  add('homa_ir', ['fasting_glucose', 'fasting_insulin'], ([glucose, insulin]) => (glucose * insulin) / 22.5)
-  add('tg_hdl_ratio', ['triglycerides', 'hdl'], ratio)
-  add('chol_hdl_ratio', ['total_cholesterol', 'hdl'], ratio)
-  add('non_hdl', ['total_cholesterol', 'hdl'], ([total, hdl]) => total - hdl)
-  add('ast_alt_ratio', ['ast', 'alt'], ratio)
-  add('na_k_ratio', ['sodium', 'potassium'], ratio)
-  add('nlr', ['neutrophils', 'lymphocytes'], ratio)
-  add('globulin', ['total_protein', 'albumin'], ([total, albumin]) => total - albumin)
-  add('anion_gap', ['sodium', 'chloride', 'bicarbonate'], ([sodium, chloride, bicarbonate]) => sodium - chloride - bicarbonate)
+  add('homa_ir', ([glucose, insulin]) => (glucose * insulin) / 22.5)
+  add('tg_hdl_ratio', ratio)
+  add('chol_hdl_ratio', ratio)
+  add('non_hdl', ([total, hdl]) => total - hdl)
+  add('ast_alt_ratio', ratio)
+  add('na_k_ratio', ratio)
+  add('nlr', ratio)
+  add('globulin', ([total, albumin]) => total - albumin)
+  add('anion_gap', ([sodium, chloride, bicarbonate]) => sodium - chloride - bicarbonate)
   return extra.length ? [...entries, ...extra] : entries
 }
 
@@ -121,7 +136,7 @@ export type Area = {
   /** Tests that would sharpen this area when not done: catalogue ids or test names. */
   consider?: string[]
   sex?: 'female' | 'male'
-  /** Health improvement areas only: the finding and the standard plan. */
+  /** Care plan focus areas only: the finding and the standard plan. */
   finding?: string
   plan?: AreaPlan
 }
@@ -130,49 +145,49 @@ const r = (id: string, dir: Rule['dir'], weight = 1, sex?: Rule['sex']): Rule =>
 
 export const AREA_GROUPS: Record<AreaGroup, { title: string; intro: string }> = {
   system: {
-    title: 'Functional Body Systems',
-    intro: 'Each body system below is scored from the biomarkers that reflect how well it is working. The percentage is the likelihood of dysfunction suggested by your results: the higher it is, the more your results point to that system needing support.',
+    title: 'Core Body Systems',
+    intro: 'Your core systems are the organs and glands that keep you running day to day: blood sugar control, heart and vessels, thyroid, adrenals, hormones, liver, kidneys, blood and immunity. Each is scored from the markers that reflect it. A higher support score means your results point more strongly to that system needing help.',
   },
   accessory: {
-    title: 'Accessory Systems',
-    intro: 'Accessory systems are processes that run across the whole body, such as fat transport, inflammation and acid–base balance. They are scored in the same way as the body systems.',
+    title: 'Whole-Body Processes',
+    intro: 'Some of what we measure is not one organ but a process running everywhere at once: how fats are carried, how much inflammation is simmering, how well cells cope with wear and tear, and how steady the blood\'s chemistry stays. They are scored the same way as the core systems.',
   },
   nutrient: {
-    title: 'Nutrient Status',
-    intro: 'Nutrient status reflects what you eat and also how well you digest, absorb, transport and use nutrients. These scores show where your overall nutrition may be falling short.',
+    title: 'Nourishment',
+    intro: 'Being well nourished depends on more than what is on your plate. It also depends on how well you digest, absorb and use what you eat. These scores show where your nourishment as a whole may be running short.',
   },
   deficiency: {
-    title: 'Individual Nutrient Needs',
-    intro: 'These scores show the likelihood that you need more of an individual nutrient, based on your blood results. Your clinician will weigh them against your diet, symptoms and medicines before recommending any supplement.',
+    title: 'Nutrient Gaps',
+    intro: 'These scores point to single nutrients your body may need more of. They are a prompt, not a prescription: your clinician will weigh them against your diet, symptoms and medicines before suggesting any supplement.',
   },
   plan: {
-    title: 'Health Improvement Plan',
-    intro: 'The health improvement plan brings together everything in this report and focuses on the areas that need the most attention, with a practical plan for each.',
+    title: 'Your Care Plan',
+    intro: 'Your care plan gathers the whole report into a short list of focus areas: the places where change will make the most difference to how you feel and how you age.',
   },
 }
 
 const BLOOD_SUGAR: Rule[] = [r('fasting_insulin', 'high', 3), r('homa_ir', 'high', 3), r('hba1c', 'high', 3), r('hba1c_ifcc', 'high', 3), r('fasting_glucose', 'any', 2), r('tg_hdl_ratio', 'high', 2), r('c_peptide', 'high', 1), r('triglycerides', 'high', 1), r('glucose_insulin_ratio', 'low', 1), r('quicki', 'low', 1)]
-const CARDIO: Rule[] = [r('apob', 'high', 3), r('ldl', 'high', 2), r('lpa', 'high', 2), r('non_hdl', 'high', 2), r('hdl', 'low', 2), r('chol_hdl_ratio', 'high', 2), r('tg_hdl_ratio', 'high', 2), r('homocysteine', 'high', 2), r('hs_crp', 'high', 2), r('apoa1', 'low', 1), r('total_cholesterol', 'high', 1), r('triglycerides', 'high', 1), r('hba1c', 'high', 1), r('fasting_insulin', 'high', 1), r('vitamin_d', 'low', 1), r('ferritin', 'high', 1)]
+const CARDIO: Rule[] = [r('apob', 'high', 3), r('ldl', 'high', 2), r('lpa', 'high', 2), r('non_hdl', 'high', 2), r('hdl', 'low', 2), r('chol_hdl_ratio', 'high', 2), r('tg_hdl_ratio', 'high', 2), r('homocysteine', 'high', 2), r('hs_crp', 'high', 2), r('apoa1', 'low', 1), r('total_cholesterol', 'high', 1), r('triglycerides', 'high', 1), r('hba1c', 'high', 1), r('fasting_insulin', 'high', 1), r('vitamin_d', 'low', 1), r('ferritin', 'high', 1), r('fibrinogen', 'high', 1), r('omega3_index', 'low', 1)]
 const LIPIDS: Rule[] = [r('ldl', 'high', 3), r('apob', 'high', 3), r('total_cholesterol', 'high', 2), r('non_hdl', 'high', 2), r('triglycerides', 'high', 2), r('hdl', 'low', 2), r('chol_hdl_ratio', 'high', 1), r('tg_hdl_ratio', 'high', 1)]
-const THYROID: Rule[] = [r('tsh', 'any', 3), r('free_t4', 'any', 2), r('free_t3', 'any', 2), r('reverse_t3', 'high', 1), r('anti_tpo', 'high', 2), r('anti_tg', 'high', 2)]
+const THYROID: Rule[] = [r('tsh', 'any', 3), r('free_t4', 'any', 2), r('free_t3', 'any', 2), r('reverse_t3', 'high', 1), r('anti_tpo', 'high', 2), r('anti_tg', 'high', 2), r('selenium', 'low', 1)]
 const ADRENAL: Rule[] = [r('cortisol_am', 'any', 3), r('cortisol_pm', 'any', 2), r('dhea_s', 'low', 2), r('na_k_ratio', 'any', 1), r('sodium', 'any', 1), r('potassium', 'any', 1)]
 const SEX_HORMONES: Rule[] = [
-  r('estradiol', 'any', 2, 'female'), r('progesterone', 'low', 2, 'female'), r('testosterone', 'any', 2, 'female'), r('free_testosterone', 'any', 2, 'female'), r('free_testosterone_index', 'high', 2, 'female'), r('shbg', 'any', 1, 'female'), r('dhea_s', 'any', 1, 'female'),
-  r('testosterone', 'low', 3, 'male'), r('free_testosterone', 'low', 3, 'male'), r('free_testosterone_index', 'low', 2, 'male'), r('estradiol', 'high', 2, 'male'), r('shbg', 'any', 1, 'male'), r('dhea_s', 'low', 1, 'male'),
+  r('estradiol', 'any', 2, 'female'), r('progesterone', 'low', 2, 'female'), r('testosterone', 'any', 2, 'female'), r('free_testosterone', 'any', 2, 'female'), r('free_testosterone_index', 'high', 2, 'female'), r('shbg', 'any', 1, 'female'), r('dhea_s', 'any', 1, 'female'), r('fsh', 'high', 1, 'female'), r('lh', 'any', 1, 'female'), r('prolactin', 'high', 1, 'female'),
+  r('testosterone', 'low', 3, 'male'), r('free_testosterone', 'low', 3, 'male'), r('free_testosterone_index', 'low', 2, 'male'), r('estradiol', 'high', 2, 'male'), r('shbg', 'any', 1, 'male'), r('dhea_s', 'low', 1, 'male'), r('fsh', 'high', 1, 'male'), r('lh', 'any', 1, 'male'), r('prolactin', 'high', 1, 'male'),
 ]
 const LIVER: Rule[] = [r('alt', 'high', 3), r('ggt', 'high', 3), r('ast', 'high', 2), r('alp', 'high', 1), r('bilirubin_total', 'high', 1), r('albumin', 'low', 2), r('total_protein', 'low', 1), r('ast_alt_ratio', 'high', 1), r('ldh', 'high', 1)]
-const KIDNEY: Rule[] = [r('egfr', 'low', 3), r('creatinine', 'high', 2), r('protein_creatinine', 'high', 3), r('u_protein', 'high', 2), r('urea', 'high', 1), r('uric_acid', 'high', 1), r('potassium', 'high', 1), r('phosphate', 'high', 1)]
+const KIDNEY: Rule[] = [r('egfr', 'low', 3), r('creatinine', 'high', 2), r('protein_creatinine', 'high', 3), r('u_protein', 'high', 2), r('urea', 'high', 1), r('uric_acid', 'high', 1), r('potassium', 'high', 1), r('phosphate', 'high', 1), r('cystatin_c', 'high', 2)]
 const RED_CELLS: Rule[] = [r('hemoglobin', 'any', 3), r('hematocrit', 'any', 1), r('rbc', 'any', 1), r('mcv', 'any', 2), r('mch', 'any', 1), r('mchc', 'low', 1), r('rdw', 'high', 2)]
 const IMMUNE: Rule[] = [r('wbc', 'any', 2), r('lymphocytes', 'any', 2), r('neutrophils', 'any', 1), r('nlr', 'any', 1), r('monocytes', 'high', 1), r('eosinophils', 'high', 2), r('globulin', 'any', 1)]
 const BONE: Rule[] = [r('calcium', 'any', 3), r('pth', 'high', 3), r('vitamin_d', 'low', 2), r('phosphate', 'any', 1), r('alp', 'any', 1), r('magnesium', 'low', 1)]
-const INFLAMMATION: Rule[] = [r('hs_crp', 'high', 3), r('esr', 'high', 2), r('ferritin', 'high', 1), r('homocysteine', 'high', 1), r('nlr', 'high', 1), r('wbc', 'high', 1), r('globulin', 'high', 1), r('platelets', 'high', 1)]
-const METHYLATION: Rule[] = [r('homocysteine', 'high', 3), r('b12', 'low', 3), r('folate', 'low', 3), r('mcv', 'high', 1), r('rdw', 'high', 1)]
-const IRON_LOW: Rule[] = [r('ferritin', 'low', 3), r('hemoglobin', 'low', 3), r('tsat', 'low', 2), r('mcv', 'low', 2), r('serum_iron', 'low', 1), r('mch', 'low', 1), r('rdw', 'high', 1), r('tibc', 'high', 1), r('transferrin', 'high', 1), r('hematocrit', 'low', 1)]
-const MINERALS: Rule[] = [r('rbc_magnesium', 'low', 3), r('magnesium', 'low', 3), r('zinc', 'low', 3), r('alp', 'low', 1), r('potassium', 'low', 1), r('calcium', 'low', 1), r('phosphate', 'low', 1)]
-const PROTEIN: Rule[] = [r('total_protein', 'low', 3), r('albumin', 'low', 3), r('globulin', 'low', 1), r('urea', 'low', 2)]
+const INFLAMMATION: Rule[] = [r('hs_crp', 'high', 3), r('esr', 'high', 2), r('ferritin', 'high', 1), r('homocysteine', 'high', 1), r('nlr', 'high', 1), r('wbc', 'high', 1), r('globulin', 'high', 1), r('platelets', 'high', 1), r('fibrinogen', 'high', 1), r('il6', 'high', 1), r('omega3_index', 'low', 1)]
+const METHYLATION: Rule[] = [r('homocysteine', 'high', 3), r('b12', 'low', 3), r('folate', 'low', 3), r('mcv', 'high', 1), r('rdw', 'high', 1), r('mma', 'high', 2)]
+const IRON_LOW: Rule[] = [r('ferritin', 'low', 3), r('hemoglobin', 'low', 3), r('tsat', 'low', 2), r('mcv', 'low', 2), r('serum_iron', 'low', 1), r('mch', 'low', 1), r('rdw', 'high', 1), r('tibc', 'high', 1), r('transferrin', 'high', 1), r('hematocrit', 'low', 1), r('stfr', 'high', 1), r('h_pylori', 'high', 1)]
+const MINERALS: Rule[] = [r('rbc_magnesium', 'low', 3), r('magnesium', 'low', 3), r('zinc', 'low', 3), r('alp', 'low', 1), r('potassium', 'low', 1), r('calcium', 'low', 1), r('phosphate', 'low', 1), r('copper', 'low', 1)]
+const PROTEIN: Rule[] = [r('total_protein', 'low', 3), r('albumin', 'low', 3), r('globulin', 'low', 1), r('urea', 'low', 2), r('igf1', 'low', 1)]
 
 export const AREAS: Area[] = [
-  // Functional body systems
+  // Core body systems
   { id: 'blood_sugar', group: 'system', name: 'Blood Sugar Regulation', rules: BLOOD_SUGAR, consider: ['fasting_insulin', 'hba1c'],
     about: 'This score shows how well your body is controlling blood sugar. Problems develop slowly, often with insulin rising for years before glucose does, so these markers can show a trend towards insulin resistance, pre-diabetes or low blood sugar long before diabetes is diagnosed.' },
   { id: 'cardiovascular', group: 'system', name: 'Cardiovascular Risk', rules: CARDIO, consider: ['apob', 'lpa', 'hs_crp', 'homocysteine'],
@@ -193,12 +208,12 @@ export const AREAS: Area[] = [
     about: 'Red blood cells carry oxygen to every tissue. This score looks at how many there are, their size and haemoglobin content, which can point to iron, B12 or folate shortfalls.' },
   { id: 'immune', group: 'system', name: 'Immune Function', rules: IMMUNE, consider: ['neutrophils', 'lymphocytes'],
     about: 'White blood cells and globulins are the immune system\'s front line. This score shows whether they suggest an immune system that is depleted, or one that is working hard against infection, allergy or inflammation.' },
-  { id: 'digestion', group: 'system', name: 'Digestive Function', rules: [r('total_protein', 'low', 2), r('albumin', 'low', 2), r('globulin', 'any', 1), r('urea', 'low', 1), r('b12', 'low', 1), r('ferritin', 'low', 1), r('eosinophils', 'high', 2), r('chloride', 'low', 1)],
+  { id: 'digestion', group: 'system', name: 'Digestive Function', rules: [r('h_pylori', 'high', 2), r('total_protein', 'low', 2), r('albumin', 'low', 2), r('globulin', 'any', 1), r('urea', 'low', 1), r('b12', 'low', 1), r('ferritin', 'low', 1), r('eosinophils', 'high', 2), r('chloride', 'low', 1)],
     about: 'Good digestion breaks down and absorbs protein, minerals and vitamins. Low protein, B12 or iron, alongside signs such as raised eosinophils, can suggest low stomach acid, poor absorption or gut parasites.' },
   { id: 'bone', group: 'system', name: 'Bone Health', rules: BONE, consider: ['vitamin_d', 'pth'],
     about: 'Bone strength depends on calcium, phosphate, vitamin D and parathyroid hormone staying in balance. This score shows whether that balance is under strain.' },
 
-  // Accessory systems
+  // Whole-body processes
   { id: 'lipids', group: 'accessory', name: 'Lipid Balance', rules: LIPIDS,
     about: 'This score shows the level of cholesterol and fat in your blood. A raised score means higher than optimal blood fats (dyslipidaemia), which can be genetic or come from diet, hormone imbalance or blood sugar problems.' },
   { id: 'inflammation', group: 'accessory', name: 'Inflammation', rules: INFLAMMATION, consider: ['hs_crp'],
@@ -210,7 +225,7 @@ export const AREAS: Area[] = [
   { id: 'methylation_status', group: 'accessory', name: 'Methylation', rules: METHYLATION, consider: ['homocysteine', 'b12', 'folate'],
     about: 'Methylation is a chemical process that runs throughout the body, needed for DNA, detoxification, mood chemicals and keeping homocysteine low. It depends on B12, folate and B6.' },
 
-  // Nutrient status
+  // Nourishment
   { id: 'vitamin_status', group: 'nutrient', name: 'Vitamin Status', rules: [r('vitamin_d', 'low', 3), r('b12', 'low', 2), r('folate', 'low', 2), r('homocysteine', 'high', 1), r('mcv', 'high', 1), r('alt', 'low', 1)], consider: ['vitamin_d', 'b12', 'folate'],
     about: 'This score is a general view of vitamin balance, reflecting diet, digestion and absorption, and how well vitamins are transported into the cells.' },
   { id: 'mineral_status', group: 'nutrient', name: 'Mineral Status', rules: MINERALS, consider: ['rbc_magnesium', 'zinc'],
@@ -224,19 +239,19 @@ export const AREAS: Area[] = [
   { id: 'electrolytes', group: 'nutrient', name: 'Electrolyte Status', rules: [r('sodium', 'any', 2), r('potassium', 'any', 2), r('chloride', 'any', 1), r('bicarbonate', 'any', 1), r('na_k_ratio', 'any', 1)],
     about: 'Electrolytes carry the electrical charge for nerves, muscles and the heart, and control fluid balance.' },
 
-  // Individual nutrient needs
+  // Nutrient gaps
   { id: 'vitamin_d_need', group: 'deficiency', name: 'Vitamin D Need', rules: [r('vitamin_d', 'low', 3)], consider: ['vitamin_d'], about: 'Your results suggest your vitamin D level may be lower than optimal.' },
-  { id: 'b12_need', group: 'deficiency', name: 'Vitamin B12 Need', rules: [r('b12', 'low', 3), r('mcv', 'high', 1), r('homocysteine', 'high', 1), r('rdw', 'high', 1)], consider: ['b12', 'Methylmalonic acid (MMA)'], about: 'Your results suggest your vitamin B12 level may be lower than optimal.' },
+  { id: 'b12_need', group: 'deficiency', name: 'Vitamin B12 Need', rules: [r('b12', 'low', 3), r('mma', 'high', 3), r('h_pylori', 'high', 1), r('mcv', 'high', 1), r('homocysteine', 'high', 1), r('rdw', 'high', 1)], consider: ['b12', 'mma'], about: 'Your results suggest your vitamin B12 level may be lower than optimal.' },
   { id: 'folate_need', group: 'deficiency', name: 'Folate Need', rules: [r('folate', 'low', 3), r('homocysteine', 'high', 1), r('mcv', 'high', 1)], consider: ['folate'], about: 'Your results suggest your folate level may be lower than optimal.' },
   { id: 'iron_need', group: 'deficiency', name: 'Iron Need', rules: IRON_LOW, consider: ['ferritin', 'tsat'], about: 'Your results suggest your iron stores may be lower than optimal.' },
   { id: 'magnesium_need', group: 'deficiency', name: 'Magnesium Need', rules: [r('rbc_magnesium', 'low', 3), r('magnesium', 'low', 3), r('potassium', 'low', 1), r('calcium', 'low', 1)], consider: ['rbc_magnesium'], about: 'Your results suggest your magnesium level may be lower than optimal.' },
   { id: 'zinc_need', group: 'deficiency', name: 'Zinc Need', rules: [r('zinc', 'low', 3), r('alp', 'low', 2)], consider: ['zinc'], about: 'Your results suggest your zinc level may be lower than optimal.' },
   { id: 'b6_need', group: 'deficiency', name: 'Vitamin B6 Need', rules: [r('alt', 'low', 2), r('ast', 'low', 1), r('homocysteine', 'high', 1)], about: 'Your results suggest your vitamin B6 level may be lower than optimal.' },
   { id: 'dhea_need', group: 'deficiency', name: 'DHEA Need', rules: [r('dhea_s', 'low', 3)], consider: ['dhea_s'], about: 'Your results suggest your DHEA level may be lower than optimal.' },
-  { id: 'selenium_need', group: 'deficiency', name: 'Selenium Need', rules: [r('free_t3', 'low', 2), r('reverse_t3', 'high', 1), r('anti_tpo', 'high', 1)], consider: ['free_t3', 'Selenium (serum)'], about: 'Your results suggest your selenium level may be lower than optimal; selenium is needed to activate thyroid hormone.' },
+  { id: 'selenium_need', group: 'deficiency', name: 'Selenium Need', rules: [r('selenium', 'low', 3), r('free_t3', 'low', 2), r('reverse_t3', 'high', 1), r('anti_tpo', 'high', 1)], consider: ['selenium', 'free_t3'], about: 'Your results suggest your selenium level may be lower than optimal; selenium is needed to activate thyroid hormone.' },
   { id: 'thiamine_need', group: 'deficiency', name: 'Thiamine (B1) Need', rules: [r('anion_gap', 'high', 2), r('bicarbonate', 'low', 1)], about: 'Your results suggest your thiamine (vitamin B1) level may be lower than optimal.' },
 
-  // Health improvement areas
+  // Care plan focus areas
   { id: 'insulin_resistance', group: 'plan', name: 'Insulin Resistance & Blood Sugar', rules: [...BLOOD_SUGAR.filter(rule => rule.id !== 'fasting_glucose'), r('fasting_glucose', 'high', 2), r('hdl', 'low', 1), r('shbg', 'low', 1), r('uric_acid', 'high', 1)],
     about: 'Insulin resistance means the body needs more insulin than it should to keep blood sugar steady.',
     finding: 'Your results show a pattern of insulin resistance: your body needs more insulin than it should to keep blood sugar steady. Left alone, this leads towards type 2 diabetes, fatty liver and heart disease, but it responds very well to changes in diet, movement and sleep.',
@@ -363,7 +378,7 @@ export const AREAS: Area[] = [
       supplements: ['Avoid multivitamins that contain iron.'],
       tests: ['Repeat fasting ferritin, iron and transferrin saturation with hs-CRP and liver enzymes.', 'Genetic test for haemochromatosis (HFE) if transferrin saturation stays above 45%.', 'Liver ultrasound.'],
     } },
-  { id: 'methylation', group: 'plan', name: 'Methylation Support (B12, Folate & Homocysteine)', rules: METHYLATION, consider: ['homocysteine', 'b12', 'folate', 'Methylmalonic acid (MMA)'],
+  { id: 'methylation', group: 'plan', name: 'Methylation Support (B12, Folate & Homocysteine)', rules: METHYLATION, consider: ['homocysteine', 'b12', 'folate', 'mma'],
     about: 'Your B12, folate or homocysteine results suggest methylation is not running efficiently.',
     finding: 'Your B12, folate or homocysteine results suggest methylation is not running efficiently. Methylation keeps homocysteine low and supports energy, mood, nerve health, detoxification and DNA repair.',
     plan: {
@@ -426,7 +441,7 @@ export const AREAS: Area[] = [
       supplements: ['Vitamin D3 to reach optimal levels.', 'Zinc 15–30 mg daily.', 'Vitamin C 500–1,000 mg daily.'],
       tests: ['Repeat full blood count with differential in 4–8 weeks.', 'Stool test for parasites if eosinophils are raised.', 'Screening for infection, guided by symptoms.'],
     } },
-  { id: 'protein_digestion', group: 'plan', name: 'Protein & Digestion', rules: PROTEIN,
+  { id: 'protein_digestion', group: 'plan', name: 'Protein & Digestion', rules: [...PROTEIN, r('h_pylori', 'high', 1)],
     about: 'Your protein markers are lower than optimal.',
     finding: 'Your protein markers are lower than optimal, suggesting low protein intake or poor digestion and absorption. Protein is needed for muscle, immunity, hormones and repair.',
     plan: {
@@ -434,6 +449,15 @@ export const AREAS: Area[] = [
       lifestyle: ['Report bloating, reflux or loose stools, which suggest poor digestion.'],
       supplements: ['Digestive enzymes with meals if you bloat after protein.', 'A protein powder if you struggle to get enough from food.'],
       tests: ['Repeat total protein and albumin.', 'Stool test and H. pylori test if you have digestive symptoms.'],
+    } },
+  { id: 'h_pylori_care', group: 'plan', name: 'Stomach Infection (H. pylori)', rules: [r('h_pylori', 'high', 3)],
+    about: 'Your results show H. pylori, a common stomach infection.',
+    finding: 'Your results show H. pylori, a stomach infection that is common in Nigeria. It can cause indigestion, ulcers and low stomach acid, and reduces how well you absorb iron and vitamin B12. A stool or breath test shows a current infection; a blood antibody test can stay positive after it has cleared, so your clinician will confirm which applies before treating.',
+    plan: {
+      nutrition: ['Eat smaller, regular meals, and go easy on very spicy, fried or fatty food while your stomach settles.', 'Include fermented foods such as yoghurt, ogi or kefir.', 'Drink clean, safe water: H. pylori spreads through contaminated food and water.', 'Limit alcohol, coffee and fizzy drinks, which irritate the stomach lining.'],
+      lifestyle: ['Stop smoking, which slows healing of the stomach lining.', 'Avoid anti-inflammatory painkillers such as ibuprofen and diclofenac unless your doctor advises them.', 'Wash hands before eating and after using the toilet; people you live with may also need testing.'],
+      supplements: ['Treatment is a prescribed course of antibiotics with an acid-reducing medicine, taken in full exactly as directed.', 'A probiotic during treatment can reduce side effects; agree it with your clinician.', 'Iron or vitamin B12 only if your results show they are low.'],
+      tests: ['Stool antigen or breath test at least 4 weeks after finishing treatment, to confirm the infection has cleared (a blood antibody test cannot show this).', 'Full blood count, ferritin and vitamin B12.', 'Endoscopy if you are over 45, or have weight loss, vomiting, difficulty swallowing or black stools.'],
     } },
 ]
 
@@ -444,7 +468,7 @@ export type Contributor = { entry: AssessedEntry; direction: 'low' | 'high'; wei
 
 export type AreaResult = {
   area: Area
-  /** Likelihood of dysfunction, 0–100. */
+  /** Support score, 0–100: how strongly the results suggest the area needs attention. */
   score: number
   contributors: Contributor[]
   considered: AssessedEntry[]
@@ -452,6 +476,12 @@ export type AreaResult = {
   missing: string[]
   /** A key result for this area (weight 2 or more) is past an alarm limit. */
   urgent: boolean
+  /**
+   * Whether the area's direct test (a marker carrying full weight, such as
+   * serum folate for folate need) was among the results; null when the area
+   * is only ever read from related markers.
+   */
+  direct: boolean | null
 }
 
 /** Markers that are the same test reported another way, so one stands in for the other. */
@@ -460,9 +490,9 @@ const SAME_TEST: Record<string, string> = { hba1c: 'hba1c_ifcc', hba1c_ifcc: 'hb
 /**
  * How strongly a result supports a rule: 1 outside the lab's standard range,
  * 0.6 outside optimal only, and nothing within optimal. One key marker
- * outside optimal alone therefore reads as "possible" (about 50%), and it takes
+ * outside optimal alone therefore reads as "worth watching" (about 50%), and it takes
  * results outside the standard range, or several outside optimal, to reach
- * "likely" or "highly likely".
+ * "needs support" or "priority support".
  */
 function strength(entry: AssessedEntry, dir: Rule['dir']): { value: number; direction: 'low' | 'high' } | null {
   const band = bandOf(entry)
@@ -481,9 +511,12 @@ function scoreArea(area: Area, byMarker: Map<string, AssessedEntry>, sex: Sex): 
   const considered: AssessedEntry[] = []
   const contributors: Contributor[] = []
   let healthy = 1
+  const hasDirect = rules.some(rule => rule.weight >= 3)
+  let readDirect = false
   for (const rule of [...rules].sort((a, b) => b.weight - a.weight)) {
     const entry = byMarker.get(rule.id)
     if (!entry || seen.has(rule.id)) continue
+    if (rule.weight >= 3) readDirect = true
     seen.add(rule.id)
     considered.push(entry)
     const found = strength(entry, rule.dir)
@@ -501,7 +534,57 @@ function scoreArea(area: Area, byMarker: Map<string, AssessedEntry>, sex: Sex): 
     considered,
     missing: Array.from(new Set(missing)),
     urgent: contributors.some(item => item.entry.urgent && item.weight >= 2),
+    direct: hasDirect ? readDirect : null,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Biological age
+
+export type PhenoAgeRead =
+  | ({ status: 'ready'; inputs: PhenoAgeInputs; cautions: string[] } & PhenoAgeResult)
+  | { status: 'missing'; missing: string[] }
+  | { status: 'no_age' }
+  | { status: 'child' }
+
+/** Lymphocytes as a percentage: reported that way, or worked out from the absolute count and WBC. */
+function lymphocytePercent(entries: FmEntry[], wbc: number | null): number | null {
+  const filled = entries.filter(entry => entry.value.trim())
+  const isPercent = (entry: FmEntry) => normalizeUnit(entry.unit) === '%'
+  const reported = filled.find(entry => isPercent(entry) && (entry.markerId === 'lymphocytes' || /lymph/i.test(entry.name)))
+  if (reported) return parseValue(reported.value)
+  const absolute = filled.find(entry => entry.markerId === 'lymphocytes' && !isPercent(entry))
+  const count = absolute ? canonicalValue(absolute) : null
+  return count !== null && wbc ? (count / wbc) * 100 : null
+}
+
+/**
+ * PhenoAge from a set of results, when all nine markers are there in units
+ * the catalogue can convert. Adults only.
+ */
+export function phenoAgeFrom(entries: FmEntry[], age?: number | null): PhenoAgeRead {
+  if (age === null || age === undefined || !Number.isFinite(age)) return { status: 'no_age' }
+  if (isChild(age) || age < 18) return { status: 'child' }
+  const value = (id: string) => {
+    const entry = entries.find(item => item.markerId === id && item.value.trim())
+    return entry ? canonicalValue(entry) : null
+  }
+  const wbc = value('wbc')
+  const found: Record<PhenoAgeMarker, number | null> = {
+    albumin: value('albumin'),
+    creatinine: value('creatinine'),
+    glucose: value('fasting_glucose'),
+    crp: value('hs_crp'),
+    lymphocytePct: lymphocytePercent(entries, wbc),
+    mcv: value('mcv'),
+    rdw: value('rdw'),
+    alp: value('alp'),
+    wbc,
+  }
+  const missing = PHENOAGE_MARKERS.filter(marker => found[marker.key] === null || !Number.isFinite(found[marker.key] as number)).map(marker => marker.name)
+  if (missing.length) return { status: 'missing', missing }
+  const inputs = { ...(found as Record<PhenoAgeMarker, number>), age }
+  return { status: 'ready', inputs, cautions: phenoAgeCautions(inputs), ...phenoAge(inputs) }
 }
 
 export type Analysis = ReturnType<typeof analyse>
@@ -521,17 +604,37 @@ export function analyse(entries: FmEntry[], sex: Sex, age?: number | null) {
   summary.assessed.forEach(entry => { bands[bandOf(entry)] += 1 })
   // An area with a result past an alarm limit always needs attention, and comes first.
   const plan = group('plan').filter(item => item.score >= 50 || item.urgent).sort((a, b) => Number(b.urgent) - Number(a.urgent) || b.score - a.score)
-  return { entries: all, summary, areas, group, bands, plan, child: isChild(age) }
+  return { entries: all, summary, areas, group, bands, plan, child: isChild(age), phenoAge: phenoAgeFrom(all, age) }
 }
 
-/** Whether an area's likelihood is high enough to get its own explanation. */
+/** Whether an area's support score is high enough to get its own explanation. */
 export const needsDetail = (item: AreaResult) => item.score >= 50 || item.urgent
 
 export function likelihoodLabel(score: number) {
-  if (score >= 90) return { label: 'Dysfunction highly likely', advice: 'Much improvement required.' }
-  if (score >= 70) return { label: 'Dysfunction likely', advice: 'Improvement required.' }
-  if (score >= 50) return { label: 'Dysfunction possible', advice: 'There may be improvement needed in certain areas.' }
-  return { label: 'Dysfunction less likely', advice: 'No specific action needed.' }
+  if (score >= 90) return { label: 'Priority support', advice: 'Act on this first, with your clinician.' }
+  if (score >= 70) return { label: 'Needs support', advice: 'Build this into your plan now.' }
+  if (score >= 50) return { label: 'Worth watching', advice: 'Small changes now, then recheck.' }
+  return { label: 'Low priority', advice: 'Nothing to act on now; recheck at your next test.' }
+}
+
+export type ScoreStatus = 'priority' | 'support' | 'watching' | 'low' | 'on_target' | 'not_direct' | 'indirect'
+
+/**
+ * What a support score can honestly say. From 50% it is the level. Below
+ * that, a low score only reassures when the area's direct test was read: with
+ * nothing off target and no direct test, the area is reported as not tested
+ * directly (or read from related markers only), not as reassuring.
+ */
+export function scoreStatus(item: AreaResult): { key: ScoreStatus; label: string; advice: string } {
+  if (item.score >= 50) {
+    const { label, advice } = likelihoodLabel(item.score)
+    return { key: item.score >= 90 ? 'priority' : item.score >= 70 ? 'support' : 'watching', label, advice }
+  }
+  const consider = item.missing.length ? `Consider testing: ${item.missing.join(', ')}.` : ''
+  if (!item.contributors.length && item.direct === false) return { key: 'not_direct', label: 'Not tested directly', advice: consider || 'Its main test was not in these results.' }
+  if (!item.contributors.length && item.direct === null) return { key: 'indirect', label: 'Indirect markers only', advice: 'Read from related markers, none off target. There is no single direct test in this panel.' }
+  if (item.score === 0) return { key: 'on_target', label: 'On target', advice: 'Every marker read is on target.' }
+  return { key: 'low', label: 'Low priority', advice: item.direct === false ? `Nothing to act on now, but its main test was not done. ${consider}`.trim() : 'Nothing to act on now; recheck at your next test.' }
 }
 
 export function priorityOf(item: AreaResult): Priority {
@@ -546,10 +649,10 @@ export function priorityOf(item: AreaResult): Priority {
 
 /** The four parts of an improvement area's plan, in report order. */
 export const PLAN_PARTS: Array<{ key: keyof AreaPlan; title: string; color: string }> = [
-  { key: 'nutrition', title: 'Nutrition', color: '#2D6A4F' },
-  { key: 'lifestyle', title: 'Lifestyle', color: '#3A7CA5' },
-  { key: 'supplements', title: 'Supplements to discuss', color: '#A8742A' },
-  { key: 'tests', title: 'Follow-up tests', color: '#6E5BA7' },
+  { key: 'nutrition', title: 'Food', color: '#4f7a35' },
+  { key: 'lifestyle', title: 'Daily habits', color: '#3f6f6a' },
+  { key: 'supplements', title: 'Supplements to discuss', color: '#a87a1c' },
+  { key: 'tests', title: 'Tests to repeat', color: '#86579a' },
 ]
 
 const EMPTY_PLAN: AreaPlan = { nutrition: [], lifestyle: [], supplements: [], tests: [] }
@@ -576,7 +679,7 @@ export function defaultSummary(analysis: Analysis) {
   const outOptimal = bands.below_optimal + bands.above_optimal
   const outStandard = bands.below_standard + bands.above_standard + bands.alarm_low + bands.alarm_high
   const top = plan.slice(0, 3).map(item => item.area.name.toLowerCase())
-  return `Of the ${summary.total} biomarkers analysed, ${optimal} are within the optimal range, ${outOptimal} are outside optimal but within the laboratory's standard range, and ${outStandard} are outside the standard range.${top.length ? ` The areas that need the most attention are ${listNames(top)}.` : ' No area shows a strong pattern of dysfunction.'}${summary.urgent.length ? ' Some results are well outside the laboratory range and should be reviewed with your doctor promptly.' : ''}`
+  return `We read ${summary.total} markers: ${optimal} are on target, ${outOptimal} are off target but still within the laboratory's range, and ${outStandard} are outside the laboratory's range.${top.length ? ` Your plan focuses first on ${listNames(top)}.` : ' No area scored high enough to need a plan of its own.'}${summary.urgent.length ? ' Some results are well outside the laboratory range and should be reviewed with your doctor promptly.' : ''}`
 }
 
 export function defaultFindings(analysis: Analysis): FmNarrative['findings'] {
@@ -613,20 +716,20 @@ export function defaultNextSteps(analysis: Analysis): FmNarrative['nextSteps'] {
   const missing = Array.from(new Set(analysis.plan.flatMap(item => item.missing))).slice(0, 6)
   return [
     {
-      title: urgent.length ? 'See your doctor promptly' : 'Review this report with your clinician',
+      title: urgent.length ? 'See your doctor promptly' : 'Book your results consultation',
       text: urgent.length
         ? 'Some results are well outside the laboratory\'s range and need medical review soon, before starting the wider plan.'
-        : 'Go through the findings and the plan together, alongside your symptoms, history and current medicines, and agree which changes to start first.',
+        : 'Sit down with your FXMed clinician to go through this report alongside your symptoms, history and current medicines, and agree which changes to start first.',
       items: urgent.length ? urgent : ['Bring a list of your current medicines and supplements.', 'Note any symptoms you have noticed, and when they started.'],
     },
     {
-      title: 'Follow-up testing',
-      text: 'Retesting shows whether the plan is working. Most markers are worth repeating 8–12 weeks after starting changes.',
+      title: 'Retest at 8–12 weeks',
+      text: 'A repeat test shows us what the plan has changed. Most markers are worth checking again 8–12 weeks after you start.',
       items: [...tests, ...(missing.length ? [`Consider adding: ${missing.join(', ')}.`] : [])],
     },
     {
-      title: 'Start with the foundations',
-      text: 'The biggest gains usually come from the basics. Any supplement or medicine change should be agreed with your clinician first.',
+      title: 'Begin with the basics',
+      text: 'Sleep, food and movement usually move the numbers most. Agree any supplement or medicine change with your clinician first.',
       items: Array.from(new Set(analysis.plan.slice(0, 3).flatMap(item => (item.area.plan?.lifestyle || []).slice(0, 1))))
         .concat(analysis.child ? 'Regular sleep, whole foods, active play and limited screen time.' : 'Sleep 7–9 hours, eat whole foods, move daily and limit alcohol.').slice(0, 4),
     },

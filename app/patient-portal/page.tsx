@@ -26,6 +26,7 @@ import { base64ToBlob, downloadBlob } from '@/lib/fileDownload'
 import { INVOICE_PAYMENT, formatInvoiceDate, formatInvoiceMoney, hasBankDetails, paymentStatusLabels, type Invoice, type InvoicePaymentStatus } from '@/lib/invoices'
 import { contact } from '@/lib/seo'
 import PatientForms from '@/components/forms/PatientForms'
+import { ProgressRing, SegmentedBar, clinic } from '@/components/charts'
 
 type PortalSection = 'overview' | 'care_plan' | 'lab_results' | 'documents' | 'billing' | 'messages' | 'forms'
 /** A test the care team requested and is waiting for results of. */
@@ -174,51 +175,52 @@ export default function PatientPortal() {
     router.replace('/patient-portal/login')
   }
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center bg-cream"><div className="h-12 w-12 animate-spin rounded-full border-2 border-green-deep/15 border-t-green-deep" /></div>
-  if (!data) return <div className="flex min-h-screen items-center justify-center bg-cream p-8 font-dm-sans text-red-700">{error || 'Portal unavailable.'}</div>
+  if (loading) return <div className="clinic-theme flex min-h-screen items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-2 border-clinic-ink/10 border-t-clinic-sage" /></div>
+  if (!data) return <div className="clinic-theme flex min-h-screen items-center justify-center p-8 text-clinic-flag">{error || 'Portal unavailable.'}</div>
   const patient = data.patient
 
   return (
-    <div className="min-h-screen bg-cream font-dm-sans text-green-deep lg:grid lg:grid-cols-[280px_1fr]">
-      <aside className="relative z-30 flex h-auto flex-col overflow-hidden bg-green-deep px-5 py-5 text-white shadow-[12px_0_50px_rgba(26,61,46,0.08)] lg:sticky lg:top-0 lg:h-screen lg:px-7 lg:py-8">
-        <div className="flex items-center justify-between lg:block">
-          <Image src="/logo.png" alt="FXMed" width={280} height={158} priority className="relative h-14 w-auto brightness-0 invert sm:h-20 lg:h-28" />
-          <button type="button" onClick={logout} className="relative rounded-full border border-white/20 px-4 py-2 text-xs font-semibold transition hover:bg-white/10 lg:hidden">Sign out</button>
-        </div>
-        <div className="relative mt-4 rounded-[18px] border border-white/10 bg-white/[0.07] px-4 py-3 lg:mt-9 lg:rounded-[22px] lg:p-5">
-          <span className="hidden rounded-full bg-gold px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-green-deep lg:inline-flex">Patient</span>
-          <p className="truncate text-base font-bold lg:mt-4 lg:text-lg">{patient.first_name} {patient.last_name}</p>
-          <p className="mt-1 text-xs tracking-[0.08em] text-white/55">{patient.mrn}</p>
-        </div>
-        <nav ref={menu} className="relative -mx-5 mt-3 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] lg:mx-0 lg:mt-8 lg:block lg:space-y-2 lg:overflow-visible lg:px-0">
-          {nav.map(item => <button key={item.id} type="button" data-section={item.id} onClick={() => setActive(item.id)} className={`group flex shrink-0 items-center gap-3 rounded-[14px] px-4 py-3 text-left text-sm font-semibold lg:py-3.5 transition-all lg:w-full ${active === item.id ? 'bg-gold text-green-deep shadow-[0_8px_24px_rgba(201,226,101,0.18)]' : 'text-white/65 hover:bg-white/[0.08] hover:text-white'}`}>
-            <item.Icon size={22} weight={active === item.id ? 'fill' : 'duotone'} className={`shrink-0 ${active === item.id ? 'text-green-deep' : 'text-white/55 group-hover:text-gold'}`} />
-            {item.label}
-            {item.id === 'messages' && unreadMessages > 0 && <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1.5 text-[10px] font-bold text-green-deep">{unreadMessages}</span>}
-            {item.id === 'lab_results' && labsWaiting > 0 && <span title={`${labsWaiting} test${labsWaiting === 1 ? '' : 's'} waiting for your results`} className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1.5 text-[10px] font-bold text-green-deep">{labsWaiting}</span>}
-            {item.id === 'billing' && invoicesDue > 0 && <span title={`${invoicesDue} invoice${invoicesDue === 1 ? '' : 's'} to pay`} className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1.5 text-[10px] font-bold text-green-deep">{invoicesDue}</span>}
-          </button>)}
-        </nav>
-        <div className="relative mt-auto hidden border-t border-white/10 pt-5 lg:block">
-          <button type="button" onClick={logout} className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3 text-left text-sm font-semibold text-white/65 transition hover:bg-white/[0.08] hover:text-white"><SignOutIcon size={22} weight="duotone" className="shrink-0" />Sign out</button>
+    <div className="clinic-theme min-h-screen lg:grid lg:grid-cols-[272px_minmax(0,1fr)]">
+      <aside className="relative z-30 p-3 pb-0 lg:sticky lg:top-0 lg:h-screen lg:pb-3">
+        <div className="flex h-full flex-col rounded-card bg-clinic-card px-3 py-4 shadow-card lg:py-5">
+          <div className="flex items-center justify-between gap-3 px-1">
+            <Image src="/FXMed_Logo_Black.png" alt="FXMed" width={1202} height={335} priority className="h-8 w-auto" />
+            <button type="button" onClick={logout} aria-label="Sign out" className="clinic-icon-button lg:hidden"><SignOutIcon size={19} /></button>
+          </div>
+          <div className="mt-4 flex items-center gap-3 rounded-full bg-clinic-forest p-1.5 pr-4 text-white">
+            <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-clinic-sage-tint text-xs font-semibold text-clinic-forest">{`${patient.first_name?.[0] || ''}${patient.last_name?.[0] || ''}`.toUpperCase() || 'P'}</span>
+            <div className="min-w-0"><p className="truncate text-sm font-medium leading-tight">{patient.first_name} {patient.last_name}</p><p className="truncate text-[11px] tracking-[0.04em] text-white/55">{patient.mrn}</p></div>
+          </div>
+          <nav ref={menu} aria-label="Portal sections" className="-mx-3 mt-3 flex gap-1.5 overflow-x-auto px-3 pb-1 [scrollbar-width:none] lg:mx-0 lg:mt-5 lg:block lg:space-y-1 lg:overflow-visible lg:px-0">
+            {nav.map(item => <button key={item.id} type="button" data-section={item.id} aria-current={active === item.id ? 'page' : undefined} onClick={() => setActive(item.id)} className={`group flex shrink-0 items-center gap-3 rounded-full px-4 py-2.5 text-left text-sm font-medium transition lg:w-full ${active === item.id ? 'bg-clinic-sage text-clinic-ink' : 'text-clinic-muted hover:bg-clinic-ink/5 hover:text-clinic-ink'}`}>
+              <item.Icon size={20} weight={active === item.id ? 'fill' : 'regular'} className="shrink-0" />
+              {item.label}
+              {item.id === 'messages' && unreadMessages > 0 && <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-clinic-mustard px-1.5 text-[10px] font-semibold text-clinic-ink">{unreadMessages}</span>}
+              {item.id === 'lab_results' && labsWaiting > 0 && <span title={`${labsWaiting} test${labsWaiting === 1 ? '' : 's'} waiting for your results`} className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-clinic-mustard px-1.5 text-[10px] font-semibold text-clinic-ink">{labsWaiting}</span>}
+              {item.id === 'billing' && invoicesDue > 0 && <span title={`${invoicesDue} invoice${invoicesDue === 1 ? '' : 's'} to pay`} className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-clinic-mustard px-1.5 text-[10px] font-semibold text-clinic-ink">{invoicesDue}</span>}
+            </button>)}
+          </nav>
+          <div className="mt-auto hidden pt-3 lg:block">
+            <button type="button" onClick={logout} className="flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-left text-sm font-medium text-clinic-muted transition hover:bg-clinic-ink/5 hover:text-clinic-ink"><SignOutIcon size={20} className="shrink-0" />Sign out</button>
+          </div>
         </div>
       </aside>
 
-      <main className="min-w-0 px-4 pb-7 sm:px-7 lg:px-10 lg:pb-10 xl:px-14">
+      <main className="min-w-0 px-3 pb-7 sm:px-5 lg:px-8 lg:pb-10">
         <div className="mx-auto max-w-[1200px]">
-          <header className="relative z-20 -mx-4 flex flex-wrap items-center justify-between gap-4 border-b border-green-deep/10 bg-cream/95 px-4 py-5 backdrop-blur-xl lg:sticky lg:top-0 lg:gap-5 sm:-mx-7 sm:px-7 lg:-mx-10 lg:px-10 lg:py-8 xl:-mx-14 xl:px-14">
-            <div><SectionLabel>Patient Portal</SectionLabel><h1 className="mt-3 text-[clamp(2rem,4vw,3rem)] font-bold leading-none tracking-[-0.035em]">{nav.find(item => item.id === active)?.label}</h1></div>
-            <div className="relative flex items-center gap-3">
-              <button type="button" onClick={() => setShowUpload(true)} className="inline-flex items-center gap-2 rounded-full bg-green-deep px-5 py-3 text-sm font-bold text-white transition hover:bg-green-mid"><FileArrowUpIcon size={19} weight="duotone" className="text-gold" />Upload a record</button>
-              <button type="button" onClick={() => void openNotifications()} aria-label={unreadNotifications ? `${unreadNotifications} new notifications` : 'Notifications'} aria-expanded={showNotifications} className="relative flex h-11 w-11 items-center justify-center rounded-full border border-green-deep/10 bg-white shadow-sm">
-                <BellIcon size={22} weight="duotone" />
-                {unreadNotifications > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-bold ring-2 ring-cream">{unreadNotifications > 9 ? '9+' : unreadNotifications}</span>}
+          <header className="glass-blur relative z-20 -mx-3 flex flex-wrap items-center justify-between gap-4 px-3 py-4 sm:-mx-5 sm:px-5 lg:sticky lg:top-0 lg:-mx-8 lg:gap-5 lg:px-8 lg:py-6">
+            <div className="min-w-0"><SectionLabel>Patient portal</SectionLabel><h1 className="mt-1.5 text-[clamp(2rem,4vw,2.75rem)] leading-none">{nav.find(item => item.id === active)?.label}</h1></div>
+            <div className="relative flex items-center gap-2 sm:gap-3">
+              <button type="button" onClick={() => setShowUpload(true)} className="primary h-11"><FileArrowUpIcon size={19} className="text-clinic-sage-tint" />Upload a record</button>
+              <button type="button" onClick={() => void openNotifications()} aria-label={unreadNotifications ? `${unreadNotifications} new notifications` : 'Notifications'} aria-expanded={showNotifications} className="clinic-icon-button">
+                <BellIcon size={21} />
+                {unreadNotifications > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-clinic-mustard px-1 text-[10px] font-semibold text-clinic-ink ring-2 ring-clinic-bg">{unreadNotifications > 9 ? '9+' : unreadNotifications}</span>}
               </button>
               {showNotifications && <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
                 <div className="absolute left-0 top-full z-50 mt-3 w-[min(22rem,calc(100vw-2rem))] overflow-hidden sm:left-auto sm:right-0 rounded-[20px] border border-green-deep/10 bg-white shadow-2xl">
                   <p className="bg-green-deep px-5 py-4 font-semibold text-white">Notifications</p>
-                  <div className="max-h-80 overflow-y-auto">{data.notifications.length ? data.notifications.map(item => <button key={item.id} type="button" onClick={() => { setActive(item.section); setShowNotifications(false) }} className={`block w-full border-b border-gray-100 p-4 text-left hover:bg-gray-50 ${item.read_at ? '' : 'bg-gold/10'}`}>
+                  <div className="max-h-80 overflow-y-auto">{data.notifications.length ? data.notifications.map(item => <button key={item.id} type="button" onClick={() => { setActive(item.section); setShowNotifications(false) }} className={`block w-full border-b border-gray-100 p-4 text-left hover:bg-gray-50 ${item.read_at ? '' : 'bg-clinic-mustard/10'}`}>
                     <p className="text-sm font-semibold [overflow-wrap:anywhere]">{item.title}</p>
                     {item.detail && <p className="mt-0.5 line-clamp-2 text-xs text-text-mid">{item.detail}</p>}
                     <p className="mt-1 text-[11px] text-text-mid">{dateTime.format(new Date(item.created_at))}</p>
@@ -266,7 +268,7 @@ function Overview({ data, unreadMessages, goTo }: { data: PortalData; unreadMess
   const next = [...remaining].sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999')).slice(0, 4)
   const { waiting } = labProgress(data)
   return <div className="mt-8 space-y-6">
-    {waiting.length > 0 && <button type="button" onClick={() => goTo('lab_results')} className="flex w-full flex-wrap items-center gap-4 rounded-[22px] border border-gold bg-gold/15 p-4 text-left shadow-[0_8px_30px_rgba(26,61,46,0.06)] transition hover:-translate-y-0.5 sm:p-6">
+    {waiting.length > 0 && <button type="button" onClick={() => goTo('lab_results')} className="flex w-full flex-wrap items-center gap-4 rounded-card bg-clinic-mustard/25 p-4 text-left transition hover:-translate-y-0.5 sm:p-6">
       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-green-deep text-gold"><FlaskIcon size={24} weight="duotone" /></span>
       <span className="min-w-[11rem] flex-1">
         <span className="block font-bold">Your care team is waiting for your lab results</span>
@@ -279,8 +281,8 @@ function Overview({ data, unreadMessages, goTo }: { data: PortalData; unreadMess
       <Stat title="Shared documents" value={data.documents.filter(item => item.source !== 'patient').length} onClick={() => goTo('documents')} />
       <Stat title="Unread messages" value={unreadMessages} onClick={() => goTo('messages')} />
     </div>
-    <Card label="Up next" title="Your next care plan steps">
-      {next.length ? <div className="mt-5 space-y-3">{next.map(item => <div key={item.id} className="flex items-start gap-3 rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4"><CircleIcon size={20} className="mt-0.5 shrink-0 text-green-mid" /><div><p className="font-bold">{item.title}</p>{item.instructions && <p className="mt-1 text-sm leading-6 text-text-mid">{item.instructions}</p>}{item.due_date && <p className="mt-1 text-xs font-bold text-green-mid">Due {date.format(new Date(`${item.due_date}T00:00:00`))}</p>}</div></div>)}</div>
+    <Card label="Up next" title="Your next care plan steps" action={steps.length > 0 ? <div className="flex items-center gap-3"><ProgressRing value={(100 * (steps.length - remaining.length)) / steps.length} label="Care plan steps done" size={76} thickness={8} /><p className="text-xs leading-5 text-clinic-muted">{steps.length - remaining.length} of {steps.length}<br />steps done</p></div> : undefined}>
+      {next.length ? <div className="mt-5 space-y-3">{next.map(item => <div key={item.id} className="flex items-start gap-3 rounded-[16px] bg-clinic-bg/60 p-4"><CircleIcon size={20} className="mt-0.5 shrink-0 text-green-mid" /><div><p className="font-bold">{item.title}</p>{item.instructions && <p className="mt-1 text-sm leading-6 text-text-mid">{item.instructions}</p>}{item.due_date && <p className="mt-1 text-xs font-bold text-green-mid">Due {date.format(new Date(`${item.due_date}T00:00:00`))}</p>}</div></div>)}</div>
         : <Empty text={data.carePlans.length ? 'Every step in your active care plan is done. Well done.' : 'Your care team has not shared a care plan yet.'} />}
     </Card>
     <Card label="Your details" title="Contact information on file">
@@ -313,8 +315,8 @@ function CarePlans({ plans, onChanged, onError }: { plans: any[]; onChanged: () 
     const percent = plan.items.length ? Math.round((done / plan.items.length) * 100) : 0
     return <Card key={plan.id} label={label(plan.status)} title={plan.title}>
       {plan.description && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-text-mid">{plan.description}</p>}
-      {plan.goals && <div className="mt-4 rounded-[16px] bg-[#FCFFF0] p-4"><p className="text-[11px] font-bold uppercase tracking-[0.12em] text-green-mid">Goals</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6">{plan.goals}</p></div>}
-      <div className="mt-5 flex items-center gap-3"><div className="h-2 flex-1 overflow-hidden rounded-full bg-green-deep/10"><div className="h-full rounded-full bg-green-mid transition-all" style={{ width: `${percent}%` }} /></div><span className="text-xs font-bold">{done}/{plan.items.length} done</span></div>
+      {plan.goals && <div className="mt-4 rounded-[16px] bg-clinic-bg/60 p-4"><p className="text-[11px] font-bold uppercase tracking-[0.12em] text-green-mid">Goals</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6">{plan.goals}</p></div>}
+      <div className="mt-5 flex items-center gap-4"><div className="flex-1"><SegmentedBar label="Care plan steps" total={plan.items.length} segments={[{ value: done, label: 'Done', color: clinic.sage }]} /></div><span className="text-xs font-medium tabular-nums">{done}/{plan.items.length} done · {percent}%</span></div>
       <div className="mt-5 space-y-3">{plan.items.length ? plan.items.map((item: any) => {
         const complete = item.status === 'completed'
         return <button key={item.id} type="button" disabled={saving === item.id || plan.status !== 'active'} onClick={() => toggle(item)} className="flex w-full items-start gap-3 rounded-[16px] border border-green-deep/10 bg-white p-4 text-left transition hover:border-green-mid disabled:cursor-default disabled:hover:border-green-deep/10">
@@ -335,7 +337,7 @@ function Documents({ documents, onUpload, onError }: { documents: any[]; onUploa
   const shared = documents.filter(item => item.source !== 'patient')
   const mine = documents.filter(item => item.source === 'patient')
   // On narrow phones the status badge drops below rather than squeezing the title.
-  const row = (item: any) => <button key={item.id} type="button" onClick={() => open(item.id)} className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4 text-left transition hover:border-green-mid">
+  const row = (item: any) => <button key={item.id} type="button" onClick={() => open(item.id)} className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-[16px] bg-clinic-bg/60 p-4 text-left transition hover:border-green-mid">
     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px] bg-green-mid/10 text-green-mid"><FileTextIcon size={22} weight="duotone" /></span>
     <span className="min-w-[8rem] flex-1"><span className="line-clamp-2 break-words font-bold">{item.title}</span><span className="mt-1 block text-xs text-text-mid">{label(item.category)} · {date.format(new Date(item.shared_at || item.created_at))}</span></span>
     {item.source === 'patient' && <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${item.portal_status === 'reviewed' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.portal_status === 'reviewed' ? 'Reviewed' : 'Awaiting review'}</span>}
@@ -441,7 +443,7 @@ function Billing({ invoices, patient, onlinePayments, goTo, onError, onPaid }: {
       <button type="button" onClick={() => goTo('messages')} className="mt-4 text-sm font-bold text-green-mid underline underline-offset-4 hover:text-green-deep">Paid already? Send us your receipt in Messages</button>
     </Card>}
     <Card label="From your care team" title="Your invoices">
-      <div className="mt-5 space-y-3">{invoices.map(invoice => <div key={invoice.id} className="rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4 sm:p-5">
+      <div className="mt-5 space-y-3">{invoices.map(invoice => <div key={invoice.id} className="rounded-[16px] bg-clinic-bg/60 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0"><p className="font-bold">{invoice.number}</p><p className="mt-1 text-xs text-text-mid">Issued {formatInvoiceDate(invoice.issueDate)}{invoice.status !== 'void' ? ` · ${invoice.dueDate ? `due ${formatInvoiceDate(invoice.dueDate)}` : 'due on receipt'}` : ''}</p></div>
           <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${invoiceTone[invoice.paymentStatus]}`}>{paymentStatusLabels[invoice.paymentStatus]}</span>
@@ -481,7 +483,7 @@ function Messages({ messages, onSent }: { messages: any[]; onSent: (message: any
   return <div className="mt-8">
     <Card label="Secure messaging" title="Your care team">
       <p className="mt-2 text-sm text-text-mid">For anything urgent, call the clinic or go to the nearest emergency department. Messages are answered during clinic hours.</p>
-      <div className="mt-5 max-h-[32rem] min-h-[12rem] space-y-3 overflow-y-auto rounded-[16px] bg-[#FCFFF0] p-4">
+      <div className="mt-5 max-h-[32rem] min-h-[12rem] space-y-3 overflow-y-auto rounded-[16px] bg-clinic-bg/60 p-4">
         {messages.length ? messages.map(item => <div key={item.id} className={`flex ${item.sender === 'patient' ? 'justify-end' : 'justify-start'}`}>
           <div className={`max-w-[85%] rounded-[16px] px-4 py-3 text-sm leading-6 ${item.sender === 'patient' ? 'bg-green-deep text-white' : 'border border-green-deep/10 bg-white'}`}>
             <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{item.body}</p>
@@ -520,8 +522,8 @@ function LabResults({ data, onUpload, onError }: { data: PortalData; onUpload: (
         const reviewed = sent.length > 0 && sent.every(item => item.portal_status === 'reviewed')
         const status = !sent.length ? { text: 'Waiting for your results', tone: 'bg-amber-50 text-amber-700' }
           : reviewed ? { text: 'Reviewed by your care team', tone: 'bg-emerald-50 text-emerald-700' }
-          : { text: 'Sent · awaiting review', tone: 'bg-gold/30 text-green-deep' }
-        return <div key={order.id} className="rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4 sm:p-5">
+          : { text: 'Sent · awaiting review', tone: 'bg-clinic-mustard/30 text-green-deep' }
+        return <div key={order.id} className="rounded-[16px] bg-clinic-bg/60 p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0"><p className="font-bold">{order.title}</p><p className="mt-1 text-xs text-text-mid">Requested {date.format(new Date(order.orderedAt))}{sent.length ? ` · ${sent.length} file${sent.length === 1 ? '' : 's'} sent` : ''}</p></div>
             <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${status.tone}`}>{status.text}</span>
@@ -538,7 +540,7 @@ function LabResults({ data, onUpload, onError }: { data: PortalData; onUpload: (
       })}</div> : <Empty text="Your care team is not waiting for any lab results right now. If you have results from another lab, you can still upload them." />}
     </Card>
     <Card label="From you" title="Lab results you have sent">
-      {uploads.length ? <div className="mt-5 space-y-3">{uploads.map(item => <button key={item.id} type="button" onClick={() => openDocument(item.id, onError)} className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-[16px] border border-green-deep/10 bg-[#FCFFF0] p-4 text-left transition hover:border-green-mid">
+      {uploads.length ? <div className="mt-5 space-y-3">{uploads.map(item => <button key={item.id} type="button" onClick={() => openDocument(item.id, onError)} className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-[16px] bg-clinic-bg/60 p-4 text-left transition hover:border-green-mid">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px] bg-green-mid/10 text-green-mid"><FileTextIcon size={22} weight="duotone" /></span>
         <span className="min-w-[8rem] flex-1"><span className="line-clamp-2 break-words font-bold">{item.title}</span><span className="mt-1 block text-xs text-text-mid">Sent {date.format(new Date(item.created_at))}</span></span>
         <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${item.portal_status === 'reviewed' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.portal_status === 'reviewed' ? 'Reviewed' : 'Awaiting review'}</span>
@@ -624,7 +626,7 @@ function LabUploadModal({ orders, orderId: chosenOrder, onClose, onUploaded }: {
         {!orderId && <label className="block text-sm font-bold">What test was it? (optional)<input value={title} onChange={event => setTitle(event.target.value)} maxLength={200} disabled={saving} className={field} placeholder="e.g. Full blood count from Synlab" /></label>}
         <div>
           <p className="text-sm font-bold">Results</p>
-          <button type="button" onClick={() => input.current?.click()} disabled={saving} className="mt-2 flex w-full flex-col items-center gap-1 rounded-[16px] border-2 border-dashed border-green-deep/20 bg-cream/50 px-4 py-6 text-center transition hover:border-green-mid disabled:opacity-50">
+          <button type="button" onClick={() => input.current?.click()} disabled={saving} className="mt-2 flex w-full flex-col items-center gap-1 rounded-[16px] border-2 border-dashed border-green-deep/20 bg-clinic-bg/50 px-4 py-6 text-center transition hover:border-green-mid disabled:opacity-50">
             <FileArrowUpIcon size={28} weight="duotone" className="text-green-mid" />
             <span className="text-sm font-bold">{files.length ? 'Add more files' : 'Choose files or take photos'}</span>
             <span className="text-xs text-text-mid">The lab’s PDF, or a clear photo of every page. Up to 15 MB each.</span>
@@ -634,7 +636,7 @@ function LabUploadModal({ orders, orderId: chosenOrder, onClose, onUploaded }: {
             event.target.value = ''
             if (chosen.length) addFiles(chosen)
           }} />
-          {files.length > 0 && <ul className="mt-3 space-y-2">{files.map((file, index) => <li key={`${file.name}-${file.size}-${index}`} className="flex items-center gap-3 rounded-[12px] border border-green-deep/10 bg-[#FCFFF0] px-3 py-2 text-sm">
+          {files.length > 0 && <ul className="mt-3 space-y-2">{files.map((file, index) => <li key={`${file.name}-${file.size}-${index}`} className="flex items-center gap-3 rounded-[12px] bg-clinic-bg/60 px-3 py-2 text-sm">
             <FileTextIcon size={18} weight="duotone" className="shrink-0 text-green-mid" />
             <span className="min-w-0 flex-1 truncate font-semibold">{file.name}</span>
             <span className="shrink-0 text-xs text-text-mid">{file.size < 1024 * 1024 ? `${Math.max(1, Math.round(file.size / 1024))} KB` : `${(file.size / 1024 / 1024).toFixed(1)} MB`}</span>
@@ -704,11 +706,11 @@ function WelcomeModal({ firstName, onClose }: { firstName?: string; onClose: () 
 }
 
 function Card({ label: eyebrow, title, action, children }: { label: string; title: string; action?: React.ReactNode; children: React.ReactNode }) {
-  return <section className="rounded-[24px] border border-green-deep/10 bg-white p-6 shadow-[0_8px_30px_rgba(26,61,46,0.06)] sm:p-8"><div className="flex flex-wrap items-start justify-between gap-4"><div><SectionLabel>{eyebrow}</SectionLabel><h2 className="mt-3 text-2xl font-bold">{title}</h2></div>{action}</div>{children}</section>
+  return <section className="clinic-card rounded-card p-6 sm:p-8"><div className="flex flex-wrap items-start justify-between gap-4"><div><SectionLabel>{eyebrow}</SectionLabel><h2 className="mt-2 text-2xl sm:text-[1.75rem]">{title}</h2></div>{action}</div>{children}</section>
 }
 function Stat({ title, value, onClick }: { title: string; value: number; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className="rounded-[22px] border border-green-deep/10 bg-white p-6 text-left shadow-[0_8px_30px_rgba(26,61,46,0.06)] transition hover:-translate-y-0.5"><p className="text-xs font-bold uppercase tracking-[0.08em] text-text-mid/75">{title}</p><p className="mt-2 text-3xl font-bold tracking-[-0.03em]">{value}</p></button>
+  return <button type="button" onClick={onClick} className="clinic-card rounded-card p-6 text-left transition hover:-translate-y-0.5"><p className="text-[13px] font-medium text-clinic-muted">{title}</p><p className="clinic-number mt-3 text-[2.75rem] leading-none">{value}</p></button>
 }
-function ReadOnly({ label: name, value }: { label: string; value: string }) { return <div><p className="text-sm font-bold">{name}</p><p className="mt-2 rounded-[14px] border border-green-deep/[0.06] bg-cream/55 px-4 py-3.5 text-sm text-text-mid">{value}</p></div> }
-function Empty({ text }: { text: string }) { return <div className="mt-6 rounded-[16px] border border-dashed border-green-deep/20 bg-cream/50 p-8 text-center text-sm leading-6 text-text-mid">{text}</div> }
-function SectionLabel({ children }: { children: React.ReactNode }) { return <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-green-mid">{children}</p> }
+function ReadOnly({ label: name, value }: { label: string; value: string }) { return <div><p className="text-sm font-medium">{name}</p><p className="mt-2 rounded-[16px] bg-clinic-bg/70 px-4 py-3.5 text-sm text-clinic-muted">{value}</p></div> }
+function Empty({ text }: { text: string }) { return <div className="mt-6 rounded-[20px] border border-dashed border-clinic-ink/15 p-8 text-center text-sm leading-6 text-clinic-muted">{text}</div> }
+function SectionLabel({ children }: { children: React.ReactNode }) { return <p className="text-xs font-medium text-clinic-muted">{children}</p> }

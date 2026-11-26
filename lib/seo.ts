@@ -184,6 +184,21 @@ export const priceRange = '₦15,000 - ₦85,000'
 
 export const organizationId = `${siteUrl}/#organization`
 
+/**
+ * Structured data as the text of a <script type="application/ld+json"> tag.
+ * JSON.stringify leaves "<" as it is, so a value such as a blog post title
+ * holding "</script><script>…" would end the tag early and run as script.
+ * Escaping <, > and & (and the two line separators) keeps it inside the JSON.
+ */
+export function jsonLdScript(data: unknown) {
+  return JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')
+}
+
 export function clinicId(id: string) {
   return `${siteUrl}/#clinic-${id}`
 }
@@ -224,6 +239,7 @@ export const publicRoutes: PublicRoute[] = [
   { path: '/programs/autism-support', lastModified: '2026-10-29', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/functional-health-analysis', lastModified: '2026-05-27', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/health-assessment', lastModified: '2026-08-18', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/lab-library', lastModified: '2026-11-24', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/maternal-wellness', lastModified: '2026-05-11', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/elite', lastModified: '2026-05-27', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/blog', lastModified: '2026-06-09', changeFrequency: 'weekly', priority: 0.8 },

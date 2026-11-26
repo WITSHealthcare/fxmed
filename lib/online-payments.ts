@@ -8,7 +8,7 @@ import { sendEmail } from '@/lib/email'
 import { siteUrl } from '@/lib/seo'
 import { staffEmail, staffRecipients } from '@/lib/staff-alerts'
 
-// Paystack payments for patient invoices and bookings (migration 060).
+// Paystack payments for patient invoices and bookings (migration 062).
 //
 // Flow: start*Payment saves a pending row and returns Paystack's checkout URL.
 // The patient pays on Paystack and comes back to our callback page; Paystack

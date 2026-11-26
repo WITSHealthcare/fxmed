@@ -166,6 +166,7 @@ const isHomePage = pathname === '/'
                 <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-green-deep/10 py-2 z-50">
                   <a href="/functional-health-analysis" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-deep/10 hover:text-green-deep no-underline">Health Analysis</a>
                   <a href="/health-assessment" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-deep/10 hover:text-green-deep no-underline">Quick Assessment</a>
+                  <a href="/lab-library" className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-deep/10 hover:text-green-deep no-underline">Lab Library</a>
                 </div>
               )}
             </li>
@@ -262,6 +263,9 @@ const isHomePage = pathname === '/'
                   <a href="/health-assessment" onClick={closeMobileMenu} className={`block text-[0.85rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-1.5 px-3 rounded-lg ml-3 ${
                     isActiveLink('/health-assessment') ? 'bg-gold/20 text-gold font-semibold' : ''
                   }`}>Quick Assessment</a>
+                  <a href="/lab-library" onClick={closeMobileMenu} className={`block text-[0.85rem] font-medium no-underline transition-colors hover:text-gold text-cream/85 py-1.5 px-3 rounded-lg ml-3 ${
+                    isActiveLink('/lab-library') ? 'bg-gold/20 text-gold font-semibold' : ''
+                  }`}>Lab Library</a>
                 </div>
               </li>
               

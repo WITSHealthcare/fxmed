@@ -131,7 +131,7 @@ export default function RecordResults({ patientId, patientName, sex, empty, onIm
           const isAdded = added.has(report.id)
           return <li key={report.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0"><p className="truncate text-sm font-semibold text-green-deep">{report.title}</p>
-              <p className="text-xs text-text-mid">{reportDate(report)} · {count ? plural(count, 'numeric result') : 'no numeric results'}</p></div>
+              <p className="text-xs text-text-mid">{reportDate(report)} · {count ? plural(count, 'usable result') : 'no results the analysis can read'}</p></div>
             {isAdded
               ? <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700"><CheckCircleIcon size={16} weight="fill" />Added</span>
               : <button type="button" disabled={!count} onClick={() => addReports([report])} className="secondary disabled:opacity-40">Add {count ? plural(count, 'result') : 'results'}</button>}

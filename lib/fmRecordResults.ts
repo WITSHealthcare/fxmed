@@ -1,8 +1,8 @@
-// Results already in a patient's EMR record, ready for an FM lab analysis:
+// Results already in a patient's EMR record, ready for a Functional Health Analysis lab report:
 // the investigation results saved on their Investigations tab, and the lab
 // reports in their documents that have not been read yet.
 
-import { createEntry, defaultRanges, matchBiomarker, type FmEntry, type Sex } from '@/lib/fmBiomarkers'
+import { createEntry, defaultRanges, isUsableResult, matchBiomarker, type FmEntry, type Sex } from '@/lib/fmBiomarkers'
 
 export type RecordResult = { test: string; result: string; unit: string; referenceRange: string }
 
@@ -44,8 +44,8 @@ export function latestRound(reports: RecordReport[]) {
 /**
  * The reports' results as analysis entries, matched to the FM catalogue where
  * possible. Where a test appears in more than one report, the newest result
- * is used. Results without a number, such as "Negative", are left out, as the
- * analysis compares numbers against ranges.
+ * is used. Results without a number, such as "Negative", are left out, except
+ * for markers labs report in words (H. pylori), which are read as words.
  */
 export function entriesFromReports(reports: RecordReport[], sex: Sex): FmEntry[] {
   const entries: FmEntry[] = []
@@ -55,8 +55,8 @@ export function entriesFromReports(reports: RecordReport[], sex: Sex): FmEntry[]
     for (const row of report.results) {
       const name = (row.test || '').trim()
       const value = (row.result || '').trim()
-      if (!name || !/\d/.test(value)) continue
       const marker = matchBiomarker(name)
+      if (!name || !isUsableResult(marker, value)) continue
       const key = marker?.id || name.toLowerCase()
       if (seen.has(key)) continue
       seen.add(key)
@@ -113,5 +113,5 @@ export function newestResults(record: PatientRecordResults): { reports: RecordRe
 
 /** How many of a report's results can go into the analysis. */
 export function usableResults(report: RecordReport) {
-  return report.results.filter(row => (row.test || '').trim() && /\d/.test(row.result || '')).length
+  return report.results.filter(row => (row.test || '').trim() && isUsableResult(matchBiomarker(row.test || ''), row.result || '')).length
 }

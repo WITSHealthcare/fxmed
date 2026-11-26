@@ -4,9 +4,12 @@ type RateLimitEntry = { count: number; resetAt: number }
 
 const rateLimits = new Map<string, RateLimitEntry>()
 
+// Vercel sets x-real-ip and x-forwarded-for itself and drops whatever the
+// client sent. cf-connecting-ip is not read: with no Cloudflare proxy in front
+// (site analytics relies on Vercel's own geo headers), any caller can set it
+// and get a fresh rate-limit bucket on every request.
 export function getClientAddress(request: NextRequest) {
   return (
-    request.headers.get('cf-connecting-ip') ||
     request.headers.get('x-real-ip') ||
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     'unknown'

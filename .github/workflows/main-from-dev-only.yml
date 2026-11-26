@@ -1,0 +1,28 @@
+name: Main only takes changes from dev
+
+# Every change lands on dev first. A pull request into main must come from
+# the dev branch of this repository; anything else fails this check, which
+# the "main" ruleset requires before a merge.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, edited]
+
+permissions: {}
+
+jobs:
+  source-is-dev:
+    name: source-is-dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the pull request comes from dev
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_REPO" != "$BASE_REPO" ] || [ "$HEAD_REF" != "dev" ]; then
+            echo "::error::Pull requests into main must come from dev. Change this pull request's base branch to dev, merge it there, then open dev -> main."
+            exit 1
+          fi
+          echo "Source branch is dev."

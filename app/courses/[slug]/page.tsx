@@ -4,7 +4,7 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import CourseEnrolButton from '@/components/training/CourseEnrolButton'
 import { CourseFacts, CourseOutline } from '@/components/training/CoursePreview'
-import { absoluteUrl, createMetadata, organizationId } from '@/lib/seo'
+import { absoluteUrl, createMetadata, jsonLdScript, organizationId } from '@/lib/seo'
 import { formatPrice } from '@/lib/training'
 import { getPublicCourse } from '@/lib/training-public'
 
@@ -37,7 +37,7 @@ export default async function CoursePage({ params }: Props) {
     hasCourseInstance: { '@type': 'CourseInstance', courseMode: 'online', courseWorkload: course.total_minutes ? `PT${course.total_minutes}M` : undefined },
   }
   return <main className="min-h-screen bg-[#FCFFF0]">
-    {course.listed && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />}
+    {course.listed && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} />}
     <Navigation />
     <section className="bg-gradient-to-br from-green-deep to-green-mid px-[5%] pb-14 pt-40 text-white">
       <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[1fr_320px] md:items-end">

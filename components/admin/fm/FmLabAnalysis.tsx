@@ -7,9 +7,11 @@ import { ageInYears, defaultRanges, emptyNarrative, markerById, refreshRanges, s
 import AnalysisDashboard from './AnalysisDashboard'
 import RecordResults from './RecordResults'
 import ReportBuilder from './ReportBuilder'
+import StoolTestCard from './StoolTest'
+import type { StoolTest } from '@/lib/stoolMarkers'
 import { ImportPanel, ResultsTable, inputClass, mergeEntries } from './ResultsEntry'
 
-// Functional medicine lab analysis: enter a patient's results (typed, or read
+// Functional Health Analysis lab report: enter a patient's results (typed, or read
 // from the lab's report), see them against lab and FM-optimal ranges, and
 // issue the Functional Health Analysis report.
 
@@ -23,9 +25,9 @@ const emptyPatient = (): FmPatient => ({ name: '', age: '', sex: '', collectedAt
 /** Edits are saved this long after the last change. */
 const AUTOSAVE_DELAY = 1500
 
-type Content = { emrPatientId: string | null; patient: FmPatient; entries: FmEntry[]; narrative: FmNarrative }
+type Content = { emrPatientId: string | null; patient: FmPatient; entries: FmEntry[]; narrative: FmNarrative; stool: StoolTest | null }
 /** What is saved, as one comparable string; unsaved changes are any difference from the last save. */
-const snapshotOf = (content: Content) => JSON.stringify([content.emrPatientId, content.patient, content.entries, content.narrative])
+const snapshotOf = (content: Content) => JSON.stringify([content.emrPatientId, content.patient, content.entries, content.narrative, content.stool])
 const dateTime = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 const savedTime = new Intl.DateTimeFormat('en-NG', { hour: 'numeric', minute: '2-digit' })
 const patientName = (patient: EmrPatient) => [patient.first_name, patient.middle_name, patient.last_name].filter(Boolean).join(' ')
@@ -41,9 +43,9 @@ function Hero({ children }: { children?: React.ReactNode }) {
   return <section className="relative overflow-hidden rounded-[28px] bg-green-deep p-6 text-white shadow-[0_18px_50px_rgba(26,61,46,0.16)] sm:p-8">
     <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-gold/20 blur-3xl" />
     <div className="relative flex flex-wrap items-end justify-between gap-6">
-      <div><span className="inline-flex rounded-full bg-gold px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-green-deep">Functional Medicine</span>
-        <h2 className="mt-4 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">Lab analysis</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/65">Enter or upload lab results, compare every marker against laboratory and functional-medicine optimal ranges, and issue the Functional Health Analysis report.</p></div>
+      <div><span className="inline-flex rounded-full bg-gold px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-green-deep">Functional Health Analysis</span>
+        <h2 className="mt-4 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">Lab report</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/65">Enter or upload lab results, read every marker against the laboratory range and the FXMed optimal range, and issue the patient's Functional Health Analysis lab report.</p></div>
       {children}
     </div>
   </section>
@@ -123,11 +125,14 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
   const [emrPatientLabel, setEmrPatientLabel] = useState('')
   const [entries, setEntries] = useState<FmEntry[]>([])
   const [narrative, setNarrative] = useState<FmNarrative>(emptyNarrative)
+  const [stool, setStool] = useState<StoolTest | null>(null)
+  // Saves send the stool test once there has been one, so removing it is saved too.
+  const hadStool = useRef(false)
   const [status, setStatus] = useState<'draft' | 'final'>('draft')
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [message, setMessage] = useState<{ tone: 'error' | 'ok'; text: string } | null>(null)
-  const [savedSnapshot, setSavedSnapshot] = useState(() => snapshotOf({ emrPatientId: null, patient: emptyPatient(), entries: [], narrative: emptyNarrative() }))
+  const [savedSnapshot, setSavedSnapshot] = useState(() => snapshotOf({ emrPatientId: null, patient: emptyPatient(), entries: [], narrative: emptyNarrative(), stool: null }))
   // Saves run one after another, and read the id from here, so a second save
   // made while the first is still creating the analysis updates it rather than
   // creating a duplicate.
@@ -140,8 +145,10 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       const result = await response.json()
       if (!response.ok) throw new Error(result.error)
       const row = result.analysis
-      const loaded = { emrPatientId: row.emr_patient_id, patient: { ...emptyPatient(), ...row.patient }, entries: row.entries || [], narrative: { ...emptyNarrative(), ...(row.narrative || {}) } }
+      const loaded = { emrPatientId: row.emr_patient_id, patient: { ...emptyPatient(), ...row.patient }, entries: row.entries || [], narrative: { ...emptyNarrative(), ...(row.narrative || {}) }, stool: row.stool || null }
       setPatient(loaded.patient)
+      setStool(loaded.stool)
+      hadStool.current = !!loaded.stool
       setEntries(loaded.entries)
       setNarrative(loaded.narrative)
       setSavedSnapshot(snapshotOf(loaded))
@@ -153,10 +160,10 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
     }).catch(loadError => setMessage({ tone: 'error', text: loadError.message || 'The analysis could not be loaded.' })).finally(() => setLoading(false))
   }, [id])
 
-  const snapshot = useMemo(() => snapshotOf({ emrPatientId, patient, entries, narrative }), [emrPatientId, patient, entries, narrative])
+  const snapshot = useMemo(() => snapshotOf({ emrPatientId, patient, entries, narrative, stool }), [emrPatientId, patient, entries, narrative, stool])
   const dirty = !loading && snapshot !== savedSnapshot
   // Autosave needs a name to file the analysis under, and something worth keeping.
-  const canAutosave = !!patient.name.trim() && (!!analysisId || entries.length > 0)
+  const canAutosave = !!patient.name.trim() && (!!analysisId || entries.length > 0 || !!stool)
 
   const summary = useMemo(() => summarize(entries), [entries])
   const age = useMemo(() => ageInYears(patient.age), [patient.age])
@@ -216,7 +223,8 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       return Promise.resolve(false)
     }
     const sent = snapshot
-    const body = { emrPatientId, patient, entries, narrative, status: nextStatus || status }
+    if (stool) hadStool.current = true
+    const body = { emrPatientId, patient, entries, narrative, status: nextStatus || status, ...(hadStool.current ? { stool } : {}) }
     const run = queue.current.then(async () => {
       setSaving(true)
       if (!quiet) setMessage(null)
@@ -241,7 +249,7 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
     })
     queue.current = run
     return run
-  }, [snapshot, emrPatientId, patient, entries, narrative, status])
+  }, [snapshot, emrPatientId, patient, entries, narrative, stool, status])
 
   // Autosave a moment after the last change, as results and edits come in.
   useEffect(() => {
@@ -275,9 +283,9 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
   if (loading) return <div className="flex min-h-64 items-center justify-center"><span className="h-9 w-9 animate-spin rounded-full border-2 border-green-deep/15 border-t-green-deep" /></div>
 
   const steps: Array<{ id: Step; label: string; Icon: typeof FlaskIcon }> = [
-    { id: 'results', label: '1. Patient & results', Icon: FlaskIcon },
-    { id: 'analysis', label: `2. Analysis${summary.total ? ` (${summary.total})` : ''}`, Icon: ChartBarIcon },
-    { id: 'report', label: '3. Report', Icon: FileTextIcon },
+    { id: 'results', label: '1. Results in', Icon: FlaskIcon },
+    { id: 'analysis', label: `2. Clinical read${summary.total ? ` (${summary.total})` : ''}`, Icon: ChartBarIcon },
+    { id: 'report', label: '3. Patient report', Icon: FileTextIcon },
   ]
 
   return <div className="space-y-6">
@@ -318,17 +326,18 @@ function Editor({ id, onClose }: { id: string | null; onClose: () => void }) {
       <button type="button" onClick={updateRanges} className="secondary">Update to current ranges</button>
     </div>}
 
-    <nav className="flex gap-2 overflow-x-auto rounded-[20px] border border-green-deep/10 bg-white p-2" aria-label="Analysis steps">
-      {steps.map(item => <button key={item.id} type="button" onClick={() => setStep(item.id)} className={`flex shrink-0 items-center gap-2 rounded-[14px] px-4 py-3 text-sm font-bold transition ${step === item.id ? 'bg-green-deep text-white shadow-md' : 'text-text-mid hover:bg-green-deep/5 hover:text-green-deep'}`}><item.Icon size={20} weight={step === item.id ? 'fill' : 'duotone'} className={step === item.id ? 'text-gold' : 'text-green-mid'} />{item.label}</button>)}
+    <nav className="clinic-card flex w-fit max-w-full gap-1 overflow-x-auto rounded-full p-1" aria-label="Analysis steps">
+      {steps.map(item => <button key={item.id} type="button" onClick={() => setStep(item.id)} className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition ${step === item.id ? 'bg-clinic-forest text-white' : 'text-clinic-muted hover:bg-clinic-ink/5 hover:text-clinic-ink'}`}><item.Icon size={20} weight={step === item.id ? 'fill' : 'regular'} className={step === item.id ? 'text-clinic-sage-tint' : ''} />{item.label}</button>)}
     </nav>
 
     {step === 'results' && <div className="space-y-6">
       {emrPatientId && <RecordResults key={emrPatientId} patientId={emrPatientId} patientName={patient.name} sex={patient.sex} empty={entries.length === 0} onImported={imported} />}
       <ImportPanel sex={patient.sex} age={age} onImported={imported} another={entries.length > 0} />
       <ResultsTable entries={entries} sex={patient.sex} age={age} onChange={setEntries} />
-      {summary.total > 0 && <div className="flex justify-end"><button type="button" className="primary" onClick={() => setStep('analysis')}><ChartBarIcon size={16} />See the analysis</button></div>}
+      <StoolTestCard stool={stool} onChange={setStool} emrPatientId={emrPatientId} />
+      {(summary.total > 0 || !!stool) && <div className="flex justify-end"><button type="button" className="primary" onClick={() => setStep('analysis')}><ChartBarIcon size={16} />See the analysis</button></div>}
     </div>}
-    {step === 'analysis' && <AnalysisDashboard entries={entries} narrative={narrative} sex={patient.sex} age={age} />}
-    {step === 'report' && <ReportBuilder patient={patient} entries={entries} setEntries={setEntries} narrative={narrative} setNarrative={setNarrative} emrPatientId={emrPatientId} onSaveAnalysis={save} />}
+    {step === 'analysis' && <AnalysisDashboard entries={entries} narrative={narrative} sex={patient.sex} age={age} stool={stool} />}
+    {step === 'report' && <ReportBuilder patient={patient} entries={entries} setEntries={setEntries} narrative={narrative} setNarrative={setNarrative} emrPatientId={emrPatientId} onSaveAnalysis={save} stool={stool} />}
   </div>
 }

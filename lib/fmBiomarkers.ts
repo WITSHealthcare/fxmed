@@ -1,4 +1,4 @@
-// Functional medicine lab analysis: the biomarker catalogue, and how a result
+// Functional Health Analysis lab report: the biomarker catalogue, and how a result
 // is judged against both the laboratory's reference range and the narrower
 // functional-medicine (FM) optimal range.
 //
@@ -53,6 +53,12 @@ export type Biomarker = {
   fmFromLab?: boolean
   /** Also shown on these panels' pages, as in the template (e.g. B12, hs-CRP). */
   alsoIn?: PanelId[]
+  /**
+   * Labs often report it in words ("Positive", "Not detected") rather than a
+   * number. A worded result is read as negative, equivocal or positive; a
+   * numeric index is read against the lab's range like any other result.
+   */
+  qualitative?: boolean
 }
 
 const m = (id: string, name: string, panel: PanelId, unit: string, lab: Pair, fm: Pair, extra: Partial<Biomarker> = {}): Biomarker =>
@@ -70,6 +76,7 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('non_hdl', 'Non-HDL Cholesterol', 'cardio', 'mmol/L', [0, 4.1], [0, 3.4], { aliases: ['non hdl', 'non-hdl-c'] }),
   m('chol_hdl_ratio', 'Chol./HDL Ratio', 'cardio', 'ratio', [0, 5], [0, 4], { aliases: ['cholesterol/hdl ratio', 'tc/hdl', 'chol/hdl'] }),
   m('tg_hdl_ratio', 'Triglyceride/HDL Ratio', 'cardio', 'ratio', [0, 1.7], [0, 0.9], { aliases: ['tg/hdl', 'triglyceride/hdl ratio', 'tg:hdl'] }),
+  m('omega3_index', 'Omega-3 Index', 'cardio', '%', [4, 12], [8, 12], { aliases: ['omega 3 index', 'omega-3 index (rbc)', 'o3i', 'rbc omega-3'] }),
   // Glucose
   m('fasting_glucose', 'Fasting Glucose', 'glucose', 'mmol/L', [3.9, 6], [4.4, 5.5], { aliases: ['glucose', 'fbs', 'fbg', 'fasting blood sugar', 'fasting blood glucose', 'fasting plasma glucose'], critical: { low: 3, high: 11.1 } }),
   m('hba1c', 'HbA1c', 'glucose', '%', [4, 5.6], [4, 5.4], { aliases: ['hba1c (ngsp)', 'glycated haemoglobin', 'glycated hemoglobin', 'a1c'], critical: { high: 9 } }),
@@ -86,6 +93,7 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('reverse_t3', 'Reverse T3', 'thyroid', 'ng/mL', [0.09, 0.35], [0.09, 0.2], { aliases: ['rt3', 'reverse triiodothyronine'] }),
   m('anti_tpo', 'Anti-TPO Ab', 'thyroid', 'IU/mL', [0, 34], [0, 34], { aliases: ['tpo', 'tpo antibodies', 'anti-thyroid peroxidase', 'thyroid peroxidase antibodies', 'thyroid peroxidase antibody'], fmFromLab: true }),
   m('anti_tg', 'Anti-TG Ab', 'thyroid', 'IU/mL', [0, 40], [0, 40], { aliases: ['tg antibodies', 'anti-thyroglobulin', 'thyroglobulin antibodies', 'thyroglobulin antibody'], fmFromLab: true }),
+  m('thyroglobulin', 'Thyroglobulin', 'thyroid', 'ng/mL', [3.5, 77], [3.5, 77], { aliases: ['thyroglobulin (tg)', 'serum thyroglobulin', 'tg (thyroglobulin)'], fmFromLab: true }),
   // Adrenal & hormones
   m('dhea_s', 'DHEA-S', 'adrenal', 'µmol/L', [2.68, 9.23], [3.5, 9.2], { aliases: ['dheas', 'dhea sulphate', 'dhea sulfate'], male: { lab: [4.3, 12.2], fm: [6, 12] } }),
   m('cortisol_am', 'Cortisol AM', 'adrenal', 'µg/dL', [6.2, 19.4], [10, 15], { aliases: ['cortisol', 'morning cortisol', 'cortisol (am)', 'cortisol 8am'], critical: { low: 3 } }),
@@ -96,6 +104,11 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('free_testosterone_index', 'Free Testosterone Index', 'adrenal', 'ratio', [0.5, 5], [1, 3.5], { aliases: ['fai', 'free androgen index'], male: { lab: [35, 92], fm: [50, 90] } }),
   m('estradiol', 'Estradiol (E2)', 'adrenal', 'pmol/L', [45, 1460], [45, 1460], { aliases: ['oestradiol', 'e2', 'estradiol'], male: { lab: [40, 160], fm: [70, 150] } }),
   m('progesterone', 'Progesterone', 'adrenal', 'nmol/L', [0.2, 90], [0.2, 90], { aliases: ['serum progesterone'], male: { lab: [0.2, 1.3], fm: [0.3, 1.3] } }),
+  m('fsh', 'FSH', 'adrenal', 'IU/L', [3.5, 12.5], [3.5, 12.5], { aliases: ['follicle stimulating hormone', 'follicle-stimulating hormone', 'serum fsh'], male: { lab: [1.5, 12.4], fm: [1.5, 12.4] }, fmFromLab: true }),
+  m('lh', 'LH', 'adrenal', 'IU/L', [2.4, 12.6], [2.4, 12.6], { aliases: ['luteinizing hormone', 'luteinising hormone', 'serum lh'], male: { lab: [1.7, 8.6], fm: [1.7, 8.6] }, fmFromLab: true }),
+  m('prolactin', 'Prolactin', 'adrenal', 'ng/mL', [4.8, 23.3], [4.8, 20], { aliases: ['prl', 'serum prolactin'], male: { lab: [4, 15.2], fm: [4, 12] }, critical: { high: 100 } }),
+  m('amh', 'AMH', 'adrenal', 'ng/mL', [1, 10], [1, 10], { aliases: ['anti-mullerian hormone', 'anti-müllerian hormone', 'mullerian inhibiting substance'], fmFromLab: true }),
+  m('igf1', 'IGF-1', 'adrenal', 'ng/mL', [80, 300], [80, 300], { aliases: ['igf 1', 'igf-i', 'insulin-like growth factor 1', 'somatomedin c'], fmFromLab: true }),
   // Kidney
   m('creatinine', 'Creatinine', 'kidney', 'µmol/L', [44, 80], [50, 80], { aliases: ['serum creatinine', 'creat'], male: { lab: [62, 106], fm: [65, 100] } }),
   m('egfr', 'eGFR', 'kidney', 'mL/min/1.73 m²', [60, null], [90, null], { aliases: ['gfr', 'estimated gfr'], critical: { low: 30 } }),
@@ -103,6 +116,7 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('bun', 'BUN', 'kidney', 'mg/dL', [7, 20], [10, 16], { aliases: ['bun', 'blood urea nitrogen', 'urea nitrogen'] }),
   m('uric_acid', 'Uric Acid', 'kidney', 'mmol/L', [0.15, 0.36], [0.18, 0.3], { aliases: ['urate'], male: { lab: [0.2, 0.43], fm: [0.21, 0.33] }, critical: { high: 0.6 } }),
   m('protein_creatinine', 'Protein/Creatinine Ratio', 'kidney', 'g/g', [0, 0.2], [0, 0.15], { aliases: ['protein/creatinine', 'upcr', 'urine protein creatinine ratio'] }),
+  m('cystatin_c', 'Cystatin C', 'kidney', 'mg/L', [0.6, 1], [0.6, 0.9], { aliases: ['cystatin c', 'serum cystatin c', 'cys c'] }),
   m('amylase', 'Amylase', 'kidney', 'IU/L', [30, 110], [30, 100], { aliases: ['serum amylase'] }),
   m('u_creatinine', 'U-Creatinine', 'kidney', 'g/L', [0.15, 1.5], [0.3, 1.2], { aliases: ['urine creatinine'] }),
   m('u_protein', 'U-Protein', 'kidney', 'g/L', [0, 0.15], [0, 0.08], { aliases: ['urine protein'] }),
@@ -123,6 +137,7 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('b12', 'Vitamin B12', 'methylation', 'pmol/L', [133, 675], [370, 1000], { aliases: ['b12', 'cobalamin', 'cyanocobalamin'], alsoIn: ['vitamins'], critical: { low: 110 } }),
   m('folate', 'Folate (Serum)', 'methylation', 'nmol/L', [7, 46], [15, null], { aliases: ['folate', 'folic acid', 'serum folate'] }),
   m('homocysteine', 'Homocysteine', 'methylation', 'µmol/L', [0, 15], [0, 10], { aliases: ['hcy', 'plasma homocysteine'], alsoIn: ['inflammation'], critical: { high: 30 } }),
+  m('mma', 'Methylmalonic Acid', 'methylation', 'nmol/L', [0, 400], [0, 300], { aliases: ['mma', 'methylmalonic acid (mma)', 'serum methylmalonic acid'], alsoIn: ['vitamins'] }),
   // Hematology
   m('rbc', 'RBC Count', 'hematology', '×10¹²/L', [3.8, 5.8], [4, 5], { aliases: ['rbc', 'red blood cell count', 'red cell count', 'erythrocytes'], male: { lab: [4.5, 5.9], fm: [4.4, 5.4] } }),
   m('hemoglobin', 'Hemoglobin', 'hematology', 'g/dL', [11.5, 16.5], [12, 14.5], { aliases: ['haemoglobin', 'hb', 'hgb'], male: { lab: [13, 17.5], fm: [14, 16] }, critical: { low: 8 } }),
@@ -158,12 +173,20 @@ export const FM_BIOMARKERS: Biomarker[] = [
   m('transferrin', 'Transferrin', 'vitamins', 'µmol/L', [24, 45], [26, 42]),
   m('tibc', 'TIBC', 'vitamins', 'µmol/L', [45, 72], [50, 65], { aliases: ['total iron binding capacity'] }),
   m('tsat', 'Transferrin Saturation', 'vitamins', '%', [20, 50], [25, 45], { aliases: ['tsat', 'iron saturation'], critical: { high: 60 } }),
+  m('stfr', 'Soluble Transferrin Receptor', 'vitamins', 'mg/L', [0.76, 1.76], [0.76, 1.76], { aliases: ['stfr', 'soluble transferrin receptor (stfr)', 'transferrin receptor, soluble', 'serum transferrin receptor'], fmFromLab: true }),
   m('ferritin', 'Ferritin', 'vitamins', 'ng/mL', [20, 300], [50, 200], { aliases: ['serum ferritin'], female: { lab: [13, 150], fm: [50, 120] }, critical: { high: 1000 } }),
   m('zinc', 'Serum Zinc', 'vitamins', 'µmol/L', [10.7, 18.4], [14, 18], { aliases: ['zinc', 'zn'] }),
+  m('copper', 'Serum Copper', 'vitamins', 'µg/dL', [70, 140], [80, 125], { aliases: ['copper', 'cu'], female: { lab: [80, 155], fm: [85, 135] } }),
+  m('selenium', 'Serum Selenium', 'vitamins', 'µg/L', [70, 150], [100, 150], { aliases: ['selenium', 'se', 'selenium (serum)'] }),
   // Inflammation & bone
   m('hs_crp', 'hs-CRP', 'inflammation', 'mg/L', [0, 3], [0, 1], { aliases: ['crp', 'high sensitivity crp', 'high-sensitivity crp', 'c-reactive protein', 'hscrp'], alsoIn: ['methylation'], critical: { high: 10 } }),
   m('pth', 'PTH', 'inflammation', 'pg/mL', [15, 65], [15, 45], { aliases: ['parathyroid hormone', 'intact pth'] }),
   m('ck', 'Creatine Kinase', 'inflammation', 'IU/L', [26, 140], [26, 90], { aliases: ['ck', 'cpk', 'creatine phosphokinase'] }),
+  m('fibrinogen', 'Fibrinogen', 'inflammation', 'g/L', [2, 4], [2, 3.5], { aliases: ['plasma fibrinogen', 'fibrinogen level'], alsoIn: ['cardio'], critical: { low: 1 } }),
+  m('il6', 'IL-6', 'inflammation', 'pg/mL', [0, 7], [0, 3], { aliases: ['interleukin 6', 'interleukin-6', 'il 6', 'il-6 (interleukin 6)'] }),
+  // Additional
+  m('psa', 'PSA (Total)', 'other', 'ng/mL', [0, 4], [0, 4], { aliases: ['psa', 'total psa', 'prostate specific antigen', 'prostate-specific antigen'], critical: { high: 10 } }),
+  m('h_pylori', 'H. pylori', 'other', 'index', [0, 0.9], [0, 0.9], { aliases: ['helicobacter pylori', 'h. pylori antibody', 'h. pylori igg', 'h pylori antibodies', 'h. pylori stool antigen', 'h pylori antigen', 'helicobacter pylori antigen', 'helicobacter pylori igg'], fmFromLab: true, qualitative: true }),
 ]
 
 export const markerById = (id: string | null | undefined) => (id ? FM_BIOMARKERS.find(marker => marker.id === id) : undefined) || null
@@ -236,7 +259,19 @@ const CONVERSIONS: Record<string, Record<string, number>> = {
   fasting_insulin: { 'pmol/l': 6.945 },
   c_peptide: { 'ng/ml': 1 / 331 },
   tsh: { 'miu/l': 1 },
+  mma: { 'µmol/l': 0.001 },
+  selenium: { 'µmol/l': 0.01266, 'ng/ml': 1 },
+  copper: { 'µmol/l': 0.1574 },
+  fibrinogen: { 'mg/dl': 100 },
+  prolactin: { 'miu/l': 21.2, 'µg/l': 1 },
+  amh: { 'pmol/l': 7.14 },
+  igf1: { 'nmol/l': 0.131 },
+  thyroglobulin: { 'µg/l': 1 },
+  psa: { 'µg/l': 1 },
 }
+
+/** Other units a marker is commonly reported in, with the factor from the catalogue unit. */
+export const alternateUnits = (markerId: string) => Object.entries(CONVERSIONS[markerId] || {}).map(([unit, factor]) => ({ unit, factor }))
 
 /** The factor from a marker's catalogue unit to `unit`, already normalised. */
 function conversion(markerId: string, unit: string) {
@@ -399,6 +434,22 @@ export function parseRange(text: string): Range | null {
   return null
 }
 
+export type TextResult = 'negative' | 'equivocal' | 'positive'
+
+/** A worded result as printed ("Positive", "Non-reactive", "Not detected"), or null. */
+export function textResult(text: string): TextResult | null {
+  const value = (text || '').toLowerCase()
+  if (/\b(non[- ]?reactive|not detected|undetected|negative|absent|nil)\b/.test(value)) return 'negative'
+  if (/\b(equivocal|borderline|indeterminate|inconclusive)\b/.test(value)) return 'equivocal'
+  if (/\b(positive|reactive|detected|present)\b/.test(value)) return 'positive'
+  return null
+}
+
+/** Whether a result can go into the analysis: a number, or a worded result for a marker labs report that way. */
+export function isUsableResult(marker: Biomarker | null, value: string) {
+  return /\d/.test(value) || (!!marker?.qualitative && textResult(value) !== null)
+}
+
 /** The number in a result as printed, ignoring "<", "H" and the like. */
 export function parseValue(text: string): number | null {
   const match = (text || '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/)
@@ -455,7 +506,7 @@ export type FmEntry = {
 
 export type Priority = 'urgent' | 'high' | 'moderate' | 'low'
 
-/** A health improvement area's plan, as the clinician edited it. */
+/** A care plan focus area's plan, as the clinician edited it. */
 export type AreaPlan = { nutrition: string[]; lifestyle: string[]; supplements: string[]; tests: string[] }
 
 export type FmNarrative = {
@@ -464,7 +515,7 @@ export type FmNarrative = {
   panels: Partial<Record<PanelId, { summary: string; understanding: { title: string; text: string }[]; actions: string[] }>>
   recommendations: { priority: Priority; title: string; items: string[] }[]
   nextSteps: { title: string; text: string; items: string[] }[]
-  /** Edits to the standard plan of a health improvement area, by area id. */
+  /** Edits to the standard plan of a care plan focus area, by area id. */
   areaPlans?: Record<string, AreaPlan>
 }
 
@@ -535,6 +586,8 @@ export function refreshRanges(entries: FmEntry[], sex: Sex, age?: number | null)
 
 export type AssessedEntry = FmEntry & {
   numeric: number | null
+  /** A worded result ("Positive") for a qualitative marker; numeric then holds 0, 1 or 2 for scoring. */
+  textResult: TextResult | null
   lab: LabStatus
   fm: FmStatus
   labRangeParsed: Range | null
@@ -542,7 +595,22 @@ export type AssessedEntry = FmEntry & {
   urgent: boolean
 }
 
+// A worded result is scored on its own fixed scale: negative is in range,
+// equivocal is off target, positive is outside the laboratory's range.
+const TEXT_SCORE: Record<TextResult, number> = { negative: 0, equivocal: 1, positive: 2 }
+const TEXT_LAB_RANGE: Range = { low: null, high: 1 }
+const TEXT_FM_RANGE: Range = { low: null, high: 0.5 }
+
 export function assessEntry(entry: FmEntry): AssessedEntry {
+  const worded = markerById(entry.markerId)?.qualitative ? textResult(entry.value) : null
+  if (worded) {
+    const numeric = TEXT_SCORE[worded]
+    // The unit is dropped for display: "Positive", not "Positive index".
+    return {
+      ...entry, unit: '', numeric, textResult: worded, labRangeParsed: TEXT_LAB_RANGE, fmRangeParsed: TEXT_FM_RANGE,
+      lab: labStatus(numeric, TEXT_LAB_RANGE), fm: fmStatus(numeric, TEXT_FM_RANGE), urgent: false,
+    }
+  }
   const numeric = parseValue(entry.value)
   const labRangeParsed = parseRange(entry.labRange)
   const fmRangeParsed = parseRange(entry.fmRange) || labRangeParsed
@@ -557,7 +625,7 @@ export function assessEntry(entry: FmEntry): AssessedEntry {
     if (marker.critical.low !== undefined && canonical < marker.critical.low) urgent = true
     if (marker.critical.high !== undefined && canonical > marker.critical.high) urgent = true
   }
-  return { ...entry, numeric, lab, fm, labRangeParsed, fmRangeParsed, urgent }
+  return { ...entry, numeric, textResult: null, lab, fm, labRangeParsed, fmRangeParsed, urgent }
 }
 
 export type PanelSummary = {
@@ -600,8 +668,10 @@ export function summarize(entries: FmEntry[]) {
 
 export const FM_STATUS_LABEL: Record<FmStatus, string> = { low: 'LOW ↓', borderline: 'BORDERLINE ~', normal: 'NORMAL ✓', optimal: 'OPTIMAL ✓', high: 'HIGH ↑', unknown: '—' }
 export const LAB_STATUS_LABEL: Record<LabStatus, string> = { low: 'LOW ↓', normal: 'NORMAL ✓', high: 'HIGH ↑', unknown: '—' }
-export const STATUS_COLOR: Record<FmStatus | LabStatus, string> = { low: '#1D64C8', borderline: '#C8730F', normal: '#1A6B53', optimal: '#0E9F6E', high: '#C53030', unknown: '#6B7C74' }
-export const PRIORITY_COLOR: Record<Priority, string> = { urgent: '#B5102B', high: '#C53030', moderate: '#C8730F', low: '#2D8A6A' }
+// Text colours in the clinic palette (flag / watch / clear), dark enough to read on white.
+// Direction is carried by the arrow in each label, not the colour.
+export const STATUS_COLOR: Record<FmStatus | LabStatus, string> = { low: '#b8433b', borderline: '#a87a1c', normal: '#4f7a35', optimal: '#4f7a35', high: '#b8433b', unknown: '#6d726b' }
+export const PRIORITY_COLOR: Record<Priority, string> = { urgent: '#9e2f29', high: '#b8433b', moderate: '#a87a1c', low: '#4f7a35' }
 
 /** How far a result sits outside a range, as a percentage of the limit it crossed. */
 export function deviation(value: number | null, range: Range | null) {

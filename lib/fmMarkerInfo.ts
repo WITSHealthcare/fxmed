@@ -1,5 +1,5 @@
-// Plain-English explanations of each catalogue biomarker for the Functional
-// Health Report's "Out of Optimal Range" section: what the marker is, and the
+// Plain-English explanations of each catalogue biomarker for the "Off Target"
+// pages of the Functional Health Analysis lab report: what the marker is, and the
 // common reasons it runs high or low. Written for patients reading the report
 // with their clinician; keyed by the catalogue ids in lib/fmBiomarkers.ts.
 
@@ -52,6 +52,11 @@ export const MARKER_INFO: Record<string, MarkerInfo> = {
   tg_hdl_ratio: {
     about: 'The triglyceride to HDL ratio is a simple, well-validated window on insulin sensitivity and on the size of LDL particles.',
     high: 'A raised ratio suggests insulin resistance and smaller, denser LDL particles, which are more likely to cause plaque.',
+  },
+  omega3_index: {
+    about: 'The omega-3 index is the share of the fats in your red cell membranes that are the omega-3s EPA and DHA. Because red cells live for about four months, it reflects your intake over that time rather than your last meal.',
+    high: 'A high index usually reflects regular oily fish or omega-3 supplements, and is linked to lower cardiovascular risk.',
+    low: 'A low index means little EPA and DHA in the diet, and is linked to higher cardiovascular risk and more inflammation. Oily fish such as mackerel and sardines raise it within a few months.',
   },
   // Glucose
   fasting_glucose: {
@@ -115,6 +120,11 @@ export const MARKER_INFO: Record<string, MarkerInfo> = {
     about: 'Thyroid peroxidase antibodies show the immune system is attacking the enzyme the thyroid uses to make its hormones.',
     high: 'Raised antibodies are the hallmark of autoimmune thyroiditis (Hashimoto\'s), and can precede changes in thyroid hormone levels by years.',
   },
+  thyroglobulin: {
+    about: 'Thyroglobulin is the protein the thyroid uses to build its hormones. Its main use is in following people treated for thyroid cancer, and laboratories differ in how they measure it, so it is read against your laboratory\'s own range.',
+    high: 'A raised level can follow an enlarged or inflamed thyroid, thyroid nodules or iodine shortage. After thyroid cancer treatment, any rise needs prompt review with your specialist.',
+    low: 'A very low level is expected after the thyroid has been removed. Otherwise it is rarely a concern on its own.',
+  },
   anti_tg: {
     about: 'Thyroglobulin antibodies show the immune system is attacking thyroglobulin, the protein from which thyroid hormones are made.',
     high: 'Raised antibodies are found in autoimmune thyroiditis (Hashimoto\'s) and Graves\' disease.',
@@ -160,6 +170,31 @@ export const MARKER_INFO: Record<string, MarkerInfo> = {
     high: 'A raised level can reflect the phase of the cycle, excess body fat, oestrogen dominance or slow oestrogen clearance by the liver and gut.',
     low: 'A low level can reflect the phase of the cycle, perimenopause or menopause, low body fat or over-training, and affects bone, mood and sleep.',
   },
+  fsh: {
+    about: 'Follicle-stimulating hormone is sent from the pituitary gland to the ovaries or testes. It drives egg development in women and sperm production in men, and its level changes through the menstrual cycle and at menopause.',
+    high: 'A raised level means the pituitary is pushing harder to get a response: normal around and after menopause, but earlier it can point to falling ovarian reserve or, in men, to testes that are not responding.',
+    low: 'A low level can reflect pituitary or hypothalamic suppression, such as from very low body weight, intense training, high prolactin, stress or hormonal contraception.',
+  },
+  lh: {
+    about: 'Luteinising hormone comes from the pituitary gland and triggers ovulation in women and testosterone production in men. It peaks sharply mid-cycle, so the timing of the test matters.',
+    high: 'A raised level outside the mid-cycle peak can be seen after menopause, with polycystic ovary syndrome (often with LH higher than FSH), or in men when the testes are not responding.',
+    low: 'A low level can mean the pituitary is suppressed, by stress, under-eating, intense training, high prolactin, or testosterone or steroids taken from outside.',
+  },
+  prolactin: {
+    about: 'Prolactin is a pituitary hormone best known for milk production. Outside pregnancy and breastfeeding it stays low, and a raised level quietly suppresses the sex hormones.',
+    high: 'A raised level can come from stress, poor sleep, a recent breast examination, an underactive thyroid, some medicines (including anti-sickness and antipsychotic drugs) or a small pituitary growth. It can cause irregular periods, low libido and breast discharge, so it is repeated and investigated.',
+    low: 'A low level is rarely a concern.',
+  },
+  amh: {
+    about: 'Anti-Müllerian hormone is made by the small follicles in the ovaries, so it gives an estimate of the remaining egg supply. It falls naturally with age, which is why it is read against your laboratory\'s age-specific range.',
+    high: 'A raised level is often seen with polycystic ovary syndrome, where there are many small follicles.',
+    low: 'A low level suggests a smaller egg reserve than expected for age. It does not on its own predict natural fertility, but it matters when planning pregnancy or fertility treatment.',
+  },
+  igf1: {
+    about: 'IGF-1 is made mainly by the liver in response to growth hormone, and reflects growth hormone activity over the day. Levels fall steadily with age, so it is read against your laboratory\'s age-specific range.',
+    high: 'A raised level can reflect a very high protein intake or, rarely, excess growth hormone, which needs specialist review.',
+    low: 'A low level can follow undernutrition, low protein intake, poor sleep, liver disease, an underactive thyroid or reduced growth hormone.',
+  },
   progesterone: {
     about: 'Progesterone balances oestrogen, supports sleep and calm, and prepares the womb for pregnancy. It peaks in the second half of the cycle.',
     high: 'A raised level is expected in the luteal phase and in pregnancy.',
@@ -181,10 +216,20 @@ export const MARKER_INFO: Record<string, MarkerInfo> = {
     high: 'A raised level can mean dehydration, reduced kidney function, a very high-protein diet or bleeding in the gut.',
     low: 'A low level can reflect low protein intake, poor protein digestion, over-hydration or liver strain.',
   },
+  bun: {
+    about: 'Blood urea nitrogen (BUN) measures the nitrogen carried by urea, the main waste product of protein breakdown. It is the same test as urea, reported a different way.',
+    high: 'A raised level can mean dehydration, reduced kidney function, a very high-protein diet or bleeding in the gut.',
+    low: 'A low level can reflect low protein intake, poor protein digestion, over-hydration or liver strain.',
+  },
   uric_acid: {
     about: 'Uric acid is made when the body breaks down purines from food and cell turnover. In moderate amounts it is an antioxidant.',
     high: 'A raised level is linked to gout, kidney stones, insulin resistance, fructose and alcohol intake, and cardiovascular risk.',
     low: 'A low level can reflect low antioxidant reserve, low protein intake or molybdenum deficiency.',
+  },
+  cystatin_c: {
+    about: 'Cystatin C is a small protein filtered by the kidneys. Unlike creatinine it is barely affected by muscle mass or diet, so it gives a clearer view of kidney filtration in very muscular, very slim or older people.',
+    high: 'A raised level suggests the kidneys are filtering less well. Thyroid overactivity and high-dose steroids can also push it up.',
+    low: 'A low level is not a concern.',
   },
   protein_creatinine: {
     about: 'The urine protein to creatinine ratio measures how much protein is leaking through the kidney filters.',
@@ -274,6 +319,10 @@ export const MARKER_INFO: Record<string, MarkerInfo> = {
     about: 'Folate works with B12 in methylation, which the body needs for DNA, red blood cells, mood chemicals and detoxification.',
     high: 'A raised level usually reflects supplementation or fortified foods.',
     low: 'A low level impairs methylation, raises homocysteine and can cause anaemia. It is common with low vegetable intake, alcohol and some medicines.',
+  },
+  mma: {
+    about: 'Methylmalonic acid builds up when the body runs short of active vitamin B12, so it shows B12 shortage at the level of the cells, even when the blood B12 level looks acceptable.',
+    high: 'A raised level points to a functional B12 shortage, as with a plant-based diet, low stomach acid, metformin or acid-reducing medicines. Reduced kidney function can also raise it.',
   },
   homocysteine: {
     about: 'Homocysteine is an amino acid made during methylation. B12, folate and B6 are needed to recycle it.',
@@ -439,10 +488,25 @@ export const MARKER_INFO: Record<string, MarkerInfo> = {
     high: 'A raised saturation can reflect iron overload, including inherited haemochromatosis, and should be followed up.',
     low: 'A low saturation is a sensitive sign of iron deficiency.',
   },
+  stfr: {
+    about: 'Soluble transferrin receptor rises when cells are hungry for iron. Unlike ferritin it does not rise with inflammation, so it helps tell true iron shortage apart from the low iron seen with chronic illness. Laboratories use different methods, so it is read against your laboratory\'s own range.',
+    high: 'A raised level points to iron-deficient red cell production, and can also be seen when the bone marrow is very active, as in haemolysis or sickle cell disease.',
+    low: 'A low level can be seen with reduced red cell production by the bone marrow, and sometimes with iron overload.',
+  },
   ferritin: {
     about: 'Ferritin is the body\'s iron store. It also rises with inflammation, so it is read alongside the other iron markers and CRP.',
     high: 'A raised level can reflect inflammation, fatty liver, insulin resistance or iron overload, and is linked to oxidative stress.',
     low: 'A low level means depleted iron stores, causing fatigue, hair loss and poor exercise tolerance, often before anaemia develops.',
+  },
+  copper: {
+    about: 'Copper works with iron to build red blood cells and is needed for energy production, connective tissue, the nervous system and antioxidant defences. Zinc and copper compete for absorption, so they are read together.',
+    high: 'A raised level is often seen with inflammation or infection, pregnancy and oestrogen-containing contraception or HRT, and can lower zinc.',
+    low: 'A low level can follow long-term high-dose zinc, gut surgery or malabsorption, and can cause anaemia and low white cell counts.',
+  },
+  selenium: {
+    about: 'Selenium is a trace mineral the body needs to activate thyroid hormone and to make some of its key antioxidant enzymes. How much you get depends heavily on the soil your food was grown in.',
+    high: 'A raised level usually comes from supplements, and very high intakes are toxic, causing hair and nail changes.',
+    low: 'A low level can slow the conversion of thyroid hormone to its active form and weaken antioxidant and immune defences.',
   },
   zinc: {
     about: 'Zinc is needed for immunity, wound healing, taste, skin, thyroid hormone conversion and testosterone production.',
@@ -458,6 +522,23 @@ export const MARKER_INFO: Record<string, MarkerInfo> = {
     about: 'Parathyroid hormone keeps blood calcium steady by drawing on bone, kidneys and vitamin D.',
     high: 'A raised level most often reflects low vitamin D or low calcium intake, and occasionally an overactive parathyroid gland.',
     low: 'A low level can reflect high calcium or excess vitamin D.',
+  },
+  fibrinogen: {
+    about: 'Fibrinogen is a clotting protein made by the liver. It also rises with inflammation, so it links inflammation to the risk of clots.',
+    high: 'A raised level adds to cardiovascular and clot risk, and is seen with inflammation, infection, smoking, excess weight and pregnancy.',
+    low: 'A low level can reflect liver disease or a clotting disorder and can increase bleeding, so a very low result needs prompt review.',
+  },
+  il6: {
+    about: 'Interleukin-6 is a messenger the immune system releases to switch on inflammation. It drives the liver to make CRP, so it is an earlier and more direct signal of inflammation.',
+    high: 'A raised level is seen with infection, injury, autoimmune disease and the low-grade inflammation that comes with excess weight, poor sleep and chronic stress.',
+  },
+  psa: {
+    about: 'Prostate-specific antigen is a protein made by the prostate gland in men. It is used to check prostate health, and the level that is usual rises gradually with age.',
+    high: 'A raised level can come from an enlarged prostate, infection or inflammation, recent ejaculation or cycling, and sometimes prostate cancer. A raised result is repeated and discussed with a doctor before any decision.',
+  },
+  h_pylori: {
+    about: 'Helicobacter pylori is a common stomach bacterium. It is tested by a stool antigen or breath test, which show an infection now, or by a blood antibody test, which can stay positive after it has gone. Most laboratories report it as positive or negative.',
+    high: 'A positive result means current or past infection, depending on the test. Current infection can cause indigestion, ulcers and low stomach acid, and can lower iron and vitamin B12. It is treated with a course of antibiotics, and clearance is checked with a stool or breath test afterwards.',
   },
   ck: {
     about: 'Creatine kinase is an enzyme released from muscle.',

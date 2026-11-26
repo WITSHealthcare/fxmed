@@ -1,4 +1,4 @@
-// Server-only AI steps of the functional medicine lab analysis: reading
+// Server-only AI steps of the Functional Health Analysis lab report: reading
 // results out of a lab report, and writing the interpretation. Classification
 // itself (lab vs FM status, scores, urgency) is done in lib/fmBiomarkers.ts,
 // never by the model, so the numbers on the report are always reproducible.
@@ -6,9 +6,11 @@
 import { generateClinicalReport, type ReportAttachment } from '@/lib/ai/clinical-report'
 import { analyse, BAND_LABEL, bandOf, directionOf } from '@/lib/fmAssessment'
 import {
-  FM_BIOMARKERS, ageInYears, createEntry, defaultRanges, isChild, matchBiomarker,
+  FM_BIOMARKERS, ageInYears, createEntry, defaultRanges, isChild, isUsableResult, matchBiomarker,
   type FmEntry, type FmNarrative, type FmPatient, type Priority, type Sex,
 } from '@/lib/fmBiomarkers'
+import { STOOL_MARKERS, STOOL_STATUS_LABEL, createStoolEntry, matchStoolMarker, stoolMarkerById, stoolOutOfRange, stoolStatus, type StoolEntry, type StoolTest } from '@/lib/stoolMarkers'
+import { assessStool } from '@/lib/stoolAssessment'
 
 function parseJson(output: string) {
   const fenced = output.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
@@ -28,9 +30,10 @@ export type ExtractedLab = { patient: Partial<FmPatient>; entries: FmEntry[]; pr
 
 function extractionPrompt(pastedText: string) {
   const catalogue = FM_BIOMARKERS.map(marker => `${marker.id}: ${marker.name}`).join('\n')
+  const worded = FM_BIOMARKERS.filter(marker => marker.qualitative).map(marker => marker.name).join(', ')
   return `You are transcribing a laboratory report for a functional medicine clinic.${pastedText ? ' The report text is pasted below.' : ' The attached files are the laboratory\'s report: PDF pages or photographs of it.'}
 
-Copy every numeric result. Where a result is one of these known markers, give its id; otherwise use null for markerId:
+Copy every numeric result, and the worded result (e.g. "Positive", "Negative", "Not detected") of these tests, which labs often report in words: ${worded}. Where a result is one of these known markers, give its id; otherwise use null for markerId:
 ${catalogue}
 
 Return valid JSON only, with no commentary, in exactly this shape:
@@ -40,7 +43,7 @@ Rules:
 - Never invent or calculate a value. Copy each value, unit and reference range exactly as printed.
 - sex is "female", "male" or empty. age is a number of years as printed, or empty.
 - facility is the reporting laboratory's name. labRef is the lab's report or accession number.
-- Leave out anything you cannot read with confidence, and any result that is not a number (e.g. "Negative").
+- Leave out anything you cannot read with confidence, and any other result that is not a number (e.g. "Negative" for a urine dipstick).
 - If this is not a laboratory report, return an empty results array.${pastedText ? `\n\nREPORT TEXT:\n${pastedText.slice(0, 40000)}` : ''}`
 }
 
@@ -62,8 +65,8 @@ export async function extractLabResults(files: ReportAttachment[], pastedText: s
   for (const row of Array.isArray(parsed.results) ? parsed.results.slice(0, 200) : []) {
     const name = text(row?.name, 120)
     const value = text(row?.value, 40)
-    if (!name || !value) continue
     const marker = FM_BIOMARKERS.find(item => item.id === row?.markerId) || matchBiomarker(name)
+    if (!name || !value || !isUsableResult(marker, value)) continue
     const key = marker?.id || name.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
@@ -90,29 +93,93 @@ export async function extractLabResults(files: ReportAttachment[], pastedText: s
 }
 
 // ---------------------------------------------------------------------------
+// Reading a stool test (GI-MAP). Unlike blood, a stool report's results are
+// mostly "<dl", "Not Detected" or scientific notation, and all of them count.
+
+export type ExtractedStool = { test: StoolTest; provider: string }
+
+function stoolPrompt(pastedText: string) {
+  const catalogue = STOOL_MARKERS.map(marker => `${marker.id}: ${marker.name}`).join('\n')
+  return `You are transcribing a stool test report (such as a GI-MAP) for a functional medicine clinic.${pastedText ? ' The report text is pasted below.' : ' The attached files are the laboratory\'s report: PDF pages or photographs of it.'}
+
+Copy every result row, whatever its value. Where a row is one of these known markers, give its id; otherwise use null for markerId:
+${catalogue}
+
+Return valid JSON only, with no commentary, in exactly this shape:
+{"test":{"lab":"","collectedAt":"","accession":""},"results":[{"markerId":null,"name":"","value":"","unit":"","reference":""}]}
+
+Rules:
+- Never invent or calculate a value. Copy each result and its reference exactly as printed, including "<dl", "Not Detected", "N/A", ">750" and scientific notation such as "2.10e7" (write "2.10 x 10^7" as "2.10e7").
+- Leave out the "High" or "Low" flags printed beside a result; copy only the result itself.
+- If the same organism is printed in two sections, copy it once.
+- lab is the test's name, e.g. "GI-MAP". accession is the lab's accession or report number. collectedAt is the collection date as printed.
+- Do not copy the patient's name, date of birth or any other personal details.
+- If this is not a stool test report, return an empty results array.${pastedText ? `\n\nREPORT TEXT:\n${pastedText.slice(0, 40000)}` : ''}`
+}
+
+export async function extractStoolResults(files: ReportAttachment[], pastedText: string): Promise<ExtractedStool> {
+  const { report: output, provider } = await generateClinicalReport(stoolPrompt(pastedText), files)
+  let parsed: Record<string, any>
+  try {
+    parsed = parseJson(output)
+  } catch {
+    throw new Error('The results could not be read from this report.')
+  }
+  const test = parsed.test && typeof parsed.test === 'object' ? parsed.test : {}
+  const entries: StoolEntry[] = []
+  const seen = new Set<string>()
+  for (const row of Array.isArray(parsed.results) ? parsed.results.slice(0, 200) : []) {
+    const name = text(row?.name, 120)
+    const value = text(row?.value, 40)
+    if (!name || !value) continue
+    const marker = stoolMarkerById(row?.markerId) || matchStoolMarker(name)
+    const key = marker?.id || name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    // The lab's own printed reference wins; the catalogue fills a gap.
+    entries.push(createStoolEntry(marker, { ...(marker ? {} : { name }), value, unit: text(row?.unit, 40) || marker?.unit || '', reference: text(row?.reference, 60) || marker?.reference || '' }))
+  }
+  return { test: { lab: text(test.lab, 60) || 'GI-MAP', collectedAt: text(test.collectedAt, 40), accession: text(test.accession, 60), entries }, provider }
+}
+
+// ---------------------------------------------------------------------------
 // Interpretation
 
-function interpretationPrompt(patient: FmPatient, entries: FmEntry[], context: string) {
+/** The stool test as the interpretation sees it: the gut findings and the results outside the lab's reference. */
+function stoolSection(stool: StoolTest | null | undefined) {
+  const gut = assessStool(stool ?? null)
+  if (!stool || !gut.tested) return ''
+  const findings = gut.findings.filter(finding => finding.tone !== 'nodata').map(finding => `- ${finding.title}: ${finding.tone}${finding.review ? ' (clinician review)' : ''}${finding.summary ? ` | ${finding.summary}` : ''}`)
+  const out = stool.entries.filter(entry => entry.value.trim() && stoolOutOfRange(stoolStatus(entry))).map(entry => `- ${entry.name}: ${entry.value} ${entry.unit} | ${STOOL_STATUS_LABEL[stoolStatus(entry)]} | lab reference ${entry.reference || 'n/a'}`)
+  return `\nSTOOL TEST (${stool.lab || 'stool test'}${stool.collectedAt ? `, collected ${stool.collectedAt}` : ''}), read against the lab's own reference, separate from the blood scores:
+GUT FINDINGS:
+${findings.join('\n')}
+STOOL RESULTS OUTSIDE REFERENCE:
+${out.join('\n') || 'None.'}
+`
+}
+
+function interpretationPrompt(patient: FmPatient, entries: FmEntry[], context: string, stool?: StoolTest | null) {
   const age = ageInYears(patient.age)
   const child = isChild(age)
   const analysis = analyse(entries, patient.sex, age)
   const outOfOptimal = analysis.summary.assessed.filter(entry => directionOf(entry))
   const lines = outOfOptimal.map(entry =>
-    `- ${entry.name}: ${entry.value} ${entry.unit} | ${BAND_LABEL[bandOf(entry)]} | lab range ${entry.labRange || 'n/a'} | FM optimal ${entry.fmRange || 'n/a'}${entry.urgent ? ' | ALARM' : ''}${entry.calculated ? ' | calculated' : ''}`)
+    `- ${entry.name}: ${entry.value} ${entry.unit} | ${BAND_LABEL[bandOf(entry)]} | lab range ${entry.labRange || 'n/a'} | FXMed optimal ${entry.fmRange || 'n/a'}${entry.urgent ? ' | ALARM' : ''}${entry.calculated ? ' | calculated' : ''}`)
   const optimal = analysis.summary.assessed.filter(entry => !directionOf(entry)).map(entry => `${entry.name} ${entry.value} ${entry.unit}`.trim())
   const areas = analysis.plan.map(item => `- ${item.area.name}: ${item.score}%${item.urgent ? ' (alarm marker)' : ''} | markers: ${item.contributors.map(({ entry, direction }) => `${entry.name} ${direction === 'low' ? '↓' : '↑'}`).join(', ')}`)
-  return `You are a functional medicine physician writing the interpretation for a patient's Functional Health Report at WITS FxMed Nigeria. The statuses and likelihood scores below were calculated by the clinic's software; do not re-classify them. Write for a patient who will read this with their doctor: plain English, specific to these numbers, clinically sound, never alarmist and never dismissive. Do not invent results that are not listed. Practical advice should suit a Nigerian patient (local foods, availability).
+  return `You are a functional medicine physician at WITS FxMed Nigeria, a functional medicine and concierge care clinic in Lagos, writing the interpretation for a patient's Functional Health Analysis lab report. The statuses and support scores below were calculated by the clinic's software; do not re-classify them. Write in FXMed's voice for a patient who will read this with their clinician: warm, direct, plain English, specific to these numbers, clinically sound, never alarmist and never dismissive. Do not invent results that are not listed. Practical advice should suit a Nigerian patient (local foods, availability). Do not name, cite or credit any outside company, report, course, talk or speaker.
 
 PATIENT: ${patient.age || 'unknown age'} years, ${patient.sex || 'sex not recorded'}
 ${child ? 'THIS PATIENT IS A CHILD. The results were judged against paediatric reference ranges, not adult optimal ranges. Write for the parents, about the child.\n' : ''}${context ? `CLINICAL CONTEXT FROM THE CLINICIAN:\n${context.slice(0, 3000)}\n` : ''}
-HEALTH IMPROVEMENT AREAS FLAGGED (likelihood of dysfunction):
+FOCUS AREAS FOR THE CARE PLAN (support score 0-100%: how strongly the results suggest the area needs attention):
 ${areas.join('\n') || 'None above 50%.'}
 
 RESULTS OUTSIDE OPTIMAL:
 ${lines.join('\n') || 'None.'}
 
 RESULTS WITHIN OPTIMAL: ${optimal.join('; ') || 'None.'}
-
+${stoolSection(stool)}
 Return valid JSON only, with no commentary, in exactly this shape:
 {
   "summary": "3-4 sentences: the overall picture, the main patterns and what matters most",
@@ -126,12 +193,12 @@ Rules:
 - findings: the 3-5 most important patterns, most serious first. Connect related markers (e.g. high insulin + high triglycerides + low HDL) rather than listing each alone. Any ALARM result is an urgent finding.
 - markerNotes: one for every result outside optimal, and none for the others.
 - recommendations: 4-6 groups ordered by priority, each with 3-5 items covering food, lifestyle, supplements to discuss and follow-up tests as relevant. Put any medical referral first.
-- nextSteps: exactly 3 groups: seeing their clinician, follow-up tests with timing, and the foundations to start now.
-- Use the units given. ${child ? 'Use paediatric reasoning throughout. Never give adult supplement doses: give child doses by body weight (mg/kg) or by age where standard, only for supplements that are appropriate for a child, and say that the child\'s doctor must agree every medicine, supplement and dose.' : 'Give typical adult supplement doses and always say to agree medicines and supplements with their doctor.'}`
+- nextSteps: exactly 3 groups for the next 90 days: the results consultation with their FXMed clinician, follow-up tests with timing, and the everyday basics to start now.
+- ${stool ? 'Connect the stool test with the blood results where they agree (e.g. low albumin with low elastase). Any stool finding marked for clinician review (a pathogen, parasite, H. pylori or blood in the stool) is a finding to discuss with the clinician: name it, but never recommend antibiotics, antimicrobials or antiparasitic treatment for it. Do not write markerNotes for stool results. ' : ''}Use the units given. ${child ? 'Use paediatric reasoning throughout. Never give adult supplement doses: give child doses by body weight (mg/kg) or by age where standard, only for supplements that are appropriate for a child, and say that the child\'s doctor must agree every medicine, supplement and dose.' : 'Give typical adult supplement doses and always say to agree medicines and supplements with their doctor.'}`
 }
 
-export async function interpretLabResults(patient: FmPatient, entries: FmEntry[], context: string) {
-  const { report: output, provider } = await generateClinicalReport(interpretationPrompt(patient, entries, context), [])
+export async function interpretLabResults(patient: FmPatient, entries: FmEntry[], context: string, stool?: StoolTest | null) {
+  const { report: output, provider } = await generateClinicalReport(interpretationPrompt(patient, entries, context, stool), [])
   let parsed: Record<string, any>
   try {
     parsed = parseJson(output)

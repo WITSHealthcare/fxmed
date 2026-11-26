@@ -27,7 +27,7 @@ export const adminRoutes: AdminRoute[] = [
   { tab: 'zara', group: 'inbox', path: '/admin/inbox/zara', label: 'Zara conversations', title: 'Zara conversations', description: 'Every conversation people have had with Zara, the AI assistant' },
 
   { tab: 'healthcare', group: 'clinical', path: '/admin/clinical', label: 'Clinical workspace', title: 'Clinical workspace', description: 'Patients, appointments, encounters, records, investigations, medications and care plans' },
-  { tab: 'fm_analysis', group: 'clinical', path: '/admin/clinical/lab-analysis', label: 'FM lab analysis', title: 'Functional medicine lab analysis', description: 'Analyse lab results against functional medicine optimal ranges and issue reports' },
+  { tab: 'fm_analysis', group: 'clinical', path: '/admin/clinical/lab-analysis', label: 'Health analysis: labs', title: 'Functional Health Analysis: lab report', description: 'Read lab results against FXMed optimal ranges and issue the Functional Health Analysis lab report' },
 
   { tab: 'crm', group: 'growth', path: '/admin/growth/crm', label: 'CRM', title: 'CRM', description: 'Leads, pipeline, follow-ups and revenue' },
   { tab: 'contacts', group: 'growth', path: '/admin/growth/contacts', label: 'Contacts', title: 'Contacts', description: 'Contact details from every form, booking, enquiry and outreach' },
