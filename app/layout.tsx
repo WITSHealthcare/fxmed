@@ -4,7 +4,7 @@ import { Inter } from 'next/font/google'
 import FestiveBooking from '@/components/FestiveBooking'
 import FestiveOfferPopup from '@/components/FestiveOfferPopup'
 import SiteTracker from '@/components/SiteTracker'
-import { absoluteUrl, clinicId, contact, createMetadata, legalName, locations, organizationId, priceRange, serviceCatalog, serviceOfferJsonLd, siteName, siteUrl } from '@/lib/seo'
+import { absoluteUrl, clinicId, contact, createMetadata, jsonLdScript, legalName, locations, organizationId, priceRange, serviceCatalog, serviceOfferJsonLd, siteName, siteUrl } from '@/lib/seo'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -123,7 +123,7 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify([organizationJsonLd, ...clinicJsonLd, websiteJsonLd]),
+            __html: jsonLdScript([organizationJsonLd, ...clinicJsonLd, websiteJsonLd]),
           }}
         />
       </body>

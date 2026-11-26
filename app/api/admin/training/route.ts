@@ -7,6 +7,13 @@ import { getRequestStaffLearner } from '@/lib/training-learner'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Only http(s) links, so a lesson can never hand learners a javascript: or data: URL.
+function cleanResourceUrl(value: unknown) {
+  const url = cleanTrainingText(value, 2000)
+  if (!url) return ''
+  try { return ['https:', 'http:'].includes(new URL(url).protocol) ? url : '' } catch { return '' }
+}
+
 function cleanModules(value: unknown): TrainingModule[] {
   if (!Array.isArray(value)) return []
   return value.slice(0, 50).flatMap((raw, moduleIndex) => {
@@ -23,7 +30,7 @@ function cleanModules(value: unknown): TrainingModule[] {
         id: cleanTrainingText(lesson.id, 80) || `lesson-${moduleIndex + 1}-${lessonIndex + 1}`,
         title: lessonTitle,
         content: cleanTrainingText(lesson.content, 60000),
-        resourceUrl: cleanTrainingText(lesson.resourceUrl, 2000),
+        resourceUrl: cleanResourceUrl(lesson.resourceUrl),
         durationMinutes: Math.max(0, Math.min(1440, Math.trunc(Number(lesson.durationMinutes) || 0))),
         form: cleanTrainingForm(lesson.form),
       } satisfies TrainingLesson]

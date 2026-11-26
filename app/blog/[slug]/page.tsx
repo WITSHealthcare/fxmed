@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import { sanitizeRichText, stripHtml } from '@/lib/content-sanitizer'
-import { absoluteUrl, createBreadcrumbJsonLd, createMetadata, organizationId, siteName, siteUrl } from '@/lib/seo'
+import { absoluteUrl, createBreadcrumbJsonLd, createMetadata, jsonLdScript, organizationId, siteName, siteUrl } from '@/lib/seo'
 import { careLinkFor, getPublicBlogClient, getPublishedPostSummaries, topicPath } from '@/lib/blog'
 
 // Articles are served from the cache and refreshed at most once a minute;
@@ -370,7 +370,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <Footer />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify([articleJsonLd, breadcrumbJsonLd]) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript([articleJsonLd, breadcrumbJsonLd]) }}
       />
     </main>
   )

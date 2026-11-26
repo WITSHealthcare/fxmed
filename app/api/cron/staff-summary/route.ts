@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { loadNotifications, notificationSources } from '@/lib/admin-notifications'
 import { sendEmail } from '@/lib/email'
@@ -12,7 +13,9 @@ import { clinicalTeam, morningEmails } from '@/lib/staff-summary'
 // Nothing is sent to anyone with nothing to report.
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET
-  if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
+  // Compared in constant time (as fixed-length digests), so response timing says nothing about the secret.
+  const digest = (value: string) => createHash('sha256').update(value).digest()
+  if (!secret || !timingSafeEqual(digest(request.headers.get('authorization') || ''), digest(`Bearer ${secret}`))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const database = getEmrDatabase()
